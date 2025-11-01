@@ -104,14 +104,14 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	}
 
 	//AWS의 경우 사전에 Role의 생성이 필요하며, 현재는 role 이름을 다음 이름으로 일치 시킨다.(추후 개선)
-	//예시) cluster : cloud-barista-spider-eks-cluster-role, Node : cloud-barista-spider-eks-nodegroup-role
-	eksRoleName := "cloud-barista-spider-eks-cluster-role"
-	// get Role Arn
-	eksRole, err := ClusterHandler.getRole(irs.IID{SystemId: eksRoleName})
+	//예시) cluster : cloud-barista-eks-cluster-role, Node : cloud-barista-eks-nodegroup-role
+	eksRoleName := "cloud-barista-eks-cluster-role"
+	// get or create Role Arn
+	eksRole, err := ClusterHandler.getOrCreateEKSClusterRole(eksRoleName)
 	if err != nil {
 		cblogger.Error(err)
 		// role 은 required 임.
-		return irs.ClusterInfo{}, err
+		return irs.ClusterInfo{}, fmt.Errorf("failed to get or create EKS cluster role: %w", err)
 	}
 	roleArn := eksRole.Role.Arn
 
@@ -742,13 +742,13 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The MaxNodeSize value must be greater than or equal to 1.", nil)
 	}
 
-	// get Role Arn
-	eksRoleName := "cloud-barista-spider-eks-nodegroup-role"
-	eksRole, err := ClusterHandler.getRole(irs.IID{SystemId: eksRoleName})
+	// get or create Role Arn
+	eksRoleName := "cloud-barista-eks-nodegroup-role"
+	eksRole, err := ClusterHandler.getOrCreateEKSNodeGroupRole(eksRoleName)
 	if err != nil {
 		cblogger.Error(err)
 		// role 은 required 임.
-		return irs.NodeGroupInfo{}, err
+		return irs.NodeGroupInfo{}, fmt.Errorf("failed to get or create EKS node group role: %w", err)
 	}
 	roleArn := eksRole.Role.Arn
 
@@ -1469,6 +1469,228 @@ func (ClusterHandler *AwsClusterHandler) getRole(role irs.IID) (*iam.GetRoleOutp
 	}
 
 	return result, nil
+}
+
+// getOrCreateEKSClusterRole gets or creates EKS cluster role if it doesn't exist
+func (ClusterHandler *AwsClusterHandler) getOrCreateEKSClusterRole(roleName string) (*iam.GetRoleOutput, error) {
+	cblogger.Infof("Getting or creating EKS cluster role: %s", roleName)
+
+	// Try to get existing role (without logging error if not found)
+	input := &iam.GetRoleInput{
+		RoleName: aws.String(roleName),
+	}
+
+	result, err := ClusterHandler.Iam.GetRole(input)
+	if err == nil {
+		cblogger.Infof("EKS cluster role already exists: %s", roleName)
+		return result, nil
+	}
+
+	// Check if error is NoSuchEntityException
+	if aerr, ok := err.(awserr.Error); ok {
+		if aerr.Code() != iam.ErrCodeNoSuchEntityException {
+			// Log error only if it's not NoSuchEntityException
+			cblogger.Error(aerr.Error())
+			return nil, fmt.Errorf("failed to get role: %w", err)
+		}
+		// NoSuchEntityException is expected, don't log as error
+		cblogger.Debugf("Role %s does not exist, will create it", roleName)
+	} else {
+		cblogger.Error(err.Error())
+		return nil, fmt.Errorf("failed to get role: %w", err)
+	}
+
+	// Role doesn't exist, create it
+	cblogger.Infof("Creating EKS cluster role: %s", roleName)
+	err = ClusterHandler.createEKSClusterRole(roleName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create EKS cluster role: %w", err)
+	}
+
+	// Get the newly created role
+	result, err = ClusterHandler.Iam.GetRole(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get newly created role: %w", err)
+	}
+
+	cblogger.Infof("Successfully created and retrieved EKS cluster role: %s", roleName)
+	return result, nil
+}
+
+// getOrCreateEKSNodeGroupRole gets or creates EKS node group role if it doesn't exist
+func (ClusterHandler *AwsClusterHandler) getOrCreateEKSNodeGroupRole(roleName string) (*iam.GetRoleOutput, error) {
+	cblogger.Infof("Getting or creating EKS node group role: %s", roleName)
+
+	// Try to get existing role (without logging error if not found)
+	input := &iam.GetRoleInput{
+		RoleName: aws.String(roleName),
+	}
+
+	result, err := ClusterHandler.Iam.GetRole(input)
+	if err == nil {
+		cblogger.Infof("EKS node group role already exists: %s", roleName)
+		return result, nil
+	}
+
+	// Check if error is NoSuchEntityException
+	if aerr, ok := err.(awserr.Error); ok {
+		if aerr.Code() != iam.ErrCodeNoSuchEntityException {
+			// Log error only if it's not NoSuchEntityException
+			cblogger.Error(aerr.Error())
+			return nil, fmt.Errorf("failed to get role: %w", err)
+		}
+		// NoSuchEntityException is expected, don't log as error
+		cblogger.Debugf("Role %s does not exist, will create it", roleName)
+	} else {
+		cblogger.Error(err.Error())
+		return nil, fmt.Errorf("failed to get role: %w", err)
+	}
+
+	// Role doesn't exist, create it
+	cblogger.Infof("Creating EKS node group role: %s", roleName)
+	err = ClusterHandler.createEKSNodeGroupRole(roleName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create EKS node group role: %w", err)
+	}
+
+	// Get the newly created role
+	result, err = ClusterHandler.Iam.GetRole(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get newly created role: %w", err)
+	}
+
+	cblogger.Infof("Successfully created and retrieved EKS node group role: %s", roleName)
+	return result, nil
+}
+
+// createEKSClusterRole creates IAM role for EKS cluster with required policies
+func (ClusterHandler *AwsClusterHandler) createEKSClusterRole(roleName string) error {
+	cblogger.Infof("Creating EKS cluster role: %s", roleName)
+
+	// Trust policy for EKS service
+	trustPolicy := `{
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Effect": "Allow",
+				"Principal": {
+					"Service": "eks.amazonaws.com"
+				},
+				"Action": "sts:AssumeRole"
+			}
+		]
+	}`
+
+	// Create role
+	createRoleInput := &iam.CreateRoleInput{
+		RoleName:                 aws.String(roleName),
+		AssumeRolePolicyDocument: aws.String(trustPolicy),
+		Description:              aws.String("IAM role for Cloud-Barista EKS cluster"),
+		Tags: []*iam.Tag{
+			{
+				Key:   aws.String("ManagedBy"),
+				Value: aws.String("Cloud-Barista-Spider"),
+			},
+		},
+	}
+
+	_, err := ClusterHandler.Iam.CreateRole(createRoleInput)
+	if err != nil {
+		cblogger.Errorf("Failed to create role: %v", err)
+		return fmt.Errorf("failed to create role: %w", err)
+	}
+
+	cblogger.Infof("Successfully created role: %s", roleName)
+
+	// Attach required policy: AmazonEKSClusterPolicy
+	policyArn := "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+	attachPolicyInput := &iam.AttachRolePolicyInput{
+		RoleName:  aws.String(roleName),
+		PolicyArn: aws.String(policyArn),
+	}
+
+	_, err = ClusterHandler.Iam.AttachRolePolicy(attachPolicyInput)
+	if err != nil {
+		cblogger.Errorf("Failed to attach policy %s: %v", policyArn, err)
+		return fmt.Errorf("failed to attach policy %s: %w", policyArn, err)
+	}
+
+	cblogger.Infof("Successfully attached policy %s to role %s", policyArn, roleName)
+
+	// Wait a bit for IAM changes to propagate
+	cblogger.Info("Waiting for IAM changes to propagate...")
+	time.Sleep(10 * time.Second)
+
+	return nil
+}
+
+// createEKSNodeGroupRole creates IAM role for EKS node group with required policies
+func (ClusterHandler *AwsClusterHandler) createEKSNodeGroupRole(roleName string) error {
+	cblogger.Infof("Creating EKS node group role: %s", roleName)
+
+	// Trust policy for EC2 service
+	trustPolicy := `{
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Effect": "Allow",
+				"Principal": {
+					"Service": "ec2.amazonaws.com"
+				},
+				"Action": "sts:AssumeRole"
+			}
+		]
+	}`
+
+	// Create role
+	createRoleInput := &iam.CreateRoleInput{
+		RoleName:                 aws.String(roleName),
+		AssumeRolePolicyDocument: aws.String(trustPolicy),
+		Description:              aws.String("IAM role for Cloud-Barista EKS node group"),
+		Tags: []*iam.Tag{
+			{
+				Key:   aws.String("ManagedBy"),
+				Value: aws.String("Cloud-Barista-Spider"),
+			},
+		},
+	}
+
+	_, err := ClusterHandler.Iam.CreateRole(createRoleInput)
+	if err != nil {
+		cblogger.Errorf("Failed to create role: %v", err)
+		return fmt.Errorf("failed to create role: %w", err)
+	}
+
+	cblogger.Infof("Successfully created role: %s", roleName)
+
+	// Attach required policies
+	requiredPolicies := []string{
+		"arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+		"arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+		"arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly",
+		"arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
+	}
+
+	for _, policyArn := range requiredPolicies {
+		attachPolicyInput := &iam.AttachRolePolicyInput{
+			RoleName:  aws.String(roleName),
+			PolicyArn: aws.String(policyArn),
+		}
+
+		_, err = ClusterHandler.Iam.AttachRolePolicy(attachPolicyInput)
+		if err != nil {
+			cblogger.Errorf("Failed to attach policy %s: %v", policyArn, err)
+			return fmt.Errorf("failed to attach policy %s: %w", policyArn, err)
+		}
+
+		cblogger.Infof("Successfully attached policy %s to role %s", policyArn, roleName)
+	}
+
+	// Wait a bit for IAM changes to propagate
+	cblogger.Info("Waiting for IAM changes to propagate...")
+	time.Sleep(10 * time.Second)
+
+	return nil
 }
 
 /*
