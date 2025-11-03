@@ -15,10 +15,14 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	o2 "golang.org/x/oauth2"
+	goo "golang.org/x/oauth2/google"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
-	goo "golang.org/x/oauth2/google"
-	o2 "golang.org/x/oauth2"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -276,6 +280,11 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		err := fmt.Errorf("Failed to Get Cluster Info :  %v", err)
 		cblogger.Error(err)
 		return irs.ClusterInfo{}, err
+	}
+
+	err = ClusterHandler.grantClusterAdminPermission(clusterInfo)
+	if err != nil {
+		cblogger.Warn(fmt.Sprintf("Failed to grant cluster-admin permission (non-critical): %v", err))
 	}
 
 	return clusterInfo, nil
@@ -1587,7 +1596,7 @@ func (ClusterHandler *GCPClusterHandler) hasActiveOperations(projectID, zone, cl
 // GCP uses OAuth2 access token for GKE cluster access
 func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
 	cblogger.Info("call GenerateClusterToken()")
-	
+
 	// Create JWT config from credential info
 	gcpType := "service_account"
 	data := make(map[string]string)
@@ -1616,6 +1625,120 @@ func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID
 		cblogger.Errorf("Failed to get access token: %v", err)
 		return "", fmt.Errorf("failed to get access token: %w", err)
 	}
-	
+
 	return token.AccessToken, nil
+}
+
+func (ClusterHandler *GCPClusterHandler) createK8sClientFromKubeconfig(kubeconfigContent string) (*kubernetes.Clientset, error) {
+	config, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeconfigContent))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create REST config from kubeconfig: %w", err)
+	}
+
+	token, err := ClusterHandler.GenerateClusterToken(irs.IID{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate cluster token: %w", err)
+	}
+	config.BearerToken = token
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kubernetes clientset: %w", err)
+	}
+
+	return clientset, nil
+}
+
+func (ClusterHandler *GCPClusterHandler) getServiceAccountUserID() (string, error) {
+	gcpType := "service_account"
+	data := make(map[string]string)
+	data["type"] = gcpType
+	data["private_key"] = ClusterHandler.Credential.PrivateKey
+	data["client_email"] = ClusterHandler.Credential.ClientEmail
+
+	res, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal credential data: %w", err)
+	}
+
+	authURL := "https://www.googleapis.com/auth/cloud-platform"
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to create JWT config: %w", err)
+	}
+
+	tokenSource := conf.TokenSource(o2.NoContext)
+	token, err := tokenSource.Token()
+	if err != nil {
+		return "", fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	if token.Extra("id_token") != nil {
+		if idToken, ok := token.Extra("id_token").(string); ok {
+			parts := strings.Split(idToken, ".")
+			if len(parts) > 1 {
+				return parts[1], nil
+			}
+		}
+	}
+
+	return ClusterHandler.Credential.ClientEmail, nil
+}
+
+func (ClusterHandler *GCPClusterHandler) grantClusterAdminPermission(clusterInfo irs.ClusterInfo) error {
+	kubeconfigContent := clusterInfo.AccessInfo.Kubeconfig
+	if kubeconfigContent == "" {
+		return fmt.Errorf("kubeconfig is empty")
+	}
+
+	clientset, err := ClusterHandler.createK8sClientFromKubeconfig(kubeconfigContent)
+	if err != nil {
+		return fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	userName, err := ClusterHandler.getServiceAccountUserID()
+	if err != nil {
+		return fmt.Errorf("failed to get service account user ID: %w", err)
+	}
+
+	crbName := "cb-spider-admin"
+
+	existingCRB, err := clientset.RbacV1().ClusterRoleBindings().Get(
+		context.TODO(),
+		crbName,
+		metav1.GetOptions{},
+	)
+	if err == nil && existingCRB != nil {
+		cblogger.Info(fmt.Sprintf("ClusterRoleBinding '%s' already exists, skipping creation", crbName))
+		return nil
+	}
+
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: crbName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind: "User",
+				Name: userName,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+
+	_, err = clientset.RbacV1().ClusterRoleBindings().Create(
+		context.TODO(),
+		crb,
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create ClusterRoleBinding: %w", err)
+	}
+
+	cblogger.Info(fmt.Sprintf("Successfully created ClusterRoleBinding '%s' for user '%s'", crbName, userName))
+	return nil
 }
