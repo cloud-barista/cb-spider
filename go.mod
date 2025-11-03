@@ -13,7 +13,7 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.103
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/bramvdbogaerde/go-scp v1.0.0
-	github.com/cloud-barista/cb-log v0.9.0
+	github.com/cloud-barista/cb-log v0.9.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -60,9 +60,9 @@ require (
 	github.com/alibabacloud-go/ecs-20140526/v4 v4.24.17
 	github.com/alibabacloud-go/tea v1.3.7
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
-	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a
-	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250911153447-1314aa57e794
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20250820130332-f0e139707117
+	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20251103105234-6cbc5279b7fb
+	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20251103122025-f2d7abfe3716
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20251103104208-d7c8b254bbda
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/goccy/go-json v0.10.5
 	github.com/gorilla/websocket v1.4.2
@@ -182,7 +182,7 @@ require (
 	go.mongodb.org/mongo-driver v1.17.2 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
