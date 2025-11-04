@@ -7,11 +7,13 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI, 2022.10.
+// Updated by ETRI, 2025.11.
 
 package resources
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -39,11 +41,11 @@ type NcpVpcNLBHandler struct {
 
 const (
 	// NCP VPC Cloud LB type code : 'APPLICATION' | 'NETWORK' | 'NETWORK_PROXY'
-	NcpLbType string = "NETWORK"
+	NcpNetworkLbType string = "NETWORK"
 
 	// NCP VPC Cloud NLB network type code : 'PUBLIC' | 'PRIVATE' (Default: 'PUBLIC')
-	NcpPublicNlBType   string = "PUBLIC"
-	NcpInternalNlBType string = "PRIVATE"
+	NcpPublicLbType   string = "PUBLIC"
+	NcpInternalLbType string = "PRIVATE"
 
 	// NCP LB performance(throughput) type code : 'SMALL' | 'MEDIUM' | 'LARGE' (Default: 'SMALL')
 	// You can only select 'SMALL' if the LB type is 'NETWORK' and the LB network type is 'PRIVATE'.
@@ -54,7 +56,6 @@ const (
 	DefaultHealthCheckerInterval  int32 = 30 // Min: 5, Max: 300 (seconds). Default: 30 seconds
 	DefaultHealthCheckerThreshold int32 = 2  // Min: 2, Max: 10. Default: 2
 
-	LbTypeSubnetDefaultCidr string = ".240/28"
 	LbTypeSubnetDefaultName string = "ncp-subnet-for-nlb"
 )
 
@@ -63,8 +64,7 @@ func init() {
 	cblogger = cblog.GetLogger("NCP VPC NLBHandler")
 }
 
-// Note : Cloud-Barista supports only this case => [ LB : Listener : VMGroup : Health Checker = 1 : 1 : 1 : 1 ]
-// ------ NLB Management
+// Note) Cloud-Barista supports only this case => [ LB : Listener : VMGroup : Health Checker = 1 : 1 : 1 : 1 ]
 func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, newErr error) {
 	cblogger.Info("NPC VPC Cloud Driver: called CreateNLB()")
 	InitLog()
@@ -77,10 +77,10 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		return irs.NLBInfo{}, newErr
 	}
 
-	// Note!! : NCP VPC LB type code : 'APPLICATION' | 'NETWORK' | 'NETWORK_PROXY'
-	lbType := NcpLbType
+	// Note) NCP VPC LB type code : 'APPLICATION' | 'NETWORK' | 'NETWORK_PROXY'
+	networkTypeLb := NcpNetworkLbType
 
-	// Note!! : Only valid if NcpLbType is Not a 'NETWORK' type.
+	// Note) Only valid if LB Type is Not a 'NETWORK' type.
 	// Min : 1, Max : 3600 sec(Dedicated LB : 1 ~ 480000). Default : 60 sec
 	timeOut := int32(nlbReqInfo.HealthChecker.Timeout)
 	if timeOut == -1 {
@@ -90,12 +90,12 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		return irs.NLBInfo{}, fmt.Errorf("Invalid Timeout value. Must be a number between 1 and 3600.") // According to the NCP VPC API document.
 	}
 
-	// Note!! : NCP VPC LB network type code : 'PUBLIC' | 'PRIVATE' (Default: 'PUBLIC')
+	// Note) NCP VPC LB network type code : 'PUBLIC' | 'PRIVATE' (Default: 'PUBLIC')
 	var lbNetType string
 	if strings.EqualFold(nlbReqInfo.Type, "PUBLIC") || strings.EqualFold(nlbReqInfo.Type, "default") || strings.EqualFold(nlbReqInfo.Type, "") {
-		lbNetType = NcpPublicNlBType
+		lbNetType = NcpPublicLbType
 	} else if strings.EqualFold(nlbReqInfo.Type, "INTERNAL") {
-		lbNetType = NcpInternalNlBType
+		lbNetType = NcpInternalLbType
 	}
 
 	ncpVPCInfo, err := nlbHandler.getNcpVpcInfoWithName(nlbReqInfo.VpcIID.NameId)
@@ -106,7 +106,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		return irs.NLBInfo{}, newErr
 	}
 
-	// Caution!! : ### Need a Subnet for 'LB Only'('LB Type' Subnet)
+	// Caution!! : ### Need a Subnet for 'LB Only'('LB Type' Subnet) to create a LB
 	lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*ncpVPCInfo.VpcNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the SubnetId of LB Type subnet : [%v]", err)
@@ -116,28 +116,34 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	}
 
 	cblogger.Infof("### ncpVPCInfo.Ipv4CidrBlock : [%s]", *ncpVPCInfo.Ipv4CidrBlock)
-	// VPC IP address ranges : /16~/28 in private IP range (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-	cidrBlock := strings.Split(*ncpVPCInfo.Ipv4CidrBlock, ".")
-	cidrForNlbSubnet := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + LbTypeSubnetDefaultCidr
-	// Ex) In case, VpcCIDR : "10.0.0.0/16",
-	// Subnet for VM : "10.0.0.0/28"
-	// LB Type Subnet : "10.0.0.240/28"
+	// Note) VPC IP address ranges : /16~/28 in private IP range (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
 
-	// ### In case, there is No Subnet for 'LB Only'('LB Type' subnet), Create the 'LB Type' subnet.
+	// If LB Type subnet doesn't exist, create it
 	if strings.EqualFold(lbTypeSubnetId, "") {
-		cblogger.Info("# There is No Subnet for 'LB Only'('LB Type' Subnet), so it will be Created.")
-		// NCP VPC Subnet Name Max length : 30
+		cblogger.Info("LB Type subnet does not exist. Creating new subnet with conflict-free CIDR...")
+
+        // Find available CIDR for NLB subnet
+        availableCIDR, err := nlbHandler.findAvailableCIDRForNLBSubnet(*ncpVPCInfo.VpcNo, *ncpVPCInfo.Ipv4CidrBlock)
+        if err != nil {
+            newErr := fmt.Errorf("Failed to find available CIDR for NLB subnet: [%v]", err)
+            cblogger.Error(newErr.Error())
+            LoggingError(callLogInfo, newErr)
+            return irs.NLBInfo{}, newErr
+        }
+
+		// Note) NCP VPC Subnet Name Max length : 30
 		// LbTypeSubnetDefaultName : "ncp-subnet-for-nlb" => length : 21
 		lbTypeSubnetName := LbTypeSubnetDefaultName + "-" + randSeq(8)
-		cblogger.Infof("### Subnet Name for LB Type subnet : [%s]", lbTypeSubnetName)
+		cblogger.Infof("### Creating LB Type subnet [%s] with CIDR: %s", lbTypeSubnetName, availableCIDR)
 
 		subnetReqInfo := irs.SubnetInfo{
 			IId: irs.IID{
 				NameId: lbTypeSubnetName,
 			},
-			IPv4_CIDR: cidrForNlbSubnet,
+			IPv4_CIDR: 	availableCIDR,
 		}
-		// Note : Create a 'LOADB' type of subnet ('LB Type' subnet for LB Only)
+
+		// Create a 'LOADB' type of subnet ('LB Type' subnet for LB Only)
 		ncpNlbSubnetInfo, err := nlbHandler.creatNcpSubnetForNlbOnly(irs.IID{SystemId: *ncpVPCInfo.VpcNo}, subnetReqInfo) // Waitting time Included
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Create the 'LB Type' Subnet : [%v]", err)
@@ -145,16 +151,14 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 			LoggingError(callLogInfo, newErr)
 			return irs.NLBInfo{}, newErr
 		}
-		cblogger.Infof("'LB type' Subnet ID : [%s]", *ncpNlbSubnetInfo.SubnetNo)
+		cblogger.Infof("Successfully created LB Type subnet ID: [%s]", *ncpNlbSubnetInfo.SubnetNo)
 		lbTypeSubnetId = *ncpNlbSubnetInfo.SubnetNo
 	}
 
 	// To Get Subnet No list
 	subnetNoList := []*string{ncloud.String(lbTypeSubnetId)}
-	// cblogger.Infof("### ID list of 'LB Type' Subnet : ")
-	// spew.Dump(subnetNoList)
 
-	// Note!! : SubnetNoList[] : Range constraints: Minimum range of 1. Maximum range of 2.
+	// Note) SubnetNoList[] : Range constraints: Minimum range of 1. Maximum range of 2.
 	if len(subnetNoList) < 1 || len(subnetNoList) > 2 {
 		newErr := fmt.Errorf("SubnetNoList range constraints : Min. range of 1. Max. range of 2.")
 		cblogger.Error(newErr.Error())
@@ -162,18 +166,18 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		return irs.NLBInfo{}, newErr
 	}
 
-	// LB performance(throughput) type code : 'SMALL' | 'MEDIUM' | 'LARGE' (Default: 'SMALL')
+	// Note) LB performance(throughput) type code : 'SMALL' | 'MEDIUM' | 'LARGE' (Default: 'SMALL')
 	// You can only select 'SMALL' if the LB type is 'NETWORK' and the LB network type is 'PRIVATE'.
 	throughputType := DefaultThroughputType
 	lbReq := vlb.CreateLoadBalancerInstanceRequest{
 		RegionCode:                  &nlbHandler.RegionInfo.Region,
 		IdleTimeout:                 &timeOut,
 		LoadBalancerNetworkTypeCode: &lbNetType,
-		LoadBalancerTypeCode:        &lbType, // *** Required (Not Optional)
+		LoadBalancerTypeCode:        &networkTypeLb, 	// *** Required (Not Optional)
 		LoadBalancerName:            &nlbReqInfo.IId.NameId,
 		ThroughputTypeCode:          &throughputType,
-		VpcNo:                       ncpVPCInfo.VpcNo, // *** Required (Not Optional)
-		SubnetNoList:                subnetNoList,     // *** Required (Not Optional)
+		VpcNo:                       ncpVPCInfo.VpcNo, 	// *** Required (Not Optional)
+		SubnetNoList:                subnetNoList,     	// *** Required (Not Optional)
 	}
 
 	// ### LoadBalancerSubnetList > PublicIpInstanceNo
@@ -196,7 +200,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.LoadBalancerInstanceList) < 1 {
 		newErr := fmt.Errorf("Failed to Create New NLB. NLB does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -378,7 +382,7 @@ func (nlbHandler *NcpVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 func (nlbHandler *NcpVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called AddVMs()")
 
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "AddVMs()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
@@ -887,7 +891,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateListener(nlbId string, nlbReqInfo irs.
 func (nlbHandler *NcpVpcNLBHandler) GetListenerInfo(listenerId string, loadBalancerId string) (*irs.ListenerInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetListenerInfo()")
 
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", listenerId, "GetListenerInfo()")
 
 	if strings.EqualFold(listenerId, "") {
@@ -1020,7 +1024,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance)
 func (nlbHandler *NcpVpcNLBHandler) GetHealthCheckerInfo(nlb vlb.LoadBalancerInstance) (irs.HealthCheckerInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetHealthCheckerInfo()")
 
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", *nlb.LoadBalancerInstanceNo, "GetHealthCheckerInfo()")
 
 	if strings.EqualFold(*nlb.VpcNo, "") {
@@ -1255,7 +1259,7 @@ func (nlbHandler *NcpVpcNLBHandler) waitForDelNlb(nlbIID irs.IID) (bool, error) 
 	}
 }
 
-// NCP VPC LoadBalancerInstanceStatusName : Creating, Running, Changing, Terminating, Terminated, Repairing
+// NCP VPC 'LoadBalancerInstanceStatusName' : Creating, Running, Changing, Terminating, Terminated, Repairing
 func (nlbHandler *NcpVpcNLBHandler) getNcpNlbStatus(nlbIID irs.IID) (string, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called getNcpNlbStatus()")
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "getNcpNlbStatus()")
@@ -1315,7 +1319,7 @@ func (nlbHandler *NcpVpcNLBHandler) getNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBala
 func (nlbHandler *NcpVpcNLBHandler) getNcpNlbListWithVpcId(vpcId *string) ([]*vlb.LoadBalancerInstance, error) {
 	cblogger.Info("NPC VPC Cloud Driver: called getNcpNlbListWithVpcId()")
 
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "getNcpNlbListWithVpcId()", "getNcpNlbListWithVpcId()")
 
 	if strings.EqualFold(*vpcId, "") {
@@ -1653,4 +1657,154 @@ func (nlbHandler *NcpVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 		}
 	}
 	return iidList, nil
+}
+
+// Finds an available CIDR block for NLB subnet within the given VPC CIDR
+// that doesn't conflict with existing subnets
+func (nlbHandler *NcpVpcNLBHandler) findAvailableCIDRForNLBSubnet(vpcId string, vpcCIDR string) (string, error) {
+    cblogger.Info("NCP VPC Cloud Driver: called findAvailableCIDRForNLBSubnet()")
+	InitLog()
+    callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vpcId, "findAvailableCIDRForNLBSubnet()")
+
+    if strings.EqualFold(vpcId, "") {
+        newErr := fmt.Errorf("Invalid VPC ID")
+        cblogger.Error(newErr.Error())
+        LoggingError(callLogInfo, newErr)
+        return "", newErr
+    }
+
+    // Get existing subnet list
+    vpcHandler := NcpVpcVPCHandler{
+        RegionInfo: nlbHandler.RegionInfo,
+        VPCClient:  nlbHandler.VPCClient,
+    }
+    subnetInfoList, err := vpcHandler.ListSubnet(&vpcId)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get Subnet List: %v", err)
+        cblogger.Error(newErr.Error())
+        LoggingError(callLogInfo, newErr)
+        return "", newErr
+    }
+
+    // Collect existing subnet CIDRs
+    existingCIDRs := make([]string, 0)
+    for _, subnet := range subnetInfoList {
+        existingCIDRs = append(existingCIDRs, subnet.IPv4_CIDR)
+    }
+
+    // Parse VPC CIDR
+    _, vpcNet, err := net.ParseCIDR(vpcCIDR)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Parse VPC CIDR [%s]: %v", vpcCIDR, err)
+        cblogger.Error(newErr.Error())
+        LoggingError(callLogInfo, newErr)
+        return "", newErr
+    }
+
+    // NLB subnet requires /28 (16 IP addresses)
+    nlbSubnetMask := 28
+    
+    // Generate candidate CIDR blocks within the VPC range
+    candidateCIDRs, err := nlbHandler.generateCandidateCIDRs(vpcNet, nlbSubnetMask)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Generate Candidate CIDRs: %v", err)
+        cblogger.Error(newErr.Error())
+        LoggingError(callLogInfo, newErr)
+        return "", newErr
+    }
+
+    // Find first available CIDR that doesn't conflict with existing subnets
+    for _, candidateCIDR := range candidateCIDRs {
+        if !nlbHandler.isCIDRConflict(candidateCIDR, existingCIDRs) {
+            cblogger.Infof("Found available CIDR for NLB subnet: %s", candidateCIDR)
+            return candidateCIDR, nil
+        }
+    }
+
+    newErr := fmt.Errorf("No available CIDR block found for NLB subnet in VPC %s", vpcCIDR)
+    cblogger.Error(newErr.Error())
+    LoggingError(callLogInfo, newErr)
+    return "", newErr
+}
+
+// Generates candidate CIDR blocks within the VPC network
+func (nlbHandler *NcpVpcNLBHandler) generateCandidateCIDRs(vpcNet *net.IPNet, subnetMask int) ([]string, error) {
+    cblogger.Info("NCP VPC Cloud Driver: called generateCandidateCIDRs()")
+
+    candidates := make([]string, 0)
+    
+    // Get VPC network size
+    vpcOnes, vpcBits := vpcNet.Mask.Size()
+    if vpcOnes > subnetMask {
+        return nil, fmt.Errorf("VPC mask /%d is larger than required subnet mask /%d", vpcOnes, subnetMask)
+    }
+
+    // Calculate number of possible subnets
+    subnetCount := 1 << uint(subnetMask-vpcOnes)
+    
+    // Calculate subnet size
+    subnetSize := 1 << uint(vpcBits-subnetMask)
+
+    // Generate candidate CIDRs
+    baseIP := vpcNet.IP
+    for i := 0; i < subnetCount; i++ {
+        // Calculate subnet IP
+        subnetIP := make(net.IP, len(baseIP))
+        copy(subnetIP, baseIP)
+        
+        // Add offset
+        offset := i * subnetSize
+        addOffset(subnetIP, offset)
+
+        // Check if subnet IP is within VPC range
+        if vpcNet.Contains(subnetIP) {
+            candidateCIDR := fmt.Sprintf("%s/%d", subnetIP.String(), subnetMask)
+            candidates = append(candidates, candidateCIDR)
+        }
+    }
+
+    cblogger.Infof("Generated %d candidate CIDRs", len(candidates))
+    return candidates, nil
+}
+
+// Adds offset to IP address
+func addOffset(ip net.IP, offset int) {
+    for i := len(ip) - 1; i >= 0 && offset > 0; i-- {
+        current := int(ip[i]) + offset
+        ip[i] = byte(current & 0xFF)
+        offset = current >> 8
+    }
+}
+
+// Checks if candidate CIDR conflicts with any existing CIDRs
+func (nlbHandler *NcpVpcNLBHandler) isCIDRConflict(candidateCIDR string, existingCIDRs []string) bool {
+    cblogger.Debug("Checking CIDR conflict for:", candidateCIDR)
+
+    _, candidateNet, err := net.ParseCIDR(candidateCIDR)
+    if err != nil {
+        cblogger.Error("Failed to parse candidate CIDR:", err)
+        return true
+    }
+
+    for _, existingCIDR := range existingCIDRs {
+        _, existingNet, err := net.ParseCIDR(existingCIDR)
+        if err != nil {
+            cblogger.Warn("Failed to parse existing CIDR:", existingCIDR, err)
+            continue
+        }
+
+        // Check if networks overlap
+        if nlbHandler.networksOverlap(candidateNet, existingNet) {
+            cblogger.Debugf("CIDR conflict detected: %s overlaps with %s", candidateCIDR, existingCIDR)
+            return true
+        }
+    }
+
+    return false
+}
+
+// Checks if two networks overlap
+func (nlbHandler *NcpVpcNLBHandler) networksOverlap(net1, net2 *net.IPNet) bool {
+    // Check if net1 contains net2's network address or vice versa
+    return net1.Contains(net2.IP) || net2.Contains(net1.IP)
 }
