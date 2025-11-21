@@ -1209,6 +1209,16 @@ func aliDescribeVSwitches(vpcClient *vpc2016.Client, regionId, vpcId string) ([]
 	return describeVSwitchesResponse.Body.VSwitches.VSwitch, nil
 }
 
+// normalizeVersion converts version strings like "2.1.4.1" to Semantic Version format "2.1.4"
+func normalizeVersion(version string) string {
+	parts := strings.Split(version, ".")
+	if len(parts) >= 3 {
+		// Take only first 3 parts (major.minor.patch) for Semantic Version
+		return strings.Join(parts[:3], ".")
+	}
+	return version
+}
+
 func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion string) (string, string, error) {
 	metadata, err := aliDescribeKubernetesVersionMetadata(csClient, regionId, clusterType, k8sVersion)
 	if err != nil {
@@ -1223,29 +1233,49 @@ func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion
 	runtimeName := defaultClusterRuntimeName
 	invalidVersion, _ := semver.NewVersion("0.0.0")
 	latestVersion := invalidVersion
+	var latestVersionString string
 
 	// Debug: Log all available runtimes
 	cblogger.Debugf("Available runtimes for K8s %s:", k8sVersion)
 	for _, rt := range metadata[0].Runtimes {
-		cblogger.Debugf("  - Runtime: %s, Version: %s", tea.StringValue(rt.Name), tea.StringValue(rt.Version))
-		if strings.EqualFold(tea.StringValue(rt.Name), runtimeName) {
-			rtVersion, err := semver.NewVersion(tea.StringValue(rt.Version))
+		rtName := tea.StringValue(rt.Name)
+		rtVersionStr := tea.StringValue(rt.Version)
+		cblogger.Debugf("  - Runtime: %s, Version: %s", rtName, rtVersionStr)
+		if strings.EqualFold(rtName, runtimeName) {
+			// Try to parse as-is first
+			rtVersion, err := semver.NewVersion(rtVersionStr)
 			if err != nil {
-				cblogger.Warnf("  - Failed to parse version %s: %v", tea.StringValue(rt.Version), err)
-				continue
+				// If parsing fails, try to normalize the version (e.g., "2.1.4.1" -> "2.1.4")
+				normalizedVersion := normalizeVersion(rtVersionStr)
+				cblogger.Debugf("  - Normalizing version %s to %s", rtVersionStr, normalizedVersion)
+				rtVersion, err = semver.NewVersion(normalizedVersion)
+				if err != nil {
+					cblogger.Warnf("  - Failed to parse version %s (normalized: %s): %v", rtVersionStr, normalizedVersion, err)
+					// If still fails, use the original version string as fallback
+					if latestVersion.Equal(invalidVersion) {
+						latestVersionString = rtVersionStr
+					}
+					continue
+				}
 			}
-			if latestVersion.LessThan(rtVersion) {
+			if latestVersion.Equal(invalidVersion) || latestVersion.LessThan(rtVersion) {
 				latestVersion = rtVersion
-				cblogger.Debugf("  - New latest version: %s", rtVersion.String())
+				latestVersionString = rtVersionStr // Keep original version string
+				cblogger.Debugf("  - New latest version: %s (parsed: %s)", latestVersionString, rtVersion.String())
 			}
 		}
 	}
 
 	if latestVersion.Equal(invalidVersion) {
-		err = fmt.Errorf("failed to get valid runtime version")
-		return "", "", err
+		if latestVersionString == "" {
+			err = fmt.Errorf("failed to get valid runtime version")
+			return "", "", err
+		}
+		// Use the fallback version string if we have one
+		cblogger.Infof("Selected latest runtime: %s version %s (using fallback)", runtimeName, latestVersionString)
+		return runtimeName, latestVersionString, nil
 	}
-	runtimeVersion := latestVersion.String()
+	runtimeVersion := latestVersionString
 
 	cblogger.Infof("Selected latest runtime: %s version %s", runtimeName, runtimeVersion)
 
