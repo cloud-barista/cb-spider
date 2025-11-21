@@ -28,8 +28,6 @@ import (
 	"github.com/alibabacloud-go/tea/tea"
 	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
-
-	"github.com/Masterminds/semver/v3"
 )
 
 // calllogger
@@ -1209,14 +1207,53 @@ func aliDescribeVSwitches(vpcClient *vpc2016.Client, regionId, vpcId string) ([]
 	return describeVSwitchesResponse.Body.VSwitches.VSwitch, nil
 }
 
-// normalizeVersion converts version strings like "2.1.4.1" to Semantic Version format "2.1.4"
-func normalizeVersion(version string) string {
-	parts := strings.Split(version, ".")
-	if len(parts) >= 3 {
-		// Take only first 3 parts (major.minor.patch) for Semantic Version
-		return strings.Join(parts[:3], ".")
+// compareVersionStrings compares two version strings (supports 3-digit and 4-digit versions)
+// Returns: -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+// This function handles both 3-digit (e.g., "2.1.4") and 4-digit (e.g., "2.1.4.1") version formats
+func compareVersionStrings(v1, v2 string) int {
+	parts1 := strings.Split(v1, ".")
+	parts2 := strings.Split(v2, ".")
+
+	// Find the maximum length to pad both versions to the same length
+	maxLen := len(parts1)
+	if len(parts2) > maxLen {
+		maxLen = len(parts2)
 	}
-	return version
+
+	// Pad both versions to the same length with "0"
+	for len(parts1) < maxLen {
+		parts1 = append(parts1, "0")
+	}
+	for len(parts2) < maxLen {
+		parts2 = append(parts2, "0")
+	}
+
+	// Compare each part numerically
+	for i := 0; i < maxLen; i++ {
+		num1, err1 := strconv.Atoi(parts1[i])
+		num2, err2 := strconv.Atoi(parts2[i])
+
+		// If parsing fails, compare as strings (fallback)
+		if err1 != nil || err2 != nil {
+			if parts1[i] < parts2[i] {
+				return -1
+			}
+			if parts1[i] > parts2[i] {
+				return 1
+			}
+			continue
+		}
+
+		// Compare as numbers
+		if num1 < num2 {
+			return -1
+		}
+		if num1 > num2 {
+			return 1
+		}
+	}
+
+	return 0 // Equal
 }
 
 func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion string) (string, string, error) {
@@ -1231,8 +1268,6 @@ func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion
 	}
 
 	runtimeName := defaultClusterRuntimeName
-	invalidVersion, _ := semver.NewVersion("0.0.0")
-	latestVersion := invalidVersion
 	var latestVersionString string
 
 	// Debug: Log all available runtimes
@@ -1242,44 +1277,21 @@ func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion
 		rtVersionStr := tea.StringValue(rt.Version)
 		cblogger.Debugf("  - Runtime: %s, Version: %s", rtName, rtVersionStr)
 		if strings.EqualFold(rtName, runtimeName) {
-			// Try to parse as-is first
-			rtVersion, err := semver.NewVersion(rtVersionStr)
-			if err != nil {
-				// If parsing fails, try to normalize the version (e.g., "2.1.4.1" -> "2.1.4")
-				normalizedVersion := normalizeVersion(rtVersionStr)
-				cblogger.Debugf("  - Normalizing version %s to %s", rtVersionStr, normalizedVersion)
-				rtVersion, err = semver.NewVersion(normalizedVersion)
-				if err != nil {
-					cblogger.Warnf("  - Failed to parse version %s (normalized: %s): %v", rtVersionStr, normalizedVersion, err)
-					// If still fails, use the original version string as fallback
-					if latestVersion.Equal(invalidVersion) {
-						latestVersionString = rtVersionStr
-					}
-					continue
-				}
-			}
-			if latestVersion.Equal(invalidVersion) || latestVersion.LessThan(rtVersion) {
-				latestVersion = rtVersion
-				latestVersionString = rtVersionStr // Keep original version string
-				cblogger.Debugf("  - New latest version: %s (parsed: %s)", latestVersionString, rtVersion.String())
+			// Use custom version comparison function (supports both 3-digit and 4-digit versions)
+			if latestVersionString == "" || compareVersionStrings(latestVersionString, rtVersionStr) < 0 {
+				latestVersionString = rtVersionStr
+				cblogger.Debugf("  - New latest version: %s", latestVersionString)
 			}
 		}
 	}
 
-	if latestVersion.Equal(invalidVersion) {
-		if latestVersionString == "" {
-			err = fmt.Errorf("failed to get valid runtime version")
-			return "", "", err
-		}
-		// Use the fallback version string if we have one
-		cblogger.Infof("Selected latest runtime: %s version %s (using fallback)", runtimeName, latestVersionString)
-		return runtimeName, latestVersionString, nil
+	if latestVersionString == "" {
+		err = fmt.Errorf("failed to get valid runtime version")
+		return "", "", err
 	}
-	runtimeVersion := latestVersionString
 
-	cblogger.Infof("Selected latest runtime: %s version %s", runtimeName, runtimeVersion)
-
-	return runtimeName, runtimeVersion, nil
+	cblogger.Infof("Selected latest runtime: %s version %s", runtimeName, latestVersionString)
+	return runtimeName, latestVersionString, nil
 }
 
 func getNodepoolsFromNodeGroupList(nodeGroupInfoList []irs.NodeGroupInfo, runtimeName, runtimeVersion string, vswitchIds []string) []*cs2015.Nodepool {
