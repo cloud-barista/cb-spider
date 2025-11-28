@@ -53,7 +53,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription v1.2.0
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/IBM/platform-services-go-sdk v0.30.0
-	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.27
 	github.com/alibabacloud-go/cs-20151215/v4 v4.5.8
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.1.6
