@@ -54,6 +54,52 @@ const (
 	NODEGROUP_TAG string = "nodegroup"
 )
 
+// NCP Cluster Status Constants (from NCP NKS API)
+// Reference: https://api.ncloud-docs.com/docs/nks
+const (
+	ncpClusterStatusCreating = "CREATING"
+	ncpClusterStatusRunning  = "RUNNING"
+	ncpClusterStatusDeleting = "DELETING"
+	ncpClusterStatusReturned = "RETURNED"
+)
+
+// NCP NodePool Status Constants (from NCP NKS API)
+const (
+	ncpNodePoolStatusCreating = "CREATING"
+	ncpNodePoolStatusRun      = "RUN"
+	ncpNodePoolStatusDeleting = "DELETING"
+)
+
+// convertNCPClusterStatus converts NCP cluster status to cb-spider normalized ClusterStatus
+func convertNCPClusterStatus(ncpStatus string) irs.ClusterStatus {
+	switch ncpStatus {
+	case ncpClusterStatusCreating:
+		return irs.ClusterCreating
+	case ncpClusterStatusRunning:
+		return irs.ClusterActive
+	case ncpClusterStatusDeleting:
+		return irs.ClusterDeleting
+	case ncpClusterStatusReturned:
+		return irs.ClusterInactive
+	default:
+		return irs.ClusterInactive
+	}
+}
+
+// convertNCPNodePoolStatus converts NCP nodepool status to cb-spider normalized NodeGroupStatus
+func convertNCPNodePoolStatus(ncpStatus string) irs.NodeGroupStatus {
+	switch ncpStatus {
+	case ncpNodePoolStatusCreating:
+		return irs.NodeGroupCreating
+	case ncpNodePoolStatusRun:
+		return irs.NodeGroupActive
+	case ncpNodePoolStatusDeleting:
+		return irs.NodeGroupDeleting
+	default:
+		return irs.NodeGroupInactive
+	}
+}
+
 // ------ Cluster Management
 func (nvch *NcpVpcClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	defer func() {
@@ -523,7 +569,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 		},
 		Version:     ncloud.StringValue(targetCluster.K8sVersion),
 		CreatedTime: createdTime,
-		Status:      irs.ClusterStatus(ncloud.StringValue(targetCluster.Status)),
+		Status:      convertNCPClusterStatus(ncloud.StringValue(targetCluster.Status)),
 		AccessInfo: irs.AccessInfo{
 			Endpoint:   ncloud.StringValue(targetCluster.Endpoint),
 			Kubeconfig: "Kubeconfig is not provided for NCP.", // NCP는 kubeconfig 미제공
@@ -583,7 +629,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 			RootDiskSize:    fmt.Sprintf("%d", ncloud.Int32Value(np.StorageSize)),
 			KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName)},
 			OnAutoScaling:   onAutoScaling,
-			Status:          irs.NodeGroupStatus(ncloud.StringValue(np.Status)),
+			Status:          convertNCPNodePoolStatus(ncloud.StringValue(np.Status)),
 			KeyValueList:    nodeGroupKeyValueList,
 		}
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, nodeGroupInfo)
