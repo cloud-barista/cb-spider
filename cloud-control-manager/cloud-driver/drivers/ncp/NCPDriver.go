@@ -28,6 +28,7 @@ import (
 
 	// ncpcon "github.com/cloud-barista/ncp/ncp/connect"	// For local testing
 	ncpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/connect"
+	ncprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources"
 )
 
 var cblogger *logrus.Logger
@@ -138,6 +139,9 @@ func (driver *NcpVpcDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ic
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
 	// 3. create CloudConnection Instance of "connect/TDA_CloudConnection".
 	// 4. return CloudConnection Interface of TDA_CloudConnection.
+
+	// Initialize Logger
+	ncprs.InitLog()
 
 	vmClient, err := getVmClient(connectionInfo)
 	if err != nil {
