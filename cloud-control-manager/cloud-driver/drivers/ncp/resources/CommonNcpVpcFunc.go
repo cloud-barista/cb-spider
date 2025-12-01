@@ -85,12 +85,18 @@ func String(n int32) string {
 }
 
 func LoggingError(hiscallInfo call.CLOUDLOGSCHEMA, err error) {
+	if cblogger == nil || calllogger == nil {
+		InitLog()
+	}
 	cblogger.Error(err.Error())
 	hiscallInfo.ErrorMSG = err.Error()
 	calllogger.Error(call.String(hiscallInfo))
 }
 
 func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
+	if calllogger == nil {
+		InitLog()
+	}
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
 }
