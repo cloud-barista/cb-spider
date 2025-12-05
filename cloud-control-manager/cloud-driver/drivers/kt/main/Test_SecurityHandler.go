@@ -62,7 +62,8 @@ func handleSecurity() {
 		var commandNum int
 
 		securityName := "ktvpc-sg-1"
-		securityId := "ktcloudvp-crt5ndcvtts41jm39tcg"
+		securityId := "ktvpc-sg-1"
+		// securityId := "ktcloudvp-crt5ndcvtts41jm39tcg"
 		vpcId := "60e5d9da-55cd-47be-a0d9-6cf67c54f15c"
 		// vpcNameId := "nhn-vpc-01"
 
@@ -99,7 +100,7 @@ func handleSecurity() {
 				// result, err := handler.GetSecurity(irs.IID{NameId: securityName})
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error(securityId, "Failed to Get S/G : ", err)
+					cblogger.Errorf("Failed to Get S/G : %s : %v", securityId, err)
 				} else {
 					cblogger.Infof("[%s] S/G info : [%v]", securityId, result)
 					spew.Dump(result)
@@ -151,6 +152,7 @@ func handleSecurity() {
 						// 	ToPort:     "-1",
 						// 	CIDR: 		"0.0.0.0/0",
 						// },
+						
 						// {
 						// 	Direction:  "outbound",
 						// 	IPProtocol: "tcp",
@@ -177,13 +179,13 @@ func handleSecurity() {
 							CIDR: 		"0.0.0.0/0",
 						},
 
-						{
-							Direction:  "outbound",
-							IPProtocol: "ALL",
-							FromPort:   "-1",
-							ToPort:     "-1",
-							CIDR: 		"0.0.0.0/0",
-						},
+						// {
+						// 	Direction:  "outbound",
+						// 	IPProtocol: "ALL",
+						// 	FromPort:   "-1",
+						// 	ToPort:     "-1",
+						// 	CIDR: 		"0.0.0.0/0",
+						// },
 
 					},
 				}

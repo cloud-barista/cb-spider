@@ -64,13 +64,13 @@ func handleNLB() {
 		cblogger.Info("# config.KT.Zone : ", config.KT.Zone)
 
 		nlbIId := irs.IID{
-			NameId: "lb-dx-01",
+			NameId: config.KT.ReqNLBName,
 			SystemId: config.KT.NLBId,
 		}
 
 		nlbCreateReqInfo := irs.NLBInfo{
 			IId: irs.IID{
-				NameId: "kt-lb-02", // To Create
+				NameId: config.KT.ReqNLBName, // To Create
 			},
 			VpcIID: irs.IID{
 				NameId: "EPC_M193805_S1820_VDOM",
@@ -84,7 +84,8 @@ func handleNLB() {
 				Protocol: "TCP",
 				Port:     "80",
 				VMs: &[]irs.IID{
-					{NameId: "oh-vm-02-cp6tn8cvttsbkkjudf50"},
+					{NameId: "d4miklb6ap6nn1nnko8g"},
+					{NameId: "d4miklb6ap6nn1nnko90"},
 				},
 			},
 			HealthChecker: irs.HealthCheckerInfo{
@@ -105,11 +106,11 @@ func handleNLB() {
 			Port:     "8080",
 		}
 		addVMs := []irs.IID{
-			{NameId: "oh-vm-02-cp6tn8cvttsbkkjudf50"},
+			{NameId: "d4bbjob6ap6nn1gnc88g"},
 			// {NameId: "kt-vm-api-05"},
 		}
 		removeVMs := []irs.IID{
-			{NameId: "oh-vm-02-cp6tn8cvttsbkkjudf50"},
+			{NameId: "d4bbjob6ap6nn1gnc88g"},
 		}
 	
 		updateHealthCheckerInfo := irs.HealthCheckerInfo{
@@ -309,6 +310,7 @@ type Config struct {
 		Region           string `yaml:"region"`
 		Zone             string `yaml:"zone"`
 
+		ReqNLBName		 string `yaml:"req_nlb_name"`
 		VMName           string `yaml:"vm_name"`
 		ImageId          string `yaml:"image_id"`
 		VMSpecId         string `yaml:"vmspec_id"`

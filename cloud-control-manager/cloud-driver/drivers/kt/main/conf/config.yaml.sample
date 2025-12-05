@@ -21,17 +21,30 @@ ktcloudvpc:
   
   ###########################################################
   # Resource Info for Testing
+  req_vm_name: XXXXXXXXXX
   vm_id: XXXXXXXXXX
 
-  disk_id: XXXXXXXXXX
-  nlb_id: 38288
-  keypair_name: kt-keypair-02
+  vpc_id: XXXXXXXXXX
+  subnet_id: XXXXXXXXXX
 
-  req_vm_name: ktvpc-vm-01
+  req_disk_name: XXXXXXXXXX
+  disk_id: XXXXXXXXXX
+
+  req_nlb_name: XXXXXXXXXX
+  nlb_id: XXXXXXXXXX
+
+  req_keypair_name: XXXXXXXXXX
+  keypair_name: XXXXXXXXXX
+
+  security_groups: XXXXXXXXXX
+
+  req_vm_name: XXXXXXXXXX
   req_vm_spec: 16x32.itl
   # 4x16.itl
   # 2x8.itl # vCPU: 2, Mem: 8GB
 
-  req_keypair_name: ktvpc-keypair-01
-  req_disk_name: ktvpc-disk-01
- 
+  vm_image_id: XXXXXXXXXX
+  vm_spec_id: XXXXXXXXXX
+  # Ex) 2x8.itl # vCPU: 2, Mem: 8GB
+  # Ex) 4x16.itl
+  

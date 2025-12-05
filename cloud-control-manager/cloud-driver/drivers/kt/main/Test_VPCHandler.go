@@ -85,7 +85,7 @@ func handleVPC() {
 
 				{
 					IId: irs.IID{
-						NameId: "ktsubnet4-1",
+						NameId: "kt-subnet-1",
 					},
 					IPv4_CIDR: "10.25.5.0/24",
 				},

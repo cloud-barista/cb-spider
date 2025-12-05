@@ -63,8 +63,8 @@ func handleKeyPair() {
 		var commandNum int
 		config := readConfigFile()
 
-		keyPairName := config.KT.KeypairName
 		reqKeypairName := config.KT.ReqKeypairName
+		keyPairName := config.KT.KeypairName
 
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
