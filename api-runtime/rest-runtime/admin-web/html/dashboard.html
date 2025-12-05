@@ -251,6 +251,7 @@
                 <th>My Images</th>
                 <th>NLBs</th>
                 <th>Clusters</th>
+                <th>S3 Buckets</th>
             </tr>
             {{if index $.ResourceCounts $provider}}
                 {{range $count := index $.ResourceCounts $provider}}
@@ -267,6 +268,7 @@
                     <td class="{{if gt $count.MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/myimage/{{$count.ConnectionName}}'); return false;">{{$count.MyImages}}</a></td>
                     <td class="{{if gt $count.NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{$count.ConnectionName}}'); return false;">{{$count.NetworkLoadBalancers}}</a></td>
                     <td class="{{if gt $count.Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{$count.ConnectionName}}'); return false;">{{$count.Clusters}}</a></td>
+                    <td class="{{if gt $count.S3Buckets 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/s3/{{$count.ConnectionName}}'); return false;">{{$count.S3Buckets}}</a></td>
                 </tr>
                 {{end}}
             {{else}}

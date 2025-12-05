@@ -175,8 +175,18 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 
 	var result []S3BucketInfo
 	for _, bucket := range xmlResult.Buckets.Bucket {
-		versioningStatus := fetchVersioningStatus(connConfig, bucket.Name)
-		corsStatus := fetchCORSStatus(connConfig, bucket.Name)
+		// Check if bucket exists in CSP (creation date "0001-01-01" means metadata-only)
+		// For metadata-only buckets, skip CSP API calls to avoid errors and improve performance
+		var versioningStatus, corsStatus string
+		if bucket.CreationDate == "0001-01-01T00:00:00Z" || bucket.CreationDate == "1-01-01 09:00:00 KST" {
+			// Metadata-only bucket (not in CSP) - use default values without CSP API calls
+			versioningStatus = "Suspended"
+			corsStatus = "Not configured"
+		} else {
+			// Bucket exists in CSP - fetch actual status
+			versioningStatus = fetchVersioningStatus(connConfig, bucket.Name)
+			corsStatus = fetchCORSStatus(connConfig, bucket.Name)
+		}
 		result = append(result, S3BucketInfo{
 			Name:             bucket.Name,
 			CreationDate:     bucket.CreationDate,

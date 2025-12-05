@@ -1415,6 +1415,17 @@ definitions:
       Resuming: from suspended to running
       Suspending: from running to suspended
       Terminating: from running, suspended to terminated
+    x-enum-descriptions:
+    - from launch to running
+    - ""
+    - from running to suspended
+    - ""
+    - from suspended to running
+    - from running to running
+    - from running, suspended to terminated
+    - ""
+    - VM does not exist
+    - ""
     x-enum-varnames:
     - Creating
     - Running
@@ -1757,6 +1768,60 @@ definitions:
         type: string
     required:
     - Result
+    type: object
+  spider.Bucket:
+    properties:
+      CreationDate:
+        type: string
+      Name:
+        type: string
+    type: object
+  spider.Buckets:
+    properties:
+      Bucket:
+        items:
+          $ref: '#/definitions/spider.Bucket'
+        type: array
+    type: object
+  spider.CORSConfiguration:
+    properties:
+      CORSRule:
+        items:
+          $ref: '#/definitions/spider.CORSRule'
+        type: array
+    type: object
+  spider.CORSRule:
+    properties:
+      AllowedHeader:
+        example:
+        - '*'
+        items:
+          type: string
+        type: array
+      AllowedMethod:
+        example:
+        - GET
+        - PUT
+        - POST
+        - DELETE
+        items:
+          type: string
+        type: array
+      AllowedOrigin:
+        example:
+        - '*'
+        items:
+          type: string
+        type: array
+      ExposeHeader:
+        example:
+        - ETag
+        items:
+          type: string
+        type: array
+      MaxAgeSeconds:
+        example: 3000
+        type: integer
     type: object
   spider.ClusterAddNodeGroupRequest:
     properties:
@@ -2311,6 +2376,13 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.ListAllMyBucketsResult:
+    properties:
+      Buckets:
+        $ref: '#/definitions/spider.Buckets'
+      Owner:
+        $ref: '#/definitions/spider.Owner'
+    type: object
   spider.ListCloudDriverResponse:
     properties:
       driver:
@@ -2652,6 +2724,13 @@ definitions:
     required:
     - ZoneInfo
     type: object
+  spider.Owner:
+    properties:
+      DisplayName:
+        type: string
+      ID:
+        type: string
+    type: object
   spider.PriceInfoRequest:
     properties:
       connectionName:
@@ -2742,6 +2821,59 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.S3Error:
+    properties:
+      Code:
+        type: string
+      Message:
+        type: string
+      RequestId:
+        type: string
+      Resource:
+        type: string
+    type: object
+  spider.S3PresignedURLXML:
+    properties:
+      Expires:
+        type: integer
+      Method:
+        type: string
+      PresignedURL:
+        type: string
+    type: object
+  spider.S3UploadInfo:
+    properties:
+      Bucket:
+        type: string
+      ChecksumCRC32:
+        type: string
+      ChecksumCRC32C:
+        type: string
+      ChecksumCRC64NVME:
+        type: string
+      ChecksumMode:
+        type: string
+      ChecksumSHA1:
+        type: string
+      ChecksumSHA256:
+        type: string
+      ETag:
+        type: string
+      Expiration:
+        type: string
+      ExpirationRuleID:
+        type: string
+      Key:
+        type: string
+      LastModified:
+        type: string
+      Location:
+        type: string
+      Size:
+        type: integer
+      VersionID:
+        type: string
     type: object
   spider.SecurityGroupCreateRequest:
     properties:
@@ -3215,6 +3347,15 @@ definitions:
     properties:
       Version:
         example: CB-Spider v0.10.2-22
+        type: string
+    type: object
+  spider.VersioningConfiguration:
+    properties:
+      Status:
+        enum:
+        - Enabled
+        - Suspended
+        example: Enabled
         type: string
     type: object
 host: localhost:1024
@@ -4770,6 +4911,30 @@ paths:
       summary: Count NLBs by Connection
       tags:
       - '[NLB Management]'
+  /counts3/{ConnectionName}:
+    get:
+      description: Get the total number of S3 buckets for a specific connection.
+      operationId: count-s3-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of S3 buckets for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count S3 Buckets by Connection
+      tags:
+      - '[S3 Object Storage Management]'
   /countsecuritygroup:
     get:
       description: Get the total number of Security Groups across all connections.
@@ -8051,6 +8216,807 @@ paths:
       summary: Unregister VPC
       tags:
       - '[VPC Management]'
+  /s3:
+    get:
+      consumes:
+      - text/xml
+      - application/json
+      description: Returns a list of all buckets owned by the authenticated sender
+        of the request. To list buckets, you must have the ConnectionName parameter.
+      operationId: list-s3-buckets
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: List of buckets
+          schema:
+            $ref: '#/definitions/spider.ListAllMyBucketsResult'
+        "400":
+          description: Bad Request - Missing ConnectionName
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: List all S3 buckets
+      tags:
+      - '[S3 Object Storage Management]'
+  /s3/{BucketName}:
+    delete:
+      consumes:
+      - text/xml
+      - application/json
+      description: |-
+        Deletes an S3 bucket or specific bucket configuration based on query parameters.
+
+        **Operations:**
+        - No query params: Delete bucket (must be empty)
+        - ?cors: Delete CORS configuration
+        - ?empty: Force empty bucket (removes all objects)
+        - ?force: Force delete bucket with all contents
+      operationId: delete-s3-bucket
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Delete CORS configuration
+        in: query
+        name: cors
+        type: string
+      - description: Force empty bucket
+        in: query
+        name: empty
+        type: string
+      - description: Force delete bucket with all contents
+        in: query
+        name: force
+        type: string
+      - description: Safety header for force empty (required with ?empty)
+        in: header
+        name: X-Force-Empty
+        type: string
+      - description: Safety header for force delete (required with ?force)
+        in: header
+        name: X-Force-Delete
+        type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: CORS configuration deleted
+        "204":
+          description: Bucket deleted successfully
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "409":
+          description: Conflict - Bucket not empty
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Delete an S3 bucket or bucket configuration
+      tags:
+      - '[S3 Object Storage Management]'
+    get:
+      consumes:
+      - text/xml
+      - application/json
+      description: 'List objects in bucket or get bucket configuration based on query
+        parameters. Query parameters: ?location (bucket location), ?versioning (versioning
+        status), ?cors (CORS config), ?versions (object versions), ?uploads (multipart
+        uploads). Without query params, lists objects in bucket.'
+      operationId: get-s3-bucket-get
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Get bucket location
+        in: query
+        name: location
+        type: string
+      - description: Get versioning status
+        in: query
+        name: versioning
+        type: string
+      - description: Get CORS configuration
+        in: query
+        name: cors
+        type: string
+      - description: List object versions
+        in: query
+        name: versions
+        type: string
+      - description: List multipart uploads
+        in: query
+        name: uploads
+        type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Bucket information or object list
+          schema:
+            type: object
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Get S3 bucket information (GET request)
+      tags:
+      - '[S3 Object Storage Management]'
+    head:
+      consumes:
+      - text/xml
+      - application/json
+      description: Check if a bucket exists using HEAD request. Returns 200 if exists,
+        404 if not found.
+      operationId: get-s3-bucket-head
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Bucket exists
+        "403":
+          description: Access forbidden
+        "404":
+          description: Bucket not found
+      summary: Check if S3 bucket exists
+      tags:
+      - '[S3 Object Storage Management]'
+    post:
+      consumes:
+      - multipart/form-data
+      - application/xml
+      - application/json
+      description: |-
+        Uploads a file using HTML form (multipart/form-data) or deletes multiple objects based on query parameters.
+
+        **Operations:**
+        - No query params: Upload object via form (requires 'key' and 'file' fields, Content-Type: multipart/form-data)
+        - ?delete: Delete multiple objects (requires XML/JSON body, Content-Type: application/xml or application/json)
+
+        **XML Body Example for Delete Multiple Objects:**
+        ```xml
+        <Delete>
+        <Object>
+        <Key>file1.txt</Key>
+        </Object>
+        <Object>
+        <Key>file2.txt</Key>
+        </Object>
+        <Object>
+        <Key>folder/file3.txt</Key>
+        </Object>
+        </Delete>
+        ```
+
+        **JSON Body Example for Delete Multiple Objects:**
+        ```json
+        {
+        "Delete": {
+        "Objects": [
+        {"Key": "file1.txt"},
+        {"Key": "file2.txt"},
+        {"Key": "folder/file3.txt"}
+        ]
+        }
+        }
+        ```
+      operationId: put-s3-object-from-form
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Delete multiple objects (use with body parameter)
+        in: query
+        name: delete
+        type: string
+      - description: XML/JSON body for delete operation (only when ?delete is specified)
+        in: body
+        name: body
+        schema:
+          type: string
+      - description: Object key/name (only for upload operation without ?delete)
+        in: formData
+        name: key
+        type: string
+      - description: File to upload (only for upload operation without ?delete)
+        in: formData
+        name: file
+        type: file
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Object uploaded or deletion result
+          schema:
+            $ref: '#/definitions/spider.S3UploadInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Upload object using HTML form or delete multiple objects
+      tags:
+      - '[S3 Object Storage Management]'
+    put:
+      consumes:
+      - text/xml
+      - application/json
+      description: |-
+        Creates a new S3 bucket or sets bucket configuration based on query parameters.
+
+        **Operations:**
+        - No query params: Create a new bucket
+        - ?versioning: Set versioning configuration (Enable/Suspend)
+        - ?cors: Set CORS configuration
+
+        **IMPORTANT: Choose only ONE body configuration based on query parameter:**
+        - If using ?versioning: Use VersioningConfiguration body
+        - If using ?cors: Use CORSConfiguration body
+        - If no query params: No body required (bucket creation)
+
+        **Versioning Status Values:**
+        - Enabled: Enable versioning for the bucket
+        - Suspended: Suspend versioning for the bucket
+
+        **CORS Configuration Example:**
+        - AllowedOrigin: ["*"] or ["https://example.com"]
+        - AllowedMethod: ["GET", "PUT", "POST", "DELETE", "HEAD"]
+        - AllowedHeader: ["*"] or ["Content-Type", "Authorization"]
+        - ExposeHeader: ["ETag", "x-amz-request-id"]
+        - MaxAgeSeconds: 3600 (cache preflight response for 1 hour)
+      operationId: create-s3-bucket
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Set versioning configuration
+        in: query
+        name: versioning
+        type: string
+      - description: Set CORS configuration
+        in: query
+        name: cors
+        type: string
+      - description: 'USE THIS ONLY with ?versioning query parameter. Status: ''Enabled''
+          or ''Suspended'''
+        in: body
+        name: VersioningConfiguration
+        schema:
+          $ref: '#/definitions/spider.VersioningConfiguration'
+      - description: USE THIS ONLY with ?cors query parameter. Must include at least
+          one CORSRule
+        in: body
+        name: CORSConfiguration
+        schema:
+          $ref: '#/definitions/spider.CORSConfiguration'
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Bucket created or configuration updated successfully
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "409":
+          description: Conflict - Bucket already exists
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Create a new S3 bucket or set bucket configuration
+      tags:
+      - '[S3 Object Storage Management]'
+  /s3/{BucketName}/{ObjectKey}:
+    delete:
+      consumes:
+      - text/xml
+      - application/json
+      description: |-
+        Deletes an object or aborts a multipart upload based on query parameters.
+
+        **Operations:**
+        - No query params: Delete object (current version)
+        - ?versionId={id}: Delete specific version
+        - ?uploadId={id}: Abort multipart upload
+      operationId: delete-s3-object
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object key (full path)
+        in: path
+        name: ObjectKey
+        required: true
+        type: string
+      - description: Version ID to delete
+        in: query
+        name: versionId
+        type: string
+      - description: Upload ID to abort
+        in: query
+        name: uploadId
+        type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "204":
+          description: Object deleted or upload aborted successfully
+        "404":
+          description: Object not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Delete an object from S3 or abort multipart upload
+      tags:
+      - '[S3 Object Storage Management]'
+    get:
+      consumes:
+      - text/xml
+      - application/json
+      description: |-
+        Downloads an object from S3 or lists parts of a multipart upload based on query parameters.
+
+        **Operations:**
+        - No query params: Download object
+        - ?versionId={id}: Download specific version of object
+        - ?uploadId={id}&list-type=parts: List parts of multipart upload
+
+        **List Parts Example (verify uploaded parts):**
+        - uploadId: Use UploadId from initiate response
+        - list-type: Must be "parts"
+        - Response shows all uploaded parts with PartNumber, ETag, Size
+        - Optional: part-number-marker (pagination), max-parts (limit)
+      operationId: download-s3-object
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object key (full path)
+        in: path
+        name: ObjectKey
+        required: true
+        type: string
+      - description: Version ID for versioned object
+        in: query
+        name: versionId
+        type: string
+      - description: Upload ID for listing parts
+        in: query
+        name: uploadId
+        type: string
+      - description: Must be 'parts' when listing multipart upload parts
+        in: query
+        name: list-type
+        type: string
+      produces:
+      - application/octet-stream
+      - application/xml
+      - application/json
+      responses:
+        "200":
+          description: Object content or parts list
+        "404":
+          description: Object not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Download an object from S3 or list parts of multipart upload
+      tags:
+      - '[S3 Object Storage Management]'
+    head:
+      consumes:
+      - text/xml
+      - application/json
+      description: |-
+        Returns metadata about an object without returning the object itself.
+
+        **Important**: This is a HEAD request that only returns headers (metadata), not the file content.
+        The response includes Content-Type, Content-Length, Last-Modified, ETag, and version information.
+        Do NOT use "Download file" button in Swagger UI - it will create an empty/invalid file.
+        Use GET /s3/{BucketName}/{ObjectKey} to download the actual file.
+      operationId: get-s3-object-info
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object key (full path)
+        in: path
+        name: ObjectKey
+        required: true
+        type: string
+      - description: Version ID for versioned object
+        in: query
+        name: versionId
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Object metadata in response headers (no body)
+        "404":
+          description: Object not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Get object metadata (HEAD request)
+      tags:
+      - '[S3 Object Storage Management]'
+    post:
+      consumes:
+      - text/xml
+      - application/json
+      description: |-
+        Object-level POST operations: (1) Initiate multipart upload with ?uploads, (2) Complete multipart upload with ?uploadId
+
+        **Multipart Upload Testing Guide (Swagger UI):**
+
+        **Step 1: Initiate Multipart Upload**
+        - Use POST /s3/{BucketName}/{ObjectKey}?uploads
+        - Set ConnectionName, BucketName, ObjectKey (e.g., "testfile.bin")
+        - Response will contain UploadId (save this!)
+
+        **Step 2: Upload Parts**
+        - Use PUT /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}&partNumber=1
+        - In request body, upload file part (binary data)
+        - Response header contains ETag (save this!)
+        - Repeat for part 2, 3, etc. with partNumber=2, 3...
+
+        **Step 3: List Parts (Optional)**
+        - Use GET /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}&list-type=parts
+        - Verify all uploaded parts
+
+        **Step 4: Complete Upload**
+        - Use POST /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}
+        - IMPORTANT: Enter uploadId in query parameter field (not in the parameter table below)
+        - Body XML (required): Provide XML with all uploaded parts
+        - Note: ETag values must include double quotes, e.g., "abc123" not abc123
+
+        **Body XML Example:**
+        ```xml
+        <CompleteMultipartUpload>
+        <Part>
+        <PartNumber>1</PartNumber>
+        <ETag>"ETag_value_from_Step2_part1"</ETag>
+        </Part>
+        <Part>
+        <PartNumber>2</PartNumber>
+        <ETag>"ETag_value_from_Step2_part2"</ETag>
+        </Part>
+        </CompleteMultipartUpload>
+        ```
+      operationId: handle-s3-object-post
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object key (full path including slashes, e.g., 'folder/subfolder/file.txt')
+        in: path
+        name: ObjectKey
+        required: true
+        type: string
+      - description: 'Initiate multipart upload: leave empty or set any value (e.g.,
+          ''uploads'')'
+        in: query
+        name: uploads
+        type: string
+      - description: 'Complete multipart upload: Upload ID from Step 1 response (paste
+          UploadId here)'
+        in: query
+        name: uploadId
+        type: string
+      - description: XML body for complete operation (required when uploadId is set)
+        example: <CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>"abc123"</ETag></Part></CompleteMultipartUpload>
+        in: body
+        name: body
+        schema:
+          type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Operation result (InitiateMultipartUploadResult or CompleteMultipartUploadResult)
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Handle S3 object POST operations (multipart upload)
+      tags:
+      - '[S3 Object Storage Management]'
+    put:
+      consumes:
+      - application/octet-stream
+      description: |-
+        Uploads a file to S3 bucket or uploads a part for multipart upload based on query parameters.
+
+        **Operations:**
+        - No query params: Upload object (standard upload)
+        - ?uploadId={id}&partNumber={num}: Upload a part for multipart upload
+
+        **Part Upload Example (Step 2 of multipart upload):**
+        - uploadId: Use UploadId from initiate response (Step 1)
+        - partNumber: 1, 2, 3... (consecutive integers, minimum 1)
+        - Body: Binary file data (in Swagger UI, use "Choose File" button)
+        - Response: Check ETag header - save it for completion (Step 4)
+        - Repeat for each part with different partNumber
+      operationId: put-s3-object-from-file
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object key (full path)
+        in: path
+        name: ObjectKey
+        required: true
+        type: string
+      - description: Upload ID for multipart upload
+        in: query
+        name: uploadId
+        type: string
+      - description: Part number (1-10000) for multipart upload
+        in: query
+        name: partNumber
+        type: integer
+      - description: File content (binary)
+        in: body
+        name: body
+        required: true
+        schema:
+          type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Object uploaded successfully (returns ETag in header)
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Upload an object to S3 or upload a part of multipart upload
+      tags:
+      - '[S3 Object Storage Management]'
+  /s3/presigned/download/{BucketName}/{ObjectKey}:
+    get:
+      consumes:
+      - text/xml
+      - application/json
+      description: Generates a presigned URL that can be used to download an object
+        from S3 without requiring AWS credentials. This is a CB-Spider special feature.
+      operationId: get-s3-presigned-url
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object key (full path)
+        in: path
+        name: ObjectKey
+        required: true
+        type: string
+      - description: 'HTTP method for URL (default: GET)'
+        in: query
+        name: method
+        type: string
+      - description: 'URL expiration time in seconds (default: 3600)'
+        in: query
+        name: expires
+        type: integer
+      - description: Content-Disposition header value for download
+        in: query
+        name: response-content-disposition
+        type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Presigned URL for download
+          schema:
+            $ref: '#/definitions/spider.S3PresignedURLXML'
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Generate presigned URL for downloading object (CB-Spider special feature)
+      tags:
+      - '[S3 Object Storage Management]'
+  /s3/presigned/upload/{BucketName}/{ObjectKey}:
+    get:
+      consumes:
+      - text/xml
+      - application/json
+      description: Generates a presigned URL that can be used to upload an object
+        to S3 without requiring AWS credentials. This is a CB-Spider special feature.
+      operationId: get-s3-presigned-upload-url
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object key (full path)
+        in: path
+        name: ObjectKey
+        required: true
+        type: string
+      - description: 'URL expiration time in seconds (default: 3600)'
+        in: query
+        name: expires
+        type: integer
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Presigned URL for upload
+          schema:
+            $ref: '#/definitions/spider.S3PresignedURLXML'
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Generate presigned URL for uploading object (CB-Spider special feature)
+      tags:
+      - '[S3 Object Storage Management]'
   /securitygroup:
     get:
       consumes:

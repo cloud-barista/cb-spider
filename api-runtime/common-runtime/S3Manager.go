@@ -6,6 +6,7 @@ package commonruntime
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -16,11 +17,18 @@ import (
 	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	"cloud.google.com/go/storage"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
 	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
+
+	cam "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cam/v20190116"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 )
 
 type S3BucketIIDInfo struct {
@@ -28,7 +36,6 @@ type S3BucketIIDInfo struct {
 	NameId         string `gorm:"primaryKey"`
 	SystemId       string
 	Region         string
-	CreatedAt      time.Time
 }
 
 func (S3BucketIIDInfo) TableName() string {
@@ -45,6 +52,48 @@ func init() {
 	infostore.Close(db)
 }
 
+// getTencentAppId retrieves AppId from Tencent CAM API
+func getTencentAppId(accessKey, secretKey string) (string, error) {
+	credential := common.NewCredential(accessKey, secretKey)
+
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "cam.tencentcloudapi.com"
+
+	client, err := cam.NewClient(credential, "", cpf)
+	if err != nil {
+		return "", fmt.Errorf("failed to create CAM client: %v", err)
+	}
+
+	request := cam.NewGetUserAppIdRequest()
+
+	response, err := client.GetUserAppId(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to get AppId from CAM API: %v", err)
+	}
+
+	if response.Response == nil || response.Response.AppId == nil {
+		return "", fmt.Errorf("AppId not found in CAM API response")
+	}
+
+	return fmt.Sprintf("%d", *response.Response.AppId), nil
+}
+
+// ============================================================================
+// OpenStack/Ceph RGW Multipart Upload State Management
+// ============================================================================
+
+// getAccessKey is a helper to get access/secret key from multiple possible key names
+func getAccessKey(kvl infostore.KVList, keys ...string) string {
+	for _, key := range keys {
+		for _, kv := range kvl {
+			if kv.Key == key {
+				return kv.Value
+			}
+		}
+	}
+	return ""
+}
+
 type S3ConnectionInfo struct {
 	Endpoint       string
 	AccessKey      string
@@ -52,6 +101,8 @@ type S3ConnectionInfo struct {
 	UseSSL         bool
 	RegionRequired bool
 	Region         string
+	ProviderName   string
+	AppId          string // Tencent COS AppId
 }
 
 func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
@@ -87,6 +138,7 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 	var accessKey, secretKey string
 	var endpoint string
 	var useSSL, regionRequired bool
+	var appId string
 
 	switch providerName {
 	case "AWS":
@@ -105,6 +157,13 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "secret_access_key")
 		endpoint = fmt.Sprintf("s3.%s.cloud-object-storage.appdomain.cloud", regionID)
 		useSSL = true
+		regionRequired = false
+
+	case "OPENSTACK":
+		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "access")
+		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "secret")
+		endpoint = "183.111.177.131:8080"
+		useSSL = false
 		regionRequired = false
 
 	case "KT":
@@ -127,6 +186,23 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		endpoint = fmt.Sprintf("oss-%s.aliyuncs.com", regionID)
 		useSSL = true
 		regionRequired = false
+
+	case "TENCENT":
+		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId")
+		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret")
+
+		// Dynamically retrieve AppId from Tencent CAM API
+		var err error
+		appId, err = getTencentAppId(accessKey, secretKey)
+		if err != nil {
+			cblog.Errorf("Failed to retrieve Tencent AppId: %v", err)
+			return nil, fmt.Errorf("failed to retrieve Tencent AppId: %v", err)
+		}
+		cblog.Infof("Successfully retrieved Tencent AppId: %s", appId)
+
+		endpoint = fmt.Sprintf("cos.%s.myqcloud.com", regionID)
+		useSSL = true
+		regionRequired = true
 
 	case "NCP":
 		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId")
@@ -161,22 +237,51 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		UseSSL:         useSSL,
 		RegionRequired: regionRequired,
 		Region:         regionID,
+		ProviderName:   providerName,
+		AppId:          appId,
 	}, nil
 }
 
 func NewS3Client(connInfo *S3ConnectionInfo) (*minio.Client, error) {
-	if connInfo.RegionRequired {
-		return minio.New(connInfo.Endpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
-			Secure: connInfo.UseSSL,
-			Region: connInfo.Region,
-		})
-	} else {
-		return minio.New(connInfo.Endpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
-			Secure: connInfo.UseSSL,
-		})
+	options := &minio.Options{
+		Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
+		Secure: connInfo.UseSSL,
 	}
+
+	if connInfo.RegionRequired {
+		options.Region = connInfo.Region
+	}
+
+	// For Tencent, use virtual-hosted-style (DNS) for all operations except bucket creation
+	// This is required by Tencent COS for bucket operations after creation
+	if connInfo.ProviderName == "TENCENT" {
+		options.BucketLookup = minio.BucketLookupDNS
+		options.Region = connInfo.Region
+	}
+
+	return minio.New(connInfo.Endpoint, options)
+}
+
+// NewS3ClientForBucketCreation creates a client for bucket creation
+// For Tencent, uses path-style (non virtual-hosted-style) to avoid DNS issues
+func NewS3ClientForBucketCreation(connInfo *S3ConnectionInfo) (*minio.Client, error) {
+	options := &minio.Options{
+		Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
+		Secure: connInfo.UseSSL,
+	}
+
+	if connInfo.RegionRequired {
+		options.Region = connInfo.Region
+	}
+
+	// For Tencent, use path-style for bucket creation to avoid DNS resolution issues
+	// and ensure region is set for proper authentication
+	if connInfo.ProviderName == "TENCENT" {
+		options.BucketLookup = minio.BucketLookupPath
+		options.Region = connInfo.Region
+	}
+
+	return minio.New(connInfo.Endpoint, options)
 }
 
 func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error) {
@@ -201,7 +306,26 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		cblog.Error(err)
 		return nil, err
 	}
-	client, err := NewS3Client(connInfo)
+
+	cblog.Infof("CreateS3Bucket: Provider=%s, AppId='%s', BucketName=%s", connInfo.ProviderName, connInfo.AppId, bucketName)
+
+	// For Tencent COS, AppId is required
+	originalBucketName := bucketName
+	if connInfo.ProviderName == "TENCENT" {
+		if connInfo.AppId == "" {
+			cblog.Error("Tencent COS AppId is empty!")
+			return nil, fmt.Errorf("failed to retrieve Tencent AppId from CAM API")
+		}
+		if !strings.HasSuffix(bucketName, "-"+connInfo.AppId) {
+			bucketName = bucketName + "-" + connInfo.AppId
+			cblog.Infof("Tencent COS: Appending AppId to bucket name: %s -> %s", originalBucketName, bucketName)
+		}
+	}
+
+	cblog.Infof("CreateS3Bucket: Final bucket name: %s", bucketName)
+
+	// Use special client for bucket creation (Tencent uses path-style)
+	client, err := NewS3ClientForBucketCreation(connInfo)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -230,10 +354,9 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 	}
 	iidInfo := S3BucketIIDInfo{
 		ConnectionName: connectionName,
-		NameId:         bucketName,
+		NameId:         originalBucketName,
 		SystemId:       bucketName,
 		Region:         connInfo.Region,
-		CreatedAt:      time.Now(),
 	}
 	err = infostore.Insert(&iidInfo)
 	if err != nil {
@@ -261,6 +384,13 @@ func ListS3Buckets(connectionName string) ([]*minio.BucketInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Return empty list if no metadata exists
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
+		infoList := []*minio.BucketInfo{}
+		return infoList, nil
+	}
+
 	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
 		return nil, err
@@ -277,11 +407,25 @@ func ListS3Buckets(connectionName string) ([]*minio.BucketInfo, error) {
 
 	var out []*minio.BucketInfo
 	for _, iid := range iidInfoList {
+		found := false
 		for _, b := range allBuckets {
-			if b.Name == iid.NameId {
-				out = append(out, &b)
+			if b.Name == iid.SystemId {
+				// Create a copy and replace SystemId with NameId for user display
+				bucketInfo := b
+				bucketInfo.Name = iid.NameId
+				out = append(out, &bucketInfo)
+				found = true
 				break
 			}
+		}
+		// If not found in CSP, return metadata-only info (like NLB pattern)
+		if !found {
+			cblog.Warnf("Bucket '%s' (SystemId: %s) exists in metadata but not found in CSP", iid.NameId, iid.SystemId)
+			bucketInfo := minio.BucketInfo{
+				Name:         iid.NameId,
+				CreationDate: time.Time{}, // Zero value for metadata-only bucket
+			}
+			out = append(out, &bucketInfo)
 		}
 	}
 	return out, nil
@@ -308,11 +452,20 @@ func GetS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error) {
 		return nil, err
 	}
 	for _, b := range buckets {
-		if b.Name == iidInfo.NameId {
-			return &b, nil
+		if b.Name == iidInfo.SystemId {
+			// Return NameId instead of SystemId for user display
+			bucketInfo := b
+			bucketInfo.Name = iidInfo.NameId
+			return &bucketInfo, nil
 		}
 	}
-	return nil, fmt.Errorf("Bucket %s not found", bucketName)
+	// If not found in CSP, return metadata-only info (like NLB pattern)
+	cblog.Warnf("Bucket '%s' (SystemId: %s) exists in metadata but not found in CSP", iidInfo.NameId, iidInfo.SystemId)
+	bucketInfo := minio.BucketInfo{
+		Name:         iidInfo.NameId,
+		CreationDate: time.Time{}, // Zero value for metadata-only bucket
+	}
+	return &bucketInfo, nil
 }
 
 func GetS3BucketRegionInfo(connectionName, bucketName string) (string, error) {
@@ -325,30 +478,66 @@ func GetS3BucketRegionInfo(connectionName, bucketName string) (string, error) {
 	return iidInfo.Region, nil
 }
 
-func DeleteS3Bucket(connectionName, bucketName string) (bool, error) {
+func DeleteS3Bucket(connectionName, bucketName string, force string) (bool, error) {
 	cblog.Info("call DeleteS3Bucket()")
+
+	// (1) get IID for the bucket
 	var iidInfo S3BucketIIDInfo
 	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
+		cblog.Error(err)
 		return false, err
 	}
+
+	// (2) delete Resource from CSP
 	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
+		cblog.Error(err)
 		return false, err
 	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
+		cblog.Error(err)
 		return false, err
 	}
+
 	ctx := context.Background()
-	err = client.RemoveBucket(ctx, bucketName)
+	result := false
+
+	// Use SystemId (actual bucket name with AppId for Tencent)
+	err = client.RemoveBucket(ctx, iidInfo.SystemId)
 	if err != nil {
-		return false, err
+		cblog.Error(err)
+		if checkNotFoundError(err) {
+			// if not found in CSP, require explicit force parameter
+			if force != "true" {
+				cblog.Errorf("Bucket %s not found in CSP. Use force=true parameter to delete metadata only.", bucketName)
+				return false, fmt.Errorf("bucket not found in CSP (metadata exists). Use force=true to delete metadata only")
+			}
+			cblog.Infof("Bucket %s not found in CSP, proceeding with force delete (metadata only)", bucketName)
+		} else if force != "true" {
+			return false, err
+		}
+	} else {
+		result = true
 	}
+
+	if force != "true" {
+		if result == false {
+			return result, nil
+		}
+	}
+
+	// (3) delete IID from metadata
 	_, err = infostore.DeleteByConditions(&S3BucketIIDInfo{}, "connection_name", iidInfo.ConnectionName, "name_id", bucketName)
 	if err != nil {
-		return false, err
+		cblog.Error(err)
+		if force != "true" {
+			return false, err
+		}
 	}
+
 	return true, nil
 }
 
@@ -376,7 +565,10 @@ func ListS3Objects(connectionName, bucketName, prefix string) ([]minio.ObjectInf
 		return nil, err
 	}
 
-	ctx := context.Background()
+	// Set timeout for listing objects to prevent indefinite hangs
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	opts := minio.ListObjectsOptions{
 		Prefix:    prefix,
 		Recursive: true, // Get all objects, including in subdirectories
@@ -387,9 +579,14 @@ func ListS3Objects(connectionName, bucketName, prefix string) ([]minio.ObjectInf
 	var out []minio.ObjectInfo
 	objectCount := 0
 
-	for obj := range client.ListObjects(ctx, bucketName, opts) {
+	// Use SystemId (actual bucket name with AppId for Tencent)
+	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 		if obj.Err != nil {
 			cblog.Errorf("Error listing object: %v", obj.Err)
+			// Check for context timeout
+			if ctx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("listing objects timed out after 60s (provider: %s may have network issues)", connInfo.ProviderName)
+			}
 			continue
 		}
 
@@ -442,9 +639,15 @@ func GetS3ObjectInfo(connectionName, bucketName, objectName string) (*minio.Obje
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.Background()
-	stat, err := client.StatObject(ctx, bucketName, objectName, minio.StatObjectOptions{})
+	// Set timeout for StatObject
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	stat, err := client.StatObject(ctx, iidInfo.SystemId, objectName, minio.StatObjectOptions{})
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("getting object info timed out after 30s (provider: %s may have network issues)", connInfo.ProviderName)
+		}
 		return nil, err
 	}
 	return &stat, nil
@@ -474,7 +677,9 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 		return nil, err
 	}
 
-	ctx := context.Background()
+	// Set timeout for StatObject with version
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Special handling for null version ID
 	if versionId == "null" {
@@ -490,9 +695,12 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 		var nullVersionExists bool
 		var actualVersionId string
 
-		for obj := range client.ListObjects(ctx, bucketName, opts) {
+		for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 			if obj.Err != nil {
 				cblog.Errorf("Error listing objects: %v", obj.Err)
+				if ctx.Err() == context.DeadlineExceeded {
+					return nil, fmt.Errorf("listing object versions timed out after 30s (provider: %s may have network issues)", connInfo.ProviderName)
+				}
 				continue
 			}
 
@@ -513,7 +721,7 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 
 		// Use the actual version ID we found
 		statOpts := minio.StatObjectOptions{VersionID: actualVersionId}
-		stat, err := client.StatObject(ctx, bucketName, objectName, statOpts)
+		stat, err := client.StatObject(ctx, iidInfo.SystemId, objectName, statOpts)
 		if err == nil {
 			cblog.Infof("Successfully got null version object info")
 			return &stat, nil
@@ -525,7 +733,7 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 		for _, versionID := range methods {
 			if versionID != actualVersionId {
 				statOpts := minio.StatObjectOptions{VersionID: versionID}
-				stat, err := client.StatObject(ctx, bucketName, objectName, statOpts)
+				stat, err := client.StatObject(ctx, iidInfo.SystemId, objectName, statOpts)
 				if err == nil {
 					cblog.Infof("Successfully got object info using alternative method")
 					return &stat, nil
@@ -535,7 +743,7 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 
 		// Try without version ID as last resort
 		statOpts2 := minio.StatObjectOptions{}
-		stat, err = client.StatObject(ctx, bucketName, objectName, statOpts2)
+		stat, err = client.StatObject(ctx, iidInfo.SystemId, objectName, statOpts2)
 		if err == nil {
 			cblog.Infof("Successfully got object info without version ID")
 			return &stat, nil
@@ -553,7 +761,7 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 		cblog.Infof("No version ID specified, getting latest version")
 	}
 
-	stat, err := client.StatObject(ctx, bucketName, objectName, opts)
+	stat, err := client.StatObject(ctx, iidInfo.SystemId, objectName, opts)
 	if err != nil {
 		cblog.Errorf("Failed to stat object: %v", err)
 		return nil, err
@@ -581,7 +789,7 @@ func DeleteS3Object(connectionName, bucketName, objectName string) (bool, error)
 		return false, err
 	}
 	ctx := context.Background()
-	err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+	err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, minio.RemoveObjectOptions{})
 	if err != nil {
 		cblog.Errorf("Failed to delete object: %v", err)
 		return false, err
@@ -622,7 +830,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 
 	// Method 1: Try to delete using empty version ID (for latest delete marker)
 	cblog.Infof("Attempting to delete DELETE MARKER using empty version ID")
-	err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{
+	err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, minio.RemoveObjectOptions{
 		VersionID: "",
 	})
 
@@ -630,7 +838,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 		cblog.Infof("RemoveObject call succeeded, verifying DELETE MARKER is actually deleted")
 
 		// Verify the delete marker is actually gone
-		stillExists, verifyErr := verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+		stillExists, verifyErr := verifyDeleteMarkerRemoved(client, ctx, iidInfo.SystemId, objectName)
 		if verifyErr != nil {
 			cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
 		} else if stillExists {
@@ -652,7 +860,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 		WithVersions: true,
 	}
 
-	for obj := range client.ListObjects(ctx, bucketName, opts) {
+	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 		if obj.Err != nil {
 			cblog.Errorf("Error listing objects: %v", obj.Err)
 			continue
@@ -666,7 +874,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 			// Try to delete using the actual version ID if available
 			if obj.VersionID != "" {
 				cblog.Infof("Attempting to delete DELETE MARKER using version ID: %s", obj.VersionID)
-				err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{
+				err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, minio.RemoveObjectOptions{
 					VersionID: obj.VersionID,
 				})
 
@@ -674,7 +882,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 					cblog.Infof("Successfully deleted DELETE MARKER using version ID: %s", obj.VersionID)
 
 					// Verify deletion
-					stillExists, verifyErr := verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+					stillExists, verifyErr := verifyDeleteMarkerRemoved(client, ctx, iidInfo.SystemId, objectName)
 					if verifyErr != nil {
 						cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
 					} else if !stillExists {
@@ -687,13 +895,13 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 
 			// Try deleting without version ID for this specific delete marker
 			cblog.Infof("Attempting to delete DELETE MARKER without version ID")
-			err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+			err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, minio.RemoveObjectOptions{})
 
 			if err == nil {
 				cblog.Infof("Successfully deleted DELETE MARKER without version ID")
 
 				// Verify deletion
-				stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+				stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, iidInfo.SystemId, objectName)
 				if verifyErr != nil {
 					cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
 				} else if !stillExists {
@@ -712,7 +920,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 				cblog.Infof("Successfully deleted DELETE MARKER using Core API")
 
 				// Verify deletion
-				stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+				stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, iidInfo.SystemId, objectName)
 				if verifyErr != nil {
 					cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
 				} else if !stillExists {
@@ -730,7 +938,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 
 	// Create a very small temporary object to overwrite the delete marker
 	tempContent := strings.NewReader("temp")
-	putInfo, err := client.PutObject(ctx, bucketName, objectName, tempContent, 4, minio.PutObjectOptions{
+	putInfo, err := client.PutObject(ctx, iidInfo.SystemId, objectName, tempContent, 4, minio.PutObjectOptions{
 		ContentType: "text/plain",
 	})
 
@@ -743,7 +951,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 
 	// Now the delete marker should no longer be the latest version
 	// Verify this worked
-	stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+	stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, iidInfo.SystemId, objectName)
 	if verifyErr != nil {
 		cblog.Warnf("Failed to verify DELETE MARKER removal after creating new version: %v", verifyErr)
 	} else if !stillExists {
@@ -751,7 +959,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 
 		// Optionally, delete the temporary object we just created
 		cblog.Infof("Deleting temporary object created to remove DELETE MARKER")
-		err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+		err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, minio.RemoveObjectOptions{})
 		if err != nil {
 			cblog.Warnf("Failed to delete temporary object: %v", err)
 			// This is not a critical error, just log it
@@ -764,7 +972,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 
 	// Clean up the temporary object since our approach didn't work
 	cblog.Infof("Cleaning up temporary object")
-	err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+	err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, minio.RemoveObjectOptions{})
 	if err != nil {
 		cblog.Warnf("Failed to clean up temporary object: %v", err)
 	}
@@ -772,7 +980,7 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 	cblog.Infof("Successfully removed DELETE MARKER by creating and deleting new version")
 
 	// Final verification
-	stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+	stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, iidInfo.SystemId, objectName)
 	if verifyErr != nil {
 		cblog.Warnf("Failed to verify final DELETE MARKER deletion: %v", verifyErr)
 	} else if stillExists {
@@ -824,7 +1032,7 @@ func GetS3ObjectStream(connectionName, bucketName, objectName string) (io.ReadCl
 		return nil, err
 	}
 	ctx := context.Background()
-	obj, err := client.GetObject(ctx, bucketName, objectName, minio.GetObjectOptions{})
+	obj, err := client.GetObject(ctx, iidInfo.SystemId, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -871,7 +1079,7 @@ func GetS3ObjectStreamWithVersion(connectionName, bucketName, objectName, versio
 		var nullVersionExists bool
 		var actualVersionId string
 
-		for obj := range client.ListObjects(ctx, bucketName, opts) {
+		for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 			if obj.Err != nil {
 				cblog.Errorf("Error listing objects: %v", obj.Err)
 				continue
@@ -895,7 +1103,7 @@ func GetS3ObjectStreamWithVersion(connectionName, bucketName, objectName, versio
 
 		// Use the actual version ID we found
 		getOpts := minio.GetObjectOptions{VersionID: actualVersionId}
-		obj, err := client.GetObject(ctx, bucketName, objectName, getOpts)
+		obj, err := client.GetObject(ctx, iidInfo.SystemId, objectName, getOpts)
 		if err == nil {
 			cblog.Infof("Successfully got null version object")
 			return obj, nil
@@ -914,7 +1122,7 @@ func GetS3ObjectStreamWithVersion(connectionName, bucketName, objectName, versio
 		for _, method := range methods {
 			if method.versionID != actualVersionId {
 				getOpts := minio.GetObjectOptions{VersionID: method.versionID}
-				obj, err := client.GetObject(ctx, bucketName, objectName, getOpts)
+				obj, err := client.GetObject(ctx, iidInfo.SystemId, objectName, getOpts)
 				if err == nil {
 					cblog.Infof("Successfully got object using alternative method")
 					return obj, nil
@@ -924,7 +1132,7 @@ func GetS3ObjectStreamWithVersion(connectionName, bucketName, objectName, versio
 
 		// Try without version ID as last resort
 		getOpts2 := minio.GetObjectOptions{}
-		obj, err = client.GetObject(ctx, bucketName, objectName, getOpts2)
+		obj, err = client.GetObject(ctx, iidInfo.SystemId, objectName, getOpts2)
 		if err == nil {
 			cblog.Infof("Successfully got object without version ID")
 			return obj, nil
@@ -942,7 +1150,7 @@ func GetS3ObjectStreamWithVersion(connectionName, bucketName, objectName, versio
 		cblog.Infof("No version ID specified, getting latest version")
 	}
 
-	obj, err := client.GetObject(ctx, bucketName, objectName, opts)
+	obj, err := client.GetObject(ctx, iidInfo.SystemId, objectName, opts)
 	if err != nil {
 		cblog.Errorf("Failed to get object: %v", err)
 		return nil, err
@@ -976,7 +1184,7 @@ func PutS3ObjectFromReader(connectionName string, bucketName string, objectName 
 
 	info, err := client.PutObject(
 		ctx,
-		bucketName,
+		iidInfo.SystemId,
 		objectName,
 		reader,
 		objectSize,
@@ -1028,20 +1236,34 @@ func InitiateMultipartUpload(connectionName string, bucketName string, objectNam
 		return "", err
 	}
 
+	// Check if provider supports multipart upload
+	if connInfo.ProviderName == "OPENSTACK" {
+		return "", fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
+	cblog.Infof("Initiating multipart upload - Provider: %s, Bucket: %s, Object: %s",
+		connInfo.ProviderName, iidInfo.SystemId, objectName)
+
+	// Use standard S3 API for all providers
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return "", err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	core := minio.Core{Client: client}
-	uploadID, err := core.NewMultipartUpload(ctx, bucketName, objectName, minio.PutObjectOptions{})
+	uploadID, err := core.NewMultipartUpload(ctx, iidInfo.SystemId, objectName, minio.PutObjectOptions{})
 	if err != nil {
-		cblog.Error("Failed to initiate multipart upload:", err)
+		cblog.Errorf("Failed to initiate multipart upload for provider %s: %v", connInfo.ProviderName, err)
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("multipart upload initiation timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+		}
 		return "", err
 	}
 
+	cblog.Infof("Successfully initiated multipart upload - UploadID: %s", uploadID)
 	return uploadID, nil
 }
 
@@ -1059,20 +1281,34 @@ func UploadPart(connectionName string, bucketName string, objectName string, upl
 		return "", err
 	}
 
+	// Check if provider supports multipart upload
+	if connInfo.ProviderName == "OPENSTACK" {
+		return "", fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
+	cblog.Infof("Uploading part %d - Provider: %s, Bucket: %s, Object: %s, UploadID: %s, Size: %d",
+		partNumber, connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID, size)
+
+	// Use standard S3 API for all providers
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return "", err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	core := minio.Core{Client: client}
-	part, err := core.PutObjectPart(ctx, bucketName, objectName, uploadID, partNumber, reader, size, minio.PutObjectPartOptions{})
+	part, err := core.PutObjectPart(ctx, iidInfo.SystemId, objectName, uploadID, partNumber, reader, size, minio.PutObjectPartOptions{})
 	if err != nil {
-		cblog.Error("Failed to upload part:", err)
+		cblog.Errorf("Failed to upload part %d for provider %s: %v", partNumber, connInfo.ProviderName, err)
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("part upload timed out after 60s (provider: %s may have network issues)", connInfo.ProviderName)
+		}
 		return "", err
 	}
 
+	cblog.Infof("Successfully uploaded part %d - ETag: %s", partNumber, part.ETag)
 	return part.ETag, nil
 }
 
@@ -1090,12 +1326,23 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 		return "", "", err
 	}
 
+	// Check if provider supports multipart upload
+	if connInfo.ProviderName == "OPENSTACK" {
+		return "", "", fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
+	cblog.Infof("Completing multipart upload - Provider: %s, Bucket: %s, Object: %s, UploadID: %s, Parts: %d",
+		connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID, len(parts))
+
+	// Use standard S3 API for all providers
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return "", "", err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	var completeParts []minio.CompletePart
 	for _, part := range parts {
 		completeParts = append(completeParts, minio.CompletePart{
@@ -1105,13 +1352,17 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 	}
 
 	core := minio.Core{Client: client}
-	uploadInfo, err := core.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, completeParts, minio.PutObjectOptions{})
+	uploadInfo, err := core.CompleteMultipartUpload(ctx, iidInfo.SystemId, objectName, uploadID, completeParts, minio.PutObjectOptions{})
 	if err != nil {
-		cblog.Error("Failed to complete multipart upload:", err)
+		cblog.Errorf("Failed to complete multipart upload for provider %s: %v", connInfo.ProviderName, err)
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", "", fmt.Errorf("multipart upload completion timed out after 60s (provider: %s may not support this operation)", connInfo.ProviderName)
+		}
 		return "", "", err
 	}
 
-	location := fmt.Sprintf("/%s/%s", bucketName, objectName)
+	location := fmt.Sprintf("/%s/%s", iidInfo.NameId, objectName)
+	cblog.Infof("Successfully completed multipart upload - Location: %s, ETag: %s", location, uploadInfo.ETag)
 	return location, uploadInfo.ETag, nil
 }
 
@@ -1129,19 +1380,35 @@ func AbortMultipartUpload(connectionName string, bucketName string, objectName s
 		return err
 	}
 
+	// Check if provider supports multipart upload
+	if connInfo.ProviderName == "OPENSTACK" {
+		return fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
+	cblog.Infof("Aborting multipart upload - Provider: %s, Bucket: %s, Object: %s, UploadID: %s",
+		connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID)
+
+	// Use standard S3 API for all providers
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return err
 	}
 
-	ctx := context.Background()
+	// Set timeout for aborting multipart upload
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	core := minio.Core{Client: client}
-	err = core.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
+	err = core.AbortMultipartUpload(ctx, iidInfo.SystemId, objectName, uploadID)
 	if err != nil {
-		cblog.Error("Failed to abort multipart upload:", err)
+		cblog.Errorf("Failed to abort multipart upload for provider %s: %v", connInfo.ProviderName, err)
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("multipart upload abort timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+		}
 		return err
 	}
 
+	cblog.Infof("Successfully aborted multipart upload - UploadID: %s", uploadID)
 	return nil
 }
 
@@ -1190,26 +1457,38 @@ func ListParts(connectionName string, bucketName string, objectName string, uplo
 		return nil, err
 	}
 
+	if maxParts == 0 {
+		maxParts = 1000 // Default max parts
+	}
+
+	cblog.Infof("Listing parts - Provider: %s, Bucket: %s, Object: %s, UploadID: %s",
+		connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID)
+
+	// Use standard S3 API for all providers
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := context.Background()
+	// Set timeout for listing parts
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	core := minio.Core{Client: client}
 
-	if maxParts == 0 {
-		maxParts = 1000 // Default max parts
-	}
-
-	result, err := core.ListObjectParts(ctx, bucketName, objectName, uploadID, partNumberMarker, maxParts)
+	result, err := core.ListObjectParts(ctx, iidInfo.SystemId, objectName, uploadID, partNumberMarker, maxParts)
 	if err != nil {
-		cblog.Error("Failed to list parts:", err)
+		cblog.Errorf("Failed to list parts for provider %s: %v", connInfo.ProviderName, err)
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("listing parts timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+		}
 		return nil, err
 	}
 
+	cblog.Infof("Successfully listed parts - Found: %d parts", len(result.ObjectParts))
+
 	listResult := &ListPartsResult{
-		Bucket:               result.Bucket,
+		Bucket:               iidInfo.NameId,
 		Key:                  result.Key,
 		UploadID:             result.UploadID,
 		PartNumberMarker:     result.PartNumberMarker,
@@ -1275,26 +1554,42 @@ func ListMultipartUploads(connectionName string, bucketName string, prefix strin
 		return nil, err
 	}
 
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return nil, err
+	// Check if provider supports multipart upload
+	if connInfo.ProviderName == "OPENSTACK" {
+		return nil, fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
-
-	ctx := context.Background()
-	core := minio.Core{Client: client}
 
 	if maxUploads == 0 {
 		maxUploads = 1000 // Default max uploads
 	}
 
-	result, err := core.ListMultipartUploads(ctx, bucketName, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	cblog.Infof("Listing multipart uploads - Provider: %s, Bucket: %s, Prefix: %s, MaxUploads: %d",
+		connInfo.ProviderName, iidInfo.SystemId, prefix, maxUploads)
+
+	// Use standard S3 API for all providers
+	client, err := NewS3Client(connInfo)
 	if err != nil {
-		cblog.Error("Failed to list multipart uploads:", err)
 		return nil, err
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	core := minio.Core{Client: client}
+
+	result, err := core.ListMultipartUploads(ctx, iidInfo.SystemId, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	if err != nil {
+		cblog.Errorf("Failed to list multipart uploads for provider %s: %v", connInfo.ProviderName, err)
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("listing multipart uploads timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+		}
+		return nil, err
+	}
+
+	cblog.Infof("Successfully listed multipart uploads - Found: %d, IsTruncated: %v", len(result.Uploads), result.IsTruncated)
+
 	listResult := &ListMultipartUploadsResult{
-		Bucket:             result.Bucket,
+		Bucket:             iidInfo.NameId,
 		KeyMarker:          result.KeyMarker,
 		UploadIDMarker:     result.UploadIDMarker,
 		NextKeyMarker:      result.NextKeyMarker,
@@ -1357,7 +1652,7 @@ func DeleteMultipleObjects(connectionName string, bucketName string, objectNames
 	}()
 
 	results := []DeleteResult{}
-	for err := range client.RemoveObjects(ctx, bucketName, objectsCh, minio.RemoveObjectsOptions{}) {
+	for err := range client.RemoveObjects(ctx, iidInfo.SystemId, objectsCh, minio.RemoveObjectsOptions{}) {
 		result := DeleteResult{
 			Key:     err.ObjectName,
 			Success: false,
@@ -1415,7 +1710,7 @@ func GetS3PresignedURL(connectionName string, bucketName string, objectName stri
 			params = url.Values{}
 			params.Set("response-content-disposition", responseContentDisposition)
 		}
-		u, err := client.PresignedGetObject(ctx, bucketName, objectName, expires, params)
+		u, err := client.PresignedGetObject(ctx, iidInfo.SystemId, objectName, expires, params)
 		if err != nil {
 			return "", err
 		}
@@ -1423,7 +1718,7 @@ func GetS3PresignedURL(connectionName string, bucketName string, objectName stri
 		return u.String(), nil
 
 	case "PUT":
-		u, err := client.PresignedPutObject(ctx, bucketName, objectName, expires)
+		u, err := client.PresignedPutObject(ctx, iidInfo.SystemId, objectName, expires)
 		if err != nil {
 			return "", err
 		}
@@ -1446,6 +1741,18 @@ func EnableVersioning(connectionName string, bucketName string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	// Check if provider supports versioning
+	if connInfo.ProviderName == "OPENSTACK" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NHN" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (NHN Cloud Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return false, err
@@ -1455,7 +1762,7 @@ func EnableVersioning(connectionName string, bucketName string) (bool, error) {
 		Status: "Enabled",
 	}
 
-	err = client.SetBucketVersioning(ctx, bucketName, opts)
+	err = client.SetBucketVersioning(ctx, iidInfo.SystemId, opts)
 	if err != nil {
 		return false, err
 	}
@@ -1473,6 +1780,18 @@ func SuspendVersioning(connectionName string, bucketName string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	// Check if provider supports versioning
+	if connInfo.ProviderName == "OPENSTACK" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NHN" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (NHN Cloud Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return false, err
@@ -1481,7 +1800,7 @@ func SuspendVersioning(connectionName string, bucketName string) (bool, error) {
 	opts := minio.BucketVersioningConfiguration{
 		Status: "Suspended",
 	}
-	err = client.SetBucketVersioning(ctx, bucketName, opts)
+	err = client.SetBucketVersioning(ctx, iidInfo.SystemId, opts)
 	if err != nil {
 		return false, err
 	}
@@ -1505,6 +1824,17 @@ func GetVersioning(connectionName string, bucketName string) (string, error) {
 		return "", err
 	}
 
+	// Check if provider supports versioning
+	if connInfo.ProviderName == "OPENSTACK" {
+		return "", fmt.Errorf("bucket versioning is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NHN" {
+		return "", fmt.Errorf("bucket versioning is not supported by %s:%s (NHN Cloud Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return "", fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		cblog.Errorf("Failed to create S3 client: %v", err)
@@ -1514,7 +1844,7 @@ func GetVersioning(connectionName string, bucketName string) (string, error) {
 	ctx := context.Background()
 	cblog.Infof("Calling GetBucketVersioning for bucket: %s", bucketName)
 
-	versioningConfig, err := client.GetBucketVersioning(ctx, bucketName)
+	versioningConfig, err := client.GetBucketVersioning(ctx, iidInfo.SystemId)
 	if err != nil {
 		cblog.Errorf("GetBucketVersioning failed: %v", err)
 		cblog.Infof("Returning default status 'Suspended' due to error")
@@ -1533,20 +1863,46 @@ func GetVersioning(connectionName string, bucketName string) (string, error) {
 
 func ListS3ObjectVersions(connectionName string, bucketName string, prefix string) ([]minio.ObjectInfo, error) {
 	cblog.Info("call ListS3ObjectVersions()")
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return nil, err
-	}
+
 	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
 		return nil, err
 	}
+
+	// Check if provider supports versioning
+	if connInfo.ProviderName == "OPENSTACK" {
+		return nil, fmt.Errorf("bucket versioning is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NHN" {
+		return nil, fmt.Errorf("bucket versioning is not supported by %s:%s (NHN Cloud Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return nil, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+
+	// Use GCP Storage SDK for GCP
+	if connInfo.ProviderName == "GCP" {
+		return listGCPObjectVersions(connectionName, bucketName, prefix)
+	}
+
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.Background()
+
+	// Set timeout for listing object versions
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cblog.Infof("Listing object versions - Provider: %s, Bucket: %s, Prefix: %s",
+		connInfo.ProviderName, iidInfo.SystemId, prefix)
+
 	opts := minio.ListObjectsOptions{
 		Prefix:       prefix,
 		Recursive:    true,
@@ -1554,25 +1910,364 @@ func ListS3ObjectVersions(connectionName string, bucketName string, prefix strin
 	}
 
 	var out []minio.ObjectInfo
-	for obj := range client.ListObjects(ctx, bucketName, opts) {
+	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 		if obj.Err != nil {
+			cblog.Warnf("Error listing object version: %v", obj.Err)
+			// Check for context timeout
+			if ctx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("listing object versions timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+			}
 			continue
 		}
 		out = append(out, obj)
 	}
+
+	cblog.Infof("Successfully listed object versions - Found: %d versions", len(out))
 	return out, nil
+}
+
+// listSwiftObjectVersions lists object versions using Swift native versioning
+// listGCPObjectVersions lists object versions using GCP Storage SDK
+func listGCPObjectVersions(connectionName string, bucketName string, prefix string) ([]minio.ObjectInfo, error) {
+	cblog.Info("call listGCPObjectVersions() - using GCP Storage SDK")
+
+	// Get connection config to extract credential info
+	cccInfo, err := ccim.GetConnectionConfig(connectionName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection config: %w", err)
+	}
+
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get credential: %w", err)
+	}
+
+	// Build GCP credentials JSON
+	clientEmail := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail")
+	privateKey := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey")
+
+	if clientEmail == "" || privateKey == "" {
+		return nil, fmt.Errorf("GCP credentials (ClientEmail, PrivateKey) not found")
+	}
+
+	credentialsJSON := map[string]string{
+		"type":         "service_account",
+		"private_key":  privateKey,
+		"client_email": clientEmail,
+		"token_uri":    "https://oauth2.googleapis.com/token",
+	}
+
+	credBytes, err := json.Marshal(credentialsJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create GCP storage client with credentials
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCP storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	// Get bucket IID info
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bucket info: %w", err)
+	}
+
+	bucket := storageClient.Bucket(iidInfo.SystemId)
+
+	// List all object versions (including non-current versions)
+	query := &storage.Query{
+		Prefix:   prefix,
+		Versions: true, // Include all versions
+	}
+
+	it := bucket.Objects(ctx, query)
+
+	var versions []minio.ObjectInfo
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			cblog.Errorf("Error iterating object versions: %v", err)
+			return nil, fmt.Errorf("failed to iterate object versions: %w", err)
+		}
+
+		// Convert GCP ObjectAttrs to minio.ObjectInfo
+		objInfo := minio.ObjectInfo{
+			Key:          attrs.Name,
+			Size:         attrs.Size,
+			LastModified: attrs.Updated,
+			ETag:         attrs.Etag,
+			VersionID:    fmt.Sprintf("%d", attrs.Generation),      // GCP uses Generation as version
+			IsLatest:     attrs.Generation == attrs.Metageneration, // Approximate
+		}
+
+		// Check if this is a delete marker (in GCP, deleted objects have Deleted time set)
+		if !attrs.Deleted.IsZero() {
+			objInfo.IsDeleteMarker = true
+		}
+
+		versions = append(versions, objInfo)
+	}
+
+	cblog.Infof("Found %d object versions in GCP bucket %s", len(versions), bucketName)
+	return versions, nil
+}
+
+// setGCPBucketCORS sets CORS configuration using GCP Storage SDK
+func setGCPBucketCORS(connectionName string, bucketName string, allowedOrigins []string, allowedMethods []string, allowedHeaders []string, exposeHeaders []string, maxAgeSeconds int) (bool, error) {
+	cblog.Info("call setGCPBucketCORS() - using GCP Storage SDK")
+
+	// Get connection config to extract credential info
+	cccInfo, err := ccim.GetConnectionConfig(connectionName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get connection config: %w", err)
+	}
+
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get credential: %w", err)
+	}
+
+	// Build GCP credentials JSON
+	clientEmail := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail")
+	privateKey := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey")
+
+	if clientEmail == "" || privateKey == "" {
+		return false, fmt.Errorf("GCP credentials (ClientEmail, PrivateKey) not found")
+	}
+
+	credentialsJSON := map[string]string{
+		"type":         "service_account",
+		"private_key":  privateKey,
+		"client_email": clientEmail,
+		"token_uri":    "https://oauth2.googleapis.com/token",
+	}
+
+	credBytes, err := json.Marshal(credentialsJSON)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create GCP storage client with credentials
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
+	if err != nil {
+		return false, fmt.Errorf("failed to create GCP storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	// Get bucket IID info
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get bucket info: %w", err)
+	}
+
+	bucket := storageClient.Bucket(iidInfo.SystemId)
+
+	// Convert to GCP CORS format
+	gcpCORS := []storage.CORS{
+		{
+			MaxAge:          time.Duration(maxAgeSeconds) * time.Second,
+			Methods:         allowedMethods,
+			Origins:         allowedOrigins,
+			ResponseHeaders: exposeHeaders,
+		},
+	}
+
+	// Update bucket CORS configuration
+	bucketAttrsToUpdate := storage.BucketAttrsToUpdate{
+		CORS: gcpCORS,
+	}
+
+	_, err = bucket.Update(ctx, bucketAttrsToUpdate)
+	if err != nil {
+		cblog.Errorf("Failed to set GCP bucket CORS: %v", err)
+		return false, fmt.Errorf("failed to set GCP bucket CORS: %w", err)
+	}
+
+	cblog.Infof("Successfully set CORS for GCP bucket %s using GCP Storage SDK", bucketName)
+	return true, nil
+}
+
+// getGCPBucketCORS retrieves CORS configuration using GCP Storage SDK
+func getGCPBucketCORS(connectionName string, bucketName string) (*cors.Config, error) {
+	cblog.Info("call getGCPBucketCORS() - using GCP Storage SDK")
+
+	// Get connection config to extract credential info
+	cccInfo, err := ccim.GetConnectionConfig(connectionName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection config: %w", err)
+	}
+
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get credential: %w", err)
+	}
+
+	// Build GCP credentials JSON
+	clientEmail := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail")
+	privateKey := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey")
+
+	if clientEmail == "" || privateKey == "" {
+		return nil, fmt.Errorf("GCP credentials (ClientEmail, PrivateKey) not found")
+	}
+
+	credentialsJSON := map[string]string{
+		"type":         "service_account",
+		"private_key":  privateKey,
+		"client_email": clientEmail,
+		"token_uri":    "https://oauth2.googleapis.com/token",
+	}
+
+	credBytes, err := json.Marshal(credentialsJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create GCP storage client with credentials
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCP storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	// Get bucket IID info
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bucket info: %w", err)
+	}
+
+	bucket := storageClient.Bucket(iidInfo.SystemId)
+	attrs, err := bucket.Attrs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bucket attributes: %w", err)
+	}
+
+	if len(attrs.CORS) == 0 {
+		return nil, fmt.Errorf("CORS configuration not found for bucket %s", bucketName)
+	}
+
+	// Convert GCP CORS to minio CORS format for consistent response
+	corsConfig := &cors.Config{
+		CORSRules: make([]cors.Rule, 0, len(attrs.CORS)),
+	}
+
+	for _, gcpCORS := range attrs.CORS {
+		rule := cors.Rule{
+			AllowedOrigin: gcpCORS.Origins,
+			AllowedMethod: gcpCORS.Methods,
+			AllowedHeader: []string{"*"}, // GCP doesn't expose this in attrs
+			ExposeHeader:  gcpCORS.ResponseHeaders,
+			MaxAgeSeconds: int(gcpCORS.MaxAge.Seconds()),
+		}
+		corsConfig.CORSRules = append(corsConfig.CORSRules, rule)
+	}
+
+	cblog.Infof("Successfully retrieved CORS for GCP bucket %s", bucketName)
+	return corsConfig, nil
+}
+
+// deleteGCPBucketCORS deletes CORS configuration using GCP Storage SDK
+func deleteGCPBucketCORS(connectionName string, bucketName string) (bool, error) {
+	cblog.Info("call deleteGCPBucketCORS() - using GCP Storage SDK")
+
+	// Get connection config to extract credential info
+	cccInfo, err := ccim.GetConnectionConfig(connectionName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get connection config: %w", err)
+	}
+
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get credential: %w", err)
+	}
+
+	// Build GCP credentials JSON
+	clientEmail := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail")
+	privateKey := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey")
+
+	if clientEmail == "" || privateKey == "" {
+		return false, fmt.Errorf("GCP credentials (ClientEmail, PrivateKey) not found")
+	}
+
+	credentialsJSON := map[string]string{
+		"type":         "service_account",
+		"private_key":  privateKey,
+		"client_email": clientEmail,
+		"token_uri":    "https://oauth2.googleapis.com/token",
+	}
+
+	credBytes, err := json.Marshal(credentialsJSON)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create GCP storage client with credentials
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
+	if err != nil {
+		return false, fmt.Errorf("failed to create GCP storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	// Get bucket IID info
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get bucket info: %w", err)
+	}
+
+	bucket := storageClient.Bucket(iidInfo.SystemId)
+
+	// Set CORS to empty slice to delete
+	bucketAttrsToUpdate := storage.BucketAttrsToUpdate{
+		CORS: []storage.CORS{},
+	}
+
+	_, err = bucket.Update(ctx, bucketAttrsToUpdate)
+	if err != nil {
+		cblog.Errorf("Failed to delete GCP bucket CORS: %v", err)
+		return false, fmt.Errorf("failed to delete GCP bucket CORS: %w", err)
+	}
+
+	cblog.Infof("Successfully deleted CORS for GCP bucket %s", bucketName)
+	return true, nil
 }
 
 func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []string, allowedMethods []string, allowedHeaders []string, exposeHeaders []string, maxAgeSeconds int) (bool, error) {
 	cblog.Info("call SetS3BucketCORS()")
 
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
 		return false, err
 	}
 
-	connInfo, err := GetS3ConnectionInfo(connectionName)
+	// Check if provider supports CORS
+	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return false, fmt.Errorf("CORS configuration is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
+	// Use GCP Storage SDK for GCP
+	if connInfo.ProviderName == "GCP" {
+		return setGCPBucketCORS(connectionName, bucketName, allowedOrigins, allowedMethods, allowedHeaders, exposeHeaders, maxAgeSeconds)
+	}
+
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
 		return false, err
 	}
@@ -1597,26 +2292,78 @@ func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []
 	}
 
 	core := minio.Core{Client: client}
-	err = core.SetBucketCors(ctx, bucketName, corsConfig)
+	err = core.SetBucketCors(ctx, iidInfo.SystemId, corsConfig)
 	if err != nil {
 		cblog.Error("Failed to set bucket CORS:", err)
 		return false, err
 	}
 
 	cblog.Infof("Successfully set CORS for bucket %s", bucketName)
-	return true, nil
+
+	// Wait and verify CORS configuration propagation
+	maxRetries := 40 // 40 retries * 3 seconds = 120 seconds (2 minutes) max
+	retryInterval := 3 * time.Second
+
+	// Require 3 consecutive successful verifications (10 for IBM due to slower propagation)
+	requiredSuccesses := 3 // Default: 3 consecutive successes
+	if connInfo.ProviderName == "IBM" {
+		requiredSuccesses = 10 // IBM requires more verifications due to slower CORS propagation
+	}
+
+	consecutiveSuccesses := 0
+
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+
+		// Try to get CORS configuration
+		corsConfig, verifyErr := core.GetBucketCors(ctx, iidInfo.SystemId)
+		if verifyErr == nil && corsConfig != nil && len(corsConfig.CORSRules) > 0 {
+			// CORS configuration exists and has rules
+			consecutiveSuccesses++
+			if consecutiveSuccesses >= requiredSuccesses {
+				// CORS configuration successfully verified with required consecutive successes
+				cblog.Infof("CORS configuration verified for bucket %s after %d retries (%d consecutive successes)", bucketName, i+1, consecutiveSuccesses)
+				return true, nil
+			}
+		} else {
+			// Reset counter on failure or if no CORS rules found
+			if consecutiveSuccesses > 0 {
+				cblog.Debugf("CORS verification failed (retry %d): error=%v, hasRules=%v - resetting counter from %d to 0",
+					i+1, verifyErr != nil, corsConfig != nil && len(corsConfig.CORSRules) > 0, consecutiveSuccesses)
+			}
+			consecutiveSuccesses = 0
+		}
+
+		// Only log warning on final retry
+		if i == maxRetries-1 {
+			cblog.Errorf("CORS configuration not propagated for bucket %s after %d seconds (needed %d consecutive successes, got %d)", bucketName, (i+1)*3, requiredSuccesses, consecutiveSuccesses)
+		}
+	}
+
+	// Verification timed out - CORS configuration not properly propagated
+	return false, fmt.Errorf("CORS configuration not verified for bucket %s after %d seconds (needed %d consecutive successes, got %d)", bucketName, maxRetries*3, requiredSuccesses, consecutiveSuccesses)
 }
 
 func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, error) {
 	cblog.Info("call GetS3BucketCORS()")
 
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
 		return nil, err
 	}
 
-	connInfo, err := GetS3ConnectionInfo(connectionName)
+	// Check if provider supports CORS
+	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return nil, fmt.Errorf("CORS configuration is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
+	// Use GCP Storage SDK for GCP
+	if connInfo.ProviderName == "GCP" {
+		return getGCPBucketCORS(connectionName, bucketName)
+	}
+
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -1629,7 +2376,7 @@ func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, er
 	ctx := context.Background()
 
 	core := minio.Core{Client: client}
-	corsConfig, err := core.GetBucketCors(ctx, bucketName)
+	corsConfig, err := core.GetBucketCors(ctx, iidInfo.SystemId)
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
 			return nil, fmt.Errorf("CORS configuration not found for bucket %s", bucketName)
@@ -1644,13 +2391,23 @@ func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, er
 func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) {
 	cblog.Info("call DeleteS3BucketCORS()")
 
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
 		return false, err
 	}
 
-	connInfo, err := GetS3ConnectionInfo(connectionName)
+	// Check if provider supports CORS
+	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return false, fmt.Errorf("CORS configuration is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
+	// Use GCP Storage SDK for GCP
+	if connInfo.ProviderName == "GCP" {
+		return deleteGCPBucketCORS(connectionName, bucketName)
+	}
+
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
 		return false, err
 	}
@@ -1663,14 +2420,75 @@ func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) 
 	ctx := context.Background()
 	core := minio.Core{Client: client}
 
-	err = core.SetBucketCors(ctx, bucketName, nil)
+	err = core.SetBucketCors(ctx, iidInfo.SystemId, nil)
 	if err != nil {
 		cblog.Errorf("Failed to delete bucket CORS: %v", err)
 		return false, err
 	}
 
 	cblog.Infof("Successfully deleted CORS for bucket %s", bucketName)
-	return true, nil
+
+	// Wait and verify CORS deletion propagation
+	maxRetries := 40 // 40 retries * 3 seconds = 120 seconds (2 minutes) max
+	retryInterval := 3 * time.Second
+	requiredSuccesses := 3 // Require 3 consecutive verifications of NoSuchCORSConfiguration
+	if connInfo.ProviderName == "IBM" {
+		requiredSuccesses = 10 // IBM requires more verifications due to slower CORS propagation
+	}
+	consecutiveSuccesses := 0
+
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+
+		// Try to get CORS configuration - should fail with NoSuchCORSConfiguration
+		corsResult, verifyErr := core.GetBucketCors(ctx, iidInfo.SystemId)
+
+		// Check if CORS is deleted: either error contains NoSuchCORSConfiguration or result is nil/empty
+		isDeleted := false
+		if verifyErr != nil {
+			errStr := verifyErr.Error()
+			// Check for various NoSuchCORSConfiguration error formats
+			if strings.Contains(errStr, "NoSuchCORSConfiguration") ||
+				strings.Contains(errStr, "NoSuchCors") ||
+				strings.Contains(errStr, "does not exist") {
+				isDeleted = true
+			}
+			if i == 0 {
+				cblog.Debugf("CORS deletion check error: %v", verifyErr)
+			}
+		} else if corsResult == nil || len(corsResult.CORSRules) == 0 {
+			// No error but also no CORS rules = deleted
+			isDeleted = true
+		}
+
+		if isDeleted {
+			// CORS successfully deleted
+			consecutiveSuccesses++
+			if consecutiveSuccesses >= requiredSuccesses {
+				cblog.Infof("CORS deletion verified for bucket %s after %d retries (%d seconds, %d consecutive successes)",
+					bucketName, i+1, (i+1)*3, consecutiveSuccesses)
+				return true, nil
+			}
+		} else {
+			// CORS still exists or unexpected error
+			if consecutiveSuccesses > 0 {
+				cblog.Debugf("CORS deletion verification failed (retry %d): CORS still exists - resetting counter from %d to 0",
+					i+1, consecutiveSuccesses)
+			}
+			consecutiveSuccesses = 0
+		}
+
+		if i == maxRetries-1 {
+			cblog.Errorf("CORS deletion not verified for bucket %s after %d seconds (needed %d consecutive successes, got %d)",
+				bucketName, (i+1)*3, requiredSuccesses, consecutiveSuccesses)
+		}
+	}
+
+	// Verification timed out
+	cblog.Errorf("CORS deletion not verified for bucket %s after %d seconds (needed %d consecutive successes, got %d)",
+		bucketName, maxRetries*3, requiredSuccesses, consecutiveSuccesses)
+	return false, fmt.Errorf("CORS deletion not verified for bucket %s after %d seconds (needed %d consecutive successes, got %d)",
+		bucketName, maxRetries*3, requiredSuccesses, consecutiveSuccesses)
 }
 
 // DeleteS3ObjectVersion deletes a specific version of an object
@@ -1690,6 +2508,17 @@ func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID str
 	if err != nil {
 		cblog.Errorf("Failed to get connection info: %v", err)
 		return false, err
+	}
+
+	// Check if provider supports versioning
+	if connInfo.ProviderName == "OPENSTACK" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NHN" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (NHN Cloud Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
+	}
+	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
 	}
 
 	client, err := NewS3Client(connInfo)
@@ -1714,7 +2543,7 @@ func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID str
 		var actualVersionId string
 		var found bool
 
-		for obj := range client.ListObjects(ctx, bucketName, opts) {
+		for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 			if obj.Err != nil {
 				cblog.Errorf("Error listing objects: %v", obj.Err)
 				continue
@@ -1734,7 +2563,7 @@ func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID str
 
 		// Use the actual version ID we found
 		removeOpts := minio.RemoveObjectOptions{VersionID: actualVersionId}
-		err = client.RemoveObject(ctx, bucketName, objectName, removeOpts)
+		err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, removeOpts)
 		if err != nil {
 			cblog.Errorf("Failed to delete null version object: %v", err)
 			return false, err
@@ -1753,7 +2582,7 @@ func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID str
 		cblog.Infof("No version ID specified for deletion")
 	}
 
-	err = client.RemoveObject(ctx, bucketName, objectName, opts)
+	err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, opts)
 	if err != nil {
 		cblog.Errorf("Failed to delete object version: %v", err)
 		return false, err
@@ -1781,6 +2610,11 @@ func DeleteMultipleObjectVersions(connectionName, bucketName string, objects []O
 		return nil, err
 	}
 
+	// Check if provider supports versioning
+	if connInfo.ProviderName == "OPENSTACK" {
+		return nil, fmt.Errorf("bucket versioning is not supported by %s:%s", connectionName, connInfo.ProviderName)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		cblog.Errorf("Failed to create S3 client: %v", err)
@@ -1798,10 +2632,10 @@ func DeleteMultipleObjectVersions(connectionName, bucketName string, objects []O
 
 		if obj.VersionID == "" || obj.VersionID == "null" {
 			// Delete current version (no version ID)
-			err = client.RemoveObject(ctx, bucketName, obj.Key, minio.RemoveObjectOptions{})
+			err = client.RemoveObject(ctx, iidInfo.SystemId, obj.Key, minio.RemoveObjectOptions{})
 		} else {
 			// Delete specific version
-			err = client.RemoveObject(ctx, bucketName, obj.Key, minio.RemoveObjectOptions{
+			err = client.RemoveObject(ctx, iidInfo.SystemId, obj.Key, minio.RemoveObjectOptions{
 				VersionID: obj.VersionID,
 			})
 		}
@@ -1832,21 +2666,181 @@ type ObjectVersionToDelete struct {
 	VersionID string
 }
 
+// forceEmptyGCPBucket empties a GCP bucket using GCP Storage SDK
+func forceEmptyGCPBucket(connectionName, bucketName string) (bool, error) {
+	cblog.Info("call forceEmptyGCPBucket() - using GCP Storage SDK")
+
+	// Get connection config to extract credential info
+	cccInfo, err := ccim.GetConnectionConfig(connectionName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get connection config: %w", err)
+	}
+
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get credential: %w", err)
+	}
+
+	// Build GCP credentials JSON
+	clientEmail := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail")
+	privateKey := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey")
+
+	if clientEmail == "" || privateKey == "" {
+		return false, fmt.Errorf("GCP credentials (ClientEmail, PrivateKey) not found")
+	}
+
+	credentialsJSON := map[string]string{
+		"type":         "service_account",
+		"private_key":  privateKey,
+		"client_email": clientEmail,
+		"token_uri":    "https://oauth2.googleapis.com/token",
+	}
+
+	credBytes, err := json.Marshal(credentialsJSON)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create GCP storage client with credentials
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
+	if err != nil {
+		return false, fmt.Errorf("failed to create GCP storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	// Get bucket IID info
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get bucket info: %w", err)
+	}
+
+	bucket := storageClient.Bucket(iidInfo.SystemId)
+
+	// List and delete all objects including versions
+	cblog.Infof("Listing all objects in GCP bucket %s", bucketName)
+
+	// GCP Storage SDK iterator - more reliable than minio for GCP
+	query := &storage.Query{
+		Versions: true, // Include all versions
+	}
+
+	it := bucket.Objects(ctx, query)
+	var objectsToDelete []string
+	var deletedCount int
+	var errorCount int
+
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			cblog.Errorf("Error iterating objects: %v", err)
+			return false, fmt.Errorf("failed to iterate objects: %w", err)
+		}
+
+		objectsToDelete = append(objectsToDelete, attrs.Name)
+		cblog.Debugf("Found object: %s (generation: %d)", attrs.Name, attrs.Generation)
+	}
+
+	cblog.Infof("Found %d objects to delete from GCP bucket", len(objectsToDelete))
+
+	if len(objectsToDelete) == 0 {
+		cblog.Infof("GCP bucket %s is already empty", bucketName)
+		return true, nil
+	}
+
+	// Delete all object versions using GCP SDK
+	for i, objName := range objectsToDelete {
+		cblog.Infof("Deleting object %d/%d: %s", i+1, len(objectsToDelete), objName)
+
+		// Delete all versions of this object
+		// GCP requires deleting each generation separately
+		it2 := bucket.Objects(ctx, &storage.Query{
+			Prefix:   objName,
+			Versions: true,
+		})
+
+		for {
+			attrs, err := it2.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				cblog.Errorf("Error getting object attrs: %v", err)
+				break
+			}
+
+			if attrs.Name != objName {
+				continue
+			}
+
+			// Delete specific generation
+			obj := bucket.Object(attrs.Name).Generation(attrs.Generation)
+			err = obj.Delete(ctx)
+			if err != nil {
+				cblog.Errorf("Failed to delete %s (gen: %d): %v", attrs.Name, attrs.Generation, err)
+				errorCount++
+			} else {
+				cblog.Debugf("Deleted %s (gen: %d)", attrs.Name, attrs.Generation)
+				deletedCount++
+			}
+		}
+
+		// Small delay to avoid rate limiting
+		if i%20 == 0 && i > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	cblog.Infof("GCP bucket emptying complete: %d deleted, %d errors", deletedCount, errorCount)
+
+	// Verify bucket is empty
+	it3 := bucket.Objects(ctx, &storage.Query{Versions: true})
+	remainingCount := 0
+	for {
+		_, err := it3.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			cblog.Errorf("Error verifying bucket emptiness: %v", err)
+			break
+		}
+		remainingCount++
+	}
+
+	if remainingCount > 0 {
+		cblog.Errorf("GCP bucket still contains %d objects after cleanup", remainingCount)
+		return false, fmt.Errorf("failed to completely empty bucket: %d objects remain", remainingCount)
+	}
+
+	cblog.Infof("Successfully emptied GCP bucket %s", bucketName)
+	return true, nil
+}
+
 // ForceEmptyBucket completely empties a bucket but keeps the bucket
 func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 	cblog.Info("call ForceEmptyBucket()")
 	cblog.Infof("Parameters - Connection: %s, Bucket: %s", connectionName, bucketName)
 
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
-		cblog.Errorf("Failed to get bucket info for %s: %v", bucketName, err)
 		return false, err
 	}
 
-	connInfo, err := GetS3ConnectionInfo(connectionName)
+	// Use GCP Storage SDK for GCP
+	if connInfo.ProviderName == "GCP" {
+		return forceEmptyGCPBucket(connectionName, bucketName)
+	}
+
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
-		cblog.Errorf("Failed to get connection info: %v", err)
+		cblog.Errorf("Failed to get bucket info for %s: %v", bucketName, err)
 		return false, err
 	}
 
@@ -1856,7 +2850,35 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 		return false, err
 	}
 
-	ctx := context.Background()
+	// Use a longer timeout for force empty operations (5 minutes total)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Step 0: Abort all incomplete multipart uploads
+	cblog.Infof("Step 0: Aborting incomplete multipart uploads in bucket %s", bucketName)
+
+	core := &minio.Core{Client: client}
+	multipartUploads, err := core.ListMultipartUploads(ctx, iidInfo.SystemId, "", "", "", "", 1000)
+	if err != nil {
+		cblog.Warnf("Failed to list multipart uploads (may be normal if none exist): %v", err)
+		// Check for timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			return false, fmt.Errorf("force empty operation timed out while listing multipart uploads (provider: %s may not support this operation)", connInfo.ProviderName)
+		}
+	} else if len(multipartUploads.Uploads) > 0 {
+		cblog.Infof("Found %d incomplete multipart uploads to abort", len(multipartUploads.Uploads))
+		for _, upload := range multipartUploads.Uploads {
+			cblog.Infof("Aborting multipart upload: Key=%s, UploadID=%s", upload.Key, upload.UploadID)
+			err := core.AbortMultipartUpload(ctx, iidInfo.SystemId, upload.Key, upload.UploadID)
+			if err != nil {
+				cblog.Errorf("Failed to abort multipart upload %s (ID: %s): %v", upload.Key, upload.UploadID, err)
+			} else {
+				cblog.Infof("Successfully aborted multipart upload: %s", upload.Key)
+			}
+		}
+	} else {
+		cblog.Infof("No incomplete multipart uploads found")
+	}
 
 	// Step 1: List all object versions and delete markers
 	cblog.Infof("Step 1: Listing all object versions and delete markers in bucket %s", bucketName)
@@ -1867,9 +2889,13 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 	}
 
 	var allObjects []minio.ObjectInfo
-	for obj := range client.ListObjects(ctx, bucketName, opts) {
+	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 		if obj.Err != nil {
 			cblog.Errorf("Error listing object: %v", obj.Err)
+			// Check for timeout
+			if ctx.Err() == context.DeadlineExceeded {
+				return false, fmt.Errorf("force empty operation timed out while listing objects (provider: %s may have network issues)", connInfo.ProviderName)
+			}
 			continue
 		}
 		allObjects = append(allObjects, obj)
@@ -1896,7 +2922,7 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 			removeOpts.VersionID = obj.VersionID
 		}
 
-		err := client.RemoveObject(ctx, bucketName, obj.Key, removeOpts)
+		err := client.RemoveObject(ctx, iidInfo.SystemId, obj.Key, removeOpts)
 		if err != nil {
 			cblog.Errorf("Failed to delete object %s (version %s): %v", obj.Key, obj.VersionID, err)
 			errorCount++
@@ -1906,7 +2932,7 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 				cblog.Infof("Trying alternative deletion method for %s", obj.Key)
 
 				// Try deleting without version ID (this might work for some edge cases)
-				err2 := client.RemoveObject(ctx, bucketName, obj.Key, minio.RemoveObjectOptions{})
+				err2 := client.RemoveObject(ctx, iidInfo.SystemId, obj.Key, minio.RemoveObjectOptions{})
 				if err2 != nil {
 					cblog.Errorf("Alternative deletion also failed for %s: %v", obj.Key, err2)
 				} else {
@@ -1932,7 +2958,7 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 
 	// Check if bucket is now empty
 	remainingObjects := []minio.ObjectInfo{}
-	for obj := range client.ListObjects(ctx, bucketName, opts) {
+	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 		if obj.Err != nil {
 			cblog.Errorf("Error checking remaining objects: %v", obj.Err)
 			continue
@@ -1961,7 +2987,7 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 
 			deleted := false
 			for j, strategy := range strategies {
-				err := client.RemoveObject(ctx, bucketName, obj.Key, strategy)
+				err := client.RemoveObject(ctx, iidInfo.SystemId, obj.Key, strategy)
 				if err == nil {
 					cblog.Infof("Final cleanup succeeded for %s using strategy %d", obj.Key, j+1)
 					deleted = true
@@ -1979,7 +3005,7 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 
 	// Final verification
 	finalCheck := []minio.ObjectInfo{}
-	for obj := range client.ListObjects(ctx, bucketName, opts) {
+	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
 		if obj.Err != nil {
 			continue
 		}
@@ -1995,10 +3021,112 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 	return true, nil
 }
 
+// forceEmptyAndDeleteGCPBucket empties and deletes a GCP bucket using GCP Storage SDK
+func forceEmptyAndDeleteGCPBucket(connectionName, bucketName string) (bool, error) {
+	cblog.Info("call forceEmptyAndDeleteGCPBucket() - using GCP Storage SDK")
+
+	// First empty the bucket
+	success, err := forceEmptyGCPBucket(connectionName, bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to empty GCP bucket %s: %v", bucketName, err)
+		return false, err
+	}
+
+	if !success {
+		return false, fmt.Errorf("failed to empty GCP bucket")
+	}
+
+	cblog.Infof("GCP bucket %s emptied, now deleting bucket", bucketName)
+
+	// Get connection config
+	cccInfo, err := ccim.GetConnectionConfig(connectionName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get connection config: %w", err)
+	}
+
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get credential: %w", err)
+	}
+
+	// Build GCP credentials JSON
+	clientEmail := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail")
+	privateKey := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey")
+
+	if clientEmail == "" || privateKey == "" {
+		return false, fmt.Errorf("GCP credentials not found")
+	}
+
+	credentialsJSON := map[string]string{
+		"type":         "service_account",
+		"private_key":  privateKey,
+		"client_email": clientEmail,
+		"token_uri":    "https://oauth2.googleapis.com/token",
+	}
+
+	credBytes, err := json.Marshal(credentialsJSON)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create GCP storage client
+	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
+	if err != nil {
+		return false, fmt.Errorf("failed to create GCP storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	// Get bucket IID info
+	var iidInfo S3BucketIIDInfo
+	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get bucket info: %w", err)
+	}
+
+	bucket := storageClient.Bucket(iidInfo.SystemId)
+
+	// Delete the bucket - GCP will verify it's empty
+	cblog.Infof("Deleting GCP bucket %s", iidInfo.SystemId)
+	err = bucket.Delete(ctx)
+	if err != nil {
+		cblog.Errorf("Failed to delete GCP bucket: %v", err)
+		return false, fmt.Errorf("failed to delete GCP bucket: %w", err)
+	}
+
+	// Remove from database
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Errorf("Failed to open database: %v", err)
+		return false, fmt.Errorf("bucket deleted but failed to update database: %w", err)
+	}
+	defer infostore.Close(db)
+
+	err = db.Delete(&iidInfo).Error
+	if err != nil {
+		cblog.Errorf("Failed to delete bucket info from database: %v", err)
+		return false, fmt.Errorf("bucket deleted but failed to update database: %w", err)
+	}
+
+	cblog.Infof("Successfully force-deleted GCP bucket %s", bucketName)
+	return true, nil
+}
+
 // ForceEmptyAndDeleteBucket completely empties a bucket and deletes it
 func ForceEmptyAndDeleteBucket(connectionName, bucketName string) (bool, error) {
 	cblog.Info("call ForceEmptyAndDeleteBucket()")
 	cblog.Infof("Parameters - Connection: %s, Bucket: %s", connectionName, bucketName)
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return false, err
+	}
+
+	// Use GCP Storage SDK for GCP
+	if connInfo.ProviderName == "GCP" {
+		return forceEmptyAndDeleteGCPBucket(connectionName, bucketName)
+	}
 
 	// First, empty the bucket
 	success, err := ForceEmptyBucket(connectionName, bucketName)
@@ -2014,13 +3142,46 @@ func ForceEmptyAndDeleteBucket(connectionName, bucketName string) (bool, error) 
 
 	cblog.Infof("Bucket %s emptied successfully, now deleting bucket", bucketName)
 
-	// Now delete the empty bucket
-	success, err = DeleteS3Bucket(connectionName, bucketName)
-	if err != nil {
-		cblog.Errorf("Failed to delete empty bucket %s: %v", bucketName, err)
-		return false, fmt.Errorf("bucket emptied but deletion failed: %v", err)
+	// Add a small delay for eventual consistency
+	// Some CSPs (like GCP) may need time to propagate the empty state
+	cblog.Infof("Waiting 2 seconds for eventual consistency before deleting bucket")
+	time.Sleep(2 * time.Second)
+
+	// Try to delete the bucket with retries for eventual consistency
+	maxRetries := 3
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		cblog.Infof("Attempt %d/%d to delete bucket %s", attempt, maxRetries, bucketName)
+
+		success, err = DeleteS3Bucket(connectionName, bucketName, "true")
+		if err == nil && success {
+			cblog.Infof("Successfully force-emptied and deleted bucket %s on attempt %d", bucketName, attempt)
+			return true, nil
+		}
+
+		lastErr = err
+		cblog.Warnf("Attempt %d failed to delete bucket %s: %v", attempt, bucketName, err)
+
+		// If this is not the last attempt, wait before retrying
+		if attempt < maxRetries {
+			waitTime := time.Duration(attempt) * 2 * time.Second
+			cblog.Infof("Waiting %v before retry %d", waitTime, attempt+1)
+			time.Sleep(waitTime)
+		}
 	}
 
-	cblog.Infof("Successfully force-emptied and deleted bucket %s", bucketName)
-	return true, nil
+	cblog.Errorf("Failed to delete bucket %s after %d attempts: %v", bucketName, maxRetries, lastErr)
+	return false, fmt.Errorf("bucket emptied but deletion failed after %d attempts: %v", maxRetries, lastErr)
+}
+
+func CountS3BucketsByConnection(connectionName string) (int64, error) {
+	var info S3BucketIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
 }
