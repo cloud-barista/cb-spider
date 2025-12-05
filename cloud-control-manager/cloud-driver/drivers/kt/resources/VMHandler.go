@@ -8,6 +8,7 @@
 //
 // by ETRI, 2022.12.
 // Updated by ETRI 2024.01.
+// Updated by ETRI 2025.11.
 
 package resources
 
@@ -105,6 +106,22 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
+	}
+
+    // Check if S/G exists first
+	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
+		cblogger.Infof("S/G ID to verify the existence of S/G : [%s]", sgIID.SystemId)
+
+		securityHandler := KTVpcSecurityHandler{
+			RegionInfo: 	vmHandler.RegionInfo,
+			VMClient:       vmHandler.VMClient,
+			NetworkClient: 	vmHandler.NetworkClient,
+		}
+		if err := securityHandler.CheckSecurityGroupExists(sgIID); err != nil {
+			newErr := fmt.Errorf("SecurityGroup validation failed: %w", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
 	}
 
 	// Check Flavor Info. (Change Name to ID)
@@ -353,7 +370,7 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		cblogger.Infof("# New PublicIP ID : [%s]", publicIPId)
 		time.Sleep(time.Second * 2)
 
-		publicIp, err := vmHandler.FindPublicIPByID(publicIPId)
+		publicIp, err := vmHandler.findPublicIPByID(publicIPId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Find the PublicIP with the ID : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -615,12 +632,12 @@ func (vmHandler *KTVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("Start Get VM Status...")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
-		cblogger.Errorf("[%s] Failed to Get the VM Status.", vmIID)
-		cblogger.Error(err)
-		loggingError(callLogInfo, err)
-		return irs.VMStatus("Failed to Get the VM Status."), err
+		newErr := fmt.Errorf("Failed to Get the VM Status of [%s] : [%v]", vmIID.SystemId, err)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.Failed, newErr		
 	} else {
-		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID, vmStatus)
+		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, string(vmStatus))
 	}
 
 	var resultStatus string
@@ -696,25 +713,28 @@ func (vmHandler *KTVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		// Delete Firewall Rules
 		_, dellFwErr := vmHandler.removeFirewallRules(vm.PublicIP)
 		if dellFwErr != nil {
-			cblogger.Error(dellFwErr.Error())
-			loggingError(callLogInfo, dellFwErr)
-			return irs.Failed, dellFwErr
+			newErr := fmt.Errorf("Failed to Delete Firewall Rules : [%v]", dellFwErr)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return irs.Failed, newErr
 		}
 
 		// Delete Port Forwarding Rules
 		_, dellPfErr := vmHandler.removePortForwardingRules(vm.PublicIP)
 		if dellPfErr != nil {
-			cblogger.Error(dellPfErr.Error())
-			loggingError(callLogInfo, dellPfErr)
-			return irs.Failed, dellPfErr
+			newErr := fmt.Errorf("Failed to Delete Port Forwarding Rules : [%v]", dellPfErr)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return irs.Failed, newErr
 		}
 
 		// Delete PublicIP connected VM
 		_, dellIpErr := vmHandler.removePublicIP(vm.PublicIP)
 		if dellIpErr != nil {
-			cblogger.Error(dellIpErr.Error())
-			loggingError(callLogInfo, dellIpErr)
-			return irs.Failed, dellIpErr
+			newErr := fmt.Errorf("Failed to Delete Public IP : [%v]", dellIpErr)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return irs.Failed, newErr
 		}
 
 	} else {
@@ -920,6 +940,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 		RegionInfo: 	vmHandler.RegionInfo,
 		NetworkClient:  vmHandler.NetworkClient, // Required!!
 	}
+	// Gets Network ID of External Subnet among Subnet(Tier) List
 	extNetId, getErr := vpcHandler.getNetworkID("external")
 	if getErr != nil {
 		newErr := fmt.Errorf("Failed to Get the External Network ID from Subnet Info : [%v]", getErr)
@@ -1014,8 +1035,8 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 						time.Sleep(time.Second * 2)
 					}
 
-					// Caution!!) KT Cloud VPC 'Firewall Rules' Support "inbound" and "outbound"
 					// ### Set FireWall Rules (In case of "Inbound" FireWall Rules)
+					// Caution!!) KT Cloud VPC 'Firewall Rules' Support "inbound" and "outbound"
 					cblogger.Info("### Start to Create Firewall 'inbound' Rules!!")
 
 					destCIDR, err := ipToCidr32(ruleSet.PublicIP) // Output format ex) "172.25.1.0/32". Not Private IP to login from External
@@ -1027,7 +1048,9 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					}
 
 					srcIPAdds := "0.0.0.0/0"
+
 					inboundFWOpts := &rules.CreateOpts{}
+					
 					if !(strings.EqualFold(curProtocol, "ICMP")) { // Incase of 'TCP' and 'UDP'
 						comment := "Allow inbound - " + curProtocol + " - " + sgRule.FromPort + " to " + sgRule.ToPort
 						inboundFWOpts = &rules.CreateOpts{
@@ -1530,7 +1553,6 @@ func (vmHandler *KTVpcVMHandler) listFirewallRule() ([]rules.FirewallRule, error
 			cblogger.Error(newErr.Error())
 		    return false, newErr
 		}
-
 		if len(rules) < 1 {
 			newErr := fmt.Errorf("Failed to Find Any FirewallRule Info.")
 			cblogger.Debug("No FirewallRule found : %v", newErr)
@@ -1739,7 +1761,7 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 		return true, nil // Not false, newErr
 	}
 
-    policyIDs, err := vmHandler.FindFirewallPolicyIDsByIP(fwRuleList, ip)
+    policyIDs, err := vmHandler.findFirewallPolicyIDsByIP(fwRuleList, ip)
 	if err != nil {
 		if strings.Contains(err.Error(), "No PolicyIDs found") {
 			newErr := fmt.Errorf(err.Error())
@@ -1834,7 +1856,7 @@ func (vmHandler *KTVpcVMHandler) removePublicIP(publicIpAddr string) (bool, erro
 	}
 
     // 1. Find the public IP ID by IP address
-    publicIPID, err := vmHandler.FindPublicIPIDByIP(publicIpAddr)
+    publicIPID, err := vmHandler.findPublicIPIDByIP(publicIpAddr)
     if err != nil {
 		newErr := fmt.Errorf("Failed to Find the PublicIP ID: [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -1917,9 +1939,9 @@ func (vmHandler *KTVpcVMHandler) waitForAsyncJob(jobId string, timeOut time.Dura
 	}
 }
 
-func (vmHandler *KTVpcVMHandler) listKTCloudVM() ([]servers.Server, error) {
-	cblogger.Info("KT Cloud driver: called listKTCloudVM()!")
-	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "listKTCloudVM()", "listKTCloudVM()")
+func (vmHandler *KTVpcVMHandler) listKtVM() ([]servers.Server, error) {
+	cblogger.Info("KT Cloud driver: called listKtVM()!")
+	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "listKtVM()", "listKtVM()")
 
 	// Get VM list
 	listOpts := servers.ListOpts{
@@ -1945,8 +1967,8 @@ func (vmHandler *KTVpcVMHandler) listKTCloudVM() ([]servers.Server, error) {
 	return vmList, nil
 }
 
-func (vmHandler *KTVpcVMHandler) getKTCloudVM(vmId string) (servers.Server, error) {
-	cblogger.Info("KT Cloud driver: called getKTCloudVM()!")
+func (vmHandler *KTVpcVMHandler) getKtVMInfo(vmId string) (servers.Server, error) {
+	cblogger.Info("KT Cloud driver: called getKtVMInfo()!")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmId, "GetVM()")
 
 	if strings.EqualFold(vmId, "") {
@@ -1979,7 +2001,7 @@ func (vmHandler *KTVpcVMHandler) getVmIdAndPrivateIPWithName(vmName string) (str
 	}
 
 	// Get KT Cloud VM list
-	ktVMList, err := vmHandler.listKTCloudVM()
+	ktVMList, err := vmHandler.listKtVM()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud VM List : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -2017,6 +2039,7 @@ func (vmHandler *KTVpcVMHandler) getVmIdAndPrivateIPWithName(vmName string) (str
 		err := fmt.Errorf("Failed to Find the VM Private IP with the VM Name %s", vmName)
 		return "", "", err
 	} else {
+		cblogger.Infof("Found VM ID and Private IP : [%s], [%s]", vmId, vmPrivateIP)
 		return vmId, vmPrivateIP, nil
 	}
 }
@@ -2030,7 +2053,7 @@ func (vmHandler *KTVpcVMHandler) getVmNameWithId(vmId string) (string, error) {
 		return "", newErr
 	}
 
-	ktVM, err := vmHandler.getKTCloudVM(vmId)
+	ktVM, err := vmHandler.getKtVMInfo(vmId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Info from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -2054,7 +2077,7 @@ func (vmHandler *KTVpcVMHandler) getPublicIPWithVMId(vmId string) (string, error
 		return "", newErr
 	}
 
-	ktVM, err := vmHandler.getKTCloudVM(vmId)
+	ktVM, err := vmHandler.getKtVMInfo(vmId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Info from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -2102,7 +2125,7 @@ func (vmHandler *KTVpcVMHandler) getVmPrivateIpAndNetIdWithVMId(vmId string) (st
 		return "", "", newErr
 	}
 
-	ktVM, err := vmHandler.getKTCloudVM(vmId)
+	ktVM, err := vmHandler.getKtVMInfo(vmId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Info from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -2141,6 +2164,7 @@ func (vmHandler *KTVpcVMHandler) getVmPrivateIpAndNetIdWithVMId(vmId string) (st
 		err := fmt.Errorf("Failed to Find the OsNetworkId with the VM ID %s", vmId)
 		return "", "", err
 	} else {
+		cblogger.Infof("Found Private IP and Tier ID : [%s], [%s]", privateIP, *tierId)
 		return privateIP, *tierId, nil
 	}
 }
@@ -2209,7 +2233,7 @@ func countSgKvList(sg sim.SecurityGroupInfo) int {
 }
 
 func (vmHandler *KTVpcVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
+	cblogger.Info("KT Cloud driver: called ListIID()!!")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListIID()", "ListIID()")
 
 	// Get VM list
@@ -2243,9 +2267,10 @@ func (vmHandler *KTVpcVMHandler) ListIID() ([]*irs.IID, error) {
 	return iidList, nil
 }
 
-// FindFirewallPolicyIDsByIP returns a list of PolicyIDs from the given FirewallRule list
+// findFirewallPolicyIDsByIP returns a list of PolicyIDs from the given FirewallRule list
 // that match the given 'public IP' or 'private IP' (as substring, CIDR, or exact match).
-func (vmHandler *KTVpcVMHandler) FindFirewallPolicyIDsByIP(fwRules []rules.FirewallRule, ip string) ([]string, error) {
+func (vmHandler *KTVpcVMHandler) findFirewallPolicyIDsByIP(fwRules []rules.FirewallRule, ip string) ([]string, error) {
+	cblogger.Info("KT Cloud driver: called findFirewallPolicyIDsByIP()!!")
 
 	if strings.EqualFold(ip, "") {
 		newErr := fmt.Errorf("Invalid IP Address!!")
@@ -2284,8 +2309,9 @@ func (vmHandler *KTVpcVMHandler) FindFirewallPolicyIDsByIP(fwRules []rules.Firew
 	} 
 }
 
-// FindPublicIPIDByIP searches for a public IP ID based on the given public IP address
-func (vmHandler *KTVpcVMHandler) FindPublicIPIDByIP(publicIPAddress string) (string, error) {
+// findPublicIPIDByIP searches for a public IP ID based on the given public IP address
+func (vmHandler *KTVpcVMHandler) findPublicIPIDByIP(publicIPAddress string) (string, error) {
+	cblogger.Info("KT Cloud driver: called findPublicIPIDByIP()!!")
 
 	if strings.EqualFold(publicIPAddress, "") {
 		newErr := fmt.Errorf("Invalid PublicIP Address!!")
@@ -2334,8 +2360,9 @@ func (vmHandler *KTVpcVMHandler) FindPublicIPIDByIP(publicIPAddress string) (str
     return foundPublicIPID, nil
 }
 
-// FindPublicIPByID searches for a public IP address based on the given public IP ID
-func (vmHandler *KTVpcVMHandler) FindPublicIPByID(publicIPId string) (string, error) {
+// findPublicIPByID searches for a public IP address based on the given public IP ID
+func (vmHandler *KTVpcVMHandler) findPublicIPByID(publicIPId string) (string, error) {
+	cblogger.Info("KT Cloud driver: called findPublicIPByID()!!")
 
 	if strings.EqualFold(publicIPId, "") {
 		newErr := fmt.Errorf("Invalid PublicIP ID!!")
@@ -2356,7 +2383,7 @@ func (vmHandler *KTVpcVMHandler) FindPublicIPByID(publicIPId string) (string, er
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	cblogger.Infof("# PublicIP Address : [%s]", ipInfo.PublicIP)
+	// cblogger.Infof("# PublicIP Address : [%s]", ipInfo.PublicIP)
 
 	if strings.EqualFold(ipInfo.PublicIP, "") {
 		return "", fmt.Errorf("No Public IP found with the ID: %s", publicIPId)

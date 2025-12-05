@@ -92,8 +92,9 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 
   O VM 생성시 아래의 사항을 참고
 
-   - KT Cloud VPC VM 생성시, 조회된 VMSpec 목록 중 ~.itl 이라는 이름의 VMSpec으로 VM을 생성해야 정상적으로 생성됨.
+   - KT Cloud D 플랫폼에서 VM 생성시, 조회된 VMSpec 목록 중 ~.itl 이라는 이름의 VMSpec으로 VM을 생성해야 정상적으로 생성됨.
       - Ex) 16x16.itl
+   - VM 생성시 option으로 설정하는 root disk size는 Ubuntu / Red Hat Linux / Rocky 종류의 OS는 50GB/100GB만 지원하고, Debian OS는 50G만 지원, 그리고, MS Windows OS의 경우는 100GB/150GB로만 지원함.
 
 ​  O VPC, Subnet 관리시 아래의 사항을 참고 
 
@@ -124,7 +125,6 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 
  O NLB 생성시 아래의 사항을 참고
 
-   - CB-Spider를 이용해 NLB 생성시, 내부적으로 'NLB-SUBNET' 이라는 이름의 subnet(Tier)가 지정되어 그 subnet 기준으로 NLB가 생성됨.
-      - VPC 내에 'NLB-SUBNET' 이라는 이름의 subnet이 없을 경우 미리 생성해야함.
-   - 위와 같은 이유로, VM에 NLB를 적용하기 위해서는 VM 생성시 'NLB-SUBNET' 기준으로 생성해야함.
-      - (참고) KT Cloud VPC는 다른 subnet 내에 생성된 VM을 특정 subnet에 생성된 NLB에 적용 불가함.     
+   - KT Cloud는 NLB 생성시 주요 parameter 중의 하나로 subnet(Tier)이 지정되고 그 subnet(Tier)의 NLB 범위 내에 NLB가 생성됨.
+      - CB-Spider 공통 인터페이스에는 NLB 생성시 subnet을 지정하는 parameter가 존재하지 않으니, 본 드라이버에는 NLB에 추가하는 VM이 속한 subnet 정보를 NLB용 subnet으로 지정함.
+      - (참고) KT Cloud는 서로 다른 subnet 내에 생성된 VM을 하나의 NLB에 적용 불가함.

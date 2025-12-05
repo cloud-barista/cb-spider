@@ -88,20 +88,37 @@ func handleVM() {
 					// ImageType:	irs.MyImage,
 					ImageType:	irs.PublicImage,
 
+					// Public Image
+					ImageIID: irs.IID{NameId: "ubuntu-24.04-64bit", SystemId: config.KT.ImageId},
+					// ImageIID: irs.IID{NameId: "windows-2019-std-64bit", SystemId: "0668b053-2a3c-4751-aef9-b6342d3a19c3"},
+					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit-221115", SystemId: "d3f14f02-15b8-445e-9fb6-4cbd3f3c3387"},
+					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit", SystemId: "c6814d96-9746-42eb-a7d3-80f31d9cd297"}, // ubuntu-18.04-64bit
+
+					VMSpecName: config.KT.VMSpecId,
+
+					// $$$ Needs KT Cloud VPC VPC 'SystemId'
+					VpcIID: irs.IID{
+						NameId: "",
+						SystemId: config.KT.VPCId,
+					},
+					
+					// Caution!! Not Tier 'ID' but 'OsNetworkID' (among REST API parameters) to Create VM!!
+					SubnetIID: irs.IID{
+						// NameId: "kt-subnet-ck1f929jcuppgg7kbvig",
+						SystemId: config.KT.SubentId,
+					},
+
+					SecurityGroupIIDs: []irs.IID{{SystemId: config.KT.SecurityGroups}}, // Caution!!) Not NameId but 'SystemId'
+
+					// KeyPairIID: irs.IID{NameId: "ohkeypair-cobpk3svtts5q0087n80"},
+					KeyPairIID: irs.IID{NameId: config.KT.KeypairName}, // Caution!!) Not SystemId but NameId
+
 					VMUserPasswd: "cbuser357505**", // No Simple PW!!
 
 					IId: irs.IID{NameId: config.KT.ReqVMName},
 
 					// MyImage
 					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit-221115", SystemId: "22f5e22d-ebaf-4ffe-a56b-7ea12a9be770"}, //
-
-					// Public Image
-					ImageIID: irs.IID{NameId: "ubuntu-20.04-64bit", SystemId: config.KT.ReqVMImage},
-					// ImageIID: irs.IID{NameId: "windows-2019-std-64bit", SystemId: "0668b053-2a3c-4751-aef9-b6342d3a19c3"},
-					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit-221115", SystemId: "d3f14f02-15b8-445e-9fb6-4cbd3f3c3387"},
-					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit", SystemId: "c6814d96-9746-42eb-a7d3-80f31d9cd297"}, // ubuntu-18.04-64bit
-
-					VMSpecName: config.KT.ReqVMSpec,
 
 					RootDiskType: "HDD",
 					// RootDiskType: "SSD",
@@ -110,26 +127,7 @@ func handleVM() {
 					RootDiskSize: "50",
 					// RootDiskSize: "default",
 
-					// KeyPairIID: irs.IID{NameId: "ohkeypair-cobpk3svtts5q0087n80"},
-					KeyPairIID: irs.IID{NameId: "kt-dx-m1-zone-keypair-kfy-d2qj0h2436uuh1thk7ig"}, // Caution!!) Not SystemId
 
-					SecurityGroupIIDs: []irs.IID{{SystemId: "ktcloudvp-crt5ndcvtts41jm39tcg"}}, // Caution!!) Not NameId but 'SystemId'
-					// SecurityGroupIIDs: []irs.IID{{SystemId: "ohsg02-cobsm0svtts66jc9kl8g"}},
-		
-					// $$$ Needs KT Cloud VPC VPC 'SystemId'
-					VpcIID: irs.IID{
-						NameId: "",
-						SystemId: "60e5d9da-55cd-47be-a0d9-6cf67c54f15c",
-					},
-					
-					// Caution!! Not Tier 'ID' but 'OsNetworkID' (among REST API parameters) to Create VM!!
-					SubnetIID: irs.IID{
-						// NameId: "kt-subnet-ck1f929jcuppgg7kbvig",
-						SystemId: "65137bdd-d4c8-4a3c-a4cf-f4556ac69c4c",
-
-						// NameId: "kt-dx-subnet-1", // 172.25.6.1/24
-						// SystemId: "908bb72a-aa50-46d1-ba7d-32d23c0d3eea", // Not 'ID' of Tier but 'OsNetworkID' of Tier to Create VM!!
-					},
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -337,17 +335,18 @@ type Config struct {
 		Region           string `yaml:"region"`
 		Zone             string `yaml:"zone"`
 
+		VMId 			 string `yaml:"vm_id"`
+		ReqVMName 		 string `yaml:"req_vm_name"`
 		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		VMSpecId         string `yaml:"vmspec_id"`
+
+		ImageId          string `yaml:"vm_image_id"`
+		VMSpecId         string `yaml:"vm_spec_id"`
 		NetworkId        string `yaml:"network_id"`
 		SecurityGroups   string `yaml:"security_groups"`
 		KeypairName      string `yaml:"keypair_name"`
 
-		VMId 			 string `yaml:"vm_id"`
-		ReqVMName 		 string `yaml:"req_vm_name"`
-		ReqVMImage 		 string `yaml:"req_vm_image"`
-		ReqVMSpec 		 string `yaml:"req_vm_spec"`
+		VPCId         	 string `yaml:"vpc_id"`
+		SubentId         string `yaml:"subnet_id"`
 		
 		Image struct {
 			Name string `yaml:"name"`
