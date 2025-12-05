@@ -459,7 +459,19 @@ function createBucket() {
             hideBucketCreateOverlay(); 
             location.reload();
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // Parse error response body (XML or JSON)
+            return response.text().then(errorText => {
+                if (errorText.includes('<?xml') || errorText.includes('<Error>')) {
+                    // Parse S3 XML error response
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(errorText, 'text/xml');
+                    const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                    const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || errorText;
+                    throw new Error(`${errorCode}: ${errorMessage}`);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            });
         }
     })
     .catch(e => { 
@@ -495,17 +507,12 @@ function toggleVersioningQuick(bucketName, currentStatus) {
     .then(response => {
         hideProgressBar();
         if (response.ok) {
-            const savedBucket = currentBucket;
-            const savedPrefix = currentPrefix;
-            
-            setTimeout(() => {
-                location.reload();
-                setTimeout(() => {
-                    if (savedBucket) {
-                        showObjectPanel(savedBucket, savedPrefix);
-                    }
-                }, 100);
-            }, 100);
+            // Save current bucket to sessionStorage before reload
+            if (currentBucket) {
+                sessionStorage.setItem('cb-spider-selected-bucket', currentBucket);
+                sessionStorage.setItem('cb-spider-selected-prefix', currentPrefix || '');
+            }
+            location.reload();
         } else {
             return response.text().then(responseText => {
                 if (responseText.includes('<e>')) {
@@ -546,17 +553,12 @@ function toggleCORSQuick(bucketName, currentStatus) {
             .then(response => {
                 hideProgressBar();
                 if (response.ok) {
-                    const savedBucket = currentBucket;
-                    const savedPrefix = currentPrefix;
-                    
-                    setTimeout(() => {
-                        location.reload();
-                        setTimeout(() => {
-                            if (savedBucket) {
-                                showObjectPanel(savedBucket, savedPrefix);
-                            }
-                        }, 100);
-                    }, 100);
+                    // Save current bucket to sessionStorage before reload
+                    if (currentBucket) {
+                        sessionStorage.setItem('cb-spider-selected-bucket', currentBucket);
+                        sessionStorage.setItem('cb-spider-selected-prefix', currentPrefix || '');
+                    }
+                    location.reload();
                 } else {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -609,17 +611,12 @@ function toggleCORSQuick(bucketName, currentStatus) {
     .then(response => {
         hideProgressBar();
         if (response.ok) {
-            const savedBucket = currentBucket;
-            const savedPrefix = currentPrefix;
-            
-            setTimeout(() => {
-                location.reload();
-                setTimeout(() => {
-                    if (savedBucket) {
-                        showObjectPanel(savedBucket, savedPrefix);
-                    }
-                }, 100);
-            }, 100);
+            // Save current bucket to sessionStorage before reload
+            if (currentBucket) {
+                sessionStorage.setItem('cb-spider-selected-bucket', currentBucket);
+                sessionStorage.setItem('cb-spider-selected-prefix', currentPrefix || '');
+            }
+            location.reload();
         } else {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -630,11 +627,15 @@ function toggleCORSQuick(bucketName, currentStatus) {
     });
 }
 
-function deleteBucket(name) {
-    if (!confirm(`Delete bucket "${name}"?\n\nWarning: The bucket must be empty before it can be deleted. If the bucket contains objects, the deletion will fail.`)) return;
+function deleteBucket(name, forceDelete = false) {
+    if (!forceDelete && !confirm(`Delete bucket "${name}"?\n\nWarning: The bucket must be empty before it can be deleted. If the bucket contains objects, the deletion will fail.`)) return;
     showProgressBar();
     
-    fetch(`/spider/s3/${name}?ConnectionName=${connConfig}`, { 
+    const url = forceDelete 
+        ? `/spider/s3/${name}?force=true&ConnectionName=${connConfig}`
+        : `/spider/s3/${name}?ConnectionName=${connConfig}`;
+    
+    fetch(url, { 
         method: 'DELETE',
         headers: {
             'X-Connection-Name': connConfig
@@ -655,6 +656,14 @@ function deleteBucket(name) {
                         if (errorCode === 'BucketNotEmpty') {
                             throw new Error(`Cannot delete bucket "${name}": The bucket is not empty.\n\nPlease delete all objects in the bucket first, then try again.`);
                         } else if (errorCode === 'NoSuchBucket') {
+                            // Check if this is a metadata-only bucket
+                            if (errorMessage.includes('metadata exists') || errorMessage.includes('Use force=true')) {
+                                hideProgressBar();
+                                if (confirm(`Bucket "${name}" not found in CSP, but metadata exists.\n\nDo you want to force delete the metadata only?`)) {
+                                    deleteBucket(name, true);
+                                }
+                                return;
+                            }
                             throw new Error(`Bucket "${name}" does not exist.`);
                         } else if (errorCode === 'AccessDenied') {
                             throw new Error(`Access denied: You don't have permission to delete bucket "${name}".`);
@@ -775,7 +784,7 @@ function hideCORSInfoOverlay() {
 }
 
 function showBucketCreateOverlay() { 
-    const region = '{{.RegionName}}';
+    const region = '{{.RegionName}}'.toLowerCase();
     const bucketNameInput = document.getElementById('new-bucket-name');
     bucketNameInput.value = `${region}-bucket-${Math.random().toString(36).substring(2, 8)}`;
     document.getElementById('bucket-create-overlay').style.display = 'flex'; 
@@ -783,7 +792,7 @@ function showBucketCreateOverlay() {
 
 function hideBucketCreateOverlay() { 
     document.getElementById('bucket-create-overlay').style.display = 'none';
-    const region = '{{.RegionName}}';
+    const region = '{{.RegionName}}'.toLowerCase();
     const bucketNameInput = document.getElementById('new-bucket-name');
     bucketNameInput.value = `${region}-bucket-${Math.random().toString(36).substring(2, 8)}`;
 }
@@ -815,6 +824,10 @@ function deleteSelectedBuckets() {
                     if (errorText.includes('BucketNotEmpty')) {
                         return { bucket: bucketName, error: 'Bucket is not empty' };
                     } else if (errorText.includes('NoSuchBucket')) {
+                        // Check if metadata exists
+                        if (errorText.includes('metadata exists') || errorText.includes('Use force=true')) {
+                            return { bucket: bucketName, error: 'Not found in CSP', needsForce: true };
+                        }
                         return { bucket: bucketName, error: 'Bucket does not exist' };
                     } else if (errorText.includes('AccessDenied')) {
                         return { bucket: bucketName, error: 'Access denied' };
@@ -834,6 +847,7 @@ function deleteSelectedBuckets() {
         
         const successes = results.filter(r => r.success);
         const failures = results.filter(r => r.error);
+        const needsForce = results.filter(r => r.needsForce);
         
         if (failures.length > 0) {
             let message = `Deletion completed:\n\n`;
@@ -845,6 +859,29 @@ function deleteSelectedBuckets() {
                 message += `- ${f.bucket}: ${f.error}\n`;
             });
             alert(message);
+            
+            // Handle buckets that need force delete
+            if (needsForce.length > 0) {
+                const forceList = needsForce.map(f => f.bucket).join(', ');
+                if (confirm(`The following bucket(s) not found in CSP but metadata exists:\n${forceList}\n\nDo you want to force delete the metadata?`)) {
+                    showProgressBar();
+                    const forceDeletePromises = needsForce.map(item => {
+                        return fetch(`/spider/s3/${item.bucket}?force=true&ConnectionName=${connConfig}`, {
+                            method: 'DELETE',
+                            headers: { 'X-Connection-Name': connConfig }
+                        });
+                    });
+                    Promise.all(forceDeletePromises).then(() => {
+                        hideProgressBar();
+                        location.reload();
+                    }).catch(e => {
+                        hideProgressBar();
+                        alert('Error during force deletion: ' + e.message);
+                        location.reload();
+                    });
+                    return;
+                }
+            }
         }
         
         location.reload();
@@ -1446,17 +1483,21 @@ async function generatePresignedURLAction() {
         // Share Object always uses download endpoint (GET method)
         const apiEndpoint = `/spider/s3/presigned/download/${bucket}/${encodedKey}`;
         
-        const response = await fetch(`${apiEndpoint}?ConnectionName=${connConfig}&expires=${expiresSeconds}`);
+        const response = await fetch(`${apiEndpoint}?ConnectionName=${connConfig}&expires=${expiresSeconds}`, {
+            headers: {
+                'Accept': 'application/xml'
+            }
+        });
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const xmlText = await response.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         
-        const presignedURL = xmlDoc.getElementsByTagName('PresignedURL')[0]?.textContent;
+        // Extract PresignedURL using regex to avoid namespace issues
+        const urlMatch = xmlText.match(/<PresignedURL>([^<]+)<\/PresignedURL>/);
+        const presignedURL = urlMatch ? urlMatch[1] : null;
         
         if (presignedURL) {
             document.getElementById('presigned-url-text').value = presignedURL;
@@ -1904,17 +1945,21 @@ async function generateUploadURLAction() {
 
     try {
         const encodedKey = encodeURIComponent(objectKey);
-        const response = await fetch(`/spider/s3/presigned/upload/${bucket}/${encodedKey}?ConnectionName=${connConfig}&expires=${expiresSeconds}`);
+        const response = await fetch(`/spider/s3/presigned/upload/${bucket}/${encodedKey}?ConnectionName=${connConfig}&expires=${expiresSeconds}`, {
+            headers: {
+                'Accept': 'application/xml'
+            }
+        });
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const xmlText = await response.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         
-        const presignedURL = xmlDoc.getElementsByTagName('PresignedURL')[0]?.textContent;
+        // Extract PresignedURL using regex to avoid namespace issues
+        const urlMatch = xmlText.match(/<PresignedURL>([^<]+)<\/PresignedURL>/);
+        const presignedURL = urlMatch ? urlMatch[1] : null;
         
         if (presignedURL) {
             document.getElementById('upload-url-text').value = presignedURL;
@@ -2008,13 +2053,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    const bucketRows = document.querySelectorAll('#bucket-list-body tr');
-    if (bucketRows.length > 0) {
-        const firstBucketCell = bucketRows[0].querySelector('.bucket-name-cell span');
-        if (firstBucketCell) {
-            const bucketName = firstBucketCell.textContent.trim();
-            if (bucketName) {
-                showObjectPanel(bucketName);
+    // Check if there's a saved bucket selection from previous page load
+    const savedBucket = sessionStorage.getItem('cb-spider-selected-bucket');
+    const savedPrefix = sessionStorage.getItem('cb-spider-selected-prefix');
+    
+    if (savedBucket) {
+        // Clear the saved selection
+        sessionStorage.removeItem('cb-spider-selected-bucket');
+        sessionStorage.removeItem('cb-spider-selected-prefix');
+        
+        // Restore the selected bucket
+        console.log('Restoring selected bucket:', savedBucket, 'prefix:', savedPrefix);
+        showObjectPanel(savedBucket, savedPrefix || '');
+    } else {
+        // No saved selection, show first bucket as default
+        const bucketRows = document.querySelectorAll('#bucket-list-body tr');
+        if (bucketRows.length > 0) {
+            const firstBucketCell = bucketRows[0].querySelector('.bucket-name-cell span');
+            if (firstBucketCell) {
+                const bucketName = firstBucketCell.textContent.trim();
+                if (bucketName) {
+                    showObjectPanel(bucketName);
+                }
             }
         }
     }

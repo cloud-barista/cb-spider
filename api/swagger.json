@@ -2195,6 +2195,42 @@
                 }
             }
         },
+        "/counts3/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of S3 buckets for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Count S3 Buckets by Connection",
+                "operationId": "count-s3-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of S3 buckets for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/countsecuritygroup": {
             "get": {
                 "description": "Get the total number of Security Groups across all connections.",
@@ -6996,6 +7032,962 @@
                 }
             }
         },
+        "/s3": {
+            "get": {
+                "description": "Returns a list of all buckets owned by the authenticated sender of the request. To list buckets, you must have the ConnectionName parameter.",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "List all S3 buckets",
+                "operationId": "list-s3-buckets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of buckets",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListAllMyBucketsResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Missing ConnectionName",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/presigned/download/{BucketName}/{ObjectKey}": {
+            "get": {
+                "description": "Generates a presigned URL that can be used to download an object from S3 without requiring AWS credentials. This is a CB-Spider special feature.",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Generate presigned URL for downloading object (CB-Spider special feature)",
+                "operationId": "get-s3-presigned-url",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key (full path)",
+                        "name": "ObjectKey",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "HTTP method for URL (default: GET)",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "URL expiration time in seconds (default: 3600)",
+                        "name": "expires",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Content-Disposition header value for download",
+                        "name": "response-content-disposition",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Presigned URL for download",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3PresignedURLXML"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/presigned/upload/{BucketName}/{ObjectKey}": {
+            "get": {
+                "description": "Generates a presigned URL that can be used to upload an object to S3 without requiring AWS credentials. This is a CB-Spider special feature.",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Generate presigned URL for uploading object (CB-Spider special feature)",
+                "operationId": "get-s3-presigned-upload-url",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key (full path)",
+                        "name": "ObjectKey",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "URL expiration time in seconds (default: 3600)",
+                        "name": "expires",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Presigned URL for upload",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3PresignedURLXML"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/{BucketName}": {
+            "get": {
+                "description": "List objects in bucket or get bucket configuration based on query parameters. Query parameters: ?location (bucket location), ?versioning (versioning status), ?cors (CORS config), ?versions (object versions), ?uploads (multipart uploads). Without query params, lists objects in bucket.",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Get S3 bucket information (GET request)",
+                "operationId": "get-s3-bucket-get",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Get bucket location",
+                        "name": "location",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Get versioning status",
+                        "name": "versioning",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Get CORS configuration",
+                        "name": "cors",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "List object versions",
+                        "name": "versions",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "List multipart uploads",
+                        "name": "uploads",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bucket information or object list",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Creates a new S3 bucket or sets bucket configuration based on query parameters.\n\n**Operations:**\n- No query params: Create a new bucket\n- ?versioning: Set versioning configuration (Enable/Suspend)\n- ?cors: Set CORS configuration\n\n**IMPORTANT: Choose only ONE body configuration based on query parameter:**\n- If using ?versioning: Use VersioningConfiguration body\n- If using ?cors: Use CORSConfiguration body\n- If no query params: No body required (bucket creation)\n\n**Versioning Status Values:**\n- Enabled: Enable versioning for the bucket\n- Suspended: Suspend versioning for the bucket\n\n**CORS Configuration Example:**\n- AllowedOrigin: [\"*\"] or [\"https://example.com\"]\n- AllowedMethod: [\"GET\", \"PUT\", \"POST\", \"DELETE\", \"HEAD\"]\n- AllowedHeader: [\"*\"] or [\"Content-Type\", \"Authorization\"]\n- ExposeHeader: [\"ETag\", \"x-amz-request-id\"]\n- MaxAgeSeconds: 3600 (cache preflight response for 1 hour)",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Create a new S3 bucket or set bucket configuration",
+                "operationId": "create-s3-bucket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set versioning configuration",
+                        "name": "versioning",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set CORS configuration",
+                        "name": "cors",
+                        "in": "query"
+                    },
+                    {
+                        "description": "USE THIS ONLY with ?versioning query parameter. Status: 'Enabled' or 'Suspended'",
+                        "name": "VersioningConfiguration",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VersioningConfiguration"
+                        }
+                    },
+                    {
+                        "description": "USE THIS ONLY with ?cors query parameter. Must include at least one CORSRule",
+                        "name": "CORSConfiguration",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CORSConfiguration"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bucket created or configuration updated successfully"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - Bucket already exists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Uploads a file using HTML form (multipart/form-data) or deletes multiple objects based on query parameters.\n\n**Operations:**\n- No query params: Upload object via form (requires 'key' and 'file' fields, Content-Type: multipart/form-data)\n- ?delete: Delete multiple objects (requires XML/JSON body, Content-Type: application/xml or application/json)\n\n**XML Body Example for Delete Multiple Objects:**\n```xml\n\u003cDelete\u003e\n\u003cObject\u003e\n\u003cKey\u003efile1.txt\u003c/Key\u003e\n\u003c/Object\u003e\n\u003cObject\u003e\n\u003cKey\u003efile2.txt\u003c/Key\u003e\n\u003c/Object\u003e\n\u003cObject\u003e\n\u003cKey\u003efolder/file3.txt\u003c/Key\u003e\n\u003c/Object\u003e\n\u003c/Delete\u003e\n```\n\n**JSON Body Example for Delete Multiple Objects:**\n```json\n{\n\"Delete\": {\n\"Objects\": [\n{\"Key\": \"file1.txt\"},\n{\"Key\": \"file2.txt\"},\n{\"Key\": \"folder/file3.txt\"}\n]\n}\n}\n```",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Upload object using HTML form or delete multiple objects",
+                "operationId": "put-s3-object-from-form",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Delete multiple objects (use with body parameter)",
+                        "name": "delete",
+                        "in": "query"
+                    },
+                    {
+                        "description": "XML/JSON body for delete operation (only when ?delete is specified)",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key/name (only for upload operation without ?delete)",
+                        "name": "key",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "File to upload (only for upload operation without ?delete)",
+                        "name": "file",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Object uploaded or deletion result",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3UploadInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes an S3 bucket or specific bucket configuration based on query parameters.\n\n**Operations:**\n- No query params: Delete bucket (must be empty)\n- ?cors: Delete CORS configuration\n- ?empty: Force empty bucket (removes all objects)\n- ?force: Force delete bucket with all contents",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Delete an S3 bucket or bucket configuration",
+                "operationId": "delete-s3-bucket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Delete CORS configuration",
+                        "name": "cors",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force empty bucket",
+                        "name": "empty",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete bucket with all contents",
+                        "name": "force",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Safety header for force empty (required with ?empty)",
+                        "name": "X-Force-Empty",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Safety header for force delete (required with ?force)",
+                        "name": "X-Force-Delete",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CORS configuration deleted"
+                    },
+                    "204": {
+                        "description": "Bucket deleted successfully"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - Bucket not empty",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "head": {
+                "description": "Check if a bucket exists using HEAD request. Returns 200 if exists, 404 if not found.",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Check if S3 bucket exists",
+                "operationId": "get-s3-bucket-head",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bucket exists"
+                    },
+                    "403": {
+                        "description": "Access forbidden"
+                    },
+                    "404": {
+                        "description": "Bucket not found"
+                    }
+                }
+            }
+        },
+        "/s3/{BucketName}/{ObjectKey}": {
+            "get": {
+                "description": "Downloads an object from S3 or lists parts of a multipart upload based on query parameters.\n\n**Operations:**\n- No query params: Download object\n- ?versionId={id}: Download specific version of object\n- ?uploadId={id}\u0026list-type=parts: List parts of multipart upload\n\n**List Parts Example (verify uploaded parts):**\n- uploadId: Use UploadId from initiate response\n- list-type: Must be \"parts\"\n- Response shows all uploaded parts with PartNumber, ETag, Size\n- Optional: part-number-marker (pagination), max-parts (limit)",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/octet-stream",
+                    "application/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Download an object from S3 or list parts of multipart upload",
+                "operationId": "download-s3-object",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key (full path)",
+                        "name": "ObjectKey",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Version ID for versioned object",
+                        "name": "versionId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Upload ID for listing parts",
+                        "name": "uploadId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Must be 'parts' when listing multipart upload parts",
+                        "name": "list-type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Object content or parts list"
+                    },
+                    "404": {
+                        "description": "Object not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Uploads a file to S3 bucket or uploads a part for multipart upload based on query parameters.\n\n**Operations:**\n- No query params: Upload object (standard upload)\n- ?uploadId={id}\u0026partNumber={num}: Upload a part for multipart upload\n\n**Part Upload Example (Step 2 of multipart upload):**\n- uploadId: Use UploadId from initiate response (Step 1)\n- partNumber: 1, 2, 3... (consecutive integers, minimum 1)\n- Body: Binary file data (in Swagger UI, use \"Choose File\" button)\n- Response: Check ETag header - save it for completion (Step 4)\n- Repeat for each part with different partNumber",
+                "consumes": [
+                    "application/octet-stream"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Upload an object to S3 or upload a part of multipart upload",
+                "operationId": "put-s3-object-from-file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key (full path)",
+                        "name": "ObjectKey",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Upload ID for multipart upload",
+                        "name": "uploadId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Part number (1-10000) for multipart upload",
+                        "name": "partNumber",
+                        "in": "query"
+                    },
+                    {
+                        "description": "File content (binary)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Object uploaded successfully (returns ETag in header)"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Object-level POST operations: (1) Initiate multipart upload with ?uploads, (2) Complete multipart upload with ?uploadId\n\n**Multipart Upload Testing Guide (Swagger UI):**\n\n**Step 1: Initiate Multipart Upload**\n- Use POST /s3/{BucketName}/{ObjectKey}?uploads\n- Set ConnectionName, BucketName, ObjectKey (e.g., \"testfile.bin\")\n- Response will contain UploadId (save this!)\n\n**Step 2: Upload Parts**\n- Use PUT /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\u0026partNumber=1\n- In request body, upload file part (binary data)\n- Response header contains ETag (save this!)\n- Repeat for part 2, 3, etc. with partNumber=2, 3...\n\n**Step 3: List Parts (Optional)**\n- Use GET /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\u0026list-type=parts\n- Verify all uploaded parts\n\n**Step 4: Complete Upload**\n- Use POST /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\n- IMPORTANT: Enter uploadId in query parameter field (not in the parameter table below)\n- Body XML (required): Provide XML with all uploaded parts\n- Note: ETag values must include double quotes, e.g., \"abc123\" not abc123\n\n**Body XML Example:**\n```xml\n\u003cCompleteMultipartUpload\u003e\n\u003cPart\u003e\n\u003cPartNumber\u003e1\u003c/PartNumber\u003e\n\u003cETag\u003e\"ETag_value_from_Step2_part1\"\u003c/ETag\u003e\n\u003c/Part\u003e\n\u003cPart\u003e\n\u003cPartNumber\u003e2\u003c/PartNumber\u003e\n\u003cETag\u003e\"ETag_value_from_Step2_part2\"\u003c/ETag\u003e\n\u003c/Part\u003e\n\u003c/CompleteMultipartUpload\u003e\n```",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Handle S3 object POST operations (multipart upload)",
+                "operationId": "handle-s3-object-post",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key (full path including slashes, e.g., 'folder/subfolder/file.txt')",
+                        "name": "ObjectKey",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Initiate multipart upload: leave empty or set any value (e.g., 'uploads')",
+                        "name": "uploads",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Complete multipart upload: Upload ID from Step 1 response (paste UploadId here)",
+                        "name": "uploadId",
+                        "in": "query"
+                    },
+                    {
+                        "example": "\u003cCompleteMultipartUpload\u003e\u003cPart\u003e\u003cPartNumber\u003e1\u003c/PartNumber\u003e\u003cETag\u003e\"abc123\"\u003c/ETag\u003e\u003c/Part\u003e\u003c/CompleteMultipartUpload\u003e",
+                        "description": "XML body for complete operation (required when uploadId is set)",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation result (InitiateMultipartUploadResult or CompleteMultipartUploadResult)",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes an object or aborts a multipart upload based on query parameters.\n\n**Operations:**\n- No query params: Delete object (current version)\n- ?versionId={id}: Delete specific version\n- ?uploadId={id}: Abort multipart upload",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Delete an object from S3 or abort multipart upload",
+                "operationId": "delete-s3-object",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key (full path)",
+                        "name": "ObjectKey",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Version ID to delete",
+                        "name": "versionId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Upload ID to abort",
+                        "name": "uploadId",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Object deleted or upload aborted successfully"
+                    },
+                    "404": {
+                        "description": "Object not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            },
+            "head": {
+                "description": "Returns metadata about an object without returning the object itself.\n\n**Important**: This is a HEAD request that only returns headers (metadata), not the file content.\nThe response includes Content-Type, Content-Length, Last-Modified, ETag, and version information.\nDo NOT use \"Download file\" button in Swagger UI - it will create an empty/invalid file.\nUse GET /s3/{BucketName}/{ObjectKey} to download the actual file.",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Get object metadata (HEAD request)",
+                "operationId": "get-s3-object-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object key (full path)",
+                        "name": "ObjectKey",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Version ID for versioned object",
+                        "name": "versionId",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Object metadata in response headers (no body)"
+                    },
+                    "404": {
+                        "description": "Object not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            }
+        },
         "/securitygroup": {
             "get": {
                 "description": "Retrieve a list of Security Groups associated with a specific connection.",
@@ -10879,6 +11871,18 @@
                 "Suspending": "from running to suspended",
                 "Terminating": "from running, suspended to terminated"
             },
+            "x-enum-descriptions": [
+                "from launch to running",
+                "",
+                "from running to suspended",
+                "",
+                "from suspended to running",
+                "from running to running",
+                "from running, suspended to terminated",
+                "",
+                "VM does not exist",
+                ""
+            ],
             "x-enum-varnames": [
                 "Creating",
                 "Running",
@@ -11351,6 +12355,87 @@
                     "description": "true or false",
                     "type": "string",
                     "example": "true"
+                }
+            }
+        },
+        "spider.Bucket": {
+            "type": "object",
+            "properties": {
+                "CreationDate": {
+                    "type": "string"
+                },
+                "Name": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.Buckets": {
+            "type": "object",
+            "properties": {
+                "Bucket": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.Bucket"
+                    }
+                }
+            }
+        },
+        "spider.CORSConfiguration": {
+            "type": "object",
+            "properties": {
+                "CORSRule": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.CORSRule"
+                    }
+                }
+            }
+        },
+        "spider.CORSRule": {
+            "type": "object",
+            "properties": {
+                "AllowedHeader": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "*"
+                    ]
+                },
+                "AllowedMethod": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "GET",
+                        "PUT",
+                        "POST",
+                        "DELETE"
+                    ]
+                },
+                "AllowedOrigin": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "*"
+                    ]
+                },
+                "ExposeHeader": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "ETag"
+                    ]
+                },
+                "MaxAgeSeconds": {
+                    "type": "integer",
+                    "example": 3000
                 }
             }
         },
@@ -12134,6 +13219,17 @@
                 }
             }
         },
+        "spider.ListAllMyBucketsResult": {
+            "type": "object",
+            "properties": {
+                "Buckets": {
+                    "$ref": "#/definitions/spider.Buckets"
+                },
+                "Owner": {
+                    "$ref": "#/definitions/spider.Owner"
+                }
+            }
+        },
         "spider.ListCloudDriverResponse": {
             "type": "object",
             "required": [
@@ -12624,6 +13720,17 @@
                 }
             }
         },
+        "spider.Owner": {
+            "type": "object",
+            "properties": {
+                "DisplayName": {
+                    "type": "string"
+                },
+                "ID": {
+                    "type": "string"
+                }
+            }
+        },
         "spider.PriceInfoRequest": {
             "type": "object",
             "required": [
@@ -12752,6 +13859,87 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "spider.S3Error": {
+            "type": "object",
+            "properties": {
+                "Code": {
+                    "type": "string"
+                },
+                "Message": {
+                    "type": "string"
+                },
+                "RequestId": {
+                    "type": "string"
+                },
+                "Resource": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3PresignedURLXML": {
+            "type": "object",
+            "properties": {
+                "Expires": {
+                    "type": "integer"
+                },
+                "Method": {
+                    "type": "string"
+                },
+                "PresignedURL": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3UploadInfo": {
+            "type": "object",
+            "properties": {
+                "Bucket": {
+                    "type": "string"
+                },
+                "ChecksumCRC32": {
+                    "type": "string"
+                },
+                "ChecksumCRC32C": {
+                    "type": "string"
+                },
+                "ChecksumCRC64NVME": {
+                    "type": "string"
+                },
+                "ChecksumMode": {
+                    "type": "string"
+                },
+                "ChecksumSHA1": {
+                    "type": "string"
+                },
+                "ChecksumSHA256": {
+                    "type": "string"
+                },
+                "ETag": {
+                    "type": "string"
+                },
+                "Expiration": {
+                    "type": "string"
+                },
+                "ExpirationRuleID": {
+                    "type": "string"
+                },
+                "Key": {
+                    "type": "string"
+                },
+                "LastModified": {
+                    "type": "string"
+                },
+                "Location": {
+                    "type": "string"
+                },
+                "Size": {
+                    "type": "integer"
+                },
+                "VersionID": {
+                    "type": "string"
                 }
             }
         },
@@ -13433,6 +14621,19 @@
                 "Version": {
                     "type": "string",
                     "example": "CB-Spider v0.10.2-22"
+                }
+            }
+        },
+        "spider.VersioningConfiguration": {
+            "type": "object",
+            "properties": {
+                "Status": {
+                    "type": "string",
+                    "enum": [
+                        "Enabled",
+                        "Suspended"
+                    ],
+                    "example": "Enabled"
                 }
             }
         }

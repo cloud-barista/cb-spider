@@ -189,7 +189,6 @@ func initAdminWebSetting() {
 	}
 }
 
-
 // getRoutes returns the routes list based on AdminWeb setting
 func getRoutes() []route {
 	routes := []route{
@@ -522,18 +521,13 @@ func getRoutes() []route {
 		//----------S3 API Handler - Order matters! More specific routes should come first
 		{"GET", "/s3", ListS3Buckets},
 
-		// Bucket-level operations (with query parameters)
-		{"GET", "/s3/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?policy, ?location, ?versions, and list objects
-		{"GET", "/s3/:Name/", GetS3Bucket},
-		{"HEAD", "/s3/:Name", GetS3Bucket},
-		{"PUT", "/s3/:Name", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to GetS3Bucket)
-		{"DELETE", "/s3/:Name", DeleteS3Bucket},
+		// PreSigned URL API (must be before other /s3/* routes)
+		{"GET", "/s3/presigned/download/:BucketName/:ObjectKey+", GetS3PresignedURLHandler},
+		{"GET", "/s3/presigned/upload/:BucketName/:ObjectKey+", GetS3PresignedUploadURLHandler},
 
-		//--------- don't change the order of these routes
-		{"POST", "/s3/:BucketName/:ObjectKey+", HandleS3BucketPost},
-		{"POST", "/s3/:Name", PutS3ObjectFromForm},
-		{"POST", "/s3/:Name/", HandleS3BucketPost},
-		//--------- don't change the order of these routes
+		// Standard S3 API routes (S3-compatible with query parameter dispatching)
+		// Object-level POST operations (multipart upload) - must come before bucket POST
+		{"POST", "/s3/:BucketName/:ObjectKey+", HandleS3ObjectPost},
 
 		// Object-level operations
 		{"PUT", "/s3/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
@@ -541,9 +535,19 @@ func getRoutes() []route {
 		{"GET", "/s3/:BucketName/:ObjectKey+", DownloadS3Object},
 		{"DELETE", "/s3/:BucketName/:ObjectKey+", DeleteS3Object},
 
-		// PreSigned URL API
-		{"GET", "/s3/presigned/download/:BucketName/:ObjectKey+", GetS3PresignedURLHandler},
-		{"GET", "/s3/presigned/upload/:BucketName/:ObjectKey+", GetS3PresignedUploadURLHandler},
+		// Bucket-level POST operations (delete multiple objects)
+		{"POST", "/s3/:BucketName", HandleS3BucketPost},
+		{"POST", "/s3/:BucketName/", HandleS3BucketPost},
+
+		// Bucket-level operations (generic routes - these handle query parameter dispatching)
+		{"GET", "/s3/:BucketName", GetS3BucketGET},
+		{"GET", "/s3/:BucketName/", GetS3BucketGET},
+		{"HEAD", "/s3/:BucketName", GetS3BucketHEAD},
+		{"PUT", "/s3/:BucketName", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to PutS3BucketConfig for config operations)
+		{"DELETE", "/s3/:BucketName", DeleteS3Bucket},
+
+		//-- for dashboard
+		{"GET", "/counts3/:ConnectionName", CountS3BucketsByConnection},
 	}
 
 	// Add AdminWeb and Swagger routes conditionally
