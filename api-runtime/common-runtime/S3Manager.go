@@ -135,6 +135,29 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		return ""
 	}
 
+	// Helper to extract S3 endpoint from OpenStack IdentityEndpoint
+	getOpenStackS3Endpoint := func() (string, error) {
+		identityEndpoint := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint")
+		if identityEndpoint == "" {
+			return "", fmt.Errorf("IdentityEndpoint is required for OpenStack S3 connection")
+		}
+
+		parsedURL, err := url.Parse(identityEndpoint)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse IdentityEndpoint URL: %v", err)
+		}
+
+		// Replace identity port with S3 port (8080)
+		host := parsedURL.Host
+		if parsedURL.Port() != "" {
+			host = strings.Replace(host, ":"+parsedURL.Port(), ":8080", 1)
+		} else {
+			host = host + ":8080"
+		}
+
+		return host, nil
+	}
+
 	var accessKey, secretKey string
 	var endpoint string
 	var useSSL, regionRequired bool
@@ -162,7 +185,13 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 	case "OPENSTACK":
 		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "access")
 		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "secret")
-		endpoint = "183.111.177.131:8080"
+		
+		var err error
+		endpoint, err = getOpenStackS3Endpoint()
+		if err != nil {
+			return nil, err
+		}
+		
 		useSSL = false
 		regionRequired = false
 
