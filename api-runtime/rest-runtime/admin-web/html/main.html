@@ -77,6 +77,12 @@
         .dropdown:hover .dropdown-content {
             display: block;
         }
+        .dropdown-divider {
+            height: 1px;
+            background-color: #444;
+            margin: 8px 0;
+            width: 50%;
+        }
         .top-menu-right {
             margin-left: auto;
             display: flex;
@@ -332,6 +338,8 @@
                     <div class="dropdown">
                         <span>help</span>
                         <div class="dropdown-content">
+                            <a href="#" onclick="window.open('/spider/adminweb/sysstats', 'SysStatsWindow', 'width=740,height=1400,left=' + (screen.width - 740)); return false;">SysStats</a>
+                            <div class="dropdown-divider"></div>
                             <a href="https://github.com/cloud-barista/cb-spider" target="_blank">Github</a>
                             <a href="https://github.com/cloud-barista/cb-spider/wiki" target="_blank">Wiki</a>
                             <a href="https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface" target="_blank">API Docs</a>
