@@ -615,17 +615,8 @@ func getRoutes() []route {
 
 			{"GET", "/adminweb/s3/:ConnectConfig", aw.S3Management},
 
-			{"GET", "/adminweb/cmd-agent", aw.CmdAgent},
-			{"POST", "/adminweb/generate-cmd", aw.GenerateCmd},
-
-			{"GET", "/adminweb/calllog-analyzer", aw.CallLogAnalyzer},
-			{"POST", "/adminweb/analyze-logs", aw.AnalyzeLogs},
-			{"GET", "/adminweb/read-logs", aw.GetReadLogs},
-
 			//----------SSH WebTerminal Handler
-			{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
-
-			//----------WebMon Handler
+			{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket}, //----------WebMon Handler
 			{"GET", "/adminweb/vmmon", aw.VMMointoring},
 			{"GET", "/adminweb/spiderlet/vmmon", aw.SpiderletVMMointoring},
 		}

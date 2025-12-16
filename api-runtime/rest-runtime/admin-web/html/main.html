@@ -54,11 +54,11 @@
             background-color: #000;
             color: #fff;
             font-size: 14px;
-            min-width: 100px;
+            min-width: 150px;
             box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
             z-index: 1000;
             top: 100%;
-            left: -1cm;
+            left: -2cm;
             padding: 10px;
             border-radius: 8px;
         }
@@ -190,111 +190,6 @@
             display: none;
             z-index: 1000;
         }
-        
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0; 
-            left: 0; 
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
-        }
-        .overlay-content {
-            background: white;
-            padding: 20px;
-            border-radius: 5px;
-            width: 80%;
-            height: 80vh;
-            text-align: center;
-            display: flex; 
-            flex-direction: column; 
-        }
-
-        .overlay-content iframe {
-            flex: 1;
-            min-height: 500px;
-        }
-
-        .overlay-content button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: #08aab0;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .ai-menu-item {
-            position: relative;
-            text-decoration: none;
-            color: inherit;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 10px;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-        }
-
-        .ai-menu-item:hover {
-            background: rgba(8, 170, 176, 0.1);
-            transform: scale(1.05);
-        }
-
-        .ai-menu-item::after {
-            content: "Experimental Version - Under Development";
-            position: absolute;
-            bottom: -30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .ai-menu-item:hover::after {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        .beta-tag {
-            font-size: 10px;
-            color: #08aab0;
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: rgba(8, 170, 176, 0.1);
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-
-        .ai-icon {
-            font-size: 20px;
-        }
-
-        .ai-text {
-            margin: 1px 0;
-            padding: 1px;
-            font-size: 12px;  
-            background: linear-gradient(45deg, hsl(52, 91%, 36%), #1b1911e5);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-align: left;
-            cursor: pointer;
-            vertical-align: bottom;
-        }
     </style>
 
 <script>
@@ -394,12 +289,6 @@
                 imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
             });
         }
-        if (event.data.type === 'closeCmdAgent') {
-            closeCmdAgent();
-        }
-        if (event.data.type === 'closeCallLogAnalyzer') {
-            closeCallLogAnalyzer();
-        }        
     });
 
     window.addEventListener('message', function(event) {
@@ -421,26 +310,6 @@
             hideProgressBar();
         }
     });
-
-    function showCmdAgent() {
-        const iframe = document.querySelector('#cmdAgentOverlay iframe');
-        iframe.src = iframe.src;
-        document.getElementById('cmdAgentOverlay').style.display = 'flex';
-    }
-
-    function closeCmdAgent() {
-        document.getElementById('cmdAgentOverlay').style.display = 'none';
-    }
-
-    function showCallLogAnalyzer() {
-        const iframe = document.querySelector('#callLogAnalyzerOverlay iframe');
-        iframe.src = iframe.src;
-        document.getElementById('callLogAnalyzerOverlay').style.display = 'flex';
-    }
-    
-    function closeCallLogAnalyzer() {
-        document.getElementById('callLogAnalyzerOverlay').style.display = 'none';
-    }
 </script>
 </head>
 <body>
@@ -460,17 +329,6 @@
                 <div class="top-menu-right">
                     <div class="dynamic-menu"></div>
                     <div class="separator"></div>
-                    <div class="dropdown">
-                        <div class="ai-menu-item" title="AI Assistant">
-                            <span class="ai-icon">🤖</span>
-                            <span class="ai-text">Assist</span>
-                            <span class="beta-tag">beta</span>
-                        </div>
-                        <div class="dropdown-content">
-                            <a href="#" onclick="showCmdAgent()">CMD-Agent</a>
-                            <a href="#" onclick="showCallLogAnalyzer()">CallLog-Analyzer</a>
-                        </div>
-                    </div>
                     <div class="dropdown">
                         <span>help</span>
                         <div class="dropdown-content">
@@ -496,22 +354,6 @@
                 </div>
                 <div class="error-message"></div>
             </div>
-        </div>
-    </div>
-
-    <div id="cmdAgentOverlay" class="overlay">
-        <div class="overlay-content">            
-            <iframe src="/spider/adminweb/cmd-agent" frameborder="0" width="100%" height="100%"></iframe>
-            <br><br>
-            <button onclick="closeCmdAgent()">close</button>
-        </div>
-    </div>
-    
-    <div id="callLogAnalyzerOverlay" class="overlay">
-        <div class="overlay-content">            
-            <iframe src="/spider/adminweb/calllog-analyzer" frameborder="0" width="100%" height="100%"></iframe>
-            <br><br>
-            <button onclick="closeCallLogAnalyzer()">close</button>
         </div>
     </div>
 </body>
