@@ -152,6 +152,7 @@ func Dashboard(c echo.Context) error {
 		serverIP = "localhost"
 	}
 
+	// Default is false (filter empty connections), only true if explicitly set to "true"
 	showEmpty := c.QueryParam("showEmpty") == "true"
 
 	providers, err := fetchProviders()

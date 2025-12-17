@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>CB-Spider Admin Web Tool</title>
+    <link rel="icon" type="image/png" href="/spider/adminweb/images/logo.png">
     <style>
         body, html {
             margin: 0;
@@ -269,10 +270,12 @@
         const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
         menus.forEach(menu => {
             const imgElement = document.getElementById(menu + '-img');
-            if (menu === selectedMenu) {
-                imgElement.src = `/spider/adminweb/images/top-menu/${menu}_selected.png`;
-            } else {
-                imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
+            if (imgElement) {
+                if (menu === selectedMenu) {
+                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}_selected.png`;
+                } else {
+                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
+                }
             }
         });
         parent.frames['left_menu'].postMessage({ type: 'deselectLeftMenu' }, '*');
@@ -292,7 +295,9 @@
             const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
-                imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
+                if (imgElement) {
+                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
+                }
             });
         }
     });
