@@ -2731,17 +2731,6 @@ definitions:
       ID:
         type: string
     type: object
-  spider.PriceInfoRequest:
-    properties:
-      connectionName:
-        type: string
-      filterList:
-        items:
-          $ref: '#/definitions/spider.KeyValue'
-        type: array
-    required:
-    - connectionName
-    type: object
   spider.PriceInfoResponse:
     properties:
       CloudName:
@@ -7228,14 +7217,18 @@ paths:
       tags:
       - '[Cloud Metadata] Region/Zone'
   /priceinfo/vm/{RegionName}:
-    post:
+    get:
       consumes:
       - application/json
       description: "Retrieve VM Price Information for a specific connection and region.
-        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)]
-        <br> * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}"
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)]"
       operationId: get-vmprice-info
       parameters:
+      - description: The name of the Connection to get Price Information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
       - description: The name of the Region to retrieve vm price information for
         in: path
         name: RegionName
@@ -7246,11 +7239,6 @@ paths:
         in: query
         name: simple
         type: boolean
-      - description: The request body containing additional filters for vm price information
-        in: body
-        name: PriceInfoRequest
-        schema:
-          $ref: '#/definitions/spider.PriceInfoRequest'
       produces:
       - application/json
       responses:

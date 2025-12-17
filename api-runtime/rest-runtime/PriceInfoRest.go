@@ -63,12 +63,6 @@ func ListProductFamily(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// PriceInfoRequest represents the request body structure for the GetVMPriceInfo API.
-type PriceInfoRequest struct {
-	ConnectionName string          `json:"connectionName" validate:"required" description:"The name of the Connection to get Price Information for"`
-	FilterList     []cres.KeyValue `json:"filterList" description:"A list of filters to apply to the price information request"`
-}
-
 // PriceInfoResponse represents the response body structure for the GetVMPriceInfo API.
 type PriceInfoResponse struct {
 	cres.CloudPrice `json:",inline" description:"VM Price information details"`
@@ -77,22 +71,22 @@ type PriceInfoResponse struct {
 // getVMPriceInfo godoc
 // @ID get-vmprice-info
 // @Summary Get VM Price Information
-// @Description Retrieve VM Price Information for a specific connection and region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)] <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
+// @Description Retrieve VM Price Information for a specific connection and region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)]
 // @Tags [Cloud Metadata] VM Price Info
 // @Accept  json
 // @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to get Price Information for"
 // @Param RegionName path string true "The name of the Region to retrieve vm price information for"
 // @Param simple query bool false "Return simplified VM specification information (only VMSpecName). Default: false"
-// @Param PriceInfoRequest body PriceInfoRequest false "The request body containing additional filters for vm price information"
 // @Success 200 {object} PriceInfoResponse "VM Price Information Details"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
-// @Router /priceinfo/vm/{RegionName} [post]
+// @Router /priceinfo/vm/{RegionName} [get]
 func GetVMPriceInfo(c echo.Context) error {
 	cblog.Info("call GetVMPriceInfo()")
 
-	var req PriceInfoRequest
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -114,7 +108,7 @@ func GetVMPriceInfo(c echo.Context) error {
 
 	// Call common-runtime API
 	// result, err := cmrt.GetPriceInfo(req.ConnectionName, c.Param("ProductFamily"), c.Param("RegionName"), req.FilterList, simpleVMSpecInfo)
-	result, err := cmrt.GetPriceInfo(req.ConnectionName, cres.RSTypeString(cres.VM), c.Param("RegionName"), req.FilterList, simpleVMSpecInfo)
+	result, err := cmrt.GetPriceInfo(req.ConnectionName, cres.RSTypeString(cres.VM), c.Param("RegionName"), nil, simpleVMSpecInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

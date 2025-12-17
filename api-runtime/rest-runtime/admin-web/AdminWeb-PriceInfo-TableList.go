@@ -137,12 +137,6 @@ func PriceInfoTableList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var info struct {
-		FilterList []cres.KeyValue `json:"FilterList"`
-	}
-
-	json.Unmarshal([]byte(c.QueryParam("filterlist")), &info)
-
 	// Handle simplemode parameter
 	simpleMode := c.QueryParam("simplemode")
 	simpleVMSpecInfo := false
@@ -151,7 +145,7 @@ func PriceInfoTableList(c echo.Context) error {
 	}
 
 	var data cres.CloudPrice
-	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), info.FilterList, simpleVMSpecInfo, &data)
+	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), nil, simpleVMSpecInfo, &data)
 	if err != nil {
 		cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

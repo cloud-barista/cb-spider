@@ -40,19 +40,6 @@
         .form-group select option {
             font-size: 14pt;
         }
-        textarea {
-            height: 200px; /* Adjust height as needed */
-        }
-
-        #filter {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            background-color: #f8f8f8; 
-            color: #333; 
-            white-space: pre; 
-            overflow: auto; 
-        }
-
         .fetch-btn {
             padding: 10px 20px;
             background-color: #f0f0f0;
@@ -64,46 +51,6 @@
         }
         .fetch-btn:hover {
             background-color: #e0e0e0;
-        }
-
-        .gen-tool-btn {
-            padding: 5px 10px;
-            background-color: #f0f0f0;
-            color: #333;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .gen-tool-btn:hover {
-            background-color: #e0e0e0;
-        }
-
-        .button-textarea-group {
-            margin-bottom: 6px;
-        }
-
-        .gen-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-            display: none;
-        }
-        
-        .gen-overlay-content {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 90%;
-            height: 90%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            border: none;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
 
         .fetch-overlay {
@@ -152,21 +99,8 @@
                     </select>                    
                 </div>
             </div>
-            <div class="form-group">
-                <div class="button-textarea-group">
-                    <label for="filter">Filter</label>
-                    <button type="button" class="gen-tool-btn" onclick="openGenOverlay()">Gen...</button>
-                    <button type="button" class="gen-tool-btn" onclick="clearFilter()">Clear</button>
-                </div>
-                <textarea id="filter" name="filter" spellcheck="false"></textarea>
-            </div>
             <button type="button" class="fetch-btn" onclick="OpenFetchOverlay()">Fetch</button>
         </form>
-    </div>
-
-    <!-- Gen Overlay -->
-    <div class="gen-overlay" id="genOverlay">
-        <iframe class="gen-overlay-content" id="genOverlayContent"></iframe>
     </div>
 
     <!-- Fetch Overlay -->
@@ -215,32 +149,16 @@
             });
         }
 
-        function setFilter(filterContent) {
-            document.getElementById('filter').value = filterContent;
-            closeGenOverlay();
-        }
-
-        function openGenOverlay() {
-            document.getElementById('genOverlay').style.display = 'block';
-            document.getElementById('genOverlayContent').src = '/spider/adminweb/html/priceinfo-filter-gen.html';
-        }
-
-        function closeGenOverlay() {
-            document.getElementById('genOverlay').style.display = 'none';
-            document.getElementById('genOverlayContent').src = '';
-        }
-
         function OpenFetchOverlay() {
             var region = document.getElementById('region').value;
             var connectionName = document.getElementById('connectionName').value;
-            var filterList = document.getElementById('filter').value;
             var simpleMode = document.getElementById('simpleMode').value;
 
             var fetchOverlayContent = document.getElementById('fetchOverlayContent');
             document.getElementById('fetchOverlay').style.display = 'block';
             fetchOverlayContent.src = 'about:blank'; // clear the iframe content
 
-            var url = `/spider/adminweb/priceinfotablelist/vm/${region}/${connectionName}?filterlist=${filterList}&simplemode=${simpleMode}`;
+            var url = `/spider/adminweb/priceinfotablelist/vm/${region}/${connectionName}?simplemode=${simpleMode}`;
 
             // logging the fetch URL
             var hostname = window.location.hostname;
@@ -248,8 +166,8 @@
 
             // make apiURL just to log curl command
             var apiURL = `/spider/priceinfo/vm/${encodeURIComponent(region)}?ConnectionName=${connectionName}`;
-            if (filterList) {
-                apiURL += ` -H 'Content-Type: application/json' -d '${filterList}'`
+            if (simpleMode === 'ON') {
+                apiURL += '&simple'
             }
             try {
                 parent.frames["log_frame"].Log("curl -sX GET http://" + `${hostname}` + ":" + `${port}`  + apiURL);
@@ -296,10 +214,6 @@
                                     // Do nothing if error occurs
                     }
                 });
-        }
-
-        function clearFilter() {
-            document.getElementById('filter').value = ''; 
         }
 
         function closeFetchOverlay() {

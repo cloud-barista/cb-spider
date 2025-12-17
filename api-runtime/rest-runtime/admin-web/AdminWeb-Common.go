@@ -186,24 +186,10 @@ func getPriceInfoJsonString(connConfig string, resourceName string, productFamil
 		url += "&simple=true"
 	}
 
-	reqBody := struct {
-		ConnectionName string          `json:"ConnectionName"`
-		FilterList     []cres.KeyValue `json:"FilterList"`
-	}{
-		ConnectionName: connConfig,
-		FilterList:     filter,
-	}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request body: %w", err)
-	}
-
-	request, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonValue))
+	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	request.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(request)
