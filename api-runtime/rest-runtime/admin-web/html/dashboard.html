@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>CB-Spider Multi-Cloud Dashboard</title>
+<link rel="icon" type="image/png" href="/spider/adminweb/images/logo.png">
 <style>
     body {
         font-family: Arial, sans-serif;
@@ -200,8 +201,8 @@
         } else {
             url.searchParams.delete('showEmpty');
         }
-        window.history.pushState({}, '', url);
-        refreshDashboard();
+        // Update URL and reload to apply filter
+        window.location.href = url.href;
     }
 
     function setTopMenu(configName, provider, regionZone) {
