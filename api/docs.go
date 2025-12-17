@@ -5595,8 +5595,8 @@ const docTemplate = `{
             }
         },
         "/priceinfo/vm/{RegionName}": {
-            "post": {
-                "description": "Retrieve VM Price Information for a specific connection and region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)] \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
+            "get": {
+                "description": "Retrieve VM Price Information for a specific connection and region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -5611,6 +5611,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "The name of the Connection to get Price Information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "The name of the Region to retrieve vm price information for",
                         "name": "RegionName",
                         "in": "path",
@@ -5621,14 +5628,6 @@ const docTemplate = `{
                         "description": "Return simplified VM specification information (only VMSpecName). Default: false",
                         "name": "simple",
                         "in": "query"
-                    },
-                    {
-                        "description": "The request body containing additional filters for vm price information",
-                        "name": "PriceInfoRequest",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/spider.PriceInfoRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -13731,23 +13730,6 @@ const docTemplate = `{
                 },
                 "ID": {
                     "type": "string"
-                }
-            }
-        },
-        "spider.PriceInfoRequest": {
-            "type": "object",
-            "required": [
-                "connectionName"
-            ],
-            "properties": {
-                "connectionName": {
-                    "type": "string"
-                },
-                "filterList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.KeyValue"
-                    }
                 }
             }
         },
