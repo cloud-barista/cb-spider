@@ -97,7 +97,7 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), userIID.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 	}
 
 	if bool_ret {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(KEY), reqInfo.IId.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(KEY), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}

@@ -327,7 +327,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		return nil, err
 	}
 	if exist {
-		return nil, fmt.Errorf("S3 Bucket '%s' already exists", bucketName)
+		return nil, fmt.Errorf("S3 Bucket '%s' already exists in connection '%s'", bucketName, connectionName)
 	}
 
 	connInfo, err := GetS3ConnectionInfo(connectionName)
@@ -366,7 +366,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		return nil, err
 	}
 	if exists {
-		return nil, fmt.Errorf("S3 Bucket '%s' already exists in S3", bucketName)
+		return nil, fmt.Errorf("S3 Bucket '%s' already exists in connection '%s'", bucketName, connectionName)
 	}
 	if connInfo.RegionRequired {
 		if connInfo.Region == "" {

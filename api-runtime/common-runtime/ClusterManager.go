@@ -121,7 +121,7 @@ func GetClusterOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, 
 	if isExist {
 		//vpcSPLock.RUnlock()
 		//clusterSPLock.RUnlock()
-		err := fmt.Errorf("%s with SystemID '%s' already exists (NameID: '%s')", RSTypeString(rsType), cspID, nameId)
+		err := fmt.Errorf("%s with SystemID '%s' already exists in connection '%s' (NameID: '%s')", RSTypeString(rsType), cspID, connectionName, nameId)
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -276,7 +276,7 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 	}
 
 	if isExist {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), userIID.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -545,7 +545,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	}
 
 	if isExist {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), reqInfo.IId.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1288,7 +1288,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 		return nil, err
 	}
 	if isExist {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), reqInfo.IId.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}

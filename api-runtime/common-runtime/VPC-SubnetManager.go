@@ -106,7 +106,7 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 	}
 	rsType := VPC
 	if bool_ret {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), userIID.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 	}
 	rsType := SUBNET
 	if bool_ret {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), userIID.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -511,7 +511,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), reqInfo.IId.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1040,7 +1040,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), reqInfo.IId.NameId)
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
