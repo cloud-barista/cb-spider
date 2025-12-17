@@ -13,6 +13,7 @@ package resources
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	taglib "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
@@ -174,9 +175,17 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		createTagReq.TagValue = common.StringPtr(tag.Value)
 		_, err := securityHandler.TagClient.CreateTag(createTagReq)
 		if err != nil && err.(*tencentError.TencentCloudSDKError).GetCode() != taglib.RESOURCEINUSE_TAGDUPLICATE {
-			msg := "createTag error has returned: " + err.Error() + " but, CreateSecurity is success.."
-			cblogger.Error(msg)
-			return securityInfo, err
+			cblogger.Errorf("createTag failed: %v", err)
+			// Rollback: Delete created SecurityGroup
+			_, delErr := securityHandler.DeleteSecurity(irs.IID{
+				SystemId: *defaultEgressResponse.Response.SecurityGroup.SecurityGroupId,
+			})
+			if delErr != nil {
+				cblogger.Errorf("rollback failed (DeleteSecurity): %v", delErr)
+				return irs.SecurityInfo{}, fmt.Errorf("createTag error: %w (rollback also failed: %v)", err, delErr)
+			}
+			cblogger.Info("SecurityGroup rolled back successfully due to createTag failure")
+			return irs.SecurityInfo{}, fmt.Errorf("createTag error: %w (SecurityGroup rolled back)", err)
 		}
 
 		attachTagReq := taglib.NewAttachResourcesTagRequest()
@@ -188,9 +197,17 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		attachTagReq.TagValue = common.StringPtr(tag.Value)
 		_, err = securityHandler.TagClient.AttachResourcesTag(attachTagReq)
 		if err != nil {
-			msg := "attachTag error has returned: " + err.Error() + " but, CreateSecurity is success.."
-			cblogger.Error(msg)
-			return securityInfo, err
+			cblogger.Errorf("attachTag failed: %v", err)
+			// Rollback: Delete created SecurityGroup
+			_, delErr := securityHandler.DeleteSecurity(irs.IID{
+				SystemId: *defaultEgressResponse.Response.SecurityGroup.SecurityGroupId,
+			})
+			if delErr != nil {
+				cblogger.Errorf("rollback failed (DeleteSecurity): %v", delErr)
+				return irs.SecurityInfo{}, fmt.Errorf("attachTag error: %w (rollback also failed: %v)", err, delErr)
+			}
+			cblogger.Info("SecurityGroup rolled back successfully due to attachTag failure")
+			return irs.SecurityInfo{}, fmt.Errorf("attachTag error: %w (SecurityGroup rolled back)", err)
 		}
 	}
 
