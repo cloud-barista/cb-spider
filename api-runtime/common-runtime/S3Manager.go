@@ -185,13 +185,13 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 	case "OPENSTACK":
 		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "access")
 		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "secret")
-		
+
 		var err error
 		endpoint, err = getOpenStackS3Endpoint()
 		if err != nil {
 			return nil, err
 		}
-		
+
 		useSSL = false
 		regionRequired = false
 
@@ -327,7 +327,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		return nil, err
 	}
 	if exist {
-		return nil, fmt.Errorf("S3 Bucket %s already exists", bucketName)
+		return nil, fmt.Errorf("S3 Bucket '%s' already exists in connection '%s'", bucketName, connectionName)
 	}
 
 	connInfo, err := GetS3ConnectionInfo(connectionName)
@@ -366,7 +366,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		return nil, err
 	}
 	if exists {
-		return nil, fmt.Errorf("S3 Bucket %s already exists in S3", bucketName)
+		return nil, fmt.Errorf("S3 Bucket '%s' already exists in connection '%s'", bucketName, connectionName)
 	}
 	if connInfo.RegionRequired {
 		if connInfo.Region == "" {
@@ -402,7 +402,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 			return &b, nil
 		}
 	}
-	return nil, fmt.Errorf("Bucket %s created, but info not found", bucketName)
+	return nil, fmt.Errorf("S3 Bucket '%s' created, but info not found", bucketName)
 }
 
 func ListS3Buckets(connectionName string) ([]*minio.BucketInfo, error) {

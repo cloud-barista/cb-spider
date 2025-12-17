@@ -121,7 +121,7 @@ func GetClusterOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, 
 	if isExist {
 		//vpcSPLock.RUnlock()
 		//clusterSPLock.RUnlock()
-		err := fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+		err := fmt.Errorf("%s with SystemID '%s' already exists in connection '%s' (NameID: '%s')", RSTypeString(rsType), cspID, connectionName, nameId)
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -254,7 +254,7 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(VPC), vpcUserID, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 	}
 
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), userIID.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -545,7 +545,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	}
 
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1060,7 +1060,7 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), clusterName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(rsType), clusterName, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1159,7 +1159,7 @@ func GenerateClusterToken(connectionName string, clusterName string) (string, er
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The cluster '%s' does not exist!", clusterName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(CLUSTER), clusterName, connectionName)
 		cblog.Error(err)
 		return "", err
 	}
@@ -1276,7 +1276,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(CLUSTER), clusterName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(CLUSTER), clusterName, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1288,7 +1288,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 		return nil, err
 	}
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1508,7 +1508,7 @@ func getClusterDriverIIDNodeGroupDriverIID(connectionName string, clusterName st
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NODEGROUP), nodeGroupName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(NODEGROUP), nodeGroupName, connectionName)
 		cblog.Error(err)
 		return cres.IID{}, cres.IID{}, err
 	}
@@ -1544,7 +1544,7 @@ func getClusterDriverIID(connectionName string, clusterName string) (cres.IID, e
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(CLUSTER), clusterName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(CLUSTER), clusterName, connectionName)
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -1939,7 +1939,7 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("[" + connectionName + ":" + RSTypeString(rsType) + ":" + nameID + "] does not exist!")
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(rsType), nameID, connectionName)
 		cblog.Error(err)
 		return false, err
 	}

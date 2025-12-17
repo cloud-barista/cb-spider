@@ -126,7 +126,7 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 		}
 	}
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+		err := fmt.Errorf("%s with SystemID '%s' already exists in connection '%s' (NameID: '%s')", RSTypeString(rsType), cspID, connectionName, nameId)
 		cblog.Error(err)
 		return VMUsingResources{}, err
 	}
@@ -314,7 +314,7 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), userIID.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -457,7 +457,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -528,7 +528,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 	}
 
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}

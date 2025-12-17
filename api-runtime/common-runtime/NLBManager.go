@@ -108,7 +108,7 @@ func GetNLBOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err 
 	if isExist {
 		//vpcSPLock.RUnlock()
 		//nlbSPLock.RUnlock()
-		err := fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+		err := fmt.Errorf("%s with SystemID '%s' already exists in connection '%s' (NameID: '%s')", RSTypeString(rsType), cspID, connectionName, nameId)
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -237,7 +237,7 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(VPC), vpcUserID, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 	}
 
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), userIID.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -418,15 +418,16 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTra
 	defer nlbSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (1) check exist(NameID)
+	// Use original VPC NameId (not driver IID) for duplicate check
 	var iidInfoList []*NLBIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = infostore.ListByCondition(&iidInfoList, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+		err = infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 	} else {
-		err = infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+		err = infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -440,7 +441,7 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTra
 	}
 
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists in connection '%s'", RSTypeString(rsType), reqInfo.IId.NameId, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -762,7 +763,7 @@ func GetNLB(connectionName string, rsType string, nameID string) (*cres.NLBInfo,
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameID)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(rsType), nameID, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -894,7 +895,7 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NLB), nlbName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(NLB), nlbName, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -925,7 +926,7 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 			}
 		}
 		if bool_ret == false {
-			err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VM), one)
+			err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(VM), one, connectionName)
 			cblog.Error(err)
 			return nil, err
 		}
@@ -1087,7 +1088,7 @@ func RemoveNLBVMs(connectionName string, nlbName string, vmNames []string) (bool
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NLB), nlbName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(NLB), nlbName, connectionName)
 		cblog.Error(err)
 		return false, err
 	}
@@ -1206,7 +1207,7 @@ func ChangeListener(connectionName string, nlbName string, listener cres.Listene
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NLB), nlbName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(NLB), nlbName, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1361,7 +1362,7 @@ func ChangeVMGroup(connectionName string, nlbName string, vmGroup cres.VMGroupIn
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NLB), nlbName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(NLB), nlbName, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1513,7 +1514,7 @@ func ChangeHealthChecker(connectionName string, nlbName string, healthChecker cr
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NLB), nlbName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(NLB), nlbName, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1665,7 +1666,7 @@ func GetVMGroupHealthInfo(connectionName string, nlbName string) (*cres.HealthIn
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NLB), nlbName)
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(NLB), nlbName, connectionName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1859,7 +1860,7 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("[" + connectionName + ":" + RSTypeString(rsType) + ":" + nameID + "] does not exist!")
+		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(rsType), nameID, connectionName)
 		cblog.Error(err)
 		return false, err
 	}

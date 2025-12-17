@@ -50,7 +50,7 @@ func CreateFileSystem(connectionName string, reqInfo cres.FileSystemInfo) (*cres
 		return nil, err
 	}
 	if exist {
-		return nil, fmt.Errorf("FileSystem %s already exists", reqInfo.IId.NameId)
+		return nil, fmt.Errorf("FileSystem '%s' already exists in connection '%s'", reqInfo.IId.NameId, connectionName)
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, reqInfo.Zone)
