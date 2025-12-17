@@ -2222,53 +2222,59 @@ func getAuthIIDInfo(iidInfoList interface{}, nameId string) (interface{}, error)
 				return iidInfo, nil // Return matching VPCIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("VPC '%s' does not exist", nameId)
 	case *[]*SGIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return iidInfo, nil // Return matching SGIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("SecurityGroup '%s' does not exist", nameId)
 	case *[]*KeyIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return iidInfo, nil // Return matching KeyIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("KeyPair '%s' does not exist", nameId)
 	case *[]*VMIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return iidInfo, nil // Return matching VMIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("VM '%s' does not exist", nameId)
 	case *[]*NLBIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return iidInfo, nil // Return matching NLBIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("NLB '%s' does not exist", nameId)
 	case *[]*DiskIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return iidInfo, nil // Return matching DiskIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("Disk '%s' does not exist", nameId)
 	case *[]*MyImageIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return iidInfo, nil // Return matching MyImageIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("MyImage '%s' does not exist", nameId)
 	case *[]*ClusterIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return iidInfo, nil // Return matching ClusterIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("Cluster '%s' does not exist", nameId)
 	default:
 		return nil, fmt.Errorf("unsupported type for iidInfoList")
 	}
-
-	return nil, fmt.Errorf("%s : does not exist!", nameId) // No matching IIDInfo found
 }
 
 // Get IIDInfo by SystemId (contains match) from IIDInfo list
@@ -2284,53 +2290,59 @@ func getAuthIIDInfoBySystemIdContain(iidInfoList interface{}, systemId string) (
 				return iidInfo, nil // Return matching VPCIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("VPC with SystemId containing '%s' not found", systemId)
 	case *[]*SGIIDInfo:
 		for _, iidInfo := range *v {
 			if strings.Contains(iidInfo.SystemId, systemId) {
 				return iidInfo, nil // Return matching SGIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("SecurityGroup with SystemId containing '%s' not found", systemId)
 	case *[]*KeyIIDInfo:
 		for _, iidInfo := range *v {
 			if strings.Contains(iidInfo.SystemId, systemId) {
 				return iidInfo, nil // Return matching KeyIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("KeyPair with SystemId containing '%s' not found", systemId)
 	case *[]*VMIIDInfo:
 		for _, iidInfo := range *v {
 			if strings.Contains(iidInfo.SystemId, systemId) {
 				return iidInfo, nil // Return matching VMIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("VM with SystemId containing '%s' not found", systemId)
 	case *[]*NLBIIDInfo:
 		for _, iidInfo := range *v {
 			if strings.Contains(iidInfo.SystemId, systemId) {
 				return iidInfo, nil // Return matching NLBIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("NLB with SystemId containing '%s' not found", systemId)
 	case *[]*DiskIIDInfo:
 		for _, iidInfo := range *v {
 			if strings.Contains(iidInfo.SystemId, systemId) {
 				return iidInfo, nil // Return matching DiskIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("Disk with SystemId containing '%s' not found", systemId)
 	case *[]*MyImageIIDInfo:
 		for _, iidInfo := range *v {
 			if strings.Contains(iidInfo.SystemId, systemId) {
 				return iidInfo, nil // Return matching MyImageIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("MyImage with SystemId containing '%s' not found", systemId)
 	case *[]*ClusterIIDInfo:
 		for _, iidInfo := range *v {
 			if strings.Contains(iidInfo.SystemId, systemId) {
 				return iidInfo, nil // Return matching ClusterIIDInfo
 			}
 		}
+		return nil, fmt.Errorf("Cluster with SystemId containing '%s' not found", systemId)
 	default:
 		return nil, fmt.Errorf("unsupported type for iidInfoList")
 	}
-
-	return nil, fmt.Errorf("systemId %s not found", systemId) // No matching IIDInfo found
 }
 
 type CapabilityType string

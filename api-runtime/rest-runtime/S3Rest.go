@@ -440,7 +440,7 @@ func putBucketVersioning(c echo.Context) error {
 		cblog.Errorf("Bucket %s not found: %v", bucketName, err)
 		if strings.Contains(err.Error(), "not found") {
 			return returnS3Error(c, http.StatusNotFound, "NoSuchBucket",
-				"The specified bucket does not exist", "/"+bucketName)
+				fmt.Sprintf("S3 Bucket '%s' does not exist", bucketName), "/"+bucketName)
 		}
 		return returnS3Error(c, http.StatusInternalServerError, "InternalError",
 			err.Error(), "/"+bucketName)
@@ -556,14 +556,14 @@ func getBucketCORS(c echo.Context) error {
 			return returnS3Error(c, http.StatusNotImplemented, "NotImplemented", err.Error(), "/"+bucketName)
 		}
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
-			return returnS3Error(c, http.StatusNotFound, "NoSuchCORSConfiguration", "The CORS configuration does not exist", "/"+bucketName)
+			return returnS3Error(c, http.StatusNotFound, "NoSuchCORSConfiguration", fmt.Sprintf("The CORS configuration for bucket '%s' does not exist", bucketName), "/"+bucketName)
 		}
 		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
 	}
 
 	// Check if corsConfig is nil
 	if corsConfig == nil {
-		return returnS3Error(c, http.StatusNotFound, "NoSuchCORSConfiguration", "The CORS configuration does not exist", "/"+bucketName)
+		return returnS3Error(c, http.StatusNotFound, "NoSuchCORSConfiguration", fmt.Sprintf("The CORS configuration for bucket '%s' does not exist", bucketName), "/"+bucketName)
 	}
 
 	// Convert minio CORS config to S3 XML format
@@ -1112,7 +1112,7 @@ func GetS3Bucket(c echo.Context) error {
 				// Bucket doesn't exist, this might be a creation request
 				cblog.Infof("Bucket %s doesn't exist, this might be a creation request", name)
 				return returnS3Error(c, http.StatusNotFound, "NoSuchBucket",
-					"The specified bucket does not exist", "/"+name)
+					fmt.Sprintf("S3 Bucket '%s' does not exist", name), "/"+name)
 			}
 			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+name)
 		}
@@ -1330,7 +1330,7 @@ func DeleteS3Bucket(c echo.Context) error {
 	if err != nil {
 		cblog.Errorf("Bucket %s not found: %v", name, err)
 		if strings.Contains(err.Error(), "not found") {
-			return returnS3Error(c, http.StatusNotFound, "NoSuchBucket", err.Error(), "/"+name)
+			return returnS3Error(c, http.StatusNotFound, "NoSuchBucket", fmt.Sprintf("S3 Bucket '%s' does not exist", name), "/"+name)
 		}
 		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+name)
 	}
@@ -1339,7 +1339,7 @@ func DeleteS3Bucket(c echo.Context) error {
 	if bucketInfo != nil && bucketInfo.CreationDate.IsZero() {
 		cblog.Warnf("Bucket %s exists only in metadata (not in CSP)", name)
 		return returnS3Error(c, http.StatusNotFound, "NoSuchBucket",
-			fmt.Sprintf("bucket not found in CSP (metadata exists). Use force=true to delete metadata only"), "/"+name)
+			fmt.Sprintf("S3 Bucket '%s' not found in CSP (metadata exists). Use force=true to delete metadata only", name), "/"+name)
 	}
 
 	cblog.Infof("Bucket %s exists, proceeding with deletion checks", name)

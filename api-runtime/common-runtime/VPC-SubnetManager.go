@@ -106,7 +106,7 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 	}
 	rsType := VPC
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 			return nil, err
 		}
 		if !isExist {
-			err := fmt.Errorf("%s", "The VPC-"+vpcName+" does not exist!")
+			err := fmt.Errorf("%s '%s' does not exist", RSTypeString(VPC), vpcName)
 			cblog.Error(err)
 			return nil, err
 		}
@@ -296,7 +296,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 	}
 	rsType := SUBNET
 	if bool_ret {
-		err := fmt.Errorf("%s", rsType+"-"+userIID.NameId+" already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func UnregisterSubnet(connectionName string, vpcName string, nameId string) (boo
 	}
 	rsType := SUBNET
 	if !bool_ret {
-		err := fmt.Errorf("%s", "The "+rsType+"-"+nameId+" in "+vpcName+" does not exist!")
+		err := fmt.Errorf("%s '%s' in VPC '%s' does not exist", RSTypeString(rsType), nameId, vpcName)
 		cblog.Error(err)
 		return false, err
 	}
@@ -511,7 +511,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), reqInfo.IId.NameId)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1040,7 +1040,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), reqInfo.IId.NameId)
 		cblog.Error(err)
 		return nil, err
 	}

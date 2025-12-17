@@ -53,9 +53,9 @@ func RSTypeString(rsType RSType) string {
 	case NLB:
 		return "Network Load Balancer"
 	case DISK:
-		return "disk"
+		return "Disk"
 	case MYIMAGE:
-		return "MyImage(Snapshot)"
+		return "MyImage"
 	case CLUSTER:
 		return "Kubernetes Cluster"
 	case NODEGROUP:

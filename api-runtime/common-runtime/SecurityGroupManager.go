@@ -107,7 +107,7 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 	if isExist {
 		//vpcSPLock.RUnlock()
 		//sgSPLock.RUnlock()
-		err := fmt.Errorf("%s", rsType+"-"+cspID+" already exists with "+nameId+"!")
+		err := fmt.Errorf("%s with SystemID '%s' already exists (NameID: '%s')", RSTypeString(rsType), cspID, nameId)
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -257,7 +257,7 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 		}
 	}
 	if isExist {
-		err := fmt.Errorf("%s", rsType+"-"+userIID.NameId+" already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	}
 
 	if isExist {
-		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), reqInfo.IId.NameId)
 		cblog.Error(err)
 		return nil, err
 	}

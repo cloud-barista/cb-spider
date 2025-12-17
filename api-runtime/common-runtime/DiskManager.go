@@ -106,7 +106,7 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(rsType), userIID.NameId)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, IDT
 	}
 
 	if bool_ret {
-		err := fmt.Errorf(reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s '%s' already exists", RSTypeString(DISK), reqInfo.IId.NameId)
 		cblog.Error(err)
 		return nil, err
 	}

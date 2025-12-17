@@ -232,6 +232,51 @@ func Delete(info interface{}, columName string, columnValue string) (bool, error
 	return true, nil
 }
 
+// Helper function to get resource type name from struct type
+func getResourceTypeName(info interface{}) string {
+	typeName := fmt.Sprintf("%T", info)
+	// Remove package prefix and pointer indicator
+	if len(typeName) > 0 && typeName[0] == '*' {
+		typeName = typeName[1:]
+	}
+	// Extract last part after dot
+	for i := len(typeName) - 1; i >= 0; i-- {
+		if typeName[i] == '.' {
+			typeName = typeName[i+1:]
+			break
+		}
+	}
+	// Convert IIDInfo suffix to resource name
+	if len(typeName) > 7 && typeName[len(typeName)-7:] == "IIDInfo" {
+		typeName = typeName[:len(typeName)-7]
+	}
+	// Handle special cases
+	switch typeName {
+	case "VPC":
+		return "VPC"
+	case "SG":
+		return "Security Group"
+	case "Key":
+		return "VM KeyPair"
+	case "VM":
+		return "VM"
+	case "NLB":
+		return "NLB"
+	case "Disk":
+		return "Disk"
+	case "MyImage":
+		return "MyImage"
+	case "Cluster":
+		return "Cluster"
+	case "Subnet":
+		return "Subnet"
+	case "NodeGroup":
+		return "NodeGroup"
+	default:
+		return "Resource"
+	}
+}
+
 // ////////////////////////////////
 // API for Tables with composite key
 // VPCInfo, SecurityInfo, ...
@@ -279,7 +324,8 @@ func GetByConditions(info interface{}, columnName1 string, columnValue1 string, 
 
 	if err := db.Where(columnName1+" = ? AND "+columnName2+" = ?", columnValue1, columnValue2).First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
+			resourceType := getResourceTypeName(info)
+			return fmt.Errorf("%s '%s' does not exist in connection '%s'", resourceType, columnValue2, columnValue1)
 		} else {
 			return fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
 		}
@@ -299,7 +345,8 @@ func GetBy3Conditions(info interface{}, columnName1 string, columnValue1 string,
 
 	if err := db.Where(columnName1+" = ? AND "+columnName2+" = ? AND "+columnName3+" = ?", columnValue1, columnValue2, columnValue3).First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
+			resourceType := getResourceTypeName(info)
+			return fmt.Errorf("%s '%s' does not exist in connection '%s'", resourceType, columnValue2, columnValue1)
 		} else {
 			return fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
 		}
@@ -319,7 +366,8 @@ func GetByContain(info interface{}, columnName1 string, columnValue1 string, col
 	if err := db.Where(columnName1+" = ? AND "+columnName2+" LIKE ?",
 		columnValue1, fmt.Sprintf("%%%s%%", columnValue2)).First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
+			resourceType := getResourceTypeName(info)
+			return fmt.Errorf("%s with SystemID containing '%s' does not exist in connection '%s'", resourceType, columnValue2, columnValue1)
 		} else {
 			return fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
 		}
@@ -339,15 +387,16 @@ func GetByConditionAndContain(info interface{}, columnName1 string, columnValue1
 	defer Close(db)
 
 	// Check if columnValue3 is empty and handle accordingly
+	resourceType := getResourceTypeName(info)
 	if columnContainValue2 == "" {
-		return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
+		return fmt.Errorf("%s with empty SystemID does not exist in connection '%s'", resourceType, columnValue1)
 	}
 
 	// Use LIKE operator for columnName2 to check if it contains columnContainValue2
 	query := fmt.Sprintf("%s = ? AND %s LIKE ?", columnName1, columnName2)
 	if err := db.Where(query, columnValue1, "%"+columnContainValue2+"%").First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
+			return fmt.Errorf("%s with SystemID containing '%s' does not exist in connection '%s'", resourceType, columnContainValue2, columnValue1)
 		} else {
 			return fmt.Errorf("%s, %s: %v", columnValue1, columnContainValue2, err)
 		}
@@ -366,14 +415,15 @@ func GetByConditionsAndContain(info interface{}, columnName1 string, columnValue
 	defer Close(db)
 
 	// Check if columnValue3 is empty and handle accordingly
+	resourceType := getResourceTypeName(info)
 	if columnValue3 == "" {
-		return fmt.Errorf(columnValue1 + ", " + columnValue2 + ", " + columnValue3 + ": does not exist!")
+		return fmt.Errorf("%s with empty SystemID does not exist (connection: '%s', owner: '%s')", resourceType, columnValue1, columnValue2)
 	}
 
 	if err := db.Where(columnName1+" = ? AND "+columnName2+" = ? AND "+columnName3+" LIKE ?",
 		columnValue1, columnValue2, fmt.Sprintf("%%%s%%", columnValue3)).First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf(columnValue1 + ", " + columnValue2 + ", " + columnValue3 + ": does not exist!")
+			return fmt.Errorf("%s with SystemID containing '%s' does not exist (connection: '%s', owner: '%s')", resourceType, columnValue3, columnValue1, columnValue2)
 		} else {
 			return fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
 		}
