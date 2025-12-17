@@ -12,11 +12,11 @@ package azure
 
 import (
 	"context"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"os"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -303,35 +303,6 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		DnsZoneClient:                   dnsZoneClient,
 		FileShareClient:                 fileShareClient,
 		AccountsClient:                  accountsClient,
-	}
-
-	regionZoneHandler, err := iConn.CreateRegionZoneHandler()
-	if err != nil {
-		return nil, err
-	}
-	regionZoneInfo, err := regionZoneHandler.GetRegionZone(connectionInfo.RegionInfo.Region)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(regionZoneInfo.ZoneList) == 0 {
-		cblog.Warn("Zone is not available for this region. (" + connectionInfo.RegionInfo.Region + ")")
-		iConn.Region.Zone = ""
-	} else {
-		var zoneFound bool
-		for _, zone := range regionZoneInfo.ZoneList {
-			if zone.Name == connectionInfo.RegionInfo.Zone {
-				zoneFound = true
-				break
-			}
-		}
-
-		if !zoneFound {
-			cblog.Warn("Configured zone is not found in the selected region." +
-				" (Region: " + connectionInfo.RegionInfo.Region + ", Zone: " + connectionInfo.RegionInfo.Zone + ")")
-			cblog.Warn("1 will be used as the default zone.")
-			iConn.Region.Zone = "1"
-		}
 	}
 
 	return &iConn, nil
