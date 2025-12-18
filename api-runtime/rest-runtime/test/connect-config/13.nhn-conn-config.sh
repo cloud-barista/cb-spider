@@ -29,8 +29,6 @@ curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application
 
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"nhn-japan-tokyo2","ProviderName":"NHN","KeyValueInfoList": [{"Key":"Region", "Value":"JP1"}, {"Key":"Zone", "Value":"jp-pub-b"}]}'
 
-curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"nhn-usa-california1","ProviderName":"NHN","KeyValueInfoList": [{"Key":"Region", "Value":"US1"}, {"Key":"Zone", "Value":"us-pub-a"}]}'
-
  # Cloud Connection Config Info
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"nhn-korea-pangyo1-config","ProviderName":"NHN", "DriverName":"nhn-driver01", "CredentialName":"nhn-credential01", "RegionName":"nhn-korea-pangyo1"}'
 
@@ -43,5 +41,3 @@ curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: a
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"nhn-japan-tokyo1-config","ProviderName":"NHN", "DriverName":"nhn-driver01", "CredentialName":"nhn-credential01", "RegionName":"nhn-japan-tokyo1"}'
 
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"nhn-japan-tokyo2-config","ProviderName":"NHN", "DriverName":"nhn-driver01", "CredentialName":"nhn-credential01", "RegionName":"nhn-japan-tokyo2"}'
-
-curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"nhn-usa-california1-config","ProviderName":"NHN", "DriverName":"nhn-driver01", "CredentialName":"nhn-credential01", "RegionName":"nhn-usa-california1"}'
