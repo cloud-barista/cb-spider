@@ -1430,6 +1430,12 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		input.Targets = append(input.Targets, &elbv2.TargetDescription{Id: aws.String(curVM.SystemId), Port: iTagetPort})
 	}
 
+	// If no VMs to add, skip RegisterTargets call and return current VM group info
+	if len(*vmIIDs) == 0 {
+		cblogger.Infof("No VMs to add to VM group (%s), skipping RegisterTargets call", retTargetGroupInfo.VMGroup.CspID)
+		return retTargetGroupInfo.VMGroup, nil
+	}
+
 	cblogger.Infof("Information of instances scheduled to be added to VM group (%s)", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Info(input)
 

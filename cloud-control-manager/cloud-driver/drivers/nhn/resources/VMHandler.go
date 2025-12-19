@@ -1050,6 +1050,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		} else if nhnFlavor != nil {
+			vmInfo.VMSpecName = nhnFlavor.Name
 			vCPU = strconv.Itoa(nhnFlavor.VCPUs)
 			vRam = strconv.Itoa(nhnFlavor.RAM)
 		}
@@ -1057,6 +1058,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 
 	// Get Disk Type, Size Info and DataDiskIIDs
 	var diskIIDs []irs.IID
+	cblogger.Infof("# AttachedVolumes count: %d", len(server.AttachedVolumes))
 	if len(server.AttachedVolumes) != 0 {
 		for _, volume := range server.AttachedVolumes {
 			cblogger.Infof("\n# Volume ID : %s", volume.ID)
@@ -1067,9 +1069,9 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 				cblogger.Error(newErr.Error())
 				return irs.VMInfo{}, newErr
 			}
+			cblogger.Infof("# Volume Bootable: %s, VolumeType: %s, Size: %d, Name: %s", nhnVolume.Bootable, nhnVolume.VolumeType, nhnVolume.Size, nhnVolume.Name)
 			if nhnVolume.Bootable == "true" { // Only For 'Root' disk
-				// cblogger.Info("# nhnVolume : ")
-				// spew.Dump(nhnVolume)
+				cblogger.Infof("# Root disk found - VolumeType: %s, Size: %d", nhnVolume.VolumeType, nhnVolume.Size)
 				switch nhnVolume.VolumeType {
 				case HDD:
 					vmInfo.RootDiskType = "General_HDD"
@@ -1080,11 +1082,19 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 				}
 
 				vmInfo.RootDiskSize = strconv.Itoa(nhnVolume.Size)
-				vmInfo.RootDeviceName = nhnVolume.Attachments[0].Device
+				if len(nhnVolume.Attachments) > 0 {
+					vmInfo.RootDeviceName = nhnVolume.Attachments[0].Device
+					cblogger.Infof("# Root device name: %s", vmInfo.RootDeviceName)
+				} else {
+					cblogger.Warn("# No attachments found for root volume")
+				}
 			} else {
+				cblogger.Infof("# Data disk found - Name: %s, ID: %s", nhnVolume.Name, nhnVolume.ID)
 				diskIIDs = append(diskIIDs, irs.IID{NameId: nhnVolume.Name, SystemId: nhnVolume.ID})
 			}
 		}
+	} else {
+		cblogger.Warn("# No attached volumes found for this VM")
 	}
 	vmInfo.DataDiskIIDs = diskIIDs
 

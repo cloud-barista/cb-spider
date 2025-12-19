@@ -372,30 +372,33 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTra
 	reqInfo.VpcIID = getDriverIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 	//+++++++++++++++++++++++++++++++++++++++++++
 
+	// VMGroup.VMs is optional, skip if not provided
 	vmList := reqInfo.VMGroup.VMs
-	for idx, vmIID := range *vmList {
-		var vmIIDInfo VMIIDInfo
-		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-			var iidInfoList []*VMIIDInfo
-			err = getAuthIIDInfoList(connectionName, &iidInfoList)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+	if vmList != nil && len(*vmList) > 0 {
+		for idx, vmIID := range *vmList {
+			var vmIIDInfo VMIIDInfo
+			if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+				var iidInfoList []*VMIIDInfo
+				err = getAuthIIDInfoList(connectionName, &iidInfoList)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vmIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+			} else {
+				err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vmIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
 			}
-			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vmIID.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
-		} else {
-			err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vmIID.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
+			(*vmList)[idx] = getDriverIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
 		}
-		(*vmList)[idx] = getDriverIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
 	}
 	//+++++++++++++++++++++++++++++++++++++++++++
 
@@ -1692,6 +1695,12 @@ func GetVMGroupHealthInfo(connectionName string, nlbName string) (*cres.HealthIn
 
 func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo *cres.HealthInfo) error {
 	var errList []string
+
+	// If AllVMs is nil or empty, return early (no VMs to process)
+	if healthInfo.AllVMs == nil || len(*healthInfo.AllVMs) == 0 {
+		return nil
+	}
+
 	vmIIDList := healthInfo.AllVMs
 	for idx, vm := range *vmIIDList {
 		foundFlag := false

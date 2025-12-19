@@ -2170,6 +2170,15 @@ func (nlbHandler *GCPNLBHandler) insertHealthCheck(regionID string, targetPoolNa
 	if err != nil {
 		return err
 	}
+
+	// GCP Target Pool-based NLB only supports Legacy HTTP Health Checks
+	// Warn if protocol is not HTTP
+	if !strings.EqualFold(healthCheckerInfo.Protocol, "HTTP") {
+		cblogger.Warnf("GCP Target Pool-based NLB only supports HTTP health checks, but protocol is %s. Converting to HTTP.", healthCheckerInfo.Protocol)
+		cblogger.Warnf("For TCP health checks on port %s, consider using Backend Service-based NLB or ensure an HTTP service is running on the specified port.", healthCheckerInfo.Port)
+		healthCheckerInfo.Protocol = "HTTP"
+	}
+
 	// queryParam
 	reqHealthCheck := compute.HttpHealthCheck{}
 	reqHealthCheck.Name = targetPoolName
@@ -2178,8 +2187,7 @@ func (nlbHandler *GCPNLBHandler) insertHealthCheck(regionID string, targetPoolNa
 	reqHealthCheck.CheckIntervalSec = int64(healthCheckerInfo.Interval)
 	reqHealthCheck.TimeoutSec = int64(healthCheckerInfo.Timeout)
 	reqHealthCheck.Port = port
-	//reqHealthCheck.RequestPath = healthChecker.
-	reqHealthCheck.TimeoutSec = int64(healthCheckerInfo.Timeout)
+	reqHealthCheck.RequestPath = "/" // Default HTTP path for health check
 	printToJson(reqHealthCheck)
 	// requestBody
 	req, err := nlbHandler.Client.HttpHealthChecks.Insert(projectID, &reqHealthCheck).Do()
@@ -2784,17 +2792,23 @@ func (nlbHandler *GCPNLBHandler) convertTargetPoolToNLBInfo(targetPool *compute.
 	nlbInfo.HealthChecker = healthChecker
 
 	// vpc 정보 추출
-	for _, instanceUrl := range targetPool.Instances {
-		targetPoolInstanceArr := strings.Split(instanceUrl, StringSeperator_Slash)
+	// VM이 있는 경우에만 VPC 정보를 추출
+	if len(targetPool.Instances) > 0 {
+		for _, instanceUrl := range targetPool.Instances {
+			targetPoolInstanceArr := strings.Split(instanceUrl, StringSeperator_Slash)
 
-		instanceName := targetPoolInstanceArr[len(targetPoolInstanceArr)-1]
-		instanceZone := targetPoolInstanceArr[len(targetPoolInstanceArr)-3]
-		vpcIID, err := nlbHandler.getVPCInfoFromVM(instanceZone, irs.IID{SystemId: instanceName})
-		if err != nil {
-			return err
+			instanceName := targetPoolInstanceArr[len(targetPoolInstanceArr)-1]
+			instanceZone := targetPoolInstanceArr[len(targetPoolInstanceArr)-3]
+			vpcIID, err := nlbHandler.getVPCInfoFromVM(instanceZone, irs.IID{SystemId: instanceName})
+			if err != nil {
+				return err
+			}
+			nlbInfo.VpcIID = vpcIID
+			break
 		}
-		nlbInfo.VpcIID = vpcIID
-		break
+	} else {
+		// VM이 없는 경우 VPC 정보는 비워둠
+		nlbInfo.VpcIID = irs.IID{NameId: String_Empty, SystemId: String_Empty}
 	}
 
 	return nil
@@ -2890,7 +2904,7 @@ func extractVmGroup(targetPool *compute.TargetPool, nlbInfo *irs.NLBInfo) irs.VM
 	//if err != nil {
 	//	cblogger.Info("targetPoolList  list: ", err)
 	//}
-	if targetPool.Instances != nil {
+	if targetPool.Instances != nil && len(targetPool.Instances) > 0 {
 		printToJson(targetPool)
 
 		// instances iid set
@@ -2913,6 +2927,11 @@ func extractVmGroup(targetPool *compute.TargetPool, nlbInfo *irs.NLBInfo) irs.VM
 
 		// 2025-03-13 StructToKeyValueList 사용으로 변경
 		vmGroup.KeyValueList = irs.StructToKeyValueList(targetPool.Instances)
+	} else {
+		// VM이 없는 경우 빈 슬라이스로 초기화
+		emptyVMs := make([]irs.IID, 0)
+		vmGroup.VMs = &emptyVMs
+		vmGroup.CspID = targetPool.Name
 	}
 	return vmGroup
 }

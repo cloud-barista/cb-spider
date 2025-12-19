@@ -318,7 +318,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		healthChecker.KeyValueList = irs.StructToKeyValueList(responseNlbInfo)
 	}
 
-	var vms []irs.IID
+	vms := make([]irs.IID, 0)
 	backendServerList := lbAttributeResponse.BackendServers.BackendServer
 	for _, backendServer := range backendServerList {
 		// vm 이름 때문에 조회 해야하나...
@@ -1021,6 +1021,17 @@ Examples:
 func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.VMGroupInfo, error) {
 	vmGroup := nlbReqInfo.VMGroup
 
+	// If no VMs provided, return empty VMGroupInfo
+	if vmGroup.VMs == nil || len(*vmGroup.VMs) == 0 {
+		emptyVMs := make([]irs.IID, 0)
+		returnVmGroup := irs.VMGroupInfo{
+			Protocol: vmGroup.Protocol,
+			Port:     vmGroup.Port,
+			VMs:      &emptyVMs,
+		}
+		return returnVmGroup, nil
+	}
+
 	backendServersRequest := slb.CreateAddBackendServersRequest()
 	backendServersRequest.LoadBalancerId = nlbIID.SystemId
 
@@ -1410,9 +1421,11 @@ func (NLBHandler *AlibabaNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) e
 	// vm
 	vmGroup := nlbReqInfo.VMGroup
 	maxVmCount := 20
-	vmCount := len(*vmGroup.VMs)
-	if maxVmCount < vmCount {
-		return errors.New("You can add at most 20 backend servers to a CLB instance in each request " + strconv.Itoa(vmCount))
+	if vmGroup.VMs != nil {
+		vmCount := len(*vmGroup.VMs)
+		if maxVmCount < vmCount {
+			return errors.New("You can add at most 20 backend servers to a CLB instance in each request " + strconv.Itoa(vmCount))
+		}
 	}
 
 	// health check

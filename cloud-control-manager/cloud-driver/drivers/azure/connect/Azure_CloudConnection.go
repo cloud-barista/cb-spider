@@ -178,6 +178,8 @@ func (cloudConn *AzureCloudConnection) CreateNLBHandler() (irs.NLBHandler, error
 		IPConfigClient:               cloudConn.IPConfigClient,
 		NLBLoadBalancingRulesClient:  cloudConn.NLBLoadBalancingRulesClient,
 		MetricClient:                 cloudConn.MetricClient,
+		SecurityGroupClient:          cloudConn.SecurityGroupClient,
+		SecurityRuleClient:           cloudConn.SecurityGroupRuleClient,
 	}
 	return &nlbHandler, nil
 }

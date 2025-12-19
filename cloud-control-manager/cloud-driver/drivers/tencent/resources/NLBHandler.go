@@ -102,6 +102,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		nlbRequest.LoadBalancerType = common.StringPtr(Tencent_LoadBalancerType_INTERNAL)
 	}
 
+	// Both PUBLIC and INTERNAL NLB can be created within VPC
 	nlbRequest.VpcId = common.StringPtr(nlbReqInfo.VpcIID.SystemId)
 
 	var tags []*clb.TagInfo
@@ -186,10 +187,6 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		cblogger.Info("%s", listenerResponse.ToJsonString())
 
 		newListenerId := *listenerResponse.Response.ListenerIds[0]
-		backendPort, backendErr := strconv.ParseInt(nlbReqInfo.VMGroup.Port, 10, 64)
-		if backendErr != nil {
-			return irs.NLBInfo{}, backendErr
-		}
 
 		// Listener가 생성되길 기다림
 		listStatus, listStatErr := NLBHandler.WaitForDone(*listenerResponse.Response.RequestId)
@@ -199,47 +196,60 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 		// VM 연결
 		if listStatus == Request_Status_Done {
-
-			targetRequest := clb.NewRegisterTargetsRequest()
-
-			targetRequest.LoadBalancerId = common.StringPtr(newNLBId)
-			targetRequest.ListenerId = common.StringPtr(newListenerId)
-			targetRequest.Targets = []*clb.Target{}
-			for _, target := range *nlbReqInfo.VMGroup.VMs {
-				targetRequest.Targets = append(targetRequest.Targets, &clb.Target{
-					InstanceId: common.StringPtr(target.SystemId),
-					Port:       common.Int64Ptr(backendPort),
-				})
-			}
-
-			cblogger.Debug(targetRequest.ToJsonString())
-
-			targetResponse, targetErr := NLBHandler.Client.RegisterTargets(targetRequest)
-			if targetErr != nil {
-				cblogger.Errorf("NLB RegisterTargets err: %s", listenerErr.Error())
-				cblogger.Errorf("delete abnormal nlb")
-				_, err := NLBHandler.DeleteNLB(irs.IID{SystemId: newNLBId})
-				if err != nil {
-					return irs.NLBInfo{}, err
-				}
-				return irs.NLBInfo{}, targetErr
-			}
-			cblogger.Info("%s", targetResponse.ToJsonString())
-
-			// VM 연결되길 기다림
-			targetStatus, targetStatErr := NLBHandler.WaitForDone(*targetResponse.Response.RequestId)
-			if targetStatErr != nil {
-				return irs.NLBInfo{}, targetStatErr
-			}
-
-			if targetStatus == Request_Status_Done {
-
+			// If no VMs provided, skip registration and return NLB info
+			if nlbReqInfo.VMGroup.VMs == nil || len(*nlbReqInfo.VMGroup.VMs) == 0 {
 				nlbInfo, nlbInfoErr := NLBHandler.GetNLB(irs.IID{SystemId: newNLBId})
 				if nlbInfoErr != nil {
 					return irs.NLBInfo{}, nlbInfoErr
 				}
-
 				nlbResult = nlbInfo
+			} else {
+				backendPort, backendErr := strconv.ParseInt(nlbReqInfo.VMGroup.Port, 10, 64)
+				if backendErr != nil {
+					return irs.NLBInfo{}, backendErr
+				}
+
+				targetRequest := clb.NewRegisterTargetsRequest()
+
+				targetRequest.LoadBalancerId = common.StringPtr(newNLBId)
+				targetRequest.ListenerId = common.StringPtr(newListenerId)
+				targetRequest.Targets = []*clb.Target{}
+				for _, target := range *nlbReqInfo.VMGroup.VMs {
+					targetRequest.Targets = append(targetRequest.Targets, &clb.Target{
+						InstanceId: common.StringPtr(target.SystemId),
+						Port:       common.Int64Ptr(backendPort),
+					})
+				}
+
+				cblogger.Debug(targetRequest.ToJsonString())
+
+				targetResponse, targetErr := NLBHandler.Client.RegisterTargets(targetRequest)
+				if targetErr != nil {
+					cblogger.Errorf("NLB RegisterTargets err: %s", listenerErr.Error())
+					cblogger.Errorf("delete abnormal nlb")
+					_, err := NLBHandler.DeleteNLB(irs.IID{SystemId: newNLBId})
+					if err != nil {
+						return irs.NLBInfo{}, err
+					}
+					return irs.NLBInfo{}, targetErr
+				}
+				cblogger.Info("%s", targetResponse.ToJsonString())
+
+				// VM 연결되길 기다림
+				targetStatus, targetStatErr := NLBHandler.WaitForDone(*targetResponse.Response.RequestId)
+				if targetStatErr != nil {
+					return irs.NLBInfo{}, targetStatErr
+				}
+
+				if targetStatus == Request_Status_Done {
+
+					nlbInfo, nlbInfoErr := NLBHandler.GetNLB(irs.IID{SystemId: newNLBId})
+					if nlbInfoErr != nil {
+						return irs.NLBInfo{}, nlbInfoErr
+					}
+
+					nlbResult = nlbInfo
+				}
 			}
 		}
 	}
@@ -465,11 +475,13 @@ func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup i
 	modifyTargetRequest.LoadBalancerId = common.StringPtr(newNLBId)
 	modifyTargetRequest.ListenerId = common.StringPtr(newListenerId)
 	modifyTargetRequest.Targets = []*clb.Target{}
-	for _, target := range *vmGroupInfo.VMs {
-		modifyTargetRequest.Targets = append(modifyTargetRequest.Targets, &clb.Target{
-			InstanceId: common.StringPtr(target.SystemId),
-			Port:       common.Int64Ptr(port),
-		})
+	if vmGroupInfo.VMs != nil {
+		for _, target := range *vmGroupInfo.VMs {
+			modifyTargetRequest.Targets = append(modifyTargetRequest.Targets, &clb.Target{
+				InstanceId: common.StringPtr(target.SystemId),
+				Port:       common.Int64Ptr(port),
+			})
+		}
 	}
 
 	modifyTargetRequest.NewPort = common.Int64Ptr(newPort)
@@ -530,12 +542,16 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	if vmGroupInfoErr != nil {
 		backendPort = *response.Response.Listeners[0].Port
 	} else {
-		port, portErr := strconv.ParseInt(vmGroupInfo.Port, 10, 64)
-		if portErr != nil {
-			return irs.VMGroupInfo{}, portErr
+		// If Port is empty (no VMs exist), use Listener port
+		if vmGroupInfo.Port == "" {
+			backendPort = *response.Response.Listeners[0].Port
+		} else {
+			port, portErr := strconv.ParseInt(vmGroupInfo.Port, 10, 64)
+			if portErr != nil {
+				return irs.VMGroupInfo{}, portErr
+			}
+			backendPort = port
 		}
-		backendPort = port
-
 	}
 
 	targetRequest := clb.NewRegisterTargetsRequest()
@@ -960,6 +976,11 @@ func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Li
 		return irs.ListenerInfo{}, err
 	}
 
+	// Check if Listeners exist
+	if response.Response.Listeners == nil || len(response.Response.Listeners) == 0 {
+		return irs.ListenerInfo{}, errors.New("No listeners found for NLB: " + nlbIID.SystemId)
+	}
+
 	// protocol port set
 	resListenerInfo := irs.ListenerInfo{
 		Protocol: *response.Response.Listeners[0].Protocol,
@@ -974,7 +995,23 @@ func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Li
 		cblogger.Errorf("An API error has returned: %s", err.Error())
 		return irs.ListenerInfo{}, ipErr
 	}
-	resListenerInfo.IP = *ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips[0]
+
+	// Check if LoadBalancerSet exists
+	if ipResponse.Response.LoadBalancerSet == nil || len(ipResponse.Response.LoadBalancerSet) == 0 {
+		return irs.ListenerInfo{}, errors.New("No LoadBalancer found: " + nlbIID.SystemId)
+	}
+
+	// Set IP from LoadBalancerVips if available
+	if ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips != nil && len(ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips) > 0 {
+		resListenerInfo.IP = *ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips[0]
+	} else {
+		resListenerInfo.IP = ""
+	}
+
+	// Set DNSName from Domain if available
+	if ipResponse.Response.LoadBalancerSet[0].Domain != nil {
+		resListenerInfo.DNSName = *ipResponse.Response.LoadBalancerSet[0].Domain
+	}
 
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	resListenerInfo.KeyValueList = irs.StructToKeyValueList(ipResponse.Response.LoadBalancerSet[0])
@@ -999,8 +1036,15 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 
 	cblogger.Debug(response.Response.Listeners[0].Targets)
 
+	vms := make([]irs.IID, 0)
+	resVmInfo := irs.VMGroupInfo{
+		Protocol: Protocol_TCP,
+		VMs:      &vms,
+	}
+
 	if len(response.Response.Listeners[0].Targets) == 0 {
-		return irs.VMGroupInfo{}, errors.New("Target VM does not exist!")
+		// Return empty VM group when no targets exist
+		return resVmInfo, nil
 	}
 
 	// https://intl.cloud.tencent.com/ko/document/product/214/6151
@@ -1008,17 +1052,11 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 	// the CLB instance will establish a TCP connection with the real server on the listening port,
 	// and directly forward requests to the real server.
 	// TCP, UDP Listener일 때 Real Server Protocol을 TCP로 설정
-	resVmInfo := irs.VMGroupInfo{
-		Protocol: Protocol_TCP,
-		Port:     strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port, 10),
-	}
+	resVmInfo.Port = strconv.FormatInt(*response.Response.Listeners[0].Targets[0].Port, 10)
 
-	vms := []irs.IID{}
 	for _, target := range response.Response.Listeners[0].Targets {
 		vms = append(vms, irs.IID{SystemId: *target.InstanceId, NameId: *target.InstanceName})
 	}
-
-	resVmInfo.VMs = &vms
 
 	return resVmInfo, nil
 }

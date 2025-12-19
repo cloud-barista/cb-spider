@@ -5,6 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"reflect"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -12,12 +19,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"net/url"
-	"reflect"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 type NLBType string
@@ -1106,6 +1107,12 @@ func (nlbHandler *IbmNLBHandler) getCreatePoolOptions(nlbReqInfo irs.NLBInfo) ([
 }
 
 func (nlbHandler *IbmNLBHandler) convertCBVMGroupToIbmPoolMember(vmGroup irs.VMGroupInfo) ([]vpcv1.LoadBalancerPoolMemberPrototype, error) {
+	// IBM NLB can be created without VMs
+	// If no VMs are provided, return empty pool members
+	if vmGroup.VMs == nil || len(*vmGroup.VMs) == 0 {
+		return []vpcv1.LoadBalancerPoolMemberPrototype{}, nil
+	}
+
 	vms := *vmGroup.VMs
 	memberPort, err := strconv.Atoi(vmGroup.Port)
 	if err != nil {
@@ -1188,30 +1195,59 @@ func convertCBHealthToIbmHealth(healthChecker irs.HealthCheckerInfo) (vpcv1.Load
 	return opts, nil
 }
 
-func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID) ([]irs.IID, string, error) {
-	if vmIIDs == nil || len(*vmIIDs) < 1 {
-		return nil, "", errors.New("vmIIDs is empty")
+func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID, vpcIID irs.IID) ([]irs.IID, string, error) {
+	// If VMs are provided, use the first VM's subnet for NLB placement
+	// If no VMs are provided, use the first subnet of the VPC
+	if vmIIDs == nil || len(*vmIIDs) == 0 {
+		// No VMs provided - get first subnet from VPC
+		if vpcIID.SystemId == "" {
+			return []irs.IID{}, "", errors.New("VPC information is required to create NLB without VMs")
+		}
+
+		// Get VPC subnets
+		listSubnetOptions := &vpcv1.ListSubnetsOptions{}
+		subnets, _, err := nlbHandler.VpcService.ListSubnetsWithContext(nlbHandler.Ctx, listSubnetOptions)
+		if err != nil {
+			return []irs.IID{}, "", errors.New(fmt.Sprintf("Failed to get VPC subnets: %s", err.Error()))
+		}
+
+		// Find first subnet in the specified VPC
+		for _, subnet := range subnets.Subnets {
+			if subnet.VPC != nil && *subnet.VPC.ID == vpcIID.SystemId {
+				return []irs.IID{}, *subnet.ID, nil
+			}
+		}
+
+		return []irs.IID{}, "", errors.New(fmt.Sprintf("No subnets found in VPC %s. Please create at least one subnet in the VPC before creating NLB", vpcIID.NameId))
 	}
+
+	// VMs are provided - validate and get subnet from first VM
 	allVMS, err := nlbHandler.getRawVMList()
 	if err != nil {
 		return nil, "", err
 	}
+
+	// Get subnet ID from the first VM for NLB placement
+	// This determines the zone where the NLB itself will be placed
 	subnetId := ""
 	vms := *vmIIDs
 	for i, vmIID := range vms {
 		errCheck := true
 		for _, rawVM := range *allVMS {
 			if strings.EqualFold(vmIID.NameId, *rawVM.Name) {
+				// Use the first VM's subnet for NLB placement
+				// Pool members can be in different subnets/zones
 				if subnetId == "" {
 					subnetId = *rawVM.PrimaryNetworkInterface.Subnet.ID
 				}
+
 				vms[i].SystemId = *rawVM.ID
 				errCheck = false
 				break
 			}
 		}
 		if errCheck {
-			return nil, "", errors.New("not found vm")
+			return nil, "", errors.New(fmt.Sprintf("VM not found: %s", vmIID.NameId))
 		}
 	}
 	return vms, subnetId, nil
@@ -1226,7 +1262,7 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		return vpcv1.LoadBalancer{}, errors.New(fmt.Sprintf("already exist NLB : %s", nlbReqInfo.IId.NameId))
 	}
 
-	vms, subnetId, err := nlbHandler.getMatchedResourceIds(nlbReqInfo.VMGroup.VMs)
+	vms, subnetId, err := nlbHandler.getMatchedResourceIds(nlbReqInfo.VMGroup.VMs, nlbReqInfo.VpcIID)
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}

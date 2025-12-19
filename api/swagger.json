@@ -13442,7 +13442,6 @@
                         "Name",
                         "Scope",
                         "Type",
-                        "VMGroup",
                         "VPCName"
                     ],
                     "properties": {
@@ -13655,8 +13654,7 @@
             "type": "object",
             "required": [
                 "Port",
-                "Protocol",
-                "VMs"
+                "Protocol"
             ],
             "properties": {
                 "Port": {
@@ -13675,7 +13673,8 @@
                         "type": "string"
                     },
                     "example": [
-                        "vm-01"
+                        "vm-01",
+                        "vm-02"
                     ]
                 }
             }
