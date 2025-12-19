@@ -41,8 +41,8 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	keyValue, err := keypair.GetKey(CBKeyPairProvider, hashString, keyPairName)
 	cblogger.Debug(keyValue)
 	if err != nil {
-		if strings.Contains(err.Error(), "does not exist!") {
-
+		if strings.Contains(err.Error(), "does not exist") {
+			// Key does not exist, proceed to create
 		} else {
 			cblogger.Error(err)
 			return irs.KeyPairInfo{}, err

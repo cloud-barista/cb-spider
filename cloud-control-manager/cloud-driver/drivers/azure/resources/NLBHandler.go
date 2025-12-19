@@ -34,6 +34,8 @@ type AzureNLBHandler struct {
 	IPConfigClient               *armnetwork.InterfaceIPConfigurationsClient
 	NLBLoadBalancingRulesClient  *armnetwork.LoadBalancerLoadBalancingRulesClient
 	MetricClient                 *azquery.MetricsClient
+	SecurityGroupClient          *armnetwork.SecurityGroupsClient
+	SecurityRuleClient           *armnetwork.SecurityRulesClient
 }
 
 type BackendAddressesIPRefType string
@@ -182,7 +184,7 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 	nlbId := GetNetworksResourceIdByName(nlbHandler.CredentialInfo, nlbHandler.Region, AzureLoadBalancers, nlbReqInfo.IId.NameId)
 	frontEndIPConfigId := fmt.Sprintf("%s/frontendIPConfigurations/%s", nlbId, *frontendIPConfiguration.Name)
 	backEndAddressPoolId := fmt.Sprintf("%s/backendAddressPools/%s", nlbId, backEndAddressPoolName)
-	if len(*nlbReqInfo.VMGroup.VMs) == 0 {
+	if nlbReqInfo.VMGroup.VMs == nil || len(*nlbReqInfo.VMGroup.VMs) == 0 {
 		backEndAddressPoolId = ""
 	}
 	probeId := fmt.Sprintf("%s/probes/%s", nlbId, *healthCheckProbe.Name)
@@ -238,34 +240,37 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		return irs.NLBInfo{}, createError
 	}
 
+	// VPC validation is only needed when VMs are present (to get private IPs)
 	var nlbVPC *armnetwork.VirtualNetwork
-	pager := nlbHandler.VPCClient.NewListPager(nlbHandler.Region.Region, nil)
-	for pager.More() {
-		page, err := pager.NextPage(nlbHandler.Ctx)
-		if err != nil {
-			return irs.NLBInfo{}, errors.New(fmt.Sprintf("Failed to get VPC list. err = %s", err))
-		}
+	if nlbReqInfo.VMGroup.VMs != nil && len(*nlbReqInfo.VMGroup.VMs) > 0 {
+		pager := nlbHandler.VPCClient.NewListPager(nlbHandler.Region.Region, nil)
+		for pager.More() {
+			page, err := pager.NextPage(nlbHandler.Ctx)
+			if err != nil {
+				return irs.NLBInfo{}, errors.New(fmt.Sprintf("Failed to get VPC list. err = %s", err))
+			}
 
-		for _, vpc := range page.Value {
-			if *vpc.Name == nlbReqInfo.VpcIID.NameId || *vpc.ID == nlbReqInfo.VpcIID.SystemId {
-				nlbVPC = vpc
-				break
+			for _, vpc := range page.Value {
+				if *vpc.Name == nlbReqInfo.VpcIID.NameId || *vpc.ID == nlbReqInfo.VpcIID.SystemId {
+					nlbVPC = vpc
+					break
+				}
 			}
 		}
+
+		if nlbVPC == nil {
+			return irs.NLBInfo{}, errors.New("failed to get NLB VPC")
+		}
+
+		if nlbReqInfo.VpcIID.NameId != "" && nlbReqInfo.VpcIID.NameId != *nlbVPC.Name {
+			return irs.NLBInfo{}, errors.New("found NLB VPC NameId is not matched")
+		}
+		if nlbReqInfo.VpcIID.SystemId != "" && nlbReqInfo.VpcIID.SystemId != *nlbVPC.ID {
+			return irs.NLBInfo{}, errors.New("found NLB VPC SystemId is not matched")
+		}
 	}
 
-	if nlbVPC == nil {
-		return irs.NLBInfo{}, errors.New("failed to get NLB VPC")
-	}
-
-	if nlbReqInfo.VpcIID.NameId != "" && nlbReqInfo.VpcIID.NameId != *nlbVPC.Name {
-		return irs.NLBInfo{}, errors.New("found NLB VPC NameId is not matched")
-	}
-	if nlbReqInfo.VpcIID.SystemId != "" && nlbReqInfo.VpcIID.SystemId != *nlbVPC.ID {
-		return irs.NLBInfo{}, errors.New("found NLB VPC SystemId is not matched")
-	}
-
-	if len(*nlbReqInfo.VMGroup.VMs) > 0 {
+	if nlbReqInfo.VMGroup.VMs != nil && len(*nlbReqInfo.VMGroup.VMs) > 0 && nlbVPC != nil {
 		// Update BackEndPool
 		var privateIPs []string
 		for _, vmIId := range *nlbReqInfo.VMGroup.VMs {
@@ -316,6 +321,13 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			cblogger.Error(createError)
 			LoggingError(hiscallInfo, createError)
 			return irs.NLBInfo{}, createError
+		}
+
+		// Add AzureLoadBalancer Health Probe rule to NSG for each VM
+		err = nlbHandler.addHealthProbeRuleToVMsNSG(nlbReqInfo.IId, *nlbReqInfo.VMGroup.VMs, nlbReqInfo.HealthChecker)
+		if err != nil {
+			cblogger.Warnf("Failed to add AzureLoadBalancer rule to NSG (non-fatal): %s", err.Error())
+			// Non-fatal error: continue NLB creation
 		}
 	}
 
@@ -404,6 +416,18 @@ func (nlbHandler *AzureNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 func (nlbHandler *AzureNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "DeleteNLB()")
 	start := call.Start()
+
+	// Get NLB info before deletion to retrieve VMs and HealthChecker info
+	nlbInfo, err := nlbHandler.GetNLB(nlbIID)
+	if err == nil && nlbInfo.VMGroup.VMs != nil && len(*nlbInfo.VMGroup.VMs) > 0 {
+		// Remove AzureLoadBalancer rules from NSGs for this NLB
+		err = nlbHandler.removeHealthProbeRuleFromVMsNSG(nlbIID, *nlbInfo.VMGroup.VMs, nlbInfo.HealthChecker)
+		if err != nil {
+			cblogger.Warnf("Failed to remove AzureLoadBalancer rule from NSG (non-fatal): %s", err.Error())
+			// Non-fatal error: continue NLB deletion
+		}
+	}
+
 	deleteResult, err := nlbHandler.NLBCleaner(nlbIID)
 	if err != nil {
 		cblogger.Error(err.Error())
@@ -568,7 +592,22 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 	if len(nlb.Properties.BackendAddressPools) > 0 && len(*vmIIDs) > 0 {
 		backendPools := nlb.Properties.BackendAddressPools
 		cbOnlyOneBackendPool := backendPools[0]
-		vpcID := *cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses[0].Properties.VirtualNetwork.ID
+
+		// Get VPC ID: if backend pool has existing VMs, use their VPC; otherwise get from first VM to add
+		var vpcID string
+		if cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses != nil && len(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses) > 0 {
+			vpcID = *cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses[0].Properties.VirtualNetwork.ID
+		} else {
+			// No existing VMs in NLB, get VPC from the first VM to add
+			firstVMIID := (*vmIIDs)[0]
+			vpcID, err = nlbHandler.getVPCIDFromVM(firstVMIID)
+			if err != nil {
+				addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
+				cblogger.Error(addErr.Error())
+				LoggingError(hiscallInfo, addErr)
+				return irs.VMGroupInfo{}, addErr
+			}
+		}
 
 		nlbCurrentVMIIds, err := nlbHandler.getVMIIDsByLoadBalancerBackendAddresses(vpcID, cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
 		existCheck := false
@@ -594,7 +633,15 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 		backendPoolName := *cbOnlyOneBackendPool.Name
 		var privateIPs []string
 		for _, vmIID := range *vmIIDs {
-			ip, err := nlbHandler.getVMPrivateIP(vpcID, vmIID)
+			convertedIID, err := ConvertVMIID(vmIID, nlbHandler.CredentialInfo, nlbHandler.Region)
+			if err != nil {
+				addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
+				cblogger.Error(addErr.Error())
+				LoggingError(hiscallInfo, addErr)
+				return irs.VMGroupInfo{}, addErr
+			}
+
+			ip, err := nlbHandler.getVMPrivateIP(vpcID, convertedIID)
 			if err != nil {
 				addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 				cblogger.Error(addErr.Error())
@@ -631,6 +678,52 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 			cblogger.Error(addErr.Error())
 			LoggingError(hiscallInfo, addErr)
 			return irs.VMGroupInfo{}, addErr
+		}
+
+		// If NLB was created without VMs, LoadBalancingRule may not have BackendAddressPool reference
+		// Update LoadBalancingRule to reference BackendAddressPool
+		if len(nlb.Properties.LoadBalancingRules) > 0 {
+			loadBalancingRule := nlb.Properties.LoadBalancingRules[0]
+			if loadBalancingRule.Properties.BackendAddressPool == nil || loadBalancingRule.Properties.BackendAddressPool.ID == nil || *loadBalancingRule.Properties.BackendAddressPool.ID == "" {
+				cblogger.Infof("LoadBalancingRule has no BackendAddressPool reference. Updating...")
+
+				// Update NLB to connect LoadBalancingRule with BackendAddressPool
+				nlbId := GetNetworksResourceIdByName(nlbHandler.CredentialInfo, nlbHandler.Region, AzureLoadBalancers, nlbIID.NameId)
+				backEndAddressPoolId := fmt.Sprintf("%s/backendAddressPools/%s", nlbId, backendPoolName)
+
+				loadBalancingRule.Properties.BackendAddressPool = &armnetwork.SubResource{
+					ID: &backEndAddressPoolId,
+				}
+
+				nlbPoller, err := nlbHandler.NLBClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, *nlb, nil)
+				if err != nil {
+					cblogger.Warnf("Failed to update LoadBalancingRule with BackendAddressPool (non-fatal): %s", err.Error())
+				} else {
+					_, err = nlbPoller.PollUntilDone(nlbHandler.Ctx, nil)
+					if err != nil {
+						cblogger.Warnf("Failed to update LoadBalancingRule with BackendAddressPool (non-fatal): %s", err.Error())
+					} else {
+						cblogger.Infof("Successfully updated LoadBalancingRule to reference BackendAddressPool")
+					}
+				}
+			}
+		}
+
+		// Get NLB HealthChecker info
+		nlbInfo, err := nlbHandler.GetNLB(nlbIID)
+		if err != nil {
+			cblogger.Warnf("Failed to get NLB HealthChecker info: %s", err.Error())
+		} else {
+			cblogger.Infof("Adding AzureLoadBalancer Health Probe rules to NSG for %d VMs (Protocol: %s, Port: %s)",
+				len(*vmIIDs), nlbInfo.HealthChecker.Protocol, nlbInfo.HealthChecker.Port)
+			// Add AzureLoadBalancer Health Probe rule to NSG for newly added VMs
+			err = nlbHandler.addHealthProbeRuleToVMsNSG(nlbIID, *vmIIDs, nlbInfo.HealthChecker)
+			if err != nil {
+				cblogger.Warnf("Failed to add AzureLoadBalancer rule to NSG (non-fatal): %s", err.Error())
+				// Non-fatal error: continue AddVMs operation
+			} else {
+				cblogger.Infof("Successfully completed adding AzureLoadBalancer rules to NSGs for NLB %s", nlbIID.NameId)
+			}
 		}
 	}
 	nlb, err = nlbHandler.getRawNLB(nlbIID)
@@ -713,7 +806,15 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 
 		var updateVMPrivateIPs []string
 		for _, vmIId := range nlbUpdateVMIIds {
-			privateIP, err := nlbHandler.getVMPrivateIP(vpcID, vmIId)
+			convertedIID, err := ConvertVMIID(vmIId, nlbHandler.CredentialInfo, nlbHandler.Region)
+			if err != nil {
+				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
+				cblogger.Error(removeErr.Error())
+				LoggingError(hiscallInfo, removeErr)
+				return false, removeErr
+			}
+
+			privateIP, err := nlbHandler.getVMPrivateIP(vpcID, convertedIID)
 			if err != nil {
 				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 				cblogger.Error(removeErr.Error())
@@ -755,6 +856,17 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 			LoggingError(hiscallInfo, removeErr)
 			return false, removeErr
 		}
+
+		// Remove AzureLoadBalancer rules from NSGs for removed VMs
+		nlbInfo, err := nlbHandler.GetNLB(nlbIID)
+		if err == nil {
+			err = nlbHandler.removeHealthProbeRuleFromVMsNSG(nlbIID, *vmIIDs, nlbInfo.HealthChecker)
+			if err != nil {
+				cblogger.Warnf("Failed to remove AzureLoadBalancer rule from NSG (non-fatal): %s", err.Error())
+				// Non-fatal error: continue RemoveVMs operation
+			}
+		}
+
 		LoggingInfo(hiscallInfo, start)
 		return true, nil
 	}
@@ -912,7 +1024,8 @@ func (nlbHandler *AzureNLBHandler) getProbeMetricStatus(nlbId string, ip string)
 	metrics = append(metrics, "DipAvailability")
 	metricNames := strings.Join(metrics, ",")
 	endTime := time.Now().UTC()
-	startTime := endTime.Add(time.Duration(-1) * time.Minute)
+	// Use 3 minutes window for more stable results
+	startTime := endTime.Add(time.Duration(-3) * time.Minute)
 	resultType := azquery.ResultTypeData
 	timespan := azquery.TimeInterval(fmt.Sprintf("%s/%s", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)))
 
@@ -928,26 +1041,46 @@ func (nlbHandler *AzureNLBHandler) getProbeMetricStatus(nlbId string, ip string)
 		Top:             nil,
 	})
 	if err != nil {
-		return false, err
+		cblogger.Warnf("Failed to get Azure Health Probe metric: %s (VM will be marked as unhealthy)", err.Error())
+		return false, nil
 	}
 
 	if len(resp.Value) < 1 {
+		cblogger.Warnf("No metric data available for backend IP %s (may be initializing)", ip)
 		return false, nil
 	}
 	values := resp.Value
 	if values[0] == nil {
+		cblogger.Warnf("Metric value is nil for backend IP %s", ip)
 		return false, nil
 	}
 	if len((*(values[0])).TimeSeries) < 1 {
+		cblogger.Warnf("No time series data for backend IP %s", ip)
 		return false, nil
 	}
 	TimeSeries := (*(values[0])).TimeSeries
-	if len((*(TimeSeries[0])).Data) < 1 {
+	if TimeSeries[0] == nil {
+		cblogger.Warnf("First time series is nil for backend IP %s", ip)
 		return false, nil
 	}
-	data := TimeSeries[len((*(TimeSeries[0])).Data)-1].Data
-	avg := int(*data[0].Average)
-	if avg == 100 {
+	timeSeriesData := (*(TimeSeries[0])).Data
+	if len(timeSeriesData) < 1 {
+		cblogger.Warnf("No data points in time series for backend IP %s", ip)
+		return false, nil
+	}
+	data := timeSeriesData[len(timeSeriesData)-1]
+
+	// Check if Average is nil
+	if data.Average == nil {
+		cblogger.Warnf("Average metric is nil for backend IP %s", ip)
+		return false, nil
+	}
+
+	avg := int(*data.Average)
+	cblogger.Infof("Backend IP %s DipAvailability: %d%%", ip, avg)
+
+	// Consider healthy if availability is >= 80% (more lenient than 100%)
+	if avg >= 80 {
 		return true, nil
 	}
 	return false, nil
@@ -970,6 +1103,12 @@ func (nlbHandler *AzureNLBHandler) getVMIPs(nlbIId irs.IID) ([]vmIP, error) {
 	}
 
 	var vmIPs []vmIP
+
+	// Check if VMs is nil or empty
+	if info.VMGroup.VMs == nil || len(*info.VMGroup.VMs) == 0 {
+		return vmIPs, nil
+	}
+
 	for _, vmIID := range *info.VMGroup.VMs {
 		resp, err := nlbHandler.VMClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, vmIID.NameId, nil)
 		if err != nil {
@@ -1123,13 +1262,32 @@ func (nlbHandler *AzureNLBHandler) setterNLB(nlb *armnetwork.LoadBalancer) (*irs
 		}
 	}
 
+	// Get VPC information from backend addresses or frontend IP configuration
+	var vpcID string
 	if len(nlb.Properties.BackendAddressPools) > 0 {
 		// TODO: Deliver multiple backendPools in the future
 		cbOnlyOneBackendPool := nlb.Properties.BackendAddressPools[0]
-		if len(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses) < 1 {
-			return nil, errors.New("failed to get VPC information")
+		// VPC information can be retrieved from backend addresses if they exist
+		if len(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses) > 0 {
+			vpcID = *cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses[0].Properties.VirtualNetwork.ID
 		}
-		vpcID := *cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses[0].Properties.VirtualNetwork.ID
+	}
+
+	// If no backend addresses (no VMs), get VPC info from subnet in frontend IP config
+	if vpcID == "" && len(nlb.Properties.FrontendIPConfigurations) > 0 {
+		frontendIPConfig := nlb.Properties.FrontendIPConfigurations[0]
+		if frontendIPConfig.Properties.Subnet != nil && frontendIPConfig.Properties.Subnet.ID != nil {
+			// Subnet ID format: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}
+			// Extract VNet ID by removing the subnet part
+			subnetID := *frontendIPConfig.Properties.Subnet.ID
+			re := regexp.MustCompile(`(.+/virtualNetworks/[^/]+)`)
+			if match := re.FindStringSubmatch(subnetID); len(match) > 1 {
+				vpcID = match[1]
+			}
+		}
+	}
+
+	if vpcID != "" {
 		nlbInfo.VpcIID = irs.IID{
 			NameId:   GetResourceNameById(vpcID),
 			SystemId: vpcID,
@@ -1343,10 +1501,16 @@ func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork
 
 	backendPools := nlb.Properties.BackendAddressPools
 	cbOnlyOneBackendPool := backendPools[0]
-	vpcID := *cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses[0].Properties.VirtualNetwork.ID
-	vmIIds, err := nlbHandler.getVMIIDsByLoadBalancerBackendAddresses(vpcID, cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
-	if err != nil {
-		return nil, nil, nil, err
+
+	// VMs are optional - if no backend addresses, use empty list
+	vmIIds := make([]irs.IID, 0)
+	if len(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses) > 0 {
+		vpcID := *cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses[0].Properties.VirtualNetwork.ID
+		var err error
+		vmIIds, err = nlbHandler.getVMIIDsByLoadBalancerBackendAddresses(vpcID, cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	VMGroup.VMs = &vmIIds
@@ -1624,15 +1788,320 @@ func checkValidationNLBHealthCheck(healthCheckerInfo irs.HealthCheckerInfo) erro
 	if healthCheckerInfo.Timeout != -1 {
 		return errors.New(fmt.Sprintf("Azure NLB does not support timeout."))
 	}
-	if healthCheckerInfo.Interval < 5 {
+	// Skip validation if Interval is -1 (default)
+	if healthCheckerInfo.Interval != -1 && healthCheckerInfo.Interval < 5 {
 		return errors.New("invalid HealthCheckerInfo Interval, interval must be greater than 5")
 	}
-	if healthCheckerInfo.Threshold < 1 {
+	// Skip validation if Threshold is -1 (default)
+	if healthCheckerInfo.Threshold != -1 && healthCheckerInfo.Threshold < 1 {
 		return errors.New("invalid HealthCheckerInfo Threshold, Threshold  must be greater than 1")
 	}
-	if healthCheckerInfo.Interval*healthCheckerInfo.Threshold > 2147483647 {
+	// Skip validation if either is -1 (default)
+	if healthCheckerInfo.Interval != -1 && healthCheckerInfo.Threshold != -1 && healthCheckerInfo.Interval*healthCheckerInfo.Threshold > 2147483647 {
 		return errors.New("invalid HealthCheckerInfo Interval * Threshold must be between 5 and 2147483647 ")
 	}
+	return nil
+}
+
+// getVPCIDFromVM retrieves VPC ID from a VM's network interface
+func (nlbHandler *AzureNLBHandler) getVPCIDFromVM(vmIID irs.IID) (string, error) {
+	convertedIID, err := ConvertVMIID(vmIID, nlbHandler.CredentialInfo, nlbHandler.Region)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to convert VM IID. err = %s", err))
+	}
+
+	vm, err := nlbHandler.VMClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, convertedIID.NameId, nil)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to get VM. err = %s", err))
+	}
+
+	if vm.Properties.NetworkProfile == nil || len(vm.Properties.NetworkProfile.NetworkInterfaces) == 0 {
+		return "", errors.New("VM has no network interfaces")
+	}
+
+	nicID := *vm.Properties.NetworkProfile.NetworkInterfaces[0].ID
+	nicIDArr := strings.Split(nicID, "/")
+	nicName := nicIDArr[len(nicIDArr)-1]
+
+	nic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, nil)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to get NIC. err = %s", err))
+	}
+
+	if nic.Properties.IPConfigurations == nil || len(nic.Properties.IPConfigurations) == 0 {
+		return "", errors.New("NIC has no IP configurations")
+	}
+
+	if nic.Properties.IPConfigurations[0].Properties.Subnet == nil {
+		return "", errors.New("NIC IP configuration has no subnet")
+	}
+
+	subnetID := *nic.Properties.IPConfigurations[0].Properties.Subnet.ID
+	// Subnet ID format: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}
+	// Extract VPC ID by removing the last "/subnets/{subnet}" part
+	lastSlashIndex := strings.LastIndex(subnetID, "/subnets/")
+	if lastSlashIndex == -1 {
+		return "", errors.New("Invalid subnet ID format")
+	}
+
+	return subnetID[:lastSlashIndex], nil
+}
+
+// addHealthProbeRuleToVMsNSG adds AzureLoadBalancer service tag rule to NSG of VMs for Health Probe
+func (nlbHandler *AzureNLBHandler) addHealthProbeRuleToVMsNSG(nlbIID irs.IID, vmIIDs []irs.IID, healthChecker irs.HealthCheckerInfo) error {
+	if len(vmIIDs) == 0 {
+		return nil
+	}
+
+	// Get unique NSGs from all VMs
+	nsgMap := make(map[string]bool)
+	for _, vmIID := range vmIIDs {
+		nsgIIDs, err := nlbHandler.getNSGsFromVM(vmIID)
+		if err != nil {
+			cblogger.Warnf("Failed to get NSG from VM %s: %s", vmIID.NameId, err.Error())
+			continue
+		}
+		for _, nsgIID := range nsgIIDs {
+			nsgMap[nsgIID.SystemId] = true
+		}
+	}
+
+	if len(nsgMap) == 0 {
+		return errors.New("no NSGs found for the VMs")
+	}
+
+	// Add AzureLoadBalancer rule to each unique NSG
+	for nsgID := range nsgMap {
+		nsgName := GetResourceNameById(nsgID)
+		err := nlbHandler.addAzureLoadBalancerRuleToNSG(nlbIID, nsgName, healthChecker)
+		if err != nil {
+			cblogger.Warnf("Failed to add AzureLoadBalancer rule to NSG %s: %s", nsgName, err.Error())
+			// Continue to next NSG even if one fails
+		} else {
+			cblogger.Infof("Successfully added AzureLoadBalancer rule to NSG %s for NLB %s (port %s)", nsgName, nlbIID.NameId, healthChecker.Port)
+		}
+	}
+
+	return nil
+}
+
+// getNSGsFromVM retrieves NSG IIDs associated with a VM
+func (nlbHandler *AzureNLBHandler) getNSGsFromVM(vmIID irs.IID) ([]irs.IID, error) {
+	convertedIID, err := ConvertVMIID(vmIID, nlbHandler.CredentialInfo, nlbHandler.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	vm, err := nlbHandler.VMClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, convertedIID.NameId, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var nsgIIDs []irs.IID
+	if vm.Properties.NetworkProfile != nil {
+		for _, nicRef := range vm.Properties.NetworkProfile.NetworkInterfaces {
+			nicID := *nicRef.ID
+			nicName := GetResourceNameById(nicID)
+
+			nic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, nil)
+			if err != nil {
+				continue
+			}
+
+			// Check NIC-level NSG
+			if nic.Properties.NetworkSecurityGroup != nil {
+				nsgIIDs = append(nsgIIDs, irs.IID{
+					NameId:   GetResourceNameById(*nic.Properties.NetworkSecurityGroup.ID),
+					SystemId: *nic.Properties.NetworkSecurityGroup.ID,
+				})
+			}
+
+			// Check Subnet-level NSG
+			if nic.Properties.IPConfigurations != nil && len(nic.Properties.IPConfigurations) > 0 {
+				if nic.Properties.IPConfigurations[0].Properties.Subnet != nil {
+					subnetID := *nic.Properties.IPConfigurations[0].Properties.Subnet.ID
+					subnetIDArr := strings.Split(subnetID, "/")
+					if len(subnetIDArr) >= 11 {
+						vnetName := subnetIDArr[8]
+						subnetName := subnetIDArr[10]
+
+						subnet, err := nlbHandler.SubnetClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, vnetName, subnetName, nil)
+						if err == nil && subnet.Properties.NetworkSecurityGroup != nil {
+							nsgIIDs = append(nsgIIDs, irs.IID{
+								NameId:   GetResourceNameById(*subnet.Properties.NetworkSecurityGroup.ID),
+								SystemId: *subnet.Properties.NetworkSecurityGroup.ID,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nsgIIDs, nil
+}
+
+// addAzureLoadBalancerRuleToNSG adds a rule to allow AzureLoadBalancer service tag
+func (nlbHandler *AzureNLBHandler) addAzureLoadBalancerRuleToNSG(nlbIID irs.IID, nsgName string, healthChecker irs.HealthCheckerInfo) error {
+	// Get existing NSG
+	nsg, err := nlbHandler.SecurityGroupClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nsgName, nil)
+	if err != nil {
+		return err
+	}
+
+	// Check if AzureLoadBalancer rule already exists for this NLB and port
+	ruleName := fmt.Sprintf("AllowAzureLoadBalancer-%s-%s-%s", nlbIID.NameId, healthChecker.Protocol, healthChecker.Port)
+	for _, rule := range nsg.Properties.SecurityRules {
+		if rule.Name != nil && *rule.Name == ruleName {
+			cblogger.Infof("AzureLoadBalancer rule already exists in NSG %s", nsgName)
+			return nil
+		}
+	}
+
+	// Find available priority (start from 4000 to avoid conflicts with user rules)
+	priority := int32(4000)
+	priorityMap := make(map[int32]bool)
+	for _, rule := range nsg.Properties.SecurityRules {
+		if rule.Properties.Priority != nil {
+			priorityMap[*rule.Properties.Priority] = true
+		}
+	}
+	for priorityMap[priority] && priority < 4096 {
+		priority++
+	}
+	if priority >= 4096 {
+		return errors.New("no available priority for NSG rule (4000-4095 range full)")
+	}
+
+	// Create security rule for AzureLoadBalancer service tag
+	protocol := armnetwork.SecurityRuleProtocolTCP
+	if strings.EqualFold(healthChecker.Protocol, "UDP") {
+		protocol = armnetwork.SecurityRuleProtocolUDP
+	}
+
+	securityHandler := &AzureSecurityHandler{
+		Region:     nlbHandler.Region,
+		Ctx:        nlbHandler.Ctx,
+		Client:     nlbHandler.SecurityGroupClient,
+		RuleClient: nlbHandler.SecurityRuleClient,
+	}
+
+	rule := armnetwork.SecurityRule{
+		Name: &ruleName,
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 &protocol,
+			SourcePortRange:          toStrPtr("*"),
+			DestinationPortRange:     &healthChecker.Port,
+			SourceAddressPrefix:      toStrPtr("AzureLoadBalancer"),
+			DestinationAddressPrefix: toStrPtr("*"),
+			Access:                   toArmNetworkAccess(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 &priority,
+			Direction:                toArmNetworkDirection(armnetwork.SecurityRuleDirectionInbound),
+			Description:              toStrPtr("Allow Azure Load Balancer Health Probe"),
+		},
+	}
+
+	poller, err := securityHandler.RuleClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nsgName, ruleName, rule, nil)
+	if err != nil {
+		return err
+	}
+	_, err = poller.PollUntilDone(nlbHandler.Ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Helper function to convert to armnetwork.SecurityRuleAccess pointer
+func toArmNetworkAccess(access armnetwork.SecurityRuleAccess) *armnetwork.SecurityRuleAccess {
+	return &access
+}
+
+// Helper function to convert to armnetwork.SecurityRuleDirection pointer
+func toArmNetworkDirection(direction armnetwork.SecurityRuleDirection) *armnetwork.SecurityRuleDirection {
+	return &direction
+}
+
+// removeHealthProbeRuleFromVMsNSG removes AzureLoadBalancer service tag rule from NSG of VMs
+func (nlbHandler *AzureNLBHandler) removeHealthProbeRuleFromVMsNSG(nlbIID irs.IID, vmIIDs []irs.IID, healthChecker irs.HealthCheckerInfo) error {
+	if len(vmIIDs) == 0 {
+		return nil
+	}
+
+	// Get unique NSGs from all VMs
+	nsgMap := make(map[string]bool)
+	for _, vmIID := range vmIIDs {
+		nsgIIDs, err := nlbHandler.getNSGsFromVM(vmIID)
+		if err != nil {
+			cblogger.Warnf("Failed to get NSG from VM %s: %s", vmIID.NameId, err.Error())
+			continue
+		}
+		for _, nsgIID := range nsgIIDs {
+			nsgMap[nsgIID.SystemId] = true
+		}
+	}
+
+	if len(nsgMap) == 0 {
+		cblogger.Warnf("No NSGs found for the VMs (VMs may not have NSG or already deleted)")
+		return nil
+	}
+
+	// Remove AzureLoadBalancer rule from each unique NSG
+	for nsgID := range nsgMap {
+		nsgName := GetResourceNameById(nsgID)
+		err := nlbHandler.removeAzureLoadBalancerRuleFromNSG(nlbIID, nsgName, healthChecker)
+		if err != nil {
+			cblogger.Warnf("Failed to remove AzureLoadBalancer rule from NSG %s: %s", nsgName, err.Error())
+			// Continue to next NSG even if one fails
+		} else {
+			cblogger.Infof("Successfully removed AzureLoadBalancer rule from NSG %s for NLB %s (port %s)", nsgName, nlbIID.NameId, healthChecker.Port)
+		}
+	}
+
+	return nil
+}
+
+// removeAzureLoadBalancerRuleFromNSG removes the AzureLoadBalancer rule for specific NLB
+func (nlbHandler *AzureNLBHandler) removeAzureLoadBalancerRuleFromNSG(nlbIID irs.IID, nsgName string, healthChecker irs.HealthCheckerInfo) error {
+	// Get existing NSG
+	nsg, err := nlbHandler.SecurityGroupClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nsgName, nil)
+	if err != nil {
+		return err
+	}
+
+	// Check if AzureLoadBalancer rule exists for this NLB
+	ruleName := fmt.Sprintf("AllowAzureLoadBalancer-%s-%s-%s", nlbIID.NameId, healthChecker.Protocol, healthChecker.Port)
+	ruleExists := false
+	for _, rule := range nsg.Properties.SecurityRules {
+		if rule.Name != nil && *rule.Name == ruleName {
+			ruleExists = true
+			break
+		}
+	}
+
+	if !ruleExists {
+		cblogger.Infof("AzureLoadBalancer rule does not exist in NSG %s (already removed or never added)", nsgName)
+		return nil
+	}
+
+	// Delete the rule
+	securityHandler := &AzureSecurityHandler{
+		Region:     nlbHandler.Region,
+		Ctx:        nlbHandler.Ctx,
+		Client:     nlbHandler.SecurityGroupClient,
+		RuleClient: nlbHandler.SecurityRuleClient,
+	}
+
+	poller, err := securityHandler.RuleClient.BeginDelete(nlbHandler.Ctx, nlbHandler.Region.Region, nsgName, ruleName, nil)
+	if err != nil {
+		return err
+	}
+	_, err = poller.PollUntilDone(nlbHandler.Ctx, nil)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -2551,7 +2551,6 @@ definitions:
         - Name
         - Scope
         - Type
-        - VMGroup
         - VPCName
         type: object
     required:
@@ -2689,13 +2688,13 @@ definitions:
       VMs:
         example:
         - vm-01
+        - vm-02
         items:
           type: string
         type: array
     required:
     - Port
     - Protocol
-    - VMs
     type: object
   spider.OriginalRegionListResponse:
     properties:

@@ -13445,7 +13445,6 @@ const docTemplate = `{
                         "Name",
                         "Scope",
                         "Type",
-                        "VMGroup",
                         "VPCName"
                     ],
                     "properties": {
@@ -13658,8 +13657,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "Port",
-                "Protocol",
-                "VMs"
+                "Protocol"
             ],
             "properties": {
                 "Port": {
@@ -13678,7 +13676,8 @@ const docTemplate = `{
                         "type": "string"
                     },
                     "example": [
-                        "vm-01"
+                        "vm-01",
+                        "vm-02"
                     ]
                 }
             }

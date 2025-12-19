@@ -611,6 +611,7 @@
         text-align: left;
         width: 80%;
         max-width: 600px;
+        max-height: 80vh;
         overflow-y: auto;
         position: relative;
     }
@@ -659,6 +660,21 @@
         overflow-y: auto;
         margin: 0 auto;
         white-space: normal;
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 
 </style>
@@ -782,7 +798,9 @@
                                     <table class="inner-table vm-list">
                                         {{range $vm := $nlb.VMGroup.VMs}}
                                         <tr>
-                                            <td style="text-align: center;">{{$vm.NameId}}</td>
+                                            <td style="text-align: center;">
+                                                <a href="javascript:void(0)" onclick="showVMInfo('{{$vm.NameId}}')" style="color: #007bff; text-decoration: none; cursor: pointer;">{{$vm.NameId}}</a>
+                                            </td>
                                             <td style="background-color: white; width: 10%;">
                                                 <button id="vm-del" style="padding: 1px 5px; font-size: 12px; font-size: 12px;" onclick="delVMFromNLB('{{$nlb.IId.NameId}}', '{{$vm.NameId}}')">del</button>
                                             </td>
@@ -922,6 +940,10 @@
     
                 <div style="margin-top: 20px;"></div>
                 <h3>Health Checker:</h3>
+                <div id="gcpHealthCheckWarning" style="display: none; margin-bottom: 10px;">
+                    <span style="color: #856404; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: right;" 
+                          title="GCP Target Pool-based NLB only supports HTTP health checks.&#10;Please ensure an HTTP service is listening on the specified port on the VM.(e.g., $apt install nginx)">※ GCP requires HTTP service on the VM (e.g., nginx)...</span>
+                </div>
                 <div class="form-group">
                     <label for="hcProtocol">Protocol:</label>
                     <select id="hcProtocol" name="hcProtocol" required style="background-color: #E6E6FA; width: 65%;">
@@ -1019,6 +1041,18 @@
             <h2>System ID (Managed by CSP)</h2>
             <p id="fullSystemId"></p>
             <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+    <!-- VM Info Overlay -->
+    <div id="vmInfoOverlay" class="nlb-health-info-overlay">
+        <div class="nlb-health-info-overlay-content">
+            <button class="close-btn" onclick="closeVMInfoOverlay()">x</button>
+            <h2>VM Information</h2>
+            <div id="vmInfoDetails" style="text-align: left; padding: 10px;">
+                <div class="spinner" style="margin: 20px auto;"></div>
+                <p style="text-align: center; color: #666;">Loading VM information...</p>
+            </div>
         </div>
     </div>
 
@@ -1199,14 +1233,8 @@
             return false;
         }
 
-        const vms = Array.from(document.querySelectorAll('#vmContainer input[type="checkbox"]:checked'))
-        .map(checkbox => checkbox.value);
-                        
-        if (vms.length === 0) {
-            alert("Please select at least one VM.");
-            return false;
-        }
-
+        // VM selection is now optional - NLB can be created without VMs
+        
         return true;
     }
 
@@ -1306,6 +1334,7 @@
                 document.getElementById('overlay').style.display = 'flex'; 
                 document.addEventListener('keydown', handleEsc);
                 clearFormFields();
+                updateHealthCheckerForProvider();
             })
             .catch(error => {
                 console.error('Error loading VPCs or VMs:', error);
@@ -1327,10 +1356,15 @@
         document.getElementById('vmPort').value = '22';
 
         // Reset Health Checker information
-        document.getElementById('hcProtocol').value = 'TCP';
-        document.getElementById('hcPort').value = '22';
-
         var provider = '{{.ProviderName}}';
+        if (provider === 'GCP') {
+            document.getElementById('hcProtocol').value = 'HTTP';
+            document.getElementById('hcPort').value = '80';
+        } else {
+            document.getElementById('hcProtocol').value = 'TCP';
+            document.getElementById('hcPort').value = '22';
+        }
+
         if (provider === 'IBM') {
             document.getElementById('interval').value = '10';
             document.getElementById('timeout').value = '9';
@@ -1349,14 +1383,42 @@
     }
 
     function extractNames(vmString) {
-        return vmString.match(/\{([^ ]+)/g).map(match => match.replace("{", ""));
+        const matches = vmString.match(/\{([^ ]+)/g);
+        return matches ? matches.map(match => match.replace("{", "")) : [];
+    }
+
+    function updateHealthCheckerForProvider() {
+        var provider = '{{.ProviderName}}';
+        const hcProtocolSelect = document.getElementById('hcProtocol');
+        const hcPortInput = document.getElementById('hcPort');
+        const gcpWarning = document.getElementById('gcpHealthCheckWarning');
+        
+        if (provider === 'GCP') {
+            // GCP: HTTP only
+            hcProtocolSelect.innerHTML = '<option value="HTTP">HTTP</option>';
+            hcProtocolSelect.value = 'HTTP';
+            hcPortInput.value = '80';
+            gcpWarning.style.display = 'block';
+        } else {
+            // Other providers: TCP and HTTP
+            hcProtocolSelect.innerHTML = '<option value="TCP">TCP</option><option value="HTTP">HTTP</option>';
+            hcProtocolSelect.value = 'TCP';
+            hcPortInput.value = '22';
+            gcpWarning.style.display = 'none';
+        }
     }
 
     let currnetNLBName = ""
     function showVMOverlay(nlbName, vmGroups) {
-        loadVMsExceptExist('addVMContainer', vmGroups);
+        // Show loading message immediately
+        const vmContainer = document.getElementById('addVMContainer');
+        vmContainer.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px; color: #666;">Loading VM list...</p></div>';
+        
         currnetNLBName = nlbName;
         document.getElementById('vmOverlay').style.display = 'flex';
+        
+        // Load VMs after showing overlay
+        loadVMsExceptExist('addVMContainer', vmGroups);
     }
 
     function hideOverlay(pos) {
@@ -1463,7 +1525,7 @@
             // Show the overlay
             document.getElementById('nlbHealthOverlay').style.display = 'flex';
         }).catch(error => {
-            showError("Error fetching NLB health info: " + error.message, "NLB Health Info Error");
+            showErrorModal("NLB Health Info Error", "Error fetching NLB health info: " + error.message);
         });
     }
 
@@ -1524,7 +1586,7 @@
             // Show the overlay
             document.getElementById('listenerCheckOverlay').style.display = 'flex';
         }).catch(error => {
-            showError("Error checking listener status: " + error.message, "Listener Check Error");
+            showErrorModal("Listener Check Error", "Error checking listener status: " + error.message);
         });
     }
 
@@ -1697,7 +1759,7 @@
             closeTagOverlay();
             location.reload();
         }).catch(error => {
-            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+            showErrorModal("Tag Deletion Error", "Error deleting tag from " + resourceName + ": " + error.message);
         });
     }
 
@@ -1789,7 +1851,7 @@
             closeAddTagOverlay();
             location.reload();
         }).catch(error => {
-            showError("Error adding tag: " + error.message, "NLB Name: " + nlbName);
+            showErrorModal("Tag Addition Error", "Error adding tag to NLB '" + nlbName + "': " + error.message);
         });
     }
 
@@ -1827,7 +1889,7 @@
             }
         };
 
-        fetch(url, {
+        fetchWithProgress(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -1836,17 +1898,18 @@
         })
         .then(response => {
             if(!response.ok){
-                throw new Error(`ADD VM ERROR!: ${response.status}`);
+                return response.json().then(error => {
+                    throw new Error(error.message || `ADD VM ERROR!: ${response.status}`);
+                });
             }
             return response.json();
         })
         .then(data => {
-            alert("VMs added successfuly!");
             location.reload();
         })
         .catch(error => {
             console.error('Error:', error);
-            alert("Failed to add VMs");
+            alert(`Failed to add VMs: ${error.message}`);
         });
     } // end of addVMtoNLB()
 
@@ -1869,6 +1932,9 @@
         fetchVMs().then(data => {
             const filteredVMs = data.vm.filter(vm => !existVMList.includes(vm.IId.NameId));
             renderVMs(filteredVMs, container);
+        }).catch(error => {
+            const vmContainer = document.getElementById(container);
+            vmContainer.innerHTML = '<p style="color: red; text-align: center; padding: 20px;">Failed to load VM list. Please try again.</p>';
         });
     } // end of loadVMsExceptExist()
 
@@ -1926,19 +1992,21 @@
         }
     } // end of renderVMs()
 
-    document.addEventListener('DOMContentLoaded', loadVMs);
+    // Removed: document.addEventListener('DOMContentLoaded', loadVMs);
+    // VM list is now loaded on-demand when user clicks 'Add VM' button
 
     function delVMFromNLB(nlbName, vmName){
+        const connConfig = document.getElementById('connConfig').value;
         const url = `/spider/nlb/${nlbName}/vms`;
         console.log(url);
         const requestBody = {
-            ConnectionName: '{{.ConnectionConfig}}',
+            ConnectionName: connConfig,
             ReqInfo: {
                 VMs: [vmName]
             }
         };
 
-        fetch(url, {
+        fetchWithProgress(url, {
             method: "DELETE",
             headers: {
                 "Content-Type": "application/json"
@@ -1947,17 +2015,18 @@
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+                return response.json().then(error => {
+                    throw new Error(error.message || `Failed to remove VM: ${response.status}`);
+                });
             }
             return response.json();
         })
         .then(data => {
-            alert(`VM ${vmName} removed Successfully`);
             location.reload();
         })
         .catch(error => {
             console.error("Error:", error);
-            alert(`Failed to remove VM ${vmName}`);
+            alert(`Failed to remove VM ${vmName}: ${error.message}`);
         });
     } // end of delVMFromNLB()
 
@@ -2072,6 +2141,128 @@
         }
 
         selection.removeAllRanges();
+    }
+
+    // VM Info Overlay Functions
+    function showVMInfo(vmName) {
+        const overlay = document.getElementById('vmInfoOverlay');
+        const detailsDiv = document.getElementById('vmInfoDetails');
+        
+        // Show loading state
+        detailsDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p style="margin-top: 10px; color: #666;">Loading VM information...</p></div>';
+        overlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscVMInfoOverlay);
+        
+        // Fetch VM info
+        fetchVMInfo(vmName);
+    }
+
+    function closeVMInfoOverlay() {
+        const overlay = document.getElementById('vmInfoOverlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscVMInfoOverlay);
+    }
+
+    function handleEscVMInfoOverlay(event) {
+        if (event.key === "Escape") {
+            closeVMInfoOverlay();
+        }
+    }
+
+    async function fetchVMInfo(vmName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const detailsDiv = document.getElementById('vmInfoDetails');
+        
+        try {
+            const response = await fetch(`/spider/vm/${vmName}?ConnectionName=${connConfig}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch VM info: ${response.statusText}`);
+            }
+            
+            const vmInfo = await response.json();
+            displayVMInfo(vmInfo);
+        } catch (error) {
+            console.error('Error fetching VM info:', error);
+            detailsDiv.innerHTML = `
+                <div style="color: #d9534f; padding: 20px; text-align: center;">
+                    <p><strong>Error loading VM information</strong></p>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    function displayVMInfo(vmInfo) {
+        const detailsDiv = document.getElementById('vmInfoDetails');
+        
+        // Format VM information
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        
+        // Basic Info
+        html += '<tr style="background-color: #f0f0f0;"><td colspan="2" style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Basic Information</td></tr>';
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; width: 40%; font-weight: bold;">Name</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.IId?.NameId || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Region/Zone</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.Region?.Region || 'N/A'}${vmInfo.Region?.Zone ? '/' + vmInfo.Region.Zone : ''}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Image Type</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.ImageType || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Image</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.ImageIId?.NameId || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">VM Spec</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.VMSpecName || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Platform</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.Platform || 'N/A'}</td></tr>`;
+        
+        // Network Info
+        html += '<tr style="background-color: #f0f0f0;"><td colspan="2" style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Network Information</td></tr>';
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">VPC</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.VpcIID?.NameId || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Subnet</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.SubnetIID?.NameId || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Private IP</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.PrivateIP || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Private DNS</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.PrivateDNS || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Public IP</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.PublicIP || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Public DNS</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.PublicDNS || 'N/A'}</td></tr>`;
+        
+        // Security Groups
+        if (vmInfo.SecurityGroupIIds && vmInfo.SecurityGroupIIds.length > 0) {
+            const sgList = vmInfo.SecurityGroupIIds.map(sg => sg.NameId).join(', ');
+            html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Security Groups</td><td style="padding: 8px; border: 1px solid #ddd;">${sgList}</td></tr>`;
+        }
+        
+        // Storage Info
+        html += '<tr style="background-color: #f0f0f0;"><td colspan="2" style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Storage Information</td></tr>';
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Root Disk Type</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.RootDiskType || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Root Disk Size</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.RootDiskSize || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Root Device Name</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.RootDeviceName || 'N/A'}</td></tr>`;
+        
+        if (vmInfo.DataDiskIIDs && vmInfo.DataDiskIIDs.length > 0) {
+            const diskList = vmInfo.DataDiskIIDs.map(disk => disk.NameId).join(', ');
+            html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Data Disks</td><td style="padding: 8px; border: 1px solid #ddd;">${diskList}</td></tr>`;
+        }
+        
+        // Access Info
+        html += '<tr style="background-color: #f0f0f0;"><td colspan="2" style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Access Information</td></tr>';
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Key Pair</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.KeyPairIId?.NameId || 'N/A'}</td></tr>`;
+        html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">VM User ID</td><td style="padding: 8px; border: 1px solid #ddd;">${vmInfo.VMUserId || 'N/A'}</td></tr>`;
+        
+        // Tags
+        if (vmInfo.TagList && vmInfo.TagList.length > 0) {
+            html += '<tr style="background-color: #f0f0f0;"><td colspan="2" style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Tags</td></tr>';
+            vmInfo.TagList.forEach(tag => {
+                html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${tag.Key}</td><td style="padding: 8px; border: 1px solid #ddd;">${tag.Value}</td></tr>`;
+            });
+        }
+        
+        // Key-Value List (CSP specific info)
+        if (vmInfo.KeyValueList && vmInfo.KeyValueList.length > 0) {
+            html += '<tr style="background-color: #f0f0f0;"><td colspan="2" style="padding: 8px; font-weight: bold; border: 1px solid #ddd;">Additional Information</td></tr>';
+            vmInfo.KeyValueList.forEach(kv => {
+                html += `<tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${kv.Key}</td><td style="padding: 8px; border: 1px solid #ddd; word-break: break-all;">${kv.Value}</td></tr>`;
+            });
+        }
+        
+        html += '</table>';
+        
+        detailsDiv.innerHTML = html;
     }
 
 

@@ -1054,13 +1054,39 @@ func (nlbHandler *NhnCloudNLBHandler) getListenerInfo(raw map[string]interface{}
 		return irs.ListenerInfo{}, fmt.Errorf("not Exist Listener")
 	}
 
-	listener := listeners[0].(map[string]interface{})
+	listenerMap := listeners[0].(map[string]interface{})
+	listenerID := fmt.Sprintf("%v", listenerMap["id"])
+
+	// Get detailed listener information
+	listener, err := nlbHandler.getRawListenerById(listenerID)
+	if err != nil {
+		return irs.ListenerInfo{}, fmt.Errorf("failed to get listener details: %v", err)
+	}
+
+	vipAddress := fmt.Sprintf("%v", raw["vip_address"])
+	vipPortID := fmt.Sprintf("%v", raw["vip_port_id"])
+
+	// Try to get NLB's floating IP (public IP) using vip_port_id
+	publicIP := vipAddress // Default to private IP
+	if vipPortID != "" && vipPortID != "<nil>" {
+		listOpts := floatingips.ListOpts{PortID: vipPortID}
+		allPages, err := floatingips.List(nlbHandler.NetworkClient, listOpts).AllPages()
+		if err == nil {
+			fipList, err := floatingips.ExtractFloatingIPs(allPages)
+			if err == nil && len(fipList) > 0 {
+				publicIP = fipList[0].FloatingIP
+				cblogger.Infof("Found NLB floating IP: %s for VIP port: %s", publicIP, vipPortID)
+			} else {
+				cblogger.Infof("No floating IP assigned to NLB, using private VIP: %s", vipAddress)
+			}
+		}
+	}
 
 	return irs.ListenerInfo{
-		Protocol: fmt.Sprintf("%v", listener["protocol"]),
-		Port:     fmt.Sprintf("%v", listener["protocol_port"]),
-		IP:       fmt.Sprintf("%v", raw["vip_address"]),
-		CspID:    fmt.Sprintf("%v", listener["id"]),
+		Protocol: strings.ToUpper(string(listener.Protocol)),
+		Port:     strconv.Itoa(listener.ProtocolPort),
+		IP:       publicIP,
+		CspID:    listener.ID,
 	}, nil
 }
 
@@ -1102,7 +1128,17 @@ func (nlbHandler *NhnCloudNLBHandler) setterNLB(raw map[string]interface{}) (irs
 		SystemId: fmt.Sprintf("%v", raw["id"]),
 	}
 	nlbInfo.VpcIID = irs.IID{SystemId: fmt.Sprintf("%v", raw["vip_subnet_id"])}
-	nlbInfo.Type = fmt.Sprintf("%v", raw["loadbalancer_type"])
+
+	// Convert NHN loadbalancer_type to Spider Type
+	lbType := fmt.Sprintf("%v", raw["loadbalancer_type"])
+	if lbType == PublicType { // "shared"
+		nlbInfo.Type = "PUBLIC"
+	} else if lbType == InternalType { // "dedicated"
+		nlbInfo.Type = "INTERNAL"
+	} else {
+		nlbInfo.Type = "PUBLIC" // default
+	}
+
 	nlbInfo.Scope = "REGION"
 	nlbInfo.CreatedTime = time.Now()
 
@@ -1167,8 +1203,14 @@ func (nlbHandler *NhnCloudNLBHandler) detachPoolMembers(poolID string, vmIIDs []
 	}
 
 	for _, vm := range vmIIDs {
+		// Get VM's private IP address to match with member's Address
+		privateIP, _, err := nlbHandler.getNetInfoWithVMName(vm.NameId)
+		if err != nil {
+			return fmt.Errorf("failed to get net info for VM %s: %v", vm.NameId, err)
+		}
+
 		for _, m := range *members {
-			if strings.EqualFold(m.Address, vm.NameId) {
+			if strings.EqualFold(m.Address, privateIP) {
 				if err := pools.DeleteMember(nlbHandler.NetworkClient, poolID, m.ID).ExtractErr(); err != nil {
 					return fmt.Errorf("failed to detach member %s: %v", m.ID, err)
 				}
@@ -1253,6 +1295,30 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetAndNetworkId(vpcName string)
 
 	subnetID := fmt.Sprintf("%v", subnets[0])
 	return subnetID, networkID, nil
+}
+
+func (nlbHandler *NhnCloudNLBHandler) getVMByPrivateIP(privateIP string) (*servers.Server, error) {
+	allPages, err := servers.List(nlbHandler.VMClient, nil).AllPages()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list servers: %v", err)
+	}
+
+	serverList, err := servers.ExtractServers(allPages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract servers: %v", err)
+	}
+
+	for _, server := range serverList {
+		for _, addrSet := range server.Addresses {
+			for _, addr := range addrSet.([]interface{}) {
+				addrMap := addr.(map[string]interface{})
+				if addrMap["OS-EXT-IPS:type"] == "fixed" && addrMap["addr"].(string) == privateIP {
+					return &server, nil
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("vm not found with private IP: %s", privateIP)
 }
 
 func (nlbHandler *NhnCloudNLBHandler) getNetInfoWithVMName(vmName string) (string, string, error) {
@@ -1526,11 +1592,19 @@ func (nlbHandler *NhnCloudNLBHandler) getVMGroup(nlbIID irs.IID) (irs.VMGroupInf
 		return irs.VMGroupInfo{}, err
 	}
 
-	var vmIIDs []irs.IID
+	// Initialize as empty slice to return [] instead of null in JSON
+	vmIIDs := []irs.IID{}
 	for _, m := range *members {
+		// Try to find VM by private IP (m.Address)
+		vm, err := nlbHandler.getVMByPrivateIP(m.Address)
+		if err != nil {
+			// If VM not found, skip this member (might be deleted)
+			cblogger.Warnf("VM not found for member address %s: %v", m.Address, err)
+			continue
+		}
 		vmIIDs = append(vmIIDs, irs.IID{
-			SystemId: m.ID,
-			NameId:   m.Address,
+			SystemId: vm.ID,
+			NameId:   vm.Name,
 		})
 	}
 
@@ -1548,12 +1622,19 @@ func (nlbHandler *NhnCloudNLBHandler) getDefaultPoolIDFromNLB(raw map[string]int
 		return "", fmt.Errorf("no listener found for NLB %v", raw["id"])
 	}
 
-	listener := listeners[0].(map[string]interface{})
-	poolID, ok := listener["default_pool_id"].(string)
-	if !ok || poolID == "" {
-		return "", fmt.Errorf("no default pool for listener %v", listener["id"])
+	listenerMap := listeners[0].(map[string]interface{})
+	listenerID := fmt.Sprintf("%v", listenerMap["id"])
+
+	// Get detailed listener information to get default_pool_id
+	listener, err := nlbHandler.getRawListenerById(listenerID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get listener details: %v", err)
 	}
-	return poolID, nil
+
+	if listener.DefaultPoolID == "" {
+		return "", fmt.Errorf("no default pool for listener %s", listener.ID)
+	}
+	return listener.DefaultPoolID, nil
 }
 
 func (nlbHandler *NhnCloudNLBHandler) getDefaultPool(poolID string) (*pools.Pool, error) {
@@ -1596,12 +1677,28 @@ func (nlbHandler *NhnCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.
 
 	var allVMs, healthyVMs, unHealthyVMs []irs.IID
 	for _, m := range *members {
-		vmIID := irs.IID{SystemId: m.ID, NameId: m.Address}
+		// Try to find VM by private IP (m.Address)
+		vm, err := nlbHandler.getVMByPrivateIP(m.Address)
+		if err != nil {
+			// If VM not found, skip this member (might be deleted)
+			cblogger.Warnf("VM not found for member address %s: %v", m.Address, err)
+			continue
+		}
+
+		vmIID := irs.IID{SystemId: vm.ID, NameId: vm.Name}
 		allVMs = append(allVMs, vmIID)
 
-		if strings.ToUpper(m.OperatingStatus) == "ONLINE" {
+		// NHN Cloud member health status:
+		// - ACTIVE: Healthy (health check passed, normal operation)
+		// - INACTIVE: Unhealthy (health check not performed)
+		// - ONLINE: Unhealthy (member VM is deactivated)
+		// - OFFLINE: Unhealthy (member connection failed)
+		cblogger.Infof("Member %s (VM: %s) OperatingStatus: %s", m.Address, vm.Name, m.OperatingStatus)
+
+		if strings.ToUpper(m.OperatingStatus) == "ACTIVE" {
 			healthyVMs = append(healthyVMs, vmIID)
 		} else {
+			// INACTIVE, ONLINE, OFFLINE are all unhealthy
 			unHealthyVMs = append(unHealthyVMs, vmIID)
 		}
 	}

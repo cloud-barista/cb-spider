@@ -152,7 +152,7 @@ type NLBCreateRequest struct {
 		Type          string                   `json:"Type" validate:"required" example:"PUBLIC"`  // PUBLIC(V) | INTERNAL
 		Scope         string                   `json:"Scope" validate:"required" example:"REGION"` // REGION(V) | GLOBAL
 		Listener      NLBListenerCreateRequest `json:"Listener" validate:"required"`
-		VMGroup       NLBVMGroupRequest        `json:"VMGroup" validate:"required"`
+		VMGroup       NLBVMGroupRequest        `json:"VMGroup,omitempty" validate:"omitempty"`
 		HealthChecker NLBHealthCheckerRequest  `json:"HealthChecker" validate:"required"`
 		TagList       []cres.KeyValue          `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`
@@ -193,9 +193,17 @@ func CreateNLB(c echo.Context) error {
 		Type:     req.ReqInfo.Type,
 		Scope:    req.ReqInfo.Scope,
 		Listener: convertListenerInfo(req.ReqInfo.Listener),
-		VMGroup:  convertVMGroupInfo(req.ReqInfo.VMGroup),
 		TagList:  req.ReqInfo.TagList,
 		//HealthChecker: below
+	}
+
+	// VMGroup is optional - if not provided, use Listener's Protocol and Port with empty VMs
+	if req.ReqInfo.VMGroup.Protocol != "" || req.ReqInfo.VMGroup.Port != "" || len(req.ReqInfo.VMGroup.VMs) > 0 {
+		reqInfo.VMGroup = convertVMGroupInfo(req.ReqInfo.VMGroup)
+	} else {
+		// Use Listener's Protocol and Port for VMGroup when not specified
+		emptyVMList := []cres.IID{}
+		reqInfo.VMGroup = cres.VMGroupInfo{req.ReqInfo.Listener.Protocol, req.ReqInfo.Listener.Port, &emptyVMList, "", nil}
 	}
 	healthChecker, err := convertHealthCheckerInfo(req.ReqInfo.HealthChecker)
 	if err != nil {
@@ -224,7 +232,7 @@ func convertListenerInfo(listenerReq NLBListenerCreateRequest) cres.ListenerInfo
 type NLBVMGroupRequest struct {
 	Protocol string   `json:"Protocol" validate:"required" example:"TCP"` // TCP|UDP
 	Port     string   `json:"Port" validate:"required" example:"22"`      // Listener Port or 1-65535
-	VMs      []string `json:"VMs" validate:"required" example:"vm-01", "vm-02"`
+	VMs      []string `json:"VMs,omitempty" validate:"omitempty" example:"vm-01,vm-02"`
 }
 
 func convertVMGroupInfo(vgInfo NLBVMGroupRequest) cres.VMGroupInfo {
