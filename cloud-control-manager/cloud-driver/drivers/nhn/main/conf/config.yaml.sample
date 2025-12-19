@@ -19,9 +19,6 @@ nhncloud:
   # zone: jp-pub-a
   # zone: jp-pub-b
 
-  # region: US1
-  # zone: us-pub-a
-
   ##### (Note) NHN Cloud only provides detailed Zone information with the API, but unlike other CSPs, the API Endpoint is different for each Region, so when calling with API, only the zone information of the Region comes out without the Region information.
 
   resources:

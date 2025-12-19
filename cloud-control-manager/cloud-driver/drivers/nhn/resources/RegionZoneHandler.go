@@ -45,9 +45,6 @@ func getSupportedRegions() []NhnRegionInfo {
 		{RegionCode: "JP1",
 			RegionName: "Japan (Tokyo)",
 		},
-		{RegionCode: "US1",
-			RegionName: "United States (California)",
-		},
 	}
 	return regionInfoList
 }
