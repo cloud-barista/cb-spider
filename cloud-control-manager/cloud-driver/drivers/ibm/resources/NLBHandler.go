@@ -269,7 +269,7 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	}
 
 	_, err = securityHandler.RemoveRules(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
+		NameId: generateSGNameForNLB(nlbIID.NameId),
 	}, &[]irs.SecurityRuleInfo{
 		{
 			Direction:  "inbound",
@@ -287,7 +287,7 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	}
 
 	_, err = securityHandler.AddRules(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
+		NameId: generateSGNameForNLB(nlbIID.NameId),
 	}, &[]irs.SecurityRuleInfo{
 		{
 			Direction:  "inbound",
@@ -1324,7 +1324,7 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 
 	sg, err := securityHandler.CreateSecurity(irs.SecurityReqInfo{
 		IId: irs.IID{
-			NameId: "sg-" + nlbReqInfo.IId.NameId,
+			NameId: generateSGNameForNLB(nlbReqInfo.IId.NameId),
 		},
 		VpcIID: nlbReqInfo.VpcIID,
 		SecurityRules: &[]irs.SecurityRuleInfo{
@@ -1567,11 +1567,38 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 		return false, err
 	}
 
-	_, err = securityHandler.DeleteSecurity(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
-	})
-	if err != nil {
-		cblogger.Error(err.Error())
+	// Wait a bit more for IBM Cloud to fully release the security group from NLB
+	time.Sleep(5 * time.Second)
+
+	// Delete the security group created for this NLB with retry logic
+	// Total retry time: 200 retries * 3 seconds = 600 seconds (10 minutes)
+	sgName := generateSGNameForNLB(nlbIID.NameId)
+	maxRetries := 200
+	retryInterval := 3 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		_, err = securityHandler.DeleteSecurity(irs.IID{
+			NameId: sgName,
+		})
+		if err == nil {
+			cblogger.Infof("Successfully deleted security group %s for NLB %s", sgName, nlbIID.NameId)
+			break
+		}
+
+		// If it's the last retry, return the error
+		if i == maxRetries-1 {
+			delErr := errors.New(fmt.Sprintf("Failed to delete security group %s for NLB %s after %d retries (%.0f minutes). err = %s",
+				sgName, nlbIID.NameId, maxRetries, retryInterval.Seconds()*float64(maxRetries)/60, err.Error()))
+			cblogger.Error(delErr.Error())
+			return false, delErr
+		}
+
+		// Wait before retrying
+		if i%10 == 0 && i > 0 {
+			cblogger.Infof("Retrying security group deletion (%d/%d) for %s - elapsed: %.1f minutes",
+				i+1, maxRetries, sgName, retryInterval.Seconds()*float64(i)/60)
+		}
+		time.Sleep(retryInterval)
 	}
 
 	return true, nil
@@ -1731,6 +1758,29 @@ func getPoolPortByPoolName(poolName string) (int, error) {
 func generatePoolName(port string) string {
 	prefix := fmt.Sprintf("backend-%s", port)
 	return generateRandName(prefix)
+}
+
+// generateSGNameForNLB generates a security group name for NLB
+// IBM Cloud requires SG names to be:
+// - Maximum 63 characters
+// - Lowercase only
+// - Only hyphens allowed as special characters
+func generateSGNameForNLB(nlbName string) string {
+	prefix := "sg-"
+	maxLength := 63
+
+	// Calculate available length for NLB name
+	availableLength := maxLength - len(prefix)
+
+	// If nlbName fits within the limit, use it as is
+	if len(nlbName) <= availableLength {
+		return prefix + nlbName
+	}
+
+	// If nlbName is too long, truncate it
+	// Keep the first part of the name for readability
+	truncatedName := nlbName[:availableLength]
+	return prefix + truncatedName
 }
 
 func getNextHref(str string) (string, error) {

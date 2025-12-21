@@ -174,14 +174,8 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 				return nil, getErr
 			}
 
-			if securityInfo.TagList != nil && len(securityInfo.TagList) > 0 {
-				for _, tag := range securityInfo.TagList {
-					if tag.Key == "nlb_name" || tag.Key == "nlb_id" || tag.Key == IBMFileSystemSGTagKey {
-						continue
-					}
-				}
-			}
-
+			// Include all security groups (including NLB and FileSystem SGs)
+			// Server will filter user-created SGs if needed
 			securityGroupList = append(securityGroupList, &securityInfo)
 		}
 		nextstr, _ := getSecurityGroupNextHref(securityGroups.Next)
@@ -838,27 +832,8 @@ func (securityHandler *IbmSecurityHandler) ListIID() ([]*irs.IID, error) {
 				iid.NameId = *securityGroup.Name
 			}
 
-			tagHandler := IbmTagHandler{
-				Region:         securityHandler.Region,
-				CredentialInfo: securityHandler.CredentialInfo,
-				VpcService:     securityHandler.VpcService,
-				Ctx:            securityHandler.Ctx,
-				SearchService:  securityHandler.SearchService,
-			}
-
-			tags, err := tagHandler.ListTag(irs.SG, irs.IID{SystemId: *securityGroup.ID})
-			if err != nil {
-				cblogger.Warn("Failed to get tags of the Key (" + *securityGroup.Name + "). err = " + err.Error())
-			}
-
-			if tags != nil && len(tags) > 0 {
-				for _, tag := range tags {
-					if tag.Key == "nlb_name" || tag.Key == "nlb_id" || tag.Key == IBMFileSystemSGTagKey {
-						continue
-					}
-				}
-			}
-
+			// Include all security groups (including NLB and FileSystem SGs)
+			// Server will filter user-created SGs if needed
 			iidList = append(iidList, &iid)
 		}
 		nextstr, _ := getSecurityGroupNextHref(securityGroups.Next)

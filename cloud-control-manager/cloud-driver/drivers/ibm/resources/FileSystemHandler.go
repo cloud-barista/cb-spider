@@ -29,6 +29,28 @@ const (
 	IBMFileSystemSecurityGroupNamePrefix string = "cbfs-"
 )
 
+// generateSGNameForFileSystem generates a security group name for FileSystem
+// IBM Cloud requires SG names to be:
+// - Maximum 63 characters
+// - Lowercase only
+// - Only hyphens allowed as special characters
+func generateSGNameForFileSystem(vpcID string) string {
+	prefix := IBMFileSystemSecurityGroupNamePrefix
+	maxLength := 63
+
+	// Calculate available length for VPC ID
+	availableLength := maxLength - len(prefix)
+
+	// If vpcID fits within the limit, use it as is
+	if len(vpcID) <= availableLength {
+		return prefix + vpcID
+	}
+
+	// If vpcID is too long, truncate it
+	truncatedID := vpcID[:availableLength]
+	return prefix + truncatedID
+}
+
 func (filesystemHandler *IbmFileSystemHandler) GetMetaInfo() (irs.FileSystemMetaInfo, error) {
 	metaInfo := irs.FileSystemMetaInfo{
 		SupportsFileSystemType: map[irs.FileSystemType]bool{
@@ -135,7 +157,7 @@ func (filesystemHandler *IbmFileSystemHandler) findOrCreateCbspiderSecurityGroup
 		return "", err
 	}
 
-	sgName := IBMFileSystemSecurityGroupNamePrefix + vpcID
+	sgName := generateSGNameForFileSystem(vpcID)
 
 	for _, sg := range securityGroups.SecurityGroups {
 		if sg.Name != nil && *sg.Name == sgName {
@@ -211,17 +233,50 @@ func (filesystemHandler *IbmFileSystemHandler) deleteCbspiderSecurityGroup(vpcID
 		return err
 	}
 
-	sgName := IBMFileSystemSecurityGroupNamePrefix + vpcID
+	sgName := generateSGNameForFileSystem(vpcID)
 
+	var sgID *string
 	for _, sg := range securityGroups.SecurityGroups {
 		if sg.Name != nil && *sg.Name == sgName {
-			deleteOptions := &vpcv1.DeleteSecurityGroupOptions{
-				ID: sg.ID,
-			}
-			_, err := filesystemHandler.VpcService.DeleteSecurityGroupWithContext(filesystemHandler.Ctx, deleteOptions)
-			return err
+			sgID = sg.ID
+			break
 		}
 	}
+
+	if sgID == nil {
+		// Security group not found - already deleted or never created
+		return nil
+	}
+
+	// Retry logic for deleting security group
+	// Total retry time: 200 retries * 3 seconds = 600 seconds (10 minutes)
+	maxRetries := 200
+	retryInterval := 3 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		deleteOptions := &vpcv1.DeleteSecurityGroupOptions{
+			ID: sgID,
+		}
+		_, err := filesystemHandler.VpcService.DeleteSecurityGroupWithContext(filesystemHandler.Ctx, deleteOptions)
+		if err == nil {
+			cblogger.Infof("Successfully deleted security group %s for FileSystem VPC %s", sgName, vpcID)
+			return nil
+		}
+
+		// If it's the last retry, return the error
+		if i == maxRetries-1 {
+			return fmt.Errorf("failed to delete security group %s for FileSystem VPC %s after %d retries (%.0f minutes). err = %s",
+				sgName, vpcID, maxRetries, retryInterval.Seconds()*float64(maxRetries)/60, err.Error())
+		}
+
+		// Wait before retrying
+		if i%10 == 0 && i > 0 {
+			cblogger.Infof("Retrying security group deletion (%d/%d) for %s - elapsed: %.1f minutes",
+				i+1, maxRetries, sgName, retryInterval.Seconds()*float64(i)/60)
+		}
+		time.Sleep(retryInterval)
+	}
+
 	return nil
 }
 func (filesystemHandler *IbmFileSystemHandler) CreateFileSystem(reqInfo irs.FileSystemInfo) (irs.FileSystemInfo, error) {
@@ -652,10 +707,14 @@ func (filesystemHandler *IbmFileSystemHandler) DeleteFileSystem(iid irs.IID) (bo
 		return false, fmt.Errorf("failed to delete file share: %v", err)
 	}
 
+	// Wait a bit for IBM Cloud to fully release the security group from FileSystem
+	time.Sleep(5 * time.Second)
+
+	// Delete the security group with retry logic
 	err = filesystemHandler.deleteCbspiderSecurityGroup(vpcID)
 	if err != nil {
-		cblogger.Warnf("failed to delete file share's security group: %v", err)
-
+		cblogger.Errorf("failed to delete file share's security group: %v", err)
+		return false, fmt.Errorf("failed to delete file share's security group: %v", err)
 	}
 
 	return true, nil
@@ -834,7 +893,7 @@ func (filesystemHandler *IbmFileSystemHandler) RemoveAccessSubnet(fsIID irs.IID,
 		return false, fmt.Errorf("failed to list security groups: %v", err)
 	}
 
-	sgName := IBMFileSystemSecurityGroupNamePrefix + *subnet.VPC.ID
+	sgName := generateSGNameForFileSystem(*subnet.VPC.ID)
 
 	var securityGroupID string
 	for _, sg := range securityGroups.SecurityGroups {
@@ -995,7 +1054,7 @@ func (filesystemHandler *IbmFileSystemHandler) ListAccessSubnet(fsIID irs.IID) (
 		return nil, fmt.Errorf("failed to get security list: %v", err)
 	}
 
-	sgName := IBMFileSystemSecurityGroupNamePrefix + vpcID
+	sgName := generateSGNameForFileSystem(vpcID)
 	var sgID string
 	for _, sg := range securityList {
 		if sg.IId.NameId == sgName {
