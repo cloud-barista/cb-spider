@@ -269,7 +269,7 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	}
 
 	_, err = securityHandler.RemoveRules(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
+		NameId: generateSGNameForNLB(nlbIID.NameId),
 	}, &[]irs.SecurityRuleInfo{
 		{
 			Direction:  "inbound",
@@ -287,7 +287,7 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	}
 
 	_, err = securityHandler.AddRules(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
+		NameId: generateSGNameForNLB(nlbIID.NameId),
 	}, &[]irs.SecurityRuleInfo{
 		{
 			Direction:  "inbound",
@@ -1324,7 +1324,7 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 
 	sg, err := securityHandler.CreateSecurity(irs.SecurityReqInfo{
 		IId: irs.IID{
-			NameId: "sg-" + nlbReqInfo.IId.NameId,
+			NameId: generateSGNameForNLB(nlbReqInfo.IId.NameId),
 		},
 		VpcIID: nlbReqInfo.VpcIID,
 		SecurityRules: &[]irs.SecurityRuleInfo{
@@ -1572,7 +1572,7 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 
 	// Delete the security group created for this NLB with retry logic
 	// Total retry time: 200 retries * 3 seconds = 600 seconds (10 minutes)
-	sgName := "sg-" + nlbIID.NameId
+	sgName := generateSGNameForNLB(nlbIID.NameId)
 	maxRetries := 200
 	retryInterval := 3 * time.Second
 
@@ -1758,6 +1758,29 @@ func getPoolPortByPoolName(poolName string) (int, error) {
 func generatePoolName(port string) string {
 	prefix := fmt.Sprintf("backend-%s", port)
 	return generateRandName(prefix)
+}
+
+// generateSGNameForNLB generates a security group name for NLB
+// IBM Cloud requires SG names to be:
+// - Maximum 63 characters
+// - Lowercase only
+// - Only hyphens allowed as special characters
+func generateSGNameForNLB(nlbName string) string {
+	prefix := "sg-"
+	maxLength := 63
+
+	// Calculate available length for NLB name
+	availableLength := maxLength - len(prefix)
+
+	// If nlbName fits within the limit, use it as is
+	if len(nlbName) <= availableLength {
+		return prefix + nlbName
+	}
+
+	// If nlbName is too long, truncate it
+	// Keep the first part of the name for readability
+	truncatedName := nlbName[:availableLength]
+	return prefix + truncatedName
 }
 
 func getNextHref(str string) (string, error) {
