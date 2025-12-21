@@ -139,16 +139,15 @@ This utility supports the following Cloud Service Providers:
 - AWS
 - Azure
 - GCP
-- Alibaba Cloud
-- Tencent Cloud
-- IBM Cloud (VPC)
+- Alibaba
+- Tencent
+- IBM
 - OpenStack
-- NCP (Classic)
-- NCP (VPC)
-- NHN Cloud
-- KT Cloud (Classic)
-- KT Cloud (VPC)
-- Mock Cloud (for testing)
+- NCP
+- NHN
+- KT
+- KT Classic
+- Mock (for testing)
 
 ## Troubleshooting
 
