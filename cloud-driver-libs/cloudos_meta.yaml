@@ -125,7 +125,7 @@ KT:
   disktype: HDD / SSD
   disksize: HDD|10|2000|GB / SSD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
-  idmaxlength: 30 / 22 / 30 / 100 / 63 / 50 / 30 / 50 / 0
+  idmaxlength: 30 / 48 / 30 / 100 / 63 / 50 / 30 / 50 / 0
 
 #--- Emulation
 
