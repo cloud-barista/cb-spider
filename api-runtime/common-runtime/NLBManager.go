@@ -529,8 +529,8 @@ func setDefaultHealthCheckerConfig(providerName string, reqInfo *cres.HealthChec
 
 	// * -1(int) => set up with spider's default value
 	// * Spider's default values for Health Checking
-	//	[TCP]  Interval:10 / Timeout:10 / Threshold:3
-	//	[HTTP] Interval:10 / Timeout:6 (Azure:10) / Threshold:3
+	//	[TCP]  Interval:10 / Timeout:10 (IBM:9) / Threshold:3
+	//	[HTTP] Interval:10 / Timeout:6 / Threshold:3
 	// * AWS, Azure: disable Timeout Configuration
 
 	// (1) TCP
@@ -540,7 +540,11 @@ func setDefaultHealthCheckerConfig(providerName string, reqInfo *cres.HealthChec
 		}
 		if reqInfo.Timeout == -1 {
 			if providerName != "AWS" && providerName != "AZURE" {
-				reqInfo.Timeout = 10
+				if providerName == "IBM" {
+					reqInfo.Timeout = 9 // IBM only: Timeout < Interval constraint
+				} else {
+					reqInfo.Timeout = 10 // GCP, Alibaba, Tencent, OpenStack, NCP, NHN
+				}
 			}
 		}
 		if reqInfo.Threshold == -1 {
@@ -554,7 +558,7 @@ func setDefaultHealthCheckerConfig(providerName string, reqInfo *cres.HealthChec
 		}
 		if reqInfo.Timeout == -1 {
 			if providerName != "AWS" && providerName != "AZURE" {
-				reqInfo.Timeout = 6
+				reqInfo.Timeout = 6 // All CSPs except AWS, Azure
 			}
 		}
 		if reqInfo.Threshold == -1 {
