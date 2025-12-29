@@ -73,6 +73,20 @@
         text-align: left;
         font-family: Arial, sans-serif;
         font-size: 12px;
+        position: relative;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
     .tag-overlay {
         display: none;
@@ -86,14 +100,18 @@
         max-width: 300px;
         word-wrap: break-word;
     }
-    .tag-overlay .close-btn {
-        position: absolute;
-        top: -10px;
-        right: -5px;
-        background: none;
-        border: none;
-        font-size: 16px;
+    .tag-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .tag-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
     .tag-overlay .button-group {
         display: flex;
@@ -270,6 +288,10 @@
         margin-bottom: 10px;
     }
 
+    .add-tag-overlay-content .tag-overlay-input-group:first-of-type {
+        margin-top: 30px;
+    }
+
     .add-tag-overlay-content .tag-overlay-input-group label {
         flex: 1;
         text-align: right;
@@ -285,6 +307,45 @@
         justify-content: space-between;
         margin-top: 20px;
     }
+
+    .add-subnet-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+    
+    .add-subnet-tag-overlay-content .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .add-subnet-tag-overlay-content .tag-overlay-input-group:first-of-type {
+        margin-top: 30px;
+    }
+
+    .add-subnet-tag-overlay-content .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .add-subnet-tag-overlay-content .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .add-subnet-tag-overlay-content .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
     .vpc-name {
         width: 10%;
     }
@@ -325,14 +386,18 @@
         overflow-y: auto;
         user-select: text;
     }
-    .misc-overlay .close-btn {
+    .misc-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
         position: absolute;
         top: 10px;
         right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
+    }
+    .misc-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
     .misc-overlay-content {
         font-size: 14px;
@@ -576,14 +641,18 @@
         word-wrap: break-word;
     }
 
-    .system-id-overlay .close-btn {
-        position: absolute;
-        top: -15px;
-        right: -5px;
-        background: none;
-        border: none;
-        font-size: 16px;
+    .system-id-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .system-id-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
 
     .copy-btn {
@@ -702,6 +771,7 @@
 
     <div id="overlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>Add New VPC/Subnet</h2>
             <form id="addVPCForm" onsubmit="event.preventDefault(); postVPC();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
@@ -754,6 +824,7 @@
 
     <div id="subnet-overlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideSubnetOverlay()">X</button>
             <h2>Add New Subnet</h2>
             <form id="addSubnetForm" onsubmit="event.preventDefault(); addSubnet();">
                 <input type="hidden" id="subnetVPCName">
@@ -804,7 +875,7 @@
 
     <div id="system-id-overlay" class="system-id-overlay">
         <div class="system-id-overlay-content">
-            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
             <h2>System ID (Managed by CSP)</h2>
             <p id="fullSystemId"></p>
             <button class="copy-btn" onclick="copySystemId()">📋</button>
@@ -1170,7 +1241,7 @@
         const tagOverlay = document.getElementById('tag-overlay');
         const tagOverlayContent = document.querySelector('.tag-overlay-content');
         tagOverlayContent.innerHTML = `
-            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
             <p>${tag}</p>
             <div class="button-group">
                 <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
@@ -1347,6 +1418,7 @@
         const addTagOverlay = document.getElementById('add-tag-overlay');
         const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
         addTagOverlayContent.innerHTML = `
+            <button type="button" class="overlay-close-btn" onclick="closeAddTagOverlay()">X</button>
             <div class="tag-overlay-input-group">
                 <label for="tagOverlayTagKey">Tag Key:</label>
                 <input type="text" id="tagOverlayTagKey" name="tagKey" required>
@@ -1449,6 +1521,7 @@
         const addTagOverlay = document.getElementById('add-subnet-tag-overlay');
         const addTagOverlayContent = document.querySelector('.add-subnet-tag-overlay-content');
         addTagOverlayContent.innerHTML = `
+            <button type="button" class="overlay-close-btn" onclick="closeAddSubnetTagOverlay()">X</button>
             <div class="tag-overlay-input-group">
                 <label for="subnetOverlayTagKey">Tag Key:</label>
                 <input type="text" id="subnetOverlayTagKey" name="subnetTagKey" required>
@@ -1637,7 +1710,7 @@
         const overlay = document.createElement('div');
         overlay.className = 'misc-overlay';
         overlay.innerHTML = `
-            <button class="close-btn">x</button>
+            <button class="overlay-close-btn">X</button>
             <div class="misc-overlay-content" tabindex="0">${miscContent}</div>
         `;
 

@@ -69,6 +69,19 @@
         position: relative;
         z-index: 2001;
     }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
     .fixed-header {
         position: fixed;
         top: 0;
@@ -947,6 +960,7 @@
 
     <div id="overlay" class="overlay">
         <div class="overlay-content" style="max-width: 90%; max-height: 80vh; overflow-y: auto;">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>[<span id="overlayProviderName"></span>] Add Connection Info</h2>
             <div style="margin-bottom: 15px; text-align: right;">
                 <button class="first-button" type="button" onclick="selectFirstPerRegion()">1st</button>
@@ -963,6 +977,7 @@
     <!-- Driver Selection Overlay -->
     <div id="driverOverlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideDriverOverlay()">X</button>
             <h2>Select Driver</h2>
             <ul id="driverList">
                 <!-- Driver list items will be appended here -->
@@ -974,6 +989,7 @@
     <!-- Credential Selection Overlay -->
     <div id="credentialOverlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideCredentialOverlay()">X</button>
             <h2>Select Credential</h2>
             <ul id="credentialList">
                 <!-- Credential list items will be appended here -->
@@ -985,6 +1001,7 @@
     <!-- Region Selection Overlay -->
     <div id="regionOverlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideRegionOverlay()">X</button>
             <h2>Select Region</h2>
             <ul id="regionList">
                 <!-- Region list items will be appended here -->

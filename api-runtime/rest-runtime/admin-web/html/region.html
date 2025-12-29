@@ -78,6 +78,20 @@
         max-width: calc(100vw - 40px);
         margin: 20px auto;
         overflow-x: auto;
+        position: relative;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
     .fixed-header {
         position: fixed;
@@ -699,9 +713,6 @@
         } else {
             importHeader.style.display = 'none';
         }
-        
-        // Group regions in overlay by region value
-        setTimeout(() => groupOverlayRegionsByValue(), 100);
     }
     
     function groupOverlayRegionsByValue() {
@@ -764,10 +775,10 @@
                 const thead = document.createElement('thead');
                 thead.innerHTML = `
                     <tr>
-                        <th style="color: #4A90E2; font-weight: bold;">Region Name</th>
                         <th>Region</th>
                         <th>Zone</th>
                         <th>Zone Status</th>
+                        <th style="color: #4A90E2; font-weight: bold;">Region Name</th>
                         <th class="checkbox-cell"><input type="checkbox" onclick="toggleTableSelectAll(this, '${tableId}')"></th>
                     </tr>
                 `;
@@ -852,9 +863,9 @@
         const addPromises = visibleCheckboxes.map(checkbox => {
             const row = checkbox.closest('tr');
             const regionName = row.querySelector('input[type="text"]').value;
-            const region = row.cells[1].innerText;
-            const zone = row.cells[2].innerText;
-            const zoneStatus = row.cells[3].innerText;
+            const region = row.cells[0].innerText;
+            const zone = row.cells[1].innerText;
+            const zoneStatus = row.cells[2].innerText;
 
             const keyValueInfoList = [
                 { Key: "Region", Value: region },
@@ -970,9 +981,9 @@
         tables.forEach(function(table) {
             var rows = table.querySelectorAll("tbody tr");
             rows.forEach(function(row) {
-                if (row.cells.length > 3) {
-                    // After reordering: Region Name(0), Region(1), Zone(2), Zone Status(3), Checkbox(4)
-                    var zoneStatus = row.cells[3].innerText.trim();
+                if (row.cells.length > 2) {
+                    // Column order: Region(0), Zone(1), Zone Status(2), Region Name(3), Checkbox(4)
+                    var zoneStatus = row.cells[2].innerText.trim();
                     if (zoneStatusFilter === "All" || zoneStatus === zoneStatusFilter) {
                         row.style.display = "";
                     } else {
@@ -1161,32 +1172,30 @@
                         
                         const newRow = document.createElement('tr');
                         
-                        // Reorder cells: Region Name, Region, Zone, Zone Status, Checkbox
-                        // Original order: Region(0), Zone(1), Zone Status(2), Region Name(3), Checkbox(4)
-                        
-                        // Region Name (input field)
-                        const regionNameCell = document.createElement('td');
-                        const inputClone = cells[3].querySelector('input').cloneNode(true);
-                        inputClone.value = cells[3].querySelector('input').value;
-                        regionNameCell.appendChild(inputClone);
-                        newRow.appendChild(regionNameCell);
-                        
-                        // Region
-                        const regionCell = document.createElement('td');
-                        regionCell.textContent = cells[0].textContent;
-                        newRow.appendChild(regionCell);
-                        
-                        // Zone
-                        const zoneCell = document.createElement('td');
-                        zoneCell.textContent = cells[1].textContent;
-                        newRow.appendChild(zoneCell);
-                        
-                        // Zone Status
-                        const zoneStatusCell = document.createElement('td');
-                        zoneStatusCell.textContent = cells[2].textContent;
-                        newRow.appendChild(zoneStatusCell);
-                        
-                        // Checkbox
+                    // Order: Region, Zone, Zone Status, Region Name, Checkbox
+                    // Original order: Region(0), Zone(1), Zone Status(2), Region Name(3), Checkbox(4)
+                    
+                    // Region
+                    const regionCell = document.createElement('td');
+                    regionCell.textContent = cells[0].textContent;
+                    newRow.appendChild(regionCell);
+                    
+                    // Zone
+                    const zoneCell = document.createElement('td');
+                    zoneCell.textContent = cells[1].textContent;
+                    newRow.appendChild(zoneCell);
+                    
+                    // Zone Status
+                    const zoneStatusCell = document.createElement('td');
+                    zoneStatusCell.textContent = cells[2].textContent;
+                    newRow.appendChild(zoneStatusCell);
+                    
+                    // Region Name (input field)
+                    const regionNameCell = document.createElement('td');
+                    const inputClone = cells[3].querySelector('input').cloneNode(true);
+                    inputClone.value = cells[3].querySelector('input').value;
+                    regionNameCell.appendChild(inputClone);
+                    newRow.appendChild(regionNameCell);
                         const checkboxCell = document.createElement('td');
                         checkboxCell.className = 'checkbox-cell';
                         const checkboxClone = cells[4].querySelector('input').cloneNode(true);
@@ -1282,6 +1291,7 @@
 
     <div id="importOverlay" class="import-overlay">
         <div class="import-overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideImportOverlay()">X</button>
             <h2>[<span id="currentProviderName"></span>] Add Region Info</h2>
             <div class="overlay-header">
                 <div class="inline-form-group">

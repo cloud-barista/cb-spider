@@ -118,6 +118,20 @@
         text-align: left;
         font-family: Arial, sans-serif;
         font-size: 12px;
+        position: relative;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
     .fixed-header {
         position: fixed;
@@ -307,14 +321,18 @@
         user-select: text;
     }
 
-    .misc-overlay .close-btn {
+    .misc-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
         position: absolute;
         top: 10px;
         right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
+    }
+    .misc-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
 
     .misc-overlay-content {
@@ -339,14 +357,18 @@
         word-wrap: break-word;
     }
 
-    .tag-overlay .close-btn {
-        position: absolute;
-        top: 5px;
-        right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
+    .tag-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .tag-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
 
     .tag-overlay-content {
@@ -376,6 +398,44 @@
     }
 
     .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .add-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group:first-of-type {
+        margin-top: 30px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .add-tag-overlay-content .tag-overlay-button-group {
         display: flex;
         justify-content: space-between;
         margin-top: 20px;
@@ -421,14 +481,18 @@
         word-wrap: break-word;
     }
 
-    .system-id-overlay .close-btn {
-        position: absolute;
-        top: -15px;
-        right: -5px;
-        background: none;
-        border: none;
-        font-size: 16px;
+    .system-id-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .system-id-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
 
     .copy-btn {
@@ -616,14 +680,18 @@
         position: relative;
     }
 
-    .nlb-health-info-overlay-content .close-btn {
+    .nlb-health-info-overlay-content .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
         position: absolute;
         top: 10px;
         right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
+    }
+    .nlb-health-info-overlay-content .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
 
     button.check-btn {
@@ -879,6 +947,7 @@
     <!-- Overlay: Add New NLB -->
     <div id="overlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>Add New NLB</h2>
             <form id="addNLBForm" onsubmit="event.preventDefault(); postNLB();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">                
@@ -990,6 +1059,7 @@
     <!-- Add VM Overlay -->
     <div id="vmOverlay" class="overlay" style="display: none;">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideVMOverlay()">X</button>
             <h2>Add VM</h2>
             <form id="addVMForm" onsubmit="event.preventDefault(); addVMToNLB();">
                 <div class="form-group">
@@ -1007,6 +1077,7 @@
     <!-- Error Modal -->
     <div id="errorModal" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="closeErrorModal()">X</button>
             <h2 id="errorTitle">Error</h2>
             <p id="errorMessage"></p>
             <button onclick="closeErrorModal()">Close</button>
@@ -1016,7 +1087,7 @@
     <!-- NLB Health Info Overlay -->
     <div id="nlbHealthOverlay" class="nlb-health-info-overlay">
         <div class="nlb-health-info-overlay-content">
-            <button class="close-btn" onclick="closeNLBHealthOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeNLBHealthOverlay()">X</button>
             <h2>NLB Health Information</h2>
             <div id="nlbHealthDetails">
                 <!-- Dynamic health details will be inserted here -->
@@ -1027,7 +1098,7 @@
     <!-- Listener Check Info Overlay -->
     <div id="listenerCheckOverlay" class="nlb-health-info-overlay">
         <div class="nlb-health-info-overlay-content">
-            <button class="close-btn" onclick="closeListenerCheckOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeListenerCheckOverlay()">X</button>
             <h2>NLB Listener Check Status</h2>
             <div id="listenerCheckDetails">
                 <!-- Dynamic listener check details will be inserted here -->
@@ -1037,7 +1108,7 @@
 
     <div id="system-id-overlay" class="system-id-overlay">
         <div class="system-id-overlay-content">
-            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
             <h2>System ID (Managed by CSP)</h2>
             <p id="fullSystemId"></p>
             <button class="copy-btn" onclick="copySystemId()">📋</button>
@@ -1047,7 +1118,7 @@
     <!-- VM Info Overlay -->
     <div id="vmInfoOverlay" class="nlb-health-info-overlay">
         <div class="nlb-health-info-overlay-content">
-            <button class="close-btn" onclick="closeVMInfoOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeVMInfoOverlay()">X</button>
             <h2>VM Information</h2>
             <div id="vmInfoDetails" style="text-align: left; padding: 10px;">
                 <div class="spinner" style="margin: 20px auto;"></div>
@@ -1315,10 +1386,18 @@
         document.getElementById('errorTitle').textContent = title;
         document.getElementById('errorMessage').textContent = message;
         document.getElementById('errorModal').style.display = 'flex';
+        document.addEventListener('keydown', handleEscErrorModal);
+    }
+
+    function handleEscErrorModal(event) {
+        if (event.key === 'Escape') {
+            closeErrorModal();
+        }
     }
 
     function closeErrorModal() {
         document.getElementById('errorModal').style.display = 'none';
+        document.removeEventListener('keydown', handleEscErrorModal);
     }
 
     function showOverlay() {
@@ -1416,13 +1495,26 @@
         
         currnetNLBName = nlbName;
         document.getElementById('vmOverlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEscVMOverlay);
         
         // Load VMs after showing overlay
         loadVMsExceptExist('addVMContainer', vmGroups);
     }
 
+    function handleEscVMOverlay(event) {
+        if (event.key === 'Escape') {
+            hideVMOverlay();
+        }
+    }
+
+    function hideVMOverlay() {
+        document.getElementById('vmOverlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEscVMOverlay);
+    }
+
     function hideOverlay(pos) {
-        document.getElementById(pos).style.display = 'none';
+        const overlayId = pos || 'overlay';
+        document.getElementById(overlayId).style.display = 'none';
         document.removeEventListener('keydown', handleEsc);
         clearFormFields();
     }
@@ -1524,6 +1616,7 @@
 
             // Show the overlay
             document.getElementById('nlbHealthOverlay').style.display = 'flex';
+            document.addEventListener('keydown', handleEscNLBHealth);
         }).catch(error => {
             showErrorModal("NLB Health Info Error", "Error fetching NLB health info: " + error.message);
         });
@@ -1531,6 +1624,13 @@
 
     function closeNLBHealthOverlay() {
         document.getElementById('nlbHealthOverlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEscNLBHealth);
+    }
+
+    function handleEscNLBHealth(event) {
+        if (event.key === 'Escape') {
+            closeNLBHealthOverlay();
+        }
     }
 
     function checkNLBListener(protocol, port, ip, dnsName) {
@@ -1585,6 +1685,7 @@
 
             // Show the overlay
             document.getElementById('listenerCheckOverlay').style.display = 'flex';
+            document.addEventListener('keydown', handleEscListenerCheck);
         }).catch(error => {
             showErrorModal("Listener Check Error", "Error checking listener status: " + error.message);
         });
@@ -1592,6 +1693,13 @@
 
     function closeListenerCheckOverlay() {
         document.getElementById('listenerCheckOverlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEscListenerCheck);
+    }
+
+    function handleEscListenerCheck(event) {
+        if (event.key === 'Escape') {
+            closeListenerCheckOverlay();
+        }
     }
 
 
@@ -1660,7 +1768,7 @@
         const overlay = document.createElement('div');
         overlay.className = 'misc-overlay';
         overlay.innerHTML = `
-            <button class="close-btn">x</button>
+            <button class="overlay-close-btn">X</button>
             <div class="misc-overlay-content" tabindex="0">${miscContent}</div>
         `;
 
@@ -1716,7 +1824,7 @@
         const tagOverlay = document.getElementById('tag-overlay');
         const tagOverlayContent = document.querySelector('.tag-overlay-content');
         tagOverlayContent.innerHTML = `
-            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
             <p>${tag}</p>
             <div class="button-group">
                 <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
@@ -1787,6 +1895,7 @@
         const addTagOverlay = document.getElementById('add-tag-overlay');
         const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
         addTagOverlayContent.innerHTML = `
+            <button type="button" class="overlay-close-btn" onclick="closeAddTagOverlay()">X</button>
             <div class="tag-overlay-input-group">
                 <label for="tagOverlayTagKey">Tag Key:</label>
                 <input type="text" id="tagOverlayTagKey" name="tagKey" required>
@@ -2059,6 +2168,7 @@
 
             // Show the overlay
             document.getElementById('nlbHealthOverlay').style.display = 'flex';
+            document.addEventListener('keydown', handleEscNLBHealth);
         })
         .catch(error => {
             alert('Error fetching NLB health info: ' + error.message);

@@ -185,6 +185,20 @@
         text-align: left;
         font-family: Arial, sans-serif;
         font-size: 12px;
+        position: relative;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
     .tag-container {
         display: inline-block;
@@ -217,6 +231,10 @@
         display: flex;
         align-items: center;
         margin-bottom: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group:first-of-type {
+        margin-top: 30px;
     }
 
     .add-tag-overlay-content .tag-overlay-input-group label {
@@ -306,14 +324,18 @@
         position: relative;
     }
 
-    .tag-overlay-content .close-btn {
-        position: absolute;
-        top: 5px;
-        right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
+    .tag-overlay-content .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .tag-overlay-content .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
 
     .tag-overlay-content .button-group {
@@ -416,14 +438,18 @@
         word-wrap: break-word;
     }
 
-    .system-id-overlay .close-btn {
-        position: absolute;
-        top: -15px;
-        right: -5px;
-        background: none;
-        border: none;
-        font-size: 16px;
+    .system-id-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .system-id-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
 
     .copy-btn {
@@ -525,6 +551,7 @@
 
     <div id="overlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>Add New MyImage</h2>
             <form id="addMyImageForm" onsubmit="event.preventDefault(); postMyImage();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
@@ -564,7 +591,7 @@
 
     <div id="system-id-overlay" class="system-id-overlay">
         <div class="system-id-overlay-content">
-            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
             <h2>System ID (Managed by CSP)</h2>
             <p id="fullSystemId"></p>
             <button class="copy-btn" onclick="copySystemId()">📋</button>
@@ -803,7 +830,7 @@
         const tagOverlayContent = document.querySelector('.tag-overlay-content');
 
         tagOverlayContent.innerHTML = `
-            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
             <p>${tag}</p>
             <div class="button-group">
                 <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
@@ -841,6 +868,7 @@
         const addTagOverlay = document.getElementById('add-tag-overlay');
         const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
         addTagOverlayContent.innerHTML = `
+            <button type="button" class="overlay-close-btn" onclick="closeAddTagOverlay()">X</button>
             <div class="tag-overlay-input-group">
                 <label for="tagOverlayTagKey">Tag Key:</label>
                 <input type="text" id="tagOverlayTagKey" name="tagKey" required>
