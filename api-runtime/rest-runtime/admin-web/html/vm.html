@@ -204,6 +204,7 @@ THE SOFTWARE.
         padding: 20px;
         border-radius: 5px;
         text-align: left;
+        position: relative;
     }
     .tag-container {
         display: inline-block;
@@ -275,14 +276,18 @@ THE SOFTWARE.
         word-wrap: break-word;
         position: relative;
     }
-    .tag-overlay-content .close-btn {
-        position: absolute;
-        top: 5px;
-        right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
         cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
     }
     .tag-overlay-content .button-group {
         display: flex;
@@ -383,15 +388,7 @@ THE SOFTWARE.
         word-wrap: break-word;
     }
 
-    .system-id-overlay .close-btn {
-        position: absolute;
-        top: -15px;
-        right: -5px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
-    }
+
 
     .copy-btn {
         background: none;
@@ -499,15 +496,7 @@ THE SOFTWARE.
         width: 1em;
         margin-right: 5px;
     }
-    .provisioning-info-overlay-content .close-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
-    }
+
     #miscOverlay .overlay-content {
         font-size: 14px;
         width: 700px;
@@ -516,16 +505,7 @@ THE SOFTWARE.
         line-height: 1.5;
         white-space: pre-wrap;
     }
-    #miscOverlay .close-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
-        z-index: 1001;
-    }
+
     .snapshot-cell input[type="text"] {
         width: 50%;
     }
@@ -569,6 +549,9 @@ THE SOFTWARE.
         align-items: center;
         margin-bottom: 10px;
     }
+    .add-tag-overlay-content .tag-overlay-input-group:first-of-type {
+        margin-top: 30px;
+    }
     .add-tag-overlay-content .tag-overlay-input-group label {
         flex: 1;
         text-align: right;
@@ -596,15 +579,7 @@ THE SOFTWARE.
     .vm-action-btn:hover {
         transform: scale(1.2);
     }
-    .close-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
-    }
+
     .drop-zone, #privatekey {
         width: 100%;
         border-radius: 4px;
@@ -840,6 +815,7 @@ THE SOFTWARE.
 
     <div id="overlay" class="overlay">
         <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>Add New VM</h2>
             <form id="addVMForm" onsubmit="event.preventDefault(); postVM();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
@@ -943,7 +919,7 @@ THE SOFTWARE.
 
     <div id="miscOverlay" class="overlay">
         <div class="overlay-content">
-            <button class="close-btn" onclick="closeMiscOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeMiscOverlay()">X</button>
             <div id="miscContent"></div>
         </div>
     </div>
@@ -954,7 +930,7 @@ THE SOFTWARE.
 
     <div id="system-id-overlay" class="system-id-overlay">
         <div class="system-id-overlay-content">
-            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
             <h2>System ID (Managed by CSP)</h2>
             <p id="fullSystemId"></p>
             <button class="copy-btn" onclick="copySystemId()">📋</button>
@@ -1374,7 +1350,7 @@ THE SOFTWARE.
     function showOverlay() {
         console.log("showOverlay()");
         document.getElementById('overlay').style.display = 'flex';
-        document.addEventListener('keydown', handleEsc);
+        document.addEventListener('keydown', handleOverlayEsc);
         clearFormFields();
     }
 
@@ -1395,11 +1371,11 @@ THE SOFTWARE.
 
     function hideOverlay() {
         document.getElementById('overlay').style.display = 'none';
-        document.removeEventListener('keydown', handleEsc);
+        document.removeEventListener('keydown', handleOverlayEsc);
         clearFormFields();
     }
 
-    function handleEsc(event) {
+    function handleOverlayEsc(event) {
         if (event.key === "Escape") {
             hideOverlay();
         }
@@ -1429,7 +1405,7 @@ THE SOFTWARE.
         const tagOverlayContent = document.querySelector('.tag-overlay-content');
 
         tagOverlayContent.innerHTML = `
-            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
             <p>${tag}</p>
             <div class="button-group">
                 <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
@@ -1439,18 +1415,18 @@ THE SOFTWARE.
 
         tagOverlay.style.display = 'flex';
 
-        document.addEventListener('keydown', handleEscTagOverlay);
+        document.addEventListener('keydown', handleTagOverlayEsc);
         document.addEventListener('click', handleClickOutsideOverlay);
     }
 
     function closeTagOverlay() {
         const tagOverlay = document.getElementById('tag-overlay');
         tagOverlay.style.display = 'none';
-        document.removeEventListener('keydown', handleEscTagOverlay);
+        document.removeEventListener('keydown', handleTagOverlayEsc);
         document.removeEventListener('click', handleClickOutsideOverlay);
     }
 
-    function handleEscTagOverlay(event) {
+    function handleTagOverlayEsc(event) {
         if (event.key === "Escape") {
             closeTagOverlay();
         }
@@ -1846,7 +1822,7 @@ THE SOFTWARE.
         const overlay = document.getElementById('provisioningInfoOverlay');
         const overlayContent = document.querySelector('.provisioning-info-overlay-content');
         overlayContent.innerHTML = `
-            <button class="close-btn" onclick="closeProvisioningInfoOverlay()">x</button>
+            <button class="overlay-close-btn" onclick="closeProvisioningInfoOverlay()">X</button>
             <h3>VM Provisioning Info</h3>
             <table>
                 <tr>
@@ -1914,11 +1890,19 @@ THE SOFTWARE.
             </table>
         `;
         overlay.style.display = 'flex';
+        document.addEventListener('keydown', handleProvisioningInfoOverlayEsc);
     }
 
     function closeProvisioningInfoOverlay() {
         const overlay = document.getElementById('provisioningInfoOverlay');
         overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleProvisioningInfoOverlayEsc);
+    }
+
+    function handleProvisioningInfoOverlayEsc(event) {
+        if (event.key === "Escape") {
+            closeProvisioningInfoOverlay();
+        }
     }
 
     function openSSHAccess(vmInfo) {
@@ -1930,7 +1914,7 @@ THE SOFTWARE.
             sshOverlay.className = 'overlay';
             sshOverlay.innerHTML = `
                 <div class="overlay-content" style="position: relative;">
-                    <button class="close-btn" onclick="closeSSHOverlay()">x</button>
+                    <button class="overlay-close-btn" onclick="closeSSHOverlay()">X</button>
                     <h2>SSH Access</h2>
                     <p>Connect to ${vmInfo.vmUserId}@${vmInfo.publicIP}</p>
                     <form id="ssh-form">
@@ -1957,16 +1941,16 @@ THE SOFTWARE.
 
         sshOverlay.style.display = 'flex';
 
-        document.addEventListener('keydown', handleEscSSHOverlay);
+        document.addEventListener('keydown', handleSSHOverlayEsc);
     }
 
     function closeSSHOverlay() {
         const sshOverlay = document.getElementById('ssh-overlay');
         sshOverlay.style.display = 'none';
-        document.removeEventListener('keydown', handleEscSSHOverlay);
+        document.removeEventListener('keydown', handleSSHOverlayEsc);
     }
 
-    function handleEscSSHOverlay(event) {
+    function handleSSHOverlayEsc(event) {
         if (event.key === "Escape") {
             closeSSHOverlay();
         }
@@ -2163,10 +2147,18 @@ THE SOFTWARE.
         const miscContent = button.previousElementSibling.innerHTML;
         document.getElementById('miscContent').innerHTML = `<div>${miscContent}</div>`;
         document.getElementById('miscOverlay').style.display = 'flex';
+        document.addEventListener('keydown', handleMiscOverlayEsc);
     }
 
     function closeMiscOverlay() {
         document.getElementById('miscOverlay').style.display = 'none';
+        document.removeEventListener('keydown', handleMiscOverlayEsc);
+    }
+
+    function handleMiscOverlayEsc(event) {
+        if (event.key === "Escape") {
+            closeMiscOverlay();
+        }
     }
 
     function updateImageNameField() {
@@ -2224,6 +2216,7 @@ THE SOFTWARE.
         const addTagOverlay = document.getElementById('add-tag-overlay');
         const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
         addTagOverlayContent.innerHTML = `
+            <button type="button" class="overlay-close-btn" onclick="closeAddTagOverlay()">X</button>
             <div class="tag-overlay-input-group">
                 <label for="tagOverlayTagKey">Tag Key:</label>
                 <input type="text" id="tagOverlayTagKey" name="tagKey" required>
@@ -2238,16 +2231,16 @@ THE SOFTWARE.
             </div>
         `;
         addTagOverlay.style.display = 'flex';
-        document.addEventListener('keydown', handleEscAddTagOverlay);
+        document.addEventListener('keydown', handleAddTagOverlayEsc);
     }
 
     function closeAddTagOverlay() {
         const addTagOverlay = document.getElementById('add-tag-overlay');
         addTagOverlay.style.display = 'none';
-        document.removeEventListener('keydown', handleEscAddTagOverlay);
+        document.removeEventListener('keydown', handleAddTagOverlayEsc);
     }
 
-    function handleEscAddTagOverlay(event) {
+    function handleAddTagOverlayEsc(event) {
         if (event.key === "Escape") {
             closeAddTagOverlay();
         }
@@ -2294,16 +2287,16 @@ THE SOFTWARE.
         fullSystemIdElement.textContent = systemId;
 
         overlay.style.display = 'block';
-        document.addEventListener('keydown', handleEscSystemIdOverlay);
+        document.addEventListener('keydown', handleSystemIdOverlayEsc);
     }
 
     function closeSystemIdOverlay() {
         const overlay = document.getElementById('system-id-overlay');
         overlay.style.display = 'none';
-        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+        document.removeEventListener('keydown', handleSystemIdOverlayEsc);
     }
 
-    function handleEscSystemIdOverlay(event) {
+    function handleSystemIdOverlayEsc(event) {
         if (event.key === "Escape") {
             closeSystemIdOverlay();
         }
