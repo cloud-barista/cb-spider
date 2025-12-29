@@ -28,6 +28,8 @@
         margin: 0;
         display: flex;
         align-items: center;
+        justify-content: space-between;
+        width: 100%;
     }
     h2 {
         font-size: 16px;
@@ -81,11 +83,11 @@
         padding: 10px 20px;
         align-items: center;
         box-shadow: 0 4px 6px -6px #222;
+        overflow-x: auto;
     }
     .fixed-action-buttons {
         display: flex;
         align-items: center;
-        margin-left: 5cm;
     }
     .fixed-action-buttons button {
         margin-left: 10px;
@@ -119,15 +121,21 @@
         margin-bottom: 10px;
     }
     .form-group label {
-        flex: 1;
+        width: 140px;
         text-align: right;
         margin-right: 10px;
+        flex-shrink: 0;
     }
     .form-group input {
-        flex: 2;
+        flex: 1;
+        min-width: 0;
     }
     .form-group button {
         margin-left: 10px;
+    }
+    .form-group.button-group {
+        justify-content: center;
+        margin-top: 20px;
     }
     #providerFilterWrapper {
         display: flex;
@@ -137,8 +145,57 @@
     #providerFilter {
         margin-left: 5px; /* Space between the label and the filter */
     }
+    .setup-flow {
+        display: flex;
+        align-items: center;
+        margin-left: 20px;
+        font-size: 12px;
+    }
+    .setup-btn {
+        background-color: #666;
+        color: #ddd;
+        border: none;
+        padding: 3px 8px;
+        margin: 0 2px;
+        border-radius: 3px;
+        font-size: 12px !important;
+        font-weight: normal;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        width: 82px;
+        height: 20px;
+        text-align: center;
+        box-sizing: border-box;
+        line-height: 14px;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    .setup-btn:hover {
+        background-color: #555;
+        color: #ddd;
+        text-decoration: none;
+    }
+    .setup-btn.active {
+        background-color: #3399ff;
+        color: white;
+        font-weight: bold;
+        cursor: default;
+    }
+    .setup-btn.active:hover {
+        background-color: #1a8cff;
+        color: white;
+    }
+    .setup-arrow {
+        margin: 0 4px;
+        color: #666;
+        font-weight: bold;
+    }
 </style>
 <script>
+    let originalProviderFilter = 'All';
+    let currentProviderName = '';
+
     function deleteDriver(driverName) {
         fetch(`/spider/driver/${driverName}`, { method: 'DELETE' })
             .then(response => {
@@ -196,7 +253,11 @@
                         return;
                     }
                 }
-                location.reload();
+                // Reload with original provider filter
+                const reloadUrl = (originalProviderFilter && originalProviderFilter !== 'All') ? 
+                    `${window.location.pathname}?provider=${encodeURIComponent(originalProviderFilter)}` : 
+                    window.location.pathname;
+                window.location.href = reloadUrl;
             })
             .catch(error => {
                 alert("Error deleting drivers");
@@ -239,12 +300,11 @@
 
         const driverName = document.getElementById('driverName').value;
         const driverLibFileName = document.getElementById('driverLibFileName').value;
-        const providerName = document.getElementById('providerName').value;
 
         const data = {
             DriverName: driverName,
             DriverLibFileName: driverLibFileName,
-            ProviderName: providerName
+            ProviderName: currentProviderName
         };
 
         fetch('/spider/driver', {
@@ -262,7 +322,11 @@
         })
         .then(data => {
             if (validateForm()) {
-                location.reload();
+                // Reload with original provider filter
+                const reloadUrl = (originalProviderFilter && originalProviderFilter !== 'All') ? 
+                    `${window.location.pathname}?provider=${encodeURIComponent(originalProviderFilter)}` : 
+                    window.location.pathname;
+                window.location.href = reloadUrl;
             }
         })
         .catch(error => {
@@ -272,8 +336,14 @@
     }
 
     function showOverlay(providerName) {
+        // Store the current filter selection
+        originalProviderFilter = document.getElementById('providerFilter').value;
+        
+        // Store provider name in variable
+        currentProviderName = providerName;
+        document.getElementById('overlayProviderName').textContent = providerName;
+        
         const driverLibFileName = providerName.toLowerCase() + "-driver-v1.0.so";
-        document.getElementById('providerName').value = providerName;
         document.getElementById('driverLibFileName').value = driverLibFileName;
         document.getElementById('driverName').value = driverLibFileName.replace(".so", "");
         document.getElementById('overlay').style.display = 'flex';
@@ -299,6 +369,7 @@
 
     function filterProvider() {
         var providerFilter = document.getElementById("providerFilter").value;
+        originalProviderFilter = providerFilter; // Update the filter state
         var titles = document.querySelectorAll(".provider-title");
         var tables = document.querySelectorAll("table");
 
@@ -333,8 +404,50 @@
         }
     }
 
+    function goToSetupPage(page) {
+        const selectedProvider = document.getElementById('providerFilter').value;
+        let url = `/spider/adminweb/${page}`;
+        
+        // Add provider filter as URL parameter if not "All"
+        if (selectedProvider !== 'All') {
+            url += `?provider=${encodeURIComponent(selectedProvider)}`;
+        }
+        
+        window.location.href = url;
+    }
+
+    function goToConnectionPage() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const providerParam = urlParams.get('provider');
+        let url = '/spider/adminweb/connectionconfig';
+        
+        // Add provider filter as URL parameter if it exists
+        if (providerParam) {
+            url += `?provider=${encodeURIComponent(providerParam)}`;
+        }
+        
+        window.location.href = url;
+    }
+
     document.addEventListener('DOMContentLoaded', (event) => {
         document.getElementById("providerFilter").addEventListener('change', filterProvider);
+        
+        // Read URL parameter and set the provider filter
+        const urlParams = new URLSearchParams(window.location.search);
+        const providerParam = urlParams.get('provider');
+        
+        if (providerParam) {
+            const providerSelect = document.getElementById('providerFilter');
+            // Check if the provider exists in the select options
+            for (let option of providerSelect.options) {
+                if (option.value === providerParam) {
+                    providerSelect.value = providerParam;
+                    originalProviderFilter = providerParam; // Update the original filter
+                    filterProvider(); // Apply the filter
+                    break;
+                }
+            }
+        }
     });
 </script>
 </head>
@@ -342,11 +455,8 @@
     <div class="fixed-header">
         <div class="header-container">
             <img src="/spider/adminweb/images/connection_small.png" alt="Connection Icon">
-            <a href="javascript:history.back()" style="text-decoration: underline;color: black">
-                <h1>Connection Info Management</h1>
-            </a>
-            <span class="separator"><h1>></h1></span>
-            <h1>Driver Info Management
+            <h1>
+                <span style="min-width: 200px; flex-shrink: 0; display: inline-block;">Driver Info Management</span>
                 <div id="providerFilterWrapper">                    
                     <select id="providerFilter">
                         <option value="All">All</option>
@@ -354,6 +464,14 @@
                         <option value="{{$provider}}">{{$provider}}</option>
                         {{end}}
                     </select>
+                </div>
+                <div class="setup-flow">
+                    <a href="javascript:void(0)" onclick="goToSetupPage('connectionconfig')" class="setup-btn">Connection</a>
+                    <span style="margin: 0 8px; color: #666;">{</span>
+                    <a href="javascript:void(0)" class="setup-btn active">Driver</a>
+                    <a href="javascript:void(0)" onclick="goToSetupPage('credential')" class="setup-btn" style="margin-left: 8px;">Credential</a>
+                    <a href="javascript:void(0)" onclick="goToSetupPage('region')" class="setup-btn" style="margin-left: 8px;">Region/Zone</a>
+                    <span style="margin-left: 8px; color: #666;">}</span>
                 </div>
             </h1>
         </div>
@@ -396,21 +514,17 @@
 
     <div id="overlay" class="overlay">
         <div class="overlay-content">
-            <h2>Add New Driver Info</h2>
+            <h2>[<span id="overlayProviderName"></span>] Add Driver Info</h2>
             <form id="addDriverForm" onsubmit="event.preventDefault(); postDriver();">
                 <div class="form-group">
-                    <label for="driverName">Driver Name:</label>
-                    <input type="text" id="driverName" name="DriverName" required>
-                </div>
-                <div class="form-group">
-                    <label for="providerName">Provider Name:</label>
-                    <input type="text" id="providerName" name="ProviderName" class="disabled-input" required readonly>
-                </div>
-                <div class="form-group">
                     <label for="driverLibFileName">Driver Library:</label>
-                    <input type="text" id="driverLibFileName" name="DriverLibFileName" required class="blue-pastel-background">
+                    <input type="text" id="driverLibFileName" name="DriverLibFileName" required>
                 </div>
                 <div class="form-group">
+                    <label for="driverName" style="color: #4A90E2; font-weight: bold;">Driver Name:</label>
+                    <input type="text" id="driverName" name="DriverName" required placeholder="Enter new driver name" style="background-color: #E3F2FD; border: 2px solid #4A90E2;">
+                </div>
+                <div class="form-group button-group">
                     <button type="submit">Add Driver</button>
                     <button type="button" onclick="hideOverlay()">Cancel</button>
                 </div>

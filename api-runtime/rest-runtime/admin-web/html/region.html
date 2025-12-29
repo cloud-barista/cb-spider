@@ -28,6 +28,8 @@
         margin: 0;
         display: flex;
         align-items: center;
+        justify-content: space-between;
+        width: 100%;
     }
     h2 {
         font-size: 16px;
@@ -54,23 +56,7 @@
         align-items: center;
         font-size: 16px;
     }
-    .overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.8);
-        justify-content: center;
-        align-items: center;
-    }
-    .overlay-content {
-        background-color: white;
-        padding: 20px;
-        border-radius: 5px;
-        text-align: left;
-    }
+
     .import-overlay {
         display: none;
         position: fixed;
@@ -89,7 +75,9 @@
         border-radius: 5px;
         text-align: left;
         width: 66.67%;
+        max-width: calc(100vw - 40px);
         margin: 20px auto;
+        overflow-x: auto;
     }
     .fixed-header {
         position: fixed;
@@ -102,16 +90,16 @@
         padding: 10px 20px;
         align-items: center;
         box-shadow: 0 4px 6px -6px #222;
+        overflow-x: auto;
     }
     .fixed-action-buttons {
         display: flex;
         align-items: center;
-        margin-left: 1cm;
     }
     .fixed-action-buttons button {
         margin-left: 10px;
     }
-    .add-button, .import-button {
+    .add-button {
         font-size: 14px;
         font-weight: bold;
         margin-left: 15px;
@@ -137,15 +125,21 @@
         margin-bottom: 10px;
     }
     .form-group label {
-        flex: 1;
+        width: 140px;
         text-align: right;
         margin-right: 10px;
+        flex-shrink: 0;
     }
     .form-group input, .form-group textarea, .form-group select {
-        flex: 2;
+        flex: 1;
+        min-width: 0;
     }
     .form-group button {
         margin-left: 10px;
+    }
+    .form-group.button-group {
+        justify-content: center;
+        margin-top: 20px;
     }
     .sensitive-input {
         background-color: #f8d7da;
@@ -221,12 +215,80 @@
     #providerFilter {
         margin-left: 5px; /* Space between the label and the filter */
     }
+    .setup-flow {
+        display: flex;
+        align-items: center;
+        margin-left: 20px;
+        font-size: 12px;
+    }
+    .setup-btn {
+        background-color: #666;
+        color: #ddd;
+        border: none;
+        padding: 3px 8px;
+        margin: 0 2px;
+        border-radius: 3px;
+        font-size: 12px !important;
+        font-weight: normal;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        width: 82px;
+        height: 20px;
+        text-align: center;
+        box-sizing: border-box;
+        line-height: 14px;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    .setup-btn:hover {
+        background-color: #555;
+        color: #ddd;
+        text-decoration: none;
+    }
+    .setup-btn.active {
+        background-color: #3399ff;
+        color: white;
+        font-weight: bold;
+        cursor: default;
+    }
+    .setup-btn.active:hover {
+        background-color: #1a8cff;
+        color: white;
+    }
+    .setup-arrow {
+        margin: 0 4px;
+        color: #666;
+        font-weight: bold;
+    }
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+    .loading-spinner.active {
+        display: block;
+    }
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #007bff;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
 </style>
 <script>
     let currentProviderKeys = [];
     let currentProviderRegionKeys = [];
     let currentRegions = [];
     let currentProviderName = "";
+    let originalProviderFilter = 'All';
 
     function deleteRegion(regionName) {
         fetch(`/spider/region/${regionName}`, { method: 'DELETE' })
@@ -285,7 +347,11 @@
                         return;
                     }
                 }
-                location.reload();
+                // Reload with original provider filter
+                const reloadUrl = (originalProviderFilter && originalProviderFilter !== 'All') ? 
+                    `${window.location.pathname}?provider=${encodeURIComponent(originalProviderFilter)}` : 
+                    window.location.pathname;
+                window.location.href = reloadUrl;
             })
             .catch(error => {
                 alert("Error deleting regions");
@@ -328,6 +394,12 @@
                 checkbox.checked = false;
             }
         }
+        
+        // Update all table header checkboxes
+        document.querySelectorAll('.region-section table thead input[type="checkbox"]').forEach(cb => {
+            cb.checked = source.checked;
+            cb.indeterminate = false;
+        });
     }
 
     function toggleTableSelectAll(source, tableId) {
@@ -341,6 +413,56 @@
                 checkbox.checked = false;
             }
         }
+        
+        // Update main checkbox state
+        updateImportMainCheckboxState();
+    }
+
+    function updateImportMainCheckboxState() {
+        const allCheckboxes = document.querySelectorAll('input[name="importCheckbox"]');
+        const visibleCheckboxes = Array.from(allCheckboxes).filter(cb => {
+            const row = cb.closest('tr');
+            return row && row.style.display !== 'none';
+        });
+        
+        const checkedCount = visibleCheckboxes.filter(cb => cb.checked).length;
+        const mainCheckbox = document.querySelector('.add-form-group input[type="checkbox"]');
+        
+        if (!mainCheckbox) return;
+        
+        if (checkedCount === 0) {
+            mainCheckbox.checked = false;
+            mainCheckbox.indeterminate = false;
+        } else if (checkedCount === visibleCheckboxes.length) {
+            mainCheckbox.checked = true;
+            mainCheckbox.indeterminate = false;
+        } else {
+            mainCheckbox.checked = false;
+            mainCheckbox.indeterminate = true;
+        }
+        
+        // Also update table header checkboxes
+        document.querySelectorAll('.region-section table').forEach(table => {
+            const tableCheckboxes = Array.from(table.querySelectorAll('input[name="importCheckbox"]')).filter(cb => {
+                const row = cb.closest('tr');
+                return row && row.style.display !== 'none';
+            });
+            const tableCheckedCount = tableCheckboxes.filter(cb => cb.checked).length;
+            const headerCheckbox = table.querySelector('thead input[type="checkbox"]');
+            
+            if (headerCheckbox) {
+                if (tableCheckedCount === 0) {
+                    headerCheckbox.checked = false;
+                    headerCheckbox.indeterminate = false;
+                } else if (tableCheckedCount === tableCheckboxes.length) {
+                    headerCheckbox.checked = true;
+                    headerCheckbox.indeterminate = false;
+                } else {
+                    headerCheckbox.checked = false;
+                    headerCheckbox.indeterminate = true;
+                }
+            }
+        });
     }
 
     function validateForm() {
@@ -405,32 +527,12 @@
         });
     }
 
-    function showOverlay(providerName) {
-        fetch(`/spider/cloudos/metainfo/${providerName}`)
-            .then(response => response.json())
-            .then(data => {
-                currentProviderKeys = data.Region;
-                currentProviderRegionKeys = data.Region;
-                const regionInfoDiv = document.getElementById('regionInfo');
-                regionInfoDiv.innerHTML = ''; // Clear previous inputs
-                currentProviderKeys.forEach((key, index) => {
-                    const regionKey = currentProviderRegionKeys[index];
-                    const inputDiv = document.createElement('div');
-                    inputDiv.className = 'form-group';
-                    inputDiv.innerHTML = `<label for="${regionKey}">${regionKey}:</label><input type="text" id="${regionKey}" name="${regionKey}" class="pastel-blue-input" required oninput="generateRegionName()">`;
-                    regionInfoDiv.appendChild(inputDiv);
-                });
-                document.getElementById('providerName').value = providerName.toLowerCase();
-                document.getElementById('overlay').style.display = 'flex';
-                document.addEventListener('keydown', handleEsc);
-            })
-            .catch(error => {
-                alert("Error fetching region keys");
-                console.error('Error:', error);
-            });
-    }
+
 
     function showImportOverlay(providerName) {
+        // Store the current filter selection
+        originalProviderFilter = document.getElementById('providerFilter').value;
+        
         currentProviderName = providerName;
         document.getElementById('currentProviderName').innerText = `${providerName}`;
         
@@ -468,22 +570,10 @@
         document.addEventListener('keydown', handleEsc);
     }
 
-    function hideOverlay() {
-        document.getElementById('overlay').style.display = 'none';
-        document.removeEventListener('keydown', handleEsc);
-        clearForm();
-    }
-
     function hideImportOverlay() {
         document.getElementById('importOverlay').style.display = 'none';
         document.removeEventListener('keydown', handleEsc);
         clearImportOverlay();
-    }
-
-    function clearForm() {
-        document.getElementById('addRegionForm').reset();
-        document.getElementById('providerName').value = '';
-        document.getElementById('regionInfo').innerHTML = '';
     }
 
     function clearImportOverlay() {
@@ -496,7 +586,8 @@
     }
 
     function generateRegionName() {
-        const providerName = currentProviderName.toLowerCase();
+        const providerNameElement = document.getElementById('providerName');
+        const providerName = providerNameElement ? providerNameElement.value.toLowerCase() : currentProviderName.toLowerCase();
         const region = document.getElementById('Region').value;
         let zone = document.getElementById('Zone').value;
 
@@ -519,6 +610,13 @@
 
         document.getElementById('zoneStatusFilter').value = 'All'; // Reset zoneStatusFilter to 'All'
 
+        // Show loading spinner
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const importTableBody = document.getElementById('importTableBody');
+        loadingSpinner.classList.add('active');
+        importTableBody.innerHTML = '';
+        document.querySelector('.add-form-group').style.display = 'none';
+
         const fetchUrl = `/spider/preconfig/regionzone?DriverName=${driverName}&CredentialName=${credentialName}`;
 
         fetch(fetchUrl)
@@ -531,6 +629,10 @@
             .catch(error => {
                 alert(`Error fetching region and zone information: ${error}`);
                 console.error('Error:', error);
+            })
+            .finally(() => {
+                // Hide loading spinner
+                loadingSpinner.classList.remove('active');
             });
     }
 
@@ -539,6 +641,11 @@
         importTableBody.innerHTML = '';
 
         currentRegions.forEach((region, index) => {
+            // Skip if region doesn't have ZoneList or it's not an array
+            if (!region.ZoneList || !Array.isArray(region.ZoneList) || region.ZoneList.length === 0) {
+                return;
+            }
+
             const regionSection = document.createElement('div');
             regionSection.className = 'region-section';
             
@@ -552,10 +659,10 @@
             table.innerHTML = `
                 <thead>
                     <tr>
-                        <th>Region Name</th>
                         <th>Region</th>
                         <th>Zone</th>
                         <th>Zone Status</th>
+                        <th style="color: #4A90E2; font-weight: bold;">Region Name</th>
                         <th class="checkbox-cell"><input type="checkbox" onclick="toggleTableSelectAll(this, '${tableId}')"></th>
                     </tr>
                 </thead>
@@ -573,10 +680,10 @@
                 const row = document.createElement('tr');
 
                 row.innerHTML = `
-                    <td><input type="text" value="${regionName}" style="width: calc(100% - 2mm);" /></td>
-                    <td class="pastel-blue-text">${region.Name}</td>
-                    <td class="pastel-blue-text">${zone.Name}</td>
-                    <td class="pastel-blue-text">${zone.Status}</td>
+                    <td>${region.Name}</td>
+                    <td>${zone.Name}</td>
+                    <td>${zone.Status}</td>
+                    <td><input type="text" value="${regionName}" placeholder="Enter region name" style="width: calc(100% - 2mm); background-color: #E3F2FD; border: 2px solid #4A90E2;" /></td>
                     <td class="checkbox-cell"><input type="checkbox" name="importCheckbox" /></td>
                 `;
                 table.querySelector('tbody').appendChild(row);
@@ -592,6 +699,143 @@
         } else {
             importHeader.style.display = 'none';
         }
+        
+        // Group regions in overlay by region value
+        setTimeout(() => groupOverlayRegionsByValue(), 100);
+    }
+    
+    function groupOverlayRegionsByValue() {
+        const importTableBody = document.getElementById('importTableBody');
+        const sections = importTableBody.querySelectorAll('.region-section');
+        
+        sections.forEach((section, index) => {
+            const table = section.querySelector('table');
+            if (!table) return;
+            
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (rows.length === 0) return;
+            
+            // Group rows by region value (first column - Region)
+            const regionGroups = new Map();
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length < 3) return;
+                
+                // Original structure: Region(0), Zone(1), Zone Status(2), Region Name input(3), Checkbox(4)
+                const regionValue = cells[0].textContent.trim();
+                if (!regionGroups.has(regionValue)) {
+                    regionGroups.set(regionValue, []);
+                }
+                regionGroups.get(regionValue).push(row);
+            });
+            
+            // Always restructure to ensure consistent cell order
+            // even if there's only one region group
+            
+            // Create new grouped structure
+            const newContent = document.createElement('div');
+            newContent.className = 'provider-regions';
+            
+            regionGroups.forEach((groupRows, regionValue) => {
+                const regionSection = document.createElement('div');
+                regionSection.className = 'region-section';
+                
+                const regionTitle = document.createElement('h3');
+                regionTitle.textContent = regionValue;
+                regionTitle.style.fontSize = '14px';
+                regionTitle.style.fontWeight = 'bold';
+                regionTitle.style.margin = '10px 0 5px 0';
+                regionTitle.style.padding = '5px';
+                regionTitle.style.backgroundColor = '#f0f0f0';
+                regionTitle.style.borderLeft = '4px solid #4A90E2';
+                regionSection.appendChild(regionTitle);
+                
+                const groupTable = document.createElement('table');
+                groupTable.style.width = '100%';
+                groupTable.style.borderCollapse = 'collapse';
+                groupTable.style.marginBottom = '20px';
+                
+                const tableId = `overlay-${index}-${regionValue.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                groupTable.id = tableId;
+                
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr>
+                        <th style="color: #4A90E2; font-weight: bold;">Region Name</th>
+                        <th>Region</th>
+                        <th>Zone</th>
+                        <th>Zone Status</th>
+                        <th class="checkbox-cell"><input type="checkbox" onclick="toggleTableSelectAll(this, '${tableId}')"></th>
+                    </tr>
+                `;
+                groupTable.appendChild(thead);
+                
+                const groupTbody = document.createElement('tbody');
+                groupRows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    
+                    // Skip if not the expected structure
+                    if (cells.length !== 5) {
+                        console.warn("Skipping row with unexpected cell count:", cells.length);
+                        return;
+                    }
+                    
+                    // Check if cells have the expected structure
+                    if (!cells[3] || !cells[3].querySelector('input') || 
+                        !cells[4] || !cells[4].querySelector('input')) {
+                        console.warn("Skipping row with missing input elements");
+                        return;
+                    }
+                    
+                    const newRow = document.createElement('tr');
+                    
+                    // Original order: Region(0), Zone(1), Zone Status(2), Region Name(3), Checkbox(4)
+                    // New order: Region Name, Region, Zone, Zone Status, Checkbox
+                    
+                    // Region Name (input field)
+                    const regionNameCell = document.createElement('td');
+                    const inputClone = cells[3].querySelector('input').cloneNode(true);
+                    inputClone.value = cells[3].querySelector('input').value;
+                    regionNameCell.appendChild(inputClone);
+                    newRow.appendChild(regionNameCell);
+                    
+                    // Region
+                    const regionCell = document.createElement('td');
+                    regionCell.textContent = cells[0].textContent;
+                    newRow.appendChild(regionCell);
+                    
+                    // Zone
+                    const zoneCell = document.createElement('td');
+                    zoneCell.textContent = cells[1].textContent;
+                    newRow.appendChild(zoneCell);
+                    
+                    // Zone Status
+                    const zoneStatusCell = document.createElement('td');
+                    zoneStatusCell.textContent = cells[2].textContent;
+                    newRow.appendChild(zoneStatusCell);
+                    
+                    // Checkbox
+                    const checkboxCell = document.createElement('td');
+                    checkboxCell.className = 'checkbox-cell';
+                    const checkboxClone = cells[4].querySelector('input').cloneNode(true);
+                    checkboxClone.checked = cells[4].querySelector('input').checked;
+                    checkboxCell.appendChild(checkboxClone);
+                    newRow.appendChild(checkboxCell);
+                    
+                    groupTbody.appendChild(newRow);
+                });
+                groupTable.appendChild(groupTbody);
+                
+                regionSection.appendChild(groupTable);
+                newContent.appendChild(regionSection);
+            });
+            
+            // Replace original section with grouped content
+            section.replaceWith(newContent);
+        });
     }
 
     function addImportedRegions() {
@@ -643,7 +887,11 @@
                 return Promise.all(responses.map(response => response.json()));
             })
             .then(() => {
-                location.reload();
+                // Reload with original provider filter
+                const reloadUrl = (originalProviderFilter && originalProviderFilter !== 'All') ? 
+                    `${window.location.pathname}?provider=${encodeURIComponent(originalProviderFilter)}` : 
+                    window.location.pathname;
+                window.location.href = reloadUrl;
             })
             .catch(error => {
                 alert("Error adding regions");
@@ -666,31 +914,39 @@
 
     function handleEsc(event) {
         if (event.key === 'Escape') {
-            hideOverlay();
             hideImportOverlay();
         }
     }
 
     function filterProvider() {
         var providerFilter = document.getElementById("providerFilter").value;
+        originalProviderFilter = providerFilter; // Update the filter state
         var titles = document.querySelectorAll(".provider-title");
-        var tables = document.querySelectorAll("table");
 
         titles.forEach(function(title) {
             var providerName = title.id.replace("title-", "");
+            var table = document.getElementById("table-" + providerName);
+            
             if (providerFilter === "All" || providerFilter === providerName) {
                 title.style.display = "";
+                if (table) table.style.display = "";
             } else {
                 title.style.display = "none";
+                if (table) table.style.display = "none";
             }
         });
 
-        tables.forEach(function(table) {
-            var providerName = table.id.replace("table-", "");
-            if (providerFilter === "All" || providerFilter === providerName) {
-                table.style.display = "";
-            } else {
-                table.style.display = "none";
+        // Also handle grouped provider-regions if they exist
+        var providerRegions = document.querySelectorAll(".provider-regions");
+        providerRegions.forEach(function(regions) {
+            var previousTitle = regions.previousElementSibling;
+            if (previousTitle && previousTitle.classList.contains('provider-title')) {
+                var providerName = previousTitle.id.replace("title-", "");
+                if (providerFilter === "All" || providerFilter === providerName) {
+                    regions.style.display = "";
+                } else {
+                    regions.style.display = "none";
+                }
             }
         });
 
@@ -714,12 +970,17 @@
         tables.forEach(function(table) {
             var rows = table.querySelectorAll("tbody tr");
             rows.forEach(function(row) {
-                var zoneStatus = row.cells[3].innerText;
-                if (zoneStatusFilter === "All" || zoneStatus === zoneStatusFilter) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                    row.querySelector('input[name="importCheckbox"]').checked = false; // Uncheck hidden items
+                if (row.cells.length > 3) {
+                    // After reordering: Region Name(0), Region(1), Zone(2), Zone Status(3), Checkbox(4)
+                    var zoneStatus = row.cells[3].innerText.trim();
+                    if (zoneStatusFilter === "All" || zoneStatus === zoneStatusFilter) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                        if (row.querySelector('input[name="importCheckbox"]')) {
+                            row.querySelector('input[name="importCheckbox"]').checked = false;
+                        }
+                    }
                 }
             });
         });
@@ -737,23 +998,223 @@
         }
     }
 
+    function goToSetupPage(page) {
+        const selectedProvider = document.getElementById('providerFilter').value;
+        let url = `/spider/adminweb/${page}`;
+        
+        // Add provider filter as URL parameter if not "All"
+        if (selectedProvider !== 'All') {
+            url += `?provider=${encodeURIComponent(selectedProvider)}`;
+        }
+        
+        window.location.href = url;
+    }
+
+    function goToConnectionPage() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const providerParam = urlParams.get('provider');
+        let url = '/spider/adminweb/connectionconfig';
+        
+        // Add provider filter as URL parameter if it exists
+        if (providerParam) {
+            url += `?provider=${encodeURIComponent(providerParam)}`;
+        }
+        
+        window.location.href = url;
+    }
+
     document.addEventListener('DOMContentLoaded', (event) => {
-        document.getElementById('Region').addEventListener('input', generateRegionName);
-        document.getElementById('Zone').addEventListener('input', generateRegionName);
         document.getElementById("providerFilter").addEventListener('change', filterProvider);
         document.getElementById("zoneStatusFilter").addEventListener('change', filterZoneStatus);
+        
+        // Group regions by region value
+        groupRegionsByValue();
+        
+        // Read URL parameter and set the provider filter
+        const urlParams = new URLSearchParams(window.location.search);
+        const providerParam = urlParams.get('provider');
+        
+        if (providerParam) {
+            const providerSelect = document.getElementById('providerFilter');
+            // Check if the provider exists in the select options
+            for (let option of providerSelect.options) {
+                if (option.value === providerParam) {
+                    providerSelect.value = providerParam;
+                    originalProviderFilter = providerParam; // Update the original filter
+                    filterProvider(); // Apply the filter
+                    break;
+                }
+            }
+        }
     });
+
+    function groupRegionsByValue() {
+        const content = document.querySelector('.content');
+        const providers = content.querySelectorAll('.provider-title');
+        
+        providers.forEach(providerTitle => {
+            const providerId = providerTitle.id.replace('title-', '');
+            const table = document.getElementById(`table-${providerId}`);
+            
+            if (!table) return;
+            
+            const tbody = table.querySelector('tbody') || table;
+            const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => {
+                // Skip header rows and empty rows
+                return row.querySelector('td') && !row.querySelector('td[colspan]');
+            });
+            
+            if (rows.length === 0) return;
+            
+            // Check if this is a main page table (4 cells) or overlay table (5 cells)
+            const firstRowCells = rows[0].querySelectorAll('td');
+            const isMainPageTable = firstRowCells.length === 4;
+            const isOverlayTable = firstRowCells.length === 5;
+            
+            if (!isMainPageTable && !isOverlayTable) {
+                // Unknown table structure, skip
+                return;
+            }
+            
+            // Group rows by region value
+            // Main page: cells[1] is Region
+            // Overlay: cells[0] is Region
+            const regionGroups = new Map();
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length < 2) return;
+                
+                const regionValue = isMainPageTable ? cells[1].textContent.trim() : cells[0].textContent.trim();
+                if (!regionGroups.has(regionValue)) {
+                    regionGroups.set(regionValue, []);
+                }
+                regionGroups.get(regionValue).push(row);
+            });
+            
+            // Create new grouped structure
+            const newContent = document.createElement('div');
+            newContent.className = 'provider-regions';
+            
+            regionGroups.forEach((groupRows, regionValue) => {
+                const regionSection = document.createElement('div');
+                regionSection.className = 'region-section';
+                
+                const regionTitle = document.createElement('h3');
+                regionTitle.textContent = regionValue;
+                regionTitle.style.fontSize = '14px';
+                regionTitle.style.fontWeight = 'bold';
+                regionTitle.style.margin = '10px 0 5px 0';
+                regionTitle.style.padding = '5px';
+                regionTitle.style.backgroundColor = '#f0f0f0';
+                regionTitle.style.borderLeft = '4px solid #4A90E2';
+                regionSection.appendChild(regionTitle);
+                
+                const groupTable = document.createElement('table');
+                groupTable.style.width = '100%';
+                groupTable.style.borderCollapse = 'collapse';
+                groupTable.style.marginBottom = '20px';
+                
+                const tableId = `${providerId}-${regionValue.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                groupTable.id = tableId;
+                
+                const thead = document.createElement('thead');
+                if (isMainPageTable) {
+                    // Main page: Region Name, Region, Zone, Checkbox
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Region Name</th>
+                            <th>Region</th>
+                            <th>Zone</th>
+                            <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectTable(this, '${tableId}')"></th>
+                        </tr>
+                    `;
+                } else {
+                    // Overlay: Region Name, Region, Zone, Zone Status, Checkbox
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Region Name</th>
+                            <th>Region</th>
+                            <th>Zone</th>
+                            <th>Zone Status</th>
+                            <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectTable(this, '${tableId}')"></th>
+                        </tr>
+                    `;
+                }
+                groupTable.appendChild(thead);
+                
+                const groupTbody = document.createElement('tbody');
+                groupRows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    
+                    if (isMainPageTable) {
+                        // Main page table: just clone the row as-is
+                        // Structure: Region Name(0), Region(1), Zone(2), Checkbox(3)
+                        groupTbody.appendChild(row.cloneNode(true));
+                    } else {
+                        // Overlay table: needs reordering
+                        // Skip if not the expected structure
+                        if (cells.length !== 5) return;
+                        
+                        // Check if cells have the expected structure
+                        if (!cells[3] || !cells[3].querySelector('input') || 
+                            !cells[4] || !cells[4].querySelector('input')) return;
+                        
+                        const newRow = document.createElement('tr');
+                        
+                        // Reorder cells: Region Name, Region, Zone, Zone Status, Checkbox
+                        // Original order: Region(0), Zone(1), Zone Status(2), Region Name(3), Checkbox(4)
+                        
+                        // Region Name (input field)
+                        const regionNameCell = document.createElement('td');
+                        const inputClone = cells[3].querySelector('input').cloneNode(true);
+                        inputClone.value = cells[3].querySelector('input').value;
+                        regionNameCell.appendChild(inputClone);
+                        newRow.appendChild(regionNameCell);
+                        
+                        // Region
+                        const regionCell = document.createElement('td');
+                        regionCell.textContent = cells[0].textContent;
+                        newRow.appendChild(regionCell);
+                        
+                        // Zone
+                        const zoneCell = document.createElement('td');
+                        zoneCell.textContent = cells[1].textContent;
+                        newRow.appendChild(zoneCell);
+                        
+                        // Zone Status
+                        const zoneStatusCell = document.createElement('td');
+                        zoneStatusCell.textContent = cells[2].textContent;
+                        newRow.appendChild(zoneStatusCell);
+                        
+                        // Checkbox
+                        const checkboxCell = document.createElement('td');
+                        checkboxCell.className = 'checkbox-cell';
+                        const checkboxClone = cells[4].querySelector('input').cloneNode(true);
+                        checkboxClone.checked = cells[4].querySelector('input').checked;
+                        checkboxCell.appendChild(checkboxClone);
+                        newRow.appendChild(checkboxCell);
+                        
+                        groupTbody.appendChild(newRow);
+                    }
+                });
+                groupTable.appendChild(groupTbody);
+                
+                regionSection.appendChild(groupTable);
+                newContent.appendChild(regionSection);
+            });
+            
+            // Replace original table with grouped content
+            table.replaceWith(newContent);
+        });
+    }
 </script>
 </head>
 <body>
     <div class="fixed-header">
         <div class="header-container">
             <img src="/spider/adminweb/images/connection_small.png" alt="Connection Icon">
-            <a href="javascript:history.back()" style="text-decoration: underline;color: black">
-                <h1>Connection Info Management</h1>
-            </a>
-            <span class="separator"><h1>></h1></span>
-            <h1>Region Info Management
+            <h1>
+                <span style="min-width: 200px; flex-shrink: 0; display: inline-block;">Region Info Management</span>
                 <div id="providerFilterWrapper">                    
                     <select id="providerFilter" onchange="filterProvider()">
                         <option value="All">All</option>
@@ -761,6 +1222,14 @@
                         <option value="{{$provider}}">{{$provider}}</option>
                         {{end}}
                     </select>
+                </div>
+                <div class="setup-flow">
+                    <a href="javascript:void(0)" onclick="goToSetupPage('connectionconfig')" class="setup-btn">Connection</a>
+                    <span style="margin: 0 8px; color: #666;">{</span>
+                    <a href="javascript:void(0)" onclick="goToSetupPage('driver')" class="setup-btn">Driver</a>
+                    <a href="javascript:void(0)" onclick="goToSetupPage('credential')" class="setup-btn" style="margin-left: 8px;">Credential</a>
+                    <a href="javascript:void(0)" class="setup-btn active" style="margin-left: 8px;">Region/Zone</a>
+                    <span style="margin-left: 8px; color: #666;">}</span>
                 </div>
             </h1>
         </div>
@@ -774,8 +1243,7 @@
         {{range $provider := .Providers}}
         <div class="provider-title" id="title-{{$provider}}">
             <h2>{{$provider}}</h2>
-            <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
-            <button class="import-button" onclick="showImportOverlay('{{$provider}}')">Import</button>
+            <button class="add-button" onclick="showImportOverlay('{{$provider}}')">+</button>
         </div>
         <table id="table-{{$provider}}">
             <tr>
@@ -810,32 +1278,11 @@
         {{end}}
     </div>
 
-    <div id="overlay" class="overlay">
-        <div class="overlay-content">
-            <h2>Add New Region</h2>
-            <form id="addRegionForm" onsubmit="event.preventDefault(); postRegion();">
-                <div class="form-group">
-                    <label for="regionName">Region Name:</label>
-                    <input type="text" id="regionName" name="RegionName" required>
-                </div>
-                <div class="form-group">
-                    <label for="providerName">Provider Name:</label>
-                    <input type="text" id="providerName" name="ProviderName" class="disabled-input" required readonly>
-                </div>
-                <div id="regionInfo">
-                    <!-- Region Info inputs will be appended here dynamically -->
-                </div>
-                <div class="form-group">
-                    <button type="submit">Add Region</button>
-                    <button type="button" onclick="hideOverlay()">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
+
 
     <div id="importOverlay" class="import-overlay">
         <div class="import-overlay-content">
-            <h2>Import Regions: <span id="currentProviderName"></span></h2>
+            <h2>[<span id="currentProviderName"></span>] Add Region Info</h2>
             <div class="overlay-header">
                 <div class="inline-form-group">
                     <label for="importDriverSelect">Driver:</label>
@@ -857,6 +1304,10 @@
                     <input type="checkbox" onclick="toggleImportSelectAll(this)">
                     <button type="button" onclick="addImportedRegions()">Add</button>
                 </div>
+            </div>
+            <div id="loadingSpinner" class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Fetching region and zone information...</p>
             </div>
             <div id="importTableBody">
                 <!-- Dynamically generated region sections will go here -->
