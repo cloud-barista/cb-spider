@@ -72,12 +72,25 @@
     </header>
     <main>
         <section>
-            <h3>1. Create a Connection</h3>
+            <h3 style="display: flex; align-items: center; justify-content: space-between;">
+                1. Set Up Connections
+                <span style="font-size: 12px; font-weight: normal; color: #007bff;">
+                    💡 <a href="https://github.com/cloud-barista/cb-spider/tree/master/utils/default-connection-helper#readme" target="_blank" style="color: #007bff; text-decoration: none;">Default Connection Helper</a> for quick setup
+                </span>
+            </h3>
             <ol>
-                <li class="indent">Register Driver Infos</li>
-                <li class="indent">Register Credential Infos</li>
-                <li class="indent">Register Region Infos</li>
-                <li class="indent">Select Driver, Credential, and Region</li>
+                <li class="indent">
+                    Register Drivers<span style="font-size: 13px;"> - Register cloud driver libraries for your target providers</span>
+                </li>
+                <li class="indent">
+                    Register Credentials<span style="font-size: 13px;"> - Set up authentication credentials for cloud access</span>
+                </li>
+                <li class="indent">
+                    Register Regions & Zones<span style="font-size: 13px;"> - Define geographic regions and availability zones</span>
+                </li>
+                <li class="indent">
+                    Create Connection Configs<span style="font-size: 13px;"> - Combine all components into connection configurations</span>
+                </li>
             </ol>
         </section>
         <section>
@@ -87,15 +100,16 @@
             <h3>3. Create Basic Resources</h3>
             <ol>
                 <li class="indent">Create a VPC & Subnet</li>
-                <li class="indent">Create a Security Group</li>
-                <li class="indent">Create a VM Keypair</li>
+                <li class="indent">Create a SecurityGroup</li>
+                <li class="indent">Create a VM KeyPair</li>
             </ol>
         </section>
         <section>
-            <h3>4. Provision Infrastructures</h3>
+            <h3>4. Provision Infrastructure</h3>
             <ol>
-                <li class="indent">VM Infra</li>
-                <li class="indent">Container Infra (Kubernetes Cluster)</li>
+                <li class="indent">Virtual Machines<span style="font-size: 13px;"> (VMs, Disks, MyImages, Network Load Balancers)</span></li>
+                <li class="indent">Container Infrastructure<span style="font-size: 13px;"> (Kubernetes Clusters)</span></li>
+                <li class="indent">Storage Infrastructure<span style="font-size: 13px;"> (Object Storage)</span></li>
             </ol>
         </section>
     </main>
