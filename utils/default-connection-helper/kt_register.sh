@@ -19,7 +19,9 @@ KTCLOUD_KEY_VALUES='[
   {"Key":"Username", "Value":"'"$kt_username"'"},
   {"Key":"Password", "Value":"'"$kt_password"'"},
   {"Key":"DomainName", "Value":"'"$kt_domain_name"'"},
-  {"Key":"ProjectID", "Value":"'"$kt_project_id"'"}
+  {"Key":"ProjectID", "Value":"'"$kt_project_id"'"},   
+  {"Key":"Access Key", "Value":"'"$kt_access_key"'"},
+  {"Key":"Secret Key", "Value":"'"$kt_secret_key"'"}
 ]'
 register_credential "kt-credential" "KT" "$KTCLOUD_KEY_VALUES"
 

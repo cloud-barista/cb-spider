@@ -19,7 +19,9 @@ NHN_KEY_VALUES='[
   {"Key":"Username", "Value":"'"$nhn_username"'"},
   {"Key":"Password", "Value":"'"$nhn_password"'"},
   {"Key":"DomainName", "Value":"'"$nhn_domain_name"'"},
-  {"Key":"TenantId", "Value":"'"$nhn_tenant_id"'"}
+  {"Key":"TenantId", "Value":"'"$nhn_tenant_id"'"},
+  {"Key":"Access Key", "Value":"'"$nhn_access_key"'"},
+  {"Key":"Secret Key", "Value":"'"$nhn_secret_key"'"}
 ]'
 register_credential "nhn-credential" "NHN" "$NHN_KEY_VALUES"
 

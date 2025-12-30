@@ -15,7 +15,9 @@ register_driver "ibm-driver" "IBM" "ibm-driver-v1.0.so"
 
 # Register IBM credential
 IBM_KEY_VALUES='[
-  {"Key":"ApiKey", "Value":"'"$ibm_api_key"'"}
+  {"Key":"ApiKey", "Value":"'"$ibm_api_key"'"},
+  {"Key":"access_key_id", "Value":"'"$ibm_access_key_id"'"},
+  {"Key":"secret_access_key", "Value":"'"$ibm_secret_access_key"'"}
 ]'
 register_credential "ibm-credential" "IBM" "$IBM_KEY_VALUES"
 
