@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <style>
         .menu-item {
-            margin: 3px 0; /* Further reduced margin */
-            padding: 10px;
+            margin: 0; /* Remove margin between menu items */
+            padding: 6px 10px; /* Reduced vertical padding */
             font-size: 12px;
             font-weight: bold;
             color: #0645AD;
@@ -72,7 +72,8 @@
                 myimage: "/spider/adminweb/myimage",
                 nlb: "/spider/adminweb/nlb",
                 cluster: "/spider/adminweb/cluster",
-                s3: "/spider/adminweb/s3"
+                s3: "/spider/adminweb/s3",
+                filesystem: "/spider/adminweb/filesystem"
             };
 
             const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
@@ -132,7 +133,7 @@
         }
 
         function changeSelectedImage(selectedMenu) {
-            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3'];
+            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
                 if (imgElement) {
@@ -147,7 +148,7 @@
 
         window.addEventListener('message', function(event) {
             if (event.data.type === 'deselectLeftMenu') {
-                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3'];
+                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem'];
                 menus.forEach(menu => {
                     const imgElement = document.getElementById(menu + '-img');
                     if (imgElement) {
@@ -159,7 +160,7 @@
     </script>
 </head>
 <body>
-    <a href="/spider/adminweb" target="_top" class="menu-item logo">
+    <a href="/spider/adminweb" target="_top" class="menu-item logo" onclick="sessionStorage.setItem('skipAbout', 'true');">
         <img src="./images/logo.png" border="0">
     </a>
     <div class="divider"></div> <!-- Divider after logo -->
@@ -211,6 +212,10 @@
         <img id="s3-img" src="./images/left-menu/s3.png" alt="S3 Icon">
         <div class="menu-text">S3</div>
     </div>
-    <div class="divider"></div> <!-- Divider after S3 -->
+    <div class="menu-item" onclick="checkConnectionAndRedirect('filesystem', event)">
+        <img id="filesystem-img" src="./images/left-menu/filesystem.png" alt="FileSystem Icon" onerror="this.src='./images/left-menu/disk.png'">
+        <div class="menu-text">FS (WIP)</div>
+    </div>
+    <div class="divider"></div> <!-- Divider after FileSystem -->
 </body>
 </html>

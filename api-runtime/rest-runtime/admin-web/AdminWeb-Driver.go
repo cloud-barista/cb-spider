@@ -210,5 +210,9 @@ func DriverManagement(c echo.Context) error {
 	}
 
 	// Execute template
-	return tmpl.Execute(c.Response().Writer, data)
+	c.Response().WriteHeader(http.StatusOK)
+	if err := tmpl.Execute(c.Response().Writer, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	return nil
 }
