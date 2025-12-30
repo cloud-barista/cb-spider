@@ -7613,6 +7613,60 @@
                 }
             }
         },
+        "/s3/{BucketName}/usage": {
+            "get": {
+                "description": "Returns the total size (in bytes) of all objects stored in an S3 bucket.\n\n**Response Format:**\n- Supports both XML and JSON formats based on Accept header\n- Default: XML format\n- JSON: Set Accept header to \"application/json\"\n\n**Response Fields:**\n- CurrentSize: Size of current (latest) objects in bytes\n- DeletedVersionsSize: Size of non-current versions in bytes\n- TotalSize: Total bucket size (CurrentSize + DeletedVersionsSize)\n\n**XML Response Example:**\n```xml\n\u003c?xml version=\"1.0\" encoding=\"UTF-8\"?\u003e\n\u003cBucketUsage\u003e\n\u003cBucketName\u003emy-bucket\u003c/BucketName\u003e\n\u003cCurrentSize\u003e524288\u003c/CurrentSize\u003e\n\u003cDeletedVersionsSize\u003e524288\u003c/DeletedVersionsSize\u003e\n\u003cTotalSize\u003e1048576\u003c/TotalSize\u003e\n\u003c/BucketUsage\u003e\n```\n\n**JSON Response Example:**\n```json\n{\n\"BucketName\": \"my-bucket\",\n\"CurrentSize\": 524288,\n\"DeletedVersionsSize\": 524288,\n\"TotalSize\": 1048576\n}\n```",
+                "consumes": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "produces": [
+                    "text/xml",
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Get S3 bucket storage usage",
+                "operationId": "get-s3-bucket-usage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bucket usage information",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "Bucket not found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3Error"
+                        }
+                    }
+                }
+            }
+        },
         "/s3/{BucketName}/{ObjectKey}": {
             "get": {
                 "description": "Downloads an object from S3 or lists parts of a multipart upload based on query parameters.\n\n**Operations:**\n- No query params: Download object\n- ?versionId={id}: Download specific version of object\n- ?uploadId={id}\u0026list-type=parts: List parts of multipart upload\n\n**List Parts Example (verify uploaded parts):**\n- uploadId: Use UploadId from initiate response\n- list-type: Must be \"parts\"\n- Response shows all uploaded parts with PartNumber, ETag, Size\n- Optional: part-number-marker (pagination), max-parts (limit)",
@@ -13070,32 +13124,43 @@
                 "ReqInfo": {
                     "type": "object",
                     "required": [
+                        "NFSVersion",
                         "Name",
+                        "VpcIID",
                         "Zone"
                     ],
                     "properties": {
-                        "Encrypted": {
+                        "AccessSubnetList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        },
+                        "CapacityGB": {
+                            "type": "integer",
+                            "example": 1024
+                        },
+                        "Encryption": {
                             "type": "boolean",
                             "example": false
                         },
                         "FileSystemType": {
                             "type": "string",
-                            "example": "efs"
+                            "example": "RegionType"
                         },
-                        "KmsKeyId": {
-                            "type": "string"
+                        "NFSVersion": {
+                            "type": "string",
+                            "example": "4.1"
                         },
                         "Name": {
                             "type": "string",
                             "example": "efs-01"
                         },
-                        "PerformanceMode": {
-                            "type": "string",
-                            "example": "generalPurpose"
-                        },
-                        "ProvisionedThroughput": {
-                            "type": "string",
-                            "example": "0"
+                        "PerformanceInfo": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         },
                         "TagList": {
                             "type": "array",
@@ -13103,9 +13168,8 @@
                                 "$ref": "#/definitions/spider.KeyValue"
                             }
                         },
-                        "ThroughputMode": {
-                            "type": "string",
-                            "example": "bursting"
+                        "VpcIID": {
+                            "$ref": "#/definitions/spider.IID"
                         },
                         "Zone": {
                             "type": "string",

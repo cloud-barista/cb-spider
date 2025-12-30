@@ -653,6 +653,71 @@ func ListS3Objects(connectionName, bucketName, prefix string) ([]minio.ObjectInf
 	return out, nil
 }
 
+func GetS3BucketTotalSize(connectionName, bucketName string) (int64, int64, error) {
+	cblog.Info("call GetS3BucketTotalSize()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s", connectionName, bucketName)
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket info: %v", err)
+		return 0, 0, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return 0, 0, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return 0, 0, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	// List all objects including all versions to get accurate total size
+	opts := minio.ListObjectsOptions{
+		Recursive:    true,
+		WithVersions: true, // Include all versions for accurate size calculation
+	}
+
+	var currentSize int64         // Size of current (latest) objects
+	var deletedVersionsSize int64 // Size of non-current versions
+	var objectCount int
+	var versionCount int
+
+	cblog.Infof("Listing all objects with versions for bucket %s", bucketName)
+
+	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
+		if obj.Err != nil {
+			cblog.Errorf("Error listing object: %v", obj.Err)
+			return 0, 0, obj.Err
+		}
+
+		// Skip folders and delete markers (they don't consume storage)
+		if !strings.HasSuffix(obj.Key, "/") && !obj.IsDeleteMarker {
+			if obj.IsLatest {
+				// Current (latest) version
+				currentSize += obj.Size
+				objectCount++
+			} else {
+				// Older versions (non-current)
+				deletedVersionsSize += obj.Size
+			}
+			versionCount++
+		}
+	}
+
+	totalSize := currentSize + deletedVersionsSize
+	cblog.Infof("Bucket %s - Total: %d bytes, Current: %d bytes, Deleted versions: %d bytes (%d objects, %d versions)",
+		bucketName, totalSize, currentSize, deletedVersionsSize, objectCount, versionCount)
+	return currentSize, deletedVersionsSize, nil
+}
+
 func GetS3ObjectInfo(connectionName, bucketName, objectName string) (*minio.ObjectInfo, error) {
 	cblog.Info("call GetS3ObjectInfo()")
 	var iidInfo S3BucketIIDInfo

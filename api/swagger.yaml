@@ -2271,35 +2271,42 @@ definitions:
         type: string
       ReqInfo:
         properties:
-          Encrypted:
+          AccessSubnetList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+          CapacityGB:
+            example: 1024
+            type: integer
+          Encryption:
             example: false
             type: boolean
           FileSystemType:
-            example: efs
+            example: RegionType
             type: string
-          KmsKeyId:
+          NFSVersion:
+            example: "4.1"
             type: string
           Name:
             example: efs-01
             type: string
-          PerformanceMode:
-            example: generalPurpose
-            type: string
-          ProvisionedThroughput:
-            example: "0"
-            type: string
+          PerformanceInfo:
+            additionalProperties:
+              type: string
+            type: object
           TagList:
             items:
               $ref: '#/definitions/spider.KeyValue'
             type: array
-          ThroughputMode:
-            example: bursting
-            type: string
+          VpcIID:
+            $ref: '#/definitions/spider.IID'
           Zone:
             example: us-east-1a
             type: string
         required:
+        - NFSVersion
         - Name
+        - VpcIID
         - Zone
         type: object
     required:
@@ -8900,6 +8907,75 @@ paths:
           schema:
             $ref: '#/definitions/spider.S3Error'
       summary: Upload an object to S3 or upload a part of multipart upload
+      tags:
+      - '[S3 Object Storage Management]'
+  /s3/{BucketName}/usage:
+    get:
+      consumes:
+      - text/xml
+      - application/json
+      description: |-
+        Returns the total size (in bytes) of all objects stored in an S3 bucket.
+
+        **Response Format:**
+        - Supports both XML and JSON formats based on Accept header
+        - Default: XML format
+        - JSON: Set Accept header to "application/json"
+
+        **Response Fields:**
+        - CurrentSize: Size of current (latest) objects in bytes
+        - DeletedVersionsSize: Size of non-current versions in bytes
+        - TotalSize: Total bucket size (CurrentSize + DeletedVersionsSize)
+
+        **XML Response Example:**
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <BucketUsage>
+        <BucketName>my-bucket</BucketName>
+        <CurrentSize>524288</CurrentSize>
+        <DeletedVersionsSize>524288</DeletedVersionsSize>
+        <TotalSize>1048576</TotalSize>
+        </BucketUsage>
+        ```
+
+        **JSON Response Example:**
+        ```json
+        {
+        "BucketName": "my-bucket",
+        "CurrentSize": 524288,
+        "DeletedVersionsSize": 524288,
+        "TotalSize": 1048576
+        }
+        ```
+      operationId: get-s3-bucket-usage
+      parameters:
+      - description: Connection name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      produces:
+      - text/xml
+      - application/json
+      responses:
+        "200":
+          description: Bucket usage information
+          schema:
+            type: object
+        "404":
+          description: Bucket not found
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.S3Error'
+      summary: Get S3 bucket storage usage
       tags:
       - '[S3 Object Storage Management]'
   /s3/presigned/download/{BucketName}/{ObjectKey}:

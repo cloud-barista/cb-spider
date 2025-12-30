@@ -90,7 +90,12 @@ func S3Management(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error loading template: " + err.Error()})
 	}
-	return tmpl.Execute(c.Response().Writer, data)
+
+	c.Response().WriteHeader(http.StatusOK)
+	if err := tmpl.Execute(c.Response().Writer, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	return nil
 }
 
 func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {

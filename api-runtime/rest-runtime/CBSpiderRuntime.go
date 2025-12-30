@@ -539,6 +539,9 @@ func getRoutes() []route {
 		{"POST", "/s3/:BucketName", HandleS3BucketPost},
 		{"POST", "/s3/:BucketName/", HandleS3BucketPost},
 
+		// Bucket usage API (must be before generic bucket GET)
+		{"GET", "/s3/:BucketName/usage", GetS3BucketUsage},
+
 		// Bucket-level operations (generic routes - these handle query parameter dispatching)
 		{"GET", "/s3/:BucketName", GetS3BucketGET},
 		{"GET", "/s3/:BucketName/", GetS3BucketGET},
@@ -614,6 +617,8 @@ func getRoutes() []route {
 			{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 
 			{"GET", "/adminweb/s3/:ConnectConfig", aw.S3Management},
+
+			{"GET", "/adminweb/filesystem/:ConnectConfig", aw.FileSystemManagement},
 
 			//----------SSH WebTerminal Handler
 			{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket}, //----------WebMon Handler
