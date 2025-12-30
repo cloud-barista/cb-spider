@@ -219,5 +219,9 @@ func Dashboard(c echo.Context) error {
 		ShowEmpty:      showEmpty,
 	}
 
-	return tmplCache.Execute(c.Response().Writer, data)
+	c.Response().WriteHeader(http.StatusOK)
+	if err := tmplCache.Execute(c.Response().Writer, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	return nil
 }

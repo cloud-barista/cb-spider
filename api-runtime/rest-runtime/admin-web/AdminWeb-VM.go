@@ -151,5 +151,9 @@ func VMManagement(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error loading template: " + err.Error()})
 	}
 
-	return tmpl.Execute(c.Response().Writer, data)
+	c.Response().WriteHeader(http.StatusOK)
+	if err := tmpl.Execute(c.Response().Writer, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	return nil
 }

@@ -17,7 +17,9 @@ register_driver "gcp-driver" "GCP" "gcp-driver-v1.0.so"
 GCP_KEY_VALUES='[
   {"Key":"PrivateKey", "Value":"'"$gcp_private_key"'"},
   {"Key":"ProjectID", "Value":"'"$gcp_project_id"'"},
-  {"Key":"ClientEmail", "Value":"'"$gcp_client_email"'"}
+  {"Key":"ClientEmail", "Value":"'"$gcp_client_email"'"},
+  {"Key":"Access Key", "Value":"'"$gcp_access_key"'"},
+  {"Key":"Secret", "Value":"'"$gcp_secret"'"}
 ]'
 register_credential "gcp-credential" "GCP" "$GCP_KEY_VALUES"
 

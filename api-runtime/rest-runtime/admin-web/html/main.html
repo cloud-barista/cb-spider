@@ -197,6 +197,124 @@
             display: none;
             z-index: 1000;
         }
+        
+        /* About Overlay Styles */
+        .about-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .about-content {
+            background: #fff;
+            padding: 35px 45px;
+            border-radius: 12px;
+            max-width: 420px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .about-content .about-logo {
+            height: 60px;
+            width: auto;
+            margin-bottom: 18px;
+        }
+        @keyframes flyToHelp {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(45vw, -45vh) scale(0.1);
+                opacity: 0;
+            }
+        }
+        .about-content.fly-away {
+            animation: flyToHelp 0.6s ease-in-out forwards;
+        }
+        .about-content .tagline {
+            font-size: 16px;
+            font-style: normal;
+            color: #0645AD;
+            margin: 0 0 20px 0;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+        }
+        .about-content h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .about-content p {
+            margin: 8px 0;
+            color: #666;
+        }
+        .about-content .version {
+            font-size: 14px;
+            font-weight: normal;
+            color: #0645AD;
+            margin: 0 0 36px 0;
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+        .about-content .copyright {
+            font-size: 12px;
+            color: #999;
+            margin: 0;
+            padding: 18px 0 18px 0;
+            border-top: 1px solid #e8e8e8;
+            border-bottom: 1px solid #e8e8e8;
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+        .about-content .copyright p {
+            margin: 0;
+        }
+        .about-content .license {
+            font-size: 12px;
+            color: #777;
+            margin: 18px 0 0 0;
+        }
+        .about-content .license p {
+            margin: 0;
+        }
+        .about-close-btn {
+            margin-top: 25px;
+            padding: 8px 24px;
+            background: #f5f5f5;
+            color: #555;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+        .about-close-btn:hover {
+            background: #e8e8e8;
+            border-color: #ccc;
+        }
+        .about-progress-container {
+            margin-top: 8px;
+            width: 100%;
+            height: 4px;
+            background: #e8e8e8;
+            border-radius: 2px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+        .about-progress-bar {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #A8CEFF 0%, #D4EBFF 100%);
+            border-radius: 2px;
+        }
     </style>
 
 <script>
@@ -341,13 +459,14 @@
                     <div class="dynamic-menu"></div>
                     <div class="separator"></div>
                     <div class="dropdown">
-                        <span>help</span>
+                        <span>Help</span>
                         <div class="dropdown-content">
-                            <a href="#" onclick="window.open('/spider/adminweb/sysstats', 'SysStatsWindow', 'width=740,height=1400,left=' + (screen.width - 740)); return false;">SysStats</a>
-                            <div class="dropdown-divider"></div>
+                            <a href="https://github.com/cloud-barista/cb-spider/wiki" target="_blank">Guide</a>
+                            <a href="http://localhost:1024/spider/api" target="_blank">API Docs</a>
                             <a href="https://github.com/cloud-barista/cb-spider" target="_blank">Github</a>
-                            <a href="https://github.com/cloud-barista/cb-spider/wiki" target="_blank">Wiki</a>
-                            <a href="https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface" target="_blank">API Docs</a>
+                            <a href="#" onclick="showAboutOverlay(); return false;">About</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="#" onclick="window.open('/spider/adminweb/sysstats', 'SysStatsWindow', 'width=740,height=1400,left=' + (screen.width - 740)); return false;">SysStats</a>
                         </div>
                     </div>
                     <!--<div class="dropdown">
@@ -369,5 +488,170 @@
             </div>
         </div>
     </div>
+
+    <!-- About Overlay -->
+    <div id="aboutOverlay" class="about-overlay">
+        <div class="about-content">
+            <img src="/spider/adminweb/images/logo.png" class="about-logo" alt="CB-Spider Logo" onclick="restartAnimation()" style="cursor: pointer;">
+            <div class="tagline">"One-Code, Multi-Cloud"</div>
+            <div class="version" id="spiderVersion">Loading version...</div>
+            <div class="copyright">
+                <p>© Cloud-Barista Community</p>
+            </div>
+            <button class="about-close-btn" onclick="hideAboutOverlay(true)">Close</button>
+            <div class="about-progress-container">
+                <div class="about-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function typeWriter(element, text, speed, callback) {
+            let i = 0;
+            element.textContent = '';
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                } else if (callback) {
+                    callback();
+                }
+            }
+            type();
+        }
+        
+        function runAnimation(autoClose) {
+            const taglineElement = document.querySelector('.tagline');
+            const versionElement = document.getElementById('spiderVersion');
+            const copyrightElement = document.querySelector('.copyright');
+            const closeBtn = document.querySelector('.about-close-btn');
+            const progressContainer = document.querySelector('.about-progress-container');
+            const progressBar = document.querySelector('.about-progress-bar');
+            
+            // Reset opacity
+            taglineElement.style.opacity = '0';
+            versionElement.style.opacity = '0';
+            copyrightElement.style.opacity = '0';
+            closeBtn.style.opacity = '0';
+            progressContainer.style.opacity = '0';
+            progressBar.style.width = '0';
+            
+            // Show tagline before starting typewriter
+            taglineElement.style.opacity = '1';
+            
+            // If autoClose, start progress bar immediately
+            if (autoClose) {
+                progressContainer.style.opacity = '1';
+                // Use setTimeout to ensure transition applies after opacity is set
+                setTimeout(function() {
+                    progressBar.style.transition = 'width 4.5s linear';
+                    progressBar.style.width = '100%';
+                }, 50);
+            }
+            
+            // Step 1: Type tagline character by character
+            typeWriter(taglineElement, '"One-Code, Multi-Cloud"', 50, function() {
+                // Step 2: Show version after tagline completes
+                setTimeout(function() {
+                    // Fetch and show version
+                    fetch('/spider/version')
+                        .then(response => response.json())
+                        .then(data => {
+                            versionElement.textContent = data.Version || 'CB-Spider';
+                            versionElement.style.opacity = '1';
+                            
+                            // Step 3: Show copyright after version
+                            setTimeout(function() {
+                                copyrightElement.style.opacity = '1';
+                                
+                                // Step 4: Show close button (progress bar already shown for autoClose)
+                                setTimeout(function() {
+                                    if (!autoClose) {
+                                        // Show close button
+                                        closeBtn.style.opacity = '1';
+                                    }
+                                }, 600);
+                            }, 400);
+                        })
+                        .catch(error => {
+                            console.error('Error fetching version:', error);
+                            versionElement.textContent = 'CB-Spider';
+                            versionElement.style.opacity = '1';
+                            
+                            setTimeout(function() {
+                                copyrightElement.style.opacity = '1';
+                                
+                                setTimeout(function() {
+                                    if (!autoClose) {
+                                        closeBtn.style.opacity = '1';
+                                    }
+                                }, 600);
+                            }, 400);
+                        });
+                }, 400);
+            });
+        }
+        
+        function showAboutOverlay(autoClose) {
+            document.getElementById('aboutOverlay').style.display = 'flex';
+            runAnimation(autoClose || false);
+        }
+        
+        function restartAnimation() {
+            runAnimation(false);
+        }
+        
+        function hideAboutOverlay(withAnimation) {
+            const overlay = document.getElementById('aboutOverlay');
+            const content = document.querySelector('.about-content');
+            
+            if (withAnimation) {
+                // Add fly-away animation
+                content.classList.add('fly-away');
+                // Wait for animation to complete before hiding
+                setTimeout(function() {
+                    overlay.style.display = 'none';
+                    content.classList.remove('fly-away');
+                }, 600);
+            } else {
+                overlay.style.display = 'none';
+            }
+        }
+        
+        // Close overlay when clicking outside
+        document.addEventListener('click', function(event) {
+            const overlay = document.getElementById('aboutOverlay');
+            if (event.target === overlay) {
+                hideAboutOverlay(true);
+            }
+        });
+        
+        // Close overlay when pressing ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' || event.keyCode === 27) {
+                const overlay = document.getElementById('aboutOverlay');
+                if (overlay.style.display === 'flex') {
+                    hideAboutOverlay(true);
+                }
+            }
+        });
+        
+        // Show About overlay on page load and auto-close after 3 seconds
+        // Skip if coming from Home menu click
+        window.addEventListener('load', function() {
+            const skipAbout = sessionStorage.getItem('skipAbout');
+            if (skipAbout) {
+                // Clear the flag for next visit
+                sessionStorage.removeItem('skipAbout');
+            } else {
+                // Show About overlay only if not coming from Home menu
+                showAboutOverlay(true);
+                setTimeout(function() {
+                    hideAboutOverlay(true);
+                }, 4500);
+            }
+        });
+    </script>
 </body>
 </html>

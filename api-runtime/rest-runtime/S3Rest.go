@@ -1230,6 +1230,88 @@ func getBucketLocation(c echo.Context) error {
 	return returnS3Response(c, http.StatusOK, resp)
 }
 
+// GetS3BucketUsage godoc
+// @ID get-s3-bucket-usage
+// @Summary Get S3 bucket storage usage
+// @Description Returns the total size (in bytes) of all objects stored in an S3 bucket.
+// @Description
+// @Description **Response Format:**
+// @Description - Supports both XML and JSON formats based on Accept header
+// @Description - Default: XML format
+// @Description - JSON: Set Accept header to "application/json"
+// @Description
+// @Description **Response Fields:**
+// @Description - CurrentSize: Size of current (latest) objects in bytes
+// @Description - DeletedVersionsSize: Size of non-current versions in bytes
+// @Description - TotalSize: Total bucket size (CurrentSize + DeletedVersionsSize)
+// @Description
+// @Description **XML Response Example:**
+// @Description ```xml
+// @Description <?xml version="1.0" encoding="UTF-8"?>
+// @Description <BucketUsage>
+// @Description     <BucketName>my-bucket</BucketName>
+// @Description     <CurrentSize>524288</CurrentSize>
+// @Description     <DeletedVersionsSize>524288</DeletedVersionsSize>
+// @Description     <TotalSize>1048576</TotalSize>
+// @Description </BucketUsage>
+// @Description ```
+// @Description
+// @Description **JSON Response Example:**
+// @Description ```json
+// @Description {
+// @Description     "BucketName": "my-bucket",
+// @Description     "CurrentSize": 524288,
+// @Description     "DeletedVersionsSize": 524288,
+// @Description     "TotalSize": 1048576
+// @Description }
+// @Description ```
+// @Tags [S3 Object Storage Management]
+// @Accept xml,json
+// @Produce xml,json
+// @Param ConnectionName query string true "Connection name"
+// @Param BucketName path string true "Bucket name"
+// @Success 200 {object} object "Bucket usage information"
+// @Failure 404 {object} S3Error "Bucket not found"
+// @Failure 500 {object} S3Error "Internal Server Error"
+// @Router /s3/{BucketName}/usage [get]
+func GetS3BucketUsage(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("BucketName")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	cblog.Infof("GetS3BucketUsage called for bucket: %s", bucketName)
+
+	// Get bucket total size (current and deleted versions)
+	currentSize, deletedVersionsSize, err := cmrt.GetS3BucketTotalSize(conn, bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket usage: %v", err)
+		if strings.Contains(err.Error(), "not found") {
+			return returnS3Error(c, http.StatusNotFound, "NoSuchBucket",
+				fmt.Sprintf("Bucket '%s' does not exist", bucketName), "/"+bucketName)
+		}
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+	}
+
+	// Build response
+	type BucketUsage struct {
+		XMLName             xml.Name `xml:"BucketUsage" json:"-"`
+		BucketName          string   `xml:"BucketName" json:"BucketName"`
+		CurrentSize         int64    `xml:"CurrentSize" json:"CurrentSize"`
+		DeletedVersionsSize int64    `xml:"DeletedVersionsSize" json:"DeletedVersionsSize"`
+		TotalSize           int64    `xml:"TotalSize" json:"TotalSize"`
+	}
+
+	usage := BucketUsage{
+		BucketName:          bucketName,
+		CurrentSize:         currentSize,
+		DeletedVersionsSize: deletedVersionsSize,
+		TotalSize:           currentSize + deletedVersionsSize,
+	}
+
+	addS3Headers(c)
+	return returnS3Response(c, http.StatusOK, usage)
+}
+
 // DeleteS3Bucket godoc
 // @ID delete-s3-bucket
 // @Summary Delete an S3 bucket or bucket configuration

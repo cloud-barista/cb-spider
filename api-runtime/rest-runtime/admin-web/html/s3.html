@@ -27,9 +27,38 @@
     .column-num { width: 5%; text-align: center; }
     .check-column { width: 5%; text-align: center; }
     .bucket-name-cell, .object-key-cell { font-weight: bold; }
-    .bucket-name-cell.selected { color: blue; }
+    
+    /* Bucket table column widths */
+    #bucket-table .bucket-name-cell { width: 21%; }
+    #bucket-table th:nth-child(3) { width: 12%; } /* Created */
+    #bucket-table th:nth-child(4) { width: 15%; } /* Versioning */
+    #bucket-table th:nth-child(5) { width: 15%; } /* CORS */
+    #bucket-table th:nth-child(6) { width: 14%; } /* Usage */
+    #bucket-table th:nth-child(7) { width: 8%; } /* Actions */
+    
+    tr.selected-bucket {
+        background-color: #e3f2fd !important;
+    }
+    .bucket-name-cell .s3-created-time {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
     .center-align { text-align: center; }
     .highlight { background: #fffab6; }
+    .text-button {
+        border: none;
+        background: none;
+        color: #007bff;
+        cursor: pointer;
+        text-decoration: underline;
+        font-size: 12px;
+        padding: 0;
+    }
+    .text-button:hover {
+        color: #0056b3;
+    }
     .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .overlay-content { background: #fff; padding: 20px; border-radius: 5px; text-align: left; font-size: 12px; min-width: 300px; }
     .overlay-close-btn {
@@ -201,10 +230,15 @@
             <thead>
                 <tr>
                     <th class="column-num">#</th>
-                    <th class="center-align bucket-name-cell">Bucket Name</th>
-                    <th class="center-align">Created</th>
+                    <th class="center-align bucket-name-cell" style="cursor: pointer;" onclick="sortBucketTable('name')">
+                        Name <span id="sort-bucket-name-icon">▲</span>
+                    </th>
+                    <th class="center-align" style="cursor: pointer;" onclick="sortBucketTable('created')">
+                        Created <span id="sort-bucket-created-icon"></span>
+                    </th>
                     <th class="center-align">Versioning</th>
                     <th class="center-align">CORS</th>
+                    <th class="center-align">Usage</th>
                     <th class="center-align">Actions</th>
                     <th class="check-column"><input type="checkbox" onclick="toggleSelectAll(this, 'bucket')"></th>
                 </tr>
@@ -212,9 +246,11 @@
             <tbody id="bucket-list-body">
                 {{range $i, $b := .Buckets}}
                 <tr>
-                    <td class="column-num">{{$i | inc}}</td>
-                    <td class="bucket-name-cell" id="bucket-{{$b.Name}}"><span style="cursor:pointer;" onclick="showObjectPanel('{{$b.Name}}')">{{$b.Name}}</span></td>
-                    <td class="center-align" data-utc-time="{{$b.CreationDate}}">{{$b.CreationDate}}</td>
+                    <td class="column-num" onclick="showObjectPanel('{{$b.Name}}')" style="cursor: pointer;">{{$i | inc}}</td>
+                    <td class="bucket-name-cell" id="bucket-{{$b.Name}}" onclick="showObjectPanel('{{$b.Name}}')" style="cursor: pointer;">
+                        {{$b.Name}}
+                    </td>
+                    <td class="center-align bucket-created-cell" data-time="{{$b.CreationDate}}"></td>
                     <td class="center-align">
                         <div class="versioning-toggle" onclick="toggleVersioningQuick('{{$b.Name}}', '{{$b.VersioningStatus}}')">
                             <button class="versioning-toggle-btn {{if eq $b.VersioningStatus "Enabled"}}enabled{{else if eq $b.VersioningStatus "Suspended"}}suspended{{else}}error{{end}}" 
@@ -234,6 +270,9 @@
                             </span>
                         </div>
                     </td>
+                    <td class="center-align" id="usage-{{$b.Name}}">
+                        <button class="text-button" onclick="showBucketUsage('{{$b.Name}}')">View</button>
+                    </td>
                     <td class="center-align">
                         <button onclick="deleteBucket('{{$b.Name}}')">Delete</button>
                     </td>
@@ -243,9 +282,13 @@
             </tbody>
         </table>
 
-        <div id="object-panel" style="display:none;">
+        <div id="object-panel" style="display:none; border-top: 2px solid #ccc; margin-top: 20px; padding-top: 20px;">
+            <div class="object-panel-header" style="margin-bottom: 5px;">
+                <h2 style="margin: 0;"></h2>
+            </div>
             <div class="header-with-progress">
-                <button onclick="showObjectUploadOverlay()" class="add-button">+ Object</button>
+                <button onclick="showFolderCreateOverlay()" class="add-button">+ Folder</button>
+                <button onclick="showObjectUploadOverlay()" class="add-button" style="margin-left: 10px;">+ Object</button>
                 <button onclick="showObjectVersions()" class="add-button" style="margin-left: 10px;">Versions</button>
                 <div style="flex: 1;"></div>
                 <div class="object-panel-actions">
@@ -257,9 +300,15 @@
                 <thead>
                     <tr>
                         <th class="column-num">#</th>
-                        <th class="center-align">Object Key</th>
-                        <th class="center-align">Size</th>
-                        <th class="center-align">Last Modified</th>
+                        <th class="center-align" style="cursor: pointer;" onclick="sortObjects('key')">
+                            Object Key <span id="sort-key-icon">▲</span>
+                        </th>
+                        <th class="center-align" style="cursor: pointer;" onclick="sortObjects('size')">
+                            Size <span id="sort-size-icon"></span>
+                        </th>
+                        <th class="center-align" style="cursor: pointer;" onclick="sortObjects('time')">
+                            Last Modified <span id="sort-time-icon"></span>
+                        </th>
                         <th class="center-align">Actions</th>
                         <th class="check-column"><input type="checkbox" onclick="toggleSelectAll(this, 'object')"></th>
                     </tr>
@@ -287,11 +336,37 @@
         </div>
     </div>
 
+    <div id="folder-create-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 400px;">
+            <button class="overlay-close-btn" onclick="hideFolderCreateOverlay()">X</button>
+            <h2>Create Folder in <span id="folder-bucket-name"></span></h2>
+            <form id="folder-create-form" onsubmit="event.preventDefault(); createFolder();">
+                <div style="margin-bottom: 15px;">
+                    <label>Current Path:</label>
+                    <div id="folder-current-path" style="font-family: monospace; background: #f5f5f5; padding: 8px; margin-top: 5px; border-radius: 4px;"></div>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label>Folder Name(s):</label>
+                    <input type="text" id="folder-name-input" placeholder="e.g., myfolder or a/b/c" required style="width: 100%; margin-top: 5px; padding: 8px;">
+                    <div style="font-size: 11px; color: #666; margin-top: 5px;">You can create nested folders using '/' (e.g., a/b/c)</div>
+                </div>
+                <div style="text-align:center;">
+                    <button type="submit" id="folder-create-btn">Create</button>
+                    <button type="button" onclick="hideFolderCreateOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="object-upload-overlay" class="overlay">
         <div class="overlay-content" style="position:relative; width: 400px;">
             <button class="overlay-close-btn" onclick="hideObjectUploadOverlay()">X</button>
             <h2>Upload Objects to <span id="upload-bucket-name"></span></h2>
             <form id="object-upload-form" onsubmit="event.preventDefault(); uploadFiles();">
+                <div style="margin-bottom: 15px;">
+                    <label>Current Path:</label>
+                    <div id="upload-current-path" style="font-family: monospace; background: #f5f5f5; padding: 8px; margin-top: 5px; border-radius: 4px;"></div>
+                </div>
                 <div style="margin-bottom: 15px;">
                     <label>Select Files:</label>
                     <input type="file" id="file-input" multiple required style="margin-top: 5px;">
@@ -803,6 +878,51 @@ function handleCORSInfoEsc(event) {
     }
 }
 
+function showBucketUsage(bucketName) {
+    const usageCell = document.getElementById(`usage-${bucketName}`);
+    if (!usageCell) return;
+    
+    // Find or create result span
+    let resultSpan = usageCell.querySelector('.usage-result');
+    if (!resultSpan) {
+        resultSpan = document.createElement('span');
+        resultSpan.className = 'usage-result';
+        resultSpan.style.marginLeft = '10px';
+        usageCell.appendChild(resultSpan);
+    }
+    
+    // Show loading state
+    resultSpan.innerHTML = '<span style="color: #666;">Loading...</span>';
+    
+    // Fetch bucket usage
+    fetch(`/spider/s3/${bucketName}/usage?ConnectionName=${connConfig}`, {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(usage => {
+        // Display current and deleted versions size
+        const currentStr = usage.CurrentSize === 0 ? '0' : formatBytes(usage.CurrentSize);
+        const deletedStr = usage.DeletedVersionsSize === 0 ? '0' : formatBytes(usage.DeletedVersionsSize);
+        const totalStr = usage.TotalSize === 0 ? '0' : formatBytes(usage.TotalSize);
+        
+        // Always show breakdown
+        const html = `: Total ${totalStr}<br><span style="font-size: 11px; color: #666;">(Current: ${currentStr}, Old: ${deletedStr})</span>`;
+        
+        resultSpan.innerHTML = html;
+    })
+    .catch(error => {
+        resultSpan.innerHTML = `<span style="color: red;">Error</span>`;
+        console.error('Error loading bucket usage:', error);
+    });
+}
+
 function showBucketCreateOverlay() { 
     const region = '{{.RegionName}}'.toLowerCase();
     const bucketNameInput = document.getElementById('new-bucket-name');
@@ -919,8 +1039,172 @@ function deleteSelectedBuckets() {
     });
 }
 
+let bucketSortColumn = 'name';
+let bucketSortOrder = 'asc';
+
+function sortBucketTable(column) {
+    const tbody = document.getElementById('bucket-list-body');
+    if (!tbody) return;
+    
+    // Default to 'name' if no column specified
+    if (!column) column = 'name';
+    
+    // Toggle sort order if clicking same column
+    if (bucketSortColumn === column) {
+        bucketSortOrder = bucketSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        bucketSortColumn = column;
+        bucketSortOrder = 'asc';
+    }
+    
+    // Update sort icons
+    document.getElementById('sort-bucket-name-icon').textContent = '';
+    document.getElementById('sort-bucket-created-icon').textContent = '';
+    
+    const icon = bucketSortOrder === 'asc' ? '▲' : '▼';
+    if (column === 'name') {
+        document.getElementById('sort-bucket-name-icon').textContent = icon;
+    } else if (column === 'created') {
+        document.getElementById('sort-bucket-created-icon').textContent = icon;
+    }
+    
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    rows.sort((a, b) => {
+        let result = 0;
+        if (column === 'name') {
+            const nameA = a.querySelector('.bucket-name-cell')?.textContent.trim() || '';
+            const nameB = b.querySelector('.bucket-name-cell')?.textContent.trim() || '';
+            result = nameA.localeCompare(nameB);
+        } else if (column === 'created') {
+            const timeA = a.querySelector('.bucket-created-cell')?.getAttribute('data-time') || '';
+            const timeB = b.querySelector('.bucket-created-cell')?.getAttribute('data-time') || '';
+            result = timeA.localeCompare(timeB);
+        }
+        return bucketSortOrder === 'asc' ? result : -result;
+    });
+    
+    // Re-append sorted rows
+    rows.forEach((row, index) => {
+        // Update row number
+        const numCell = row.querySelector('.column-num');
+        if (numCell) {
+            numCell.textContent = index + 1;
+        }
+        tbody.appendChild(row);
+    });
+}
+
+function sortBucketTableDirect() {
+    const tbody = document.getElementById('bucket-list-body');
+    if (!tbody) return;
+    
+    // Update sort icons
+    document.getElementById('sort-bucket-name-icon').textContent = '';
+    document.getElementById('sort-bucket-created-icon').textContent = '';
+    
+    const icon = bucketSortOrder === 'asc' ? '▲' : '▼';
+    if (bucketSortColumn === 'name') {
+        document.getElementById('sort-bucket-name-icon').textContent = icon;
+    } else if (bucketSortColumn === 'created') {
+        document.getElementById('sort-bucket-created-icon').textContent = icon;
+    }
+    
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    rows.sort((a, b) => {
+        let result = 0;
+        if (bucketSortColumn === 'name') {
+            const nameA = a.querySelector('.bucket-name-cell')?.textContent.trim() || '';
+            const nameB = b.querySelector('.bucket-name-cell')?.textContent.trim() || '';
+            result = nameA.localeCompare(nameB);
+        } else if (bucketSortColumn === 'created') {
+            const timeA = a.querySelector('.bucket-created-cell')?.getAttribute('data-time') || '';
+            const timeB = b.querySelector('.bucket-created-cell')?.getAttribute('data-time') || '';
+            result = timeA.localeCompare(timeB);
+        }
+        return bucketSortOrder === 'asc' ? result : -result;
+    });
+    
+    // Re-append sorted rows
+    rows.forEach((row, index) => {
+        // Update row number
+        const numCell = row.querySelector('.column-num');
+        if (numCell) {
+            numCell.textContent = index + 1;
+        }
+        tbody.appendChild(row);
+    });
+}
+
 let currentBucket = null;
 let currentPrefix = "";
+let currentSortColumn = 'key';
+let currentSortOrder = 'asc';
+let objectsData = { folders: [], files: [] };
+
+function showFolderCreateOverlay() {
+    if (!currentBucket) {
+        alert('Please select a bucket first!');
+        return;
+    }
+    
+    document.getElementById('folder-bucket-name').textContent = currentBucket;
+    document.getElementById('folder-current-path').textContent = currentPrefix || '(root)';
+    document.getElementById('folder-name-input').value = '';
+    document.getElementById('folder-create-overlay').style.display = 'flex';
+}
+
+function hideFolderCreateOverlay() {
+    document.getElementById('folder-create-overlay').style.display = 'none';
+}
+
+async function createFolder() {
+    const folderName = document.getElementById('folder-name-input').value.trim();
+    if (!folderName) {
+        alert('Please enter a folder name!');
+        return;
+    }
+    
+    // Remove leading/trailing slashes and ensure it ends with /
+    let folderPath = folderName.replace(/^\/+|\/+$/g, '');
+    if (!folderPath) {
+        alert('Invalid folder name!');
+        return;
+    }
+    
+    // Combine with current prefix
+    const fullPath = currentPrefix + folderPath + '/';
+    
+    const createBtn = document.getElementById('folder-create-btn');
+    createBtn.disabled = true;
+    
+    try {
+        // Create folder by putting an empty object with key ending in /
+        const formData = new FormData();
+        formData.append('key', fullPath);
+        // Create an empty File object with a proper filename
+        const emptyFile = new File([''], '.folder', { type: 'application/octet-stream' });
+        formData.append('file', emptyFile);
+        
+        const response = await fetch(`/spider/s3/${currentBucket}?ConnectionName=${connConfig}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to create folder: ${response.statusText}`);
+        }
+        
+        hideFolderCreateOverlay();
+        fetchObjects(currentBucket, currentPrefix);
+        
+    } catch (error) {
+        alert('Error creating folder: ' + error.message);
+    } finally {
+        createBtn.disabled = false;
+    }
+}
 
 function showObjectPanel(bucket, prefix = "") {
     currentBucket = bucket;
@@ -929,12 +1213,16 @@ function showObjectPanel(bucket, prefix = "") {
     console.log(`Showing object panel for bucket: ${bucket}, prefix: ${prefix}`);
     
     // Clear previous selection
-    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('tr.selected-bucket').forEach(el => el.classList.remove('selected-bucket'));
     
-    // Highlight selected bucket
+    // Highlight selected bucket row
     const bucketElement = document.getElementById(`bucket-${bucket}`);
     if (bucketElement) {
-        bucketElement.classList.add('selected');
+        // Find and highlight the parent row
+        const row = bucketElement.closest('tr');
+        if (row) {
+            row.classList.add('selected-bucket');
+        }
     }
     
     // Show object panel
@@ -960,19 +1248,47 @@ function updateObjectPanelHeader(bucket, prefix) {
     }
     
     if (header) {
+        // Build breadcrumb navigation
+        let breadcrumb = `<span style="background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer;" onclick="showObjectPanel('${bucket}', '')">📦 ${bucket}</span>`;
+        
         if (prefix && prefix !== "") {
-            header.innerHTML = `
-                Objects in: <strong>${bucket}</strong>/${prefix}
-                <button onclick="showObjectPanel('${bucket}', '')" style="margin-left: 10px; font-size: 12px;">📁 Root</button>
-            `;
-        } else {
-            header.innerHTML = `Objects in: <strong>${bucket}</strong>`;
+            // Split path and create clickable breadcrumbs
+            const parts = prefix.split('/').filter(p => p);
+            let currentPath = '';
+            
+            for (let i = 0; i < parts.length; i++) {
+                currentPath += parts[i] + '/';
+                breadcrumb += `<span style="color: #666; margin: 0 5px; font-size: 14px;">/</span>`;
+                breadcrumb += `<span style="cursor: pointer; color: #0066cc; font-weight: bold; font-size: 14px;" onclick="showObjectPanel('${bucket}', '${currentPath}')">${parts[i]}</span>`;
+            }
         }
+        
+        header.innerHTML = breadcrumb;
     }
+}
+
+function showProgressBar() {
+    const container = document.getElementById('progressBarContainer');
+    const bar = document.getElementById('progressBar');
+    
+    container.style.display = 'block';
+    bar.style.width = '0%';
+    setTimeout(() => { bar.style.width = '100%'; }, 100);
+}
+
+function hideProgressBar() {
+    const container = document.getElementById('progressBarContainer');
+    
+    setTimeout(() => {
+        container.style.display = 'none';
+    }, 500);
 }
 
 function fetchObjects(bucket, prefix = "") {
     console.log(`Fetching objects for bucket: ${bucket}, prefix: ${prefix}`);
+    
+    // Show progress bar
+    showProgressBar();
     
     let url = `/spider/s3/${bucket}?delimiter=/&ConnectionName=${connConfig}`;
     if (prefix && prefix !== "") {
@@ -1026,9 +1342,8 @@ function fetchObjects(bucket, prefix = "") {
             const body = document.getElementById('object-list-body');
             body.innerHTML = '';
             
-            let itemCount = 0;
-            
-            // Display folders first
+            // Collect folders
+            objectsData.folders = [];
             for (let i = 0; i < commonPrefixes.length; i++) {
                 const prefixElement = commonPrefixes[i].getElementsByTagName('Prefix')[0];
                 if (prefixElement) {
@@ -1042,30 +1357,17 @@ function fetchObjects(bucket, prefix = "") {
                         folderName = folderName.slice(0, -1);
                     }
                     
-                    console.log(`Folder ${i+1}: ${folderPrefix} -> ${folderName}`);
-                    
-                    itemCount++;
-                    body.innerHTML += `
-                        <tr style="background-color: #f8f9fa;">
-                            <td class="column-num">${itemCount}</td>
-                            <td class="object-key-cell">
-                                <span style="cursor:pointer; font-weight: bold; color: #0066cc;" onclick="showObjectPanel('${bucket}', '${folderPrefix}')">
-                                    📁 ${folderName}/
-                                </span>
-                            </td>
-                            <td class="center-align">-</td>
-                            <td class="center-align">-</td>
-                            <td class="center-align">
-                                <button onclick="showObjectPanel('${bucket}', '${folderPrefix}')">Open</button>
-                                <button onclick="deleteFolder('${bucket}', '${folderPrefix}')">Delete</button>
-                            </td>
-                            <td class="check-column"><input type="checkbox" name="object-checkbox" value="${folderPrefix}"></td>
-                        </tr>
-                    `;
+                    objectsData.folders.push({
+                        prefix: folderPrefix,
+                        name: folderName,
+                        size: 0,
+                        lastModified: ''
+                    });
                 }
             }
             
-            // Display files
+            // Collect files
+            objectsData.files = [];
             for (let i = 0; i < contents.length; i++) {
                 const content = contents[i];
                 const key = content.getElementsByTagName('Key')[0]?.textContent || '';
@@ -1081,53 +1383,168 @@ function fetchObjects(bucket, prefix = "") {
                 try {
                     displayName = decodeURIComponent(displayName);
                 } catch (e) {
-                    // If decoding fails, use the original displayName
                     console.warn('Failed to decode filename:', displayName, e);
                 }
                 
-                console.log(`Object ${i+1}: ${key} -> ${displayName} (${size} bytes)`);
-                
-                itemCount++;
-                const encodedKey = encodeURIComponent(key);
-                body.innerHTML += `
-                    <tr>
-                        <td class="column-num">${itemCount}</td>
-                        <td class="object-key-cell">
-                            <span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${encodedKey}')">${displayName}</span>
-                        </td>
-                        <td class="center-align">${formatBytes(size)}</td>
-                        <td class="center-align">${formatTime(lastModified)}</td>
-                        <td class="center-align">
-                            <button onclick="downloadObject('${bucket}','${encodedKey}')">Download</button>
-                            <button onclick="deleteObject('${bucket}','${encodedKey}')">Delete</button>
-                            <button onclick="generatePresignedURL('${bucket}','${key}')">Share</button>
-                        </td>
-                        <td class="check-column"><input type="checkbox" name="object-checkbox" value="${key}"></td>
-                    </tr>
-                `;
+                objectsData.files.push({
+                    key: key,
+                    displayName: displayName,
+                    size: size,
+                    lastModified: lastModified
+                });
             }
             
-            if (itemCount === 0) {
-                body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No objects found</td></tr>';
-                console.log('No objects or folders found in bucket');
-            } else {
-                console.log(`Total items displayed: ${itemCount}`);
-            }
+            // Render sorted data
+            renderObjects(bucket, prefix);
+            
+            // Hide progress bar
+            hideProgressBar();
         })
         .catch(e => {
             console.error('Error fetching objects:', e);
             const body = document.getElementById('object-list-body');
             body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Error loading objects: ${e.message}</td></tr>`;
             alert('Error fetching objects: ' + e.message);
+            
+            // Hide progress bar on error
+            hideProgressBar();
         });
 }
 
 function hideObjectPanel() {
     document.getElementById('object-panel').style.display = 'none';
     document.getElementById('object-list-body').innerHTML = '';
-    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('tr.selected-bucket').forEach(el => el.classList.remove('selected-bucket'));
     currentBucket = null;
     currentPrefix = "";
+}
+
+function sortObjects(column) {
+    // Toggle sort order if clicking same column
+    if (currentSortColumn === column) {
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumn = column;
+        currentSortOrder = 'asc';
+    }
+    
+    // Update sort icons
+    document.getElementById('sort-key-icon').textContent = '';
+    document.getElementById('sort-size-icon').textContent = '';
+    document.getElementById('sort-time-icon').textContent = '';
+    
+    const icon = currentSortOrder === 'asc' ? '▲' : '▼';
+    if (column === 'key') {
+        document.getElementById('sort-key-icon').textContent = icon;
+    } else if (column === 'size') {
+        document.getElementById('sort-size-icon').textContent = icon;
+    } else if (column === 'time') {
+        document.getElementById('sort-time-icon').textContent = icon;
+    }
+    
+    // Re-render with new sort
+    renderObjects(currentBucket, currentPrefix);
+}
+
+function renderObjects(bucket, prefix) {
+    const body = document.getElementById('object-list-body');
+    body.innerHTML = '';
+    
+    let itemCount = 0;
+    
+    // Add parent directory navigation if not at root
+    if (prefix && prefix !== '') {
+        const parentPrefix = prefix.substring(0, prefix.lastIndexOf('/', prefix.length - 2) + 1);
+        itemCount++;
+        body.innerHTML += `
+            <tr style="background-color: #fffef0;">
+                <td class="column-num" style="cursor: pointer;" onclick="showObjectPanel('${bucket}', '${parentPrefix}')">1</td>
+                <td class="object-key-cell">
+                    <span style="cursor:pointer; font-weight: bold; color: #666;" onclick="showObjectPanel('${bucket}', '${parentPrefix}')">
+                        📁 ..
+                    </span>
+                </td>
+                <td class="center-align">-</td>
+                <td class="center-align">-</td>
+                <td class="center-align"></td>
+                <td class="check-column"></td>
+            </tr>
+        `;
+    }
+    
+    // Sort folders
+    const sortedFolders = [...objectsData.folders];
+    sortedFolders.sort((a, b) => {
+        let result = 0;
+        if (currentSortColumn === 'key') {
+            result = a.name.localeCompare(b.name);
+        }
+        return currentSortOrder === 'asc' ? result : -result;
+    });
+    
+    // Display sorted folders
+    for (const folder of sortedFolders) {
+        itemCount++;
+        body.innerHTML += `
+            <tr style="background-color: #f8f9fa;">
+                <td class="column-num">${itemCount}</td>
+                <td class="object-key-cell">
+                    <span style="cursor:pointer; font-weight: bold; color: #0066cc;" onclick="showObjectPanel('${bucket}', '${folder.prefix}')">
+                        📁 ${folder.name}/
+                    </span>
+                </td>
+                <td class="center-align">-</td>
+                <td class="center-align">-</td>
+                <td class="center-align">
+                    <button onclick="deleteFolder('${bucket}', '${folder.prefix}')">Delete</button>
+                </td>
+                <td class="check-column"><input type="checkbox" name="object-checkbox" value="${folder.prefix}"></td>
+            </tr>
+        `;
+    }
+    
+    // Sort files
+    const sortedFiles = [...objectsData.files];
+    sortedFiles.sort((a, b) => {
+        let result = 0;
+        if (currentSortColumn === 'key') {
+            result = a.displayName.localeCompare(b.displayName);
+        } else if (currentSortColumn === 'size') {
+            result = a.size - b.size;
+        } else if (currentSortColumn === 'time') {
+            result = a.lastModified.localeCompare(b.lastModified);
+        }
+        return currentSortOrder === 'asc' ? result : -result;
+    });
+    
+    // Display sorted files
+    for (const file of sortedFiles) {
+        itemCount++;
+        const encodedKey = encodeURIComponent(file.key);
+        body.innerHTML += `
+            <tr>
+                <td class="column-num">${itemCount}</td>
+                <td class="object-key-cell">
+                    <span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${encodedKey}')">${file.displayName}</span>
+                </td>
+                <td class="center-align">${formatBytes(file.size)}</td>
+                <td class="center-align">${formatTime(file.lastModified)}</td>
+                <td class="center-align">
+                    <button onclick="downloadObject('${bucket}','${encodedKey}')">Download</button>
+                    <button onclick="deleteObject('${bucket}','${encodedKey}')">Delete</button>
+                    <button onclick="generatePresignedURL('${bucket}','${file.key}')">Share</button>
+                </td>
+                <td class="check-column"><input type="checkbox" name="object-checkbox" value="${file.key}"></td>
+            </tr>
+        `;
+    }
+    
+    if (itemCount === 0) {
+        body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No objects found</td></tr>';
+    }
+    
+    // Hide progress bar
+    hideProgressBar();
 }
 
 function deleteFolder(bucket, prefix) {
@@ -1178,7 +1595,6 @@ function deleteFolder(bucket, prefix) {
         .then(response => {
             hideProgressBar();
             if (response.ok) {
-                alert(`Folder "${prefix}" deleted successfully`);
                 fetchObjects(bucket, currentPrefix);
             } else {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1290,6 +1706,7 @@ function uncheckAllCheckboxes(mode) {
 function showObjectUploadOverlay() {
     if (!currentBucket) return;
     document.getElementById('upload-bucket-name').innerText = currentBucket;
+    document.getElementById('upload-current-path').textContent = currentPrefix || '(root)';
     document.getElementById('object-upload-overlay').style.display = 'flex';
     document.getElementById('file-input').value = '';
     document.getElementById('selected-files-list').innerHTML = 'No files selected';
@@ -1343,7 +1760,9 @@ async function uploadFiles() {
         document.getElementById('progress-text').textContent = `0% (${i + 1}/${files.length})`;
         
         try {
-            const response = await uploadWithProgress(`/spider/s3/${currentBucket}?ConnectionName=${connConfig}`, file, file.name, (progress) => {
+            // Combine currentPrefix with filename
+            const objectKey = currentPrefix + file.name;
+            const response = await uploadWithProgress(`/spider/s3/${currentBucket}?ConnectionName=${connConfig}`, file, objectKey, (progress) => {
                 document.getElementById('progress-bar-inner').style.width = progress + '%';
                 document.getElementById('progress-text').textContent = `${Math.round(progress)}% (${i + 1}/${files.length})`;
             });
@@ -1922,26 +2341,57 @@ async function deleteAllVersions(bucketName) {
 }
 
 function searchKeyword() {
-    const filter = document.getElementById('searchInput').value.trim().toUpperCase();
-    highlightRows(document.getElementById('bucket-table'), filter);
-    highlightRows(document.getElementById('object-table'), filter);
+    let input = document.getElementById('searchInput');
+    let filter = input.value.toUpperCase().trim();
+
+    if (!filter) {
+        clearSearchInput();
+        return;
+    }
+
+    highlightCells(document.getElementById('bucket-table'), filter);
+    highlightCells(document.getElementById('object-table'), filter);
 }
 
-function highlightRows(table, filter) {
+function highlightCells(table, filter) {
     if (!table) return;
-    const trs = table.getElementsByTagName('tr');
-    for (let i=1; i<trs.length; i++) {
-        let found = false;
-        for (let j=0; j<trs[i].cells.length; j++) {
-            if ((trs[i].cells[j].textContent||'').toUpperCase().indexOf(filter) > -1) found = true;
+    let tr = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < tr.length; i++) {
+        let tds = tr[i].getElementsByTagName('td');
+
+        for (let j = 0; j < tds.length; j++) {
+            let td = tds[j];
+            if (td) {
+                let txtValue = td.textContent || td.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    td.classList.add('highlight');
+                } else {
+                    td.classList.remove('highlight');
+                }
+            }
         }
-        trs[i].style.background = found && filter ? '#fffab6' : '';
     }
 }
 
 function clearSearchInput() {
-    document.getElementById('searchInput').value = '';
-    searchKeyword();
+    let input = document.getElementById('searchInput');
+    input.value = '';
+
+    clearHighlights(document.getElementById('bucket-table'));
+    clearHighlights(document.getElementById('object-table'));
+}
+
+function clearHighlights(table) {
+    if (!table) return;
+    let tr = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < tr.length; i++) {
+        let tds = tr[i].getElementsByTagName('td');
+        for (let j = 0; j < tds.length; j++) {
+            tds[j].classList.remove('highlight');
+        }
+    }
 }
 
 function toggleSelectAll(source, mode) {
@@ -2112,6 +2562,28 @@ function testUploadURL() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('S3 Manager loaded successfully');
     
+    // Initial sort - set order first, then sort
+    bucketSortColumn = 'name';
+    bucketSortOrder = 'asc';
+    sortBucketTableDirect();
+    
+    // Format bucket created time
+    const createdCells = document.querySelectorAll('.bucket-created-cell');
+    createdCells.forEach(function(cell) {
+        const originalTime = cell.getAttribute('data-time');
+        const formattedTime = formatTimeSimple(originalTime);
+        cell.textContent = formattedTime;
+    });
+    
+    function formatTimeSimple(originalTime) {
+        if (!originalTime) return '';
+        const parts = originalTime.split(" ");
+        const date = parts[0];
+        const time = parts[1] ? parts[1].slice(0, 5) : '';
+        const timezone = parts[2] || '';
+        return `${date} ${time} ${timezone}`;
+    }
+    
     const utcTimeCells = document.querySelectorAll('[data-utc-time]');
     utcTimeCells.forEach(cell => {
         const utcTime = cell.getAttribute('data-utc-time');
@@ -2137,11 +2609,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // No saved selection, show first bucket as default
         const bucketRows = document.querySelectorAll('#bucket-list-body tr');
         if (bucketRows.length > 0) {
-            const firstBucketCell = bucketRows[0].querySelector('.bucket-name-cell span');
+            const firstBucketCell = bucketRows[0].querySelector('.bucket-name-cell');
             if (firstBucketCell) {
-                const bucketName = firstBucketCell.textContent.trim();
-                if (bucketName) {
-                    showObjectPanel(bucketName);
+                // Extract bucket name from id attribute (format: bucket-<name>)
+                const bucketId = firstBucketCell.getAttribute('id');
+                if (bucketId && bucketId.startsWith('bucket-')) {
+                    const bucketName = bucketId.substring(7); // Remove 'bucket-' prefix
+                    if (bucketName) {
+                        showObjectPanel(bucketName);
+                    }
                 }
             }
         }

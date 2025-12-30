@@ -19,7 +19,9 @@ OPENSTACK_KEY_VALUES='[
   {"Key":"Username", "Value":"'"$openstack_username"'"},
   {"Key":"Password", "Value":"'"$openstack_password"'"},
   {"Key":"DomainName", "Value":"'"$openstack_domain_name"'"},
-  {"Key":"ProjectID", "Value":"'"$openstack_project_id"'"}
+  {"Key":"ProjectID", "Value":"'"$openstack_project_id"'"},  
+  {"Key":"access", "Value":"'"$openstack_access"'"},
+  {"Key":"secret", "Value":"'"$openstack_secret"'"}
 ]'
 register_credential "openstack-credential" "OPENSTACK" "$OPENSTACK_KEY_VALUES"
 
