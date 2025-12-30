@@ -17,15 +17,16 @@ import (
 type FileSystemCreateRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
-		Name                  string          `json:"Name" validate:"required" example:"efs-01"`
-		Zone                  string          `json:"Zone" validate:"required" example:"us-east-1a"`
-		FileSystemType        string          `json:"FileSystemType" example:"efs"`
-		PerformanceMode       string          `json:"PerformanceMode" example:"generalPurpose"`
-		ThroughputMode        string          `json:"ThroughputMode" example:"bursting"`
-		ProvisionedThroughput string          `json:"ProvisionedThroughput" example:"0"`
-		Encrypted             bool            `json:"Encrypted" example:"false"`
-		KmsKeyId              string          `json:"KmsKeyId,omitempty"`
-		TagList               []cres.KeyValue `json:"TagList,omitempty"`
+		Name             string            `json:"Name" validate:"required" example:"efs-01"`
+		Zone             string            `json:"Zone" validate:"required" example:"us-east-1a"`
+		VpcIID           cres.IID          `json:"VpcIID" validate:"required"`
+		NFSVersion       string            `json:"NFSVersion" validate:"required" example:"4.1"`
+		AccessSubnetList []cres.IID        `json:"AccessSubnetList,omitempty"`
+		FileSystemType   string            `json:"FileSystemType,omitempty" example:"RegionType"`
+		CapacityGB       int64             `json:"CapacityGB,omitempty" example:"1024"`
+		Encryption       bool              `json:"Encryption,omitempty" example:"false"`
+		PerformanceInfo  map[string]string `json:"PerformanceInfo,omitempty"`
+		TagList          []cres.KeyValue   `json:"TagList,omitempty"`
 	} `json:"ReqInfo" validate:"required"`
 }
 
@@ -50,11 +51,31 @@ func CreateFileSystem(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	// Log received FileSystemType for debugging
+	cblog.Infof("Received FileSystemType: '%s' (Zone: %s, VPC: %s)", req.ReqInfo.FileSystemType, req.ReqInfo.Zone, req.ReqInfo.VpcIID.NameId)
+
+	// Convert user-friendly FileSystemType to constant values
+	var fsType cres.FileSystemType
+	switch req.ReqInfo.FileSystemType {
+	case "RegionType":
+		fsType = cres.RegionType // "REGION-TYPE"
+	case "ZoneType":
+		fsType = cres.ZoneType // "ZONE-TYPE"
+	default:
+		fsType = cres.FileSystemType(req.ReqInfo.FileSystemType) // fallback for direct const values
+	}
+
 	reqInfo := cres.FileSystemInfo{
-		IId:            cres.IID{NameId: req.ReqInfo.Name, SystemId: ""},
-		Zone:           req.ReqInfo.Zone,
-		FileSystemType: cres.FileSystemType(req.ReqInfo.FileSystemType),
-		TagList:        req.ReqInfo.TagList,
+		IId:              cres.IID{NameId: req.ReqInfo.Name, SystemId: ""},
+		Zone:             req.ReqInfo.Zone,
+		VpcIID:           req.ReqInfo.VpcIID,
+		NFSVersion:       req.ReqInfo.NFSVersion,
+		AccessSubnetList: req.ReqInfo.AccessSubnetList,
+		FileSystemType:   fsType,
+		CapacityGB:       req.ReqInfo.CapacityGB,
+		Encryption:       req.ReqInfo.Encryption,
+		PerformanceInfo:  req.ReqInfo.PerformanceInfo,
+		TagList:          req.ReqInfo.TagList,
 	}
 
 	result, err := cmrt.CreateFileSystem(req.ConnectionName, reqInfo)

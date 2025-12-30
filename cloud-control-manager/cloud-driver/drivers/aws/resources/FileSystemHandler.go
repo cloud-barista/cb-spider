@@ -165,7 +165,7 @@ func (fileSystemHandler *AwsFileSystemHandler) CreateFileSystem(reqInfo irs.File
 	// =====================================
 	// Validate VPC requirement for AWS EFS
 	// =====================================
-	if reqInfo.VpcIID.SystemId == "" {
+	if reqInfo.VpcIID.NameId == "" && reqInfo.VpcIID.SystemId == "" {
 		return irs.FileSystemInfo{}, errors.New("VPC is required for AWS EFS file system creation")
 	}
 
@@ -1071,13 +1071,20 @@ func (fileSystemHandler *AwsFileSystemHandler) convertToFileSystemInfo(fs *efs.F
 	var zone string
 	if fs.AvailabilityZoneId != nil && *fs.AvailabilityZoneId != "" {
 		fileSystemType = irs.ZoneType // One Zone
-		zone = *fs.AvailabilityZoneId
+		// Use AvailabilityZoneName (e.g., us-east-1a) if available, fallback to AvailabilityZoneId
+		if fs.AvailabilityZoneName != nil && *fs.AvailabilityZoneName != "" {
+			zone = *fs.AvailabilityZoneName
+		} else {
+			zone = *fs.AvailabilityZoneId
+		}
 	}
 
 	// Create additional key-value list for extra information
 	var keyValueList []irs.KeyValue
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "AvailabilityZoneId", Value: zone})
-	if fs.AvailabilityZoneName != nil {
+	if fs.AvailabilityZoneId != nil && *fs.AvailabilityZoneId != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "AvailabilityZoneId", Value: *fs.AvailabilityZoneId})
+	}
+	if fs.AvailabilityZoneName != nil && *fs.AvailabilityZoneName != "" {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "AvailabilityZoneName", Value: *fs.AvailabilityZoneName})
 	}
 	if fs.KmsKeyId != nil {

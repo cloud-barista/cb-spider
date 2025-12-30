@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FileSystem Manager</title>
+<style>
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    .fixed-header { position: fixed; top: 0; width: 97%; background: #fff; z-index: 1000; display: flex; justify-content: space-between; padding: 10px 20px; align-items: center; box-shadow: 0 4px 6px -6px #222; }
+    .header-container { display: flex; align-items: flex-end; }
+    .header-container img { margin-right: 10px; height: 28px; }
+    .header-container h1 { font-size: 16px; margin: 0; }
+    .searchContainer { position: relative; display: flex; align-items: center; padding-left: 0.5cm; }
+    #searchInput { width: 190px; font-family: Arial, sans-serif; padding-right: 2.5cm; }
+    #clearSearch { position: absolute; right: 0.1cm; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; }
+    .fixed-action-buttons { display: flex; align-items: center; }
+    .fixed-action-buttons button { margin-left: 10px; }
+    .header-with-progress { display: flex; align-items: center; margin-bottom: 0px; }
+    .progress-bar-container { width: 600px; margin-left: 10px; margin-bottom: 10px; height: 22px; background-color: #f0f5ff; border-radius: 4px; overflow: hidden; display: none; position: relative; z-index: 1100; }
+    .progress-bar { width: 0; height: 100%; background-color: #cce6ff; border-radius: 4px; transition: width 3s ease; }
+    #timeDisplay { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 14px; color: #333; z-index: 1101; }
+    .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; }
+    .content { margin-top: 70px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }
+    th, td { border: 1px solid #aaa; padding: 6px; position: relative; }
+    th { background: #f2f2f2; font-size: 14px; text-align: center; }
+    td { text-align: left; }
+    .column-num { width: 5%; text-align: center; }
+    .check-column { width: 5%; text-align: center; }
+    .fs-name-cell { font-weight: bold; }
+    .fs-name-cell.selected { color: blue; }
+    .fs-name-cell .fs-created-time {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+    .center-align { text-align: center; }
+    .highlight { background: #fffab6; }
+    .text-button {
+        border: none;
+        background: none;
+        color: #007bff;
+        cursor: pointer;
+        text-decoration: underline;
+        font-size: 12px;
+        padding: 0;
+    }
+    .text-button:hover {
+        color: #0056b3;
+    }
+    .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .overlay-content { background: #fff; padding: 20px; border-radius: 5px; text-align: left; font-size: 12px; min-width: 300px; }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+    .detail-table th, .detail-table td { border: 1px solid #ddd; }
+    .detail-table th { width: 150px; }
+    
+    #subnet-panel { margin-top: 20px; margin-left: 40px; }
+    .subnet-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0px; }
+    .subnet-panel-header h2 { margin: 0; }
+    .subnet-panel-actions { display: flex; align-items: center; }
+    
+    /* Mount command styling */
+    .mount-command-section { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
+    .mount-command-section h3 { margin-top: 0; margin-bottom: 10px; font-size: 14px; }
+    .mount-command-box { background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 3px; margin-bottom: 10px; position: relative; }
+    .mount-command-box pre { margin: 0; font-family: 'Courier New', monospace; font-size: 11px; white-space: pre-wrap; word-wrap: break-word; }
+    .copy-button { position: absolute; top: 5px; right: 5px; padding: 4px 8px; font-size: 11px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+    .copy-button:hover { background: #0056b3; }
+    .copy-button.copied { background: #28a745; }
+    
+    /* System ID styling */
+    .nlb-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+    
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+    }
+    
+    .system-id-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    
+    .system-id-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+    
+    .copy-btn {
+        margin-left: 10px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/filesystem.png" alt="FileSystem Icon" onerror="this.src='/spider/adminweb/images/left-menu/disk.png'">
+            <h1>FileSystem Manager</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search FileSystem...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button onclick="showFSCreateOverlay()" class="add-button">+ FileSystem</button>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>
+            <div style="flex: 1;"></div>
+            <div class="fixed-action-buttons">
+                <input type="checkbox" onclick="toggleSelectAll(this, 'filesystem')">
+                <button onclick="deleteSelectedFileSystems()" style="margin-left: 10px;">Delete</button>
+            </div>
+        </div>
+
+        {{if .ErrorMessage}}
+        <script>
+            // Show error popup when page loads
+            window.addEventListener('DOMContentLoaded', function() {
+                alert('⚠️ FileSystem Connection Error:\n\n{{.ErrorMessage}}');
+            });
+        </script>
+        {{end}}
+
+        <table id="filesystem-table">
+            <thead>
+                <tr>
+                    <th class="column-num">#</th>
+                    <th class="center-align fs-name-cell">Name</th>
+                    <th class="center-align">VPC Name</th>
+                    <th class="center-align">Type</th>
+                    <th class="center-align">Zone</th>
+                    <th class="center-align">Status</th>
+                    <th class="center-align">Details</th>
+                    <th class="center-align">Actions</th>
+                    <th class="check-column"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+                </tr>
+            </thead>
+            <tbody id="filesystem-list-body">
+                {{range $i, $fs := .FileSystems}}
+                <tr>
+                    <td class="column-num">{{$i | inc}}</td>
+                    <td class="fs-name-cell" id="fs-{{$fs.IId.NameId}}">
+                        {{$fs.IId.NameId}}
+                        <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$fs.IId.SystemId}}')">&nbsp;• {{$fs.IId.SystemId}}</span>
+                        <span class="fs-created-time" data-time="{{$fs.CreatedTime}}"></span>
+                    </td>
+                    <td class="fs-name-cell vpc-name">
+                        {{if $fs.VpcIID}}
+                            {{if $fs.VpcIID.NameId}}
+                                {{$fs.VpcIID.NameId}}
+                                {{if $fs.VpcIID.SystemId}}
+                                    <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$fs.VpcIID.SystemId}}')">&nbsp;• {{$fs.VpcIID.SystemId}}</span>
+                                {{end}}
+                            {{else if $fs.VpcIID.SystemId}}
+                                <span style="color: #999; font-size: 11px;">{{$fs.VpcIID.SystemId}}</span>
+                            {{else}}
+                                <span style="color: #999;">-</span>
+                            {{end}}
+                        {{else}}
+                            <span style="color: #999;">-</span>
+                        {{end}}
+                    </td>
+                    <td class="center-align">{{$fs.FileSystemType}}</td>
+                    <td class="center-align">{{if $fs.Zone}}{{$fs.Zone}}{{else}}NA{{end}}</td>
+                    <td class="center-align">{{$fs.Status}}</td>
+                    <td class="center-align">
+                        <button class="text-button" onclick="showFSDetails('{{$fs.IId.NameId}}')">View</button>
+                    </td>
+                    <td class="center-align">
+                        <button onclick="showSubnetPanel('{{$fs.IId.NameId}}')">Subnets</button>
+                        <button onclick="deleteFileSystem('{{$fs.IId.NameId}}')">Delete</button>
+                    </td>
+                    <td class="check-column"><input type="checkbox" name="deleteCheckbox" value="{{$fs.IId.NameId}}"></td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+
+        <div id="subnet-panel" style="display:none;">
+            <div class="header-with-progress">
+                <button onclick="showSubnetAddOverlay()" class="add-button">+ Add Subnet</button>
+                <div style="flex: 1;"></div>
+                <div class="subnet-panel-actions">
+                    <input type="checkbox" onclick="toggleSelectAllSubnets(this)">
+                    <button onclick="removeSelectedSubnets()" style="margin-left: 10px;">Remove</button>
+                </div>
+            </div>
+            <table id="subnet-table">
+                <thead>
+                    <tr>
+                        <th class="column-num">#</th>
+                        <th class="center-align">Subnet Name</th>
+                        <th class="center-align">Subnet SystemId</th>
+                        <th class="center-align">Actions</th>
+                        <th class="check-column"><input type="checkbox" onclick="toggleSelectAllSubnets(this)"></th>
+                    </tr>
+                </thead>
+                <tbody id="subnet-list-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- FileSystem Create Overlay -->
+    <div id="fs-create-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 500px; max-height: 80vh; overflow-y: auto;">
+            <button class="overlay-close-btn" onclick="hideFSCreateOverlay()">X</button>
+            <h2>Create New FileSystem</h2>
+            <form id="fs-create-form" onsubmit="event.preventDefault(); createFileSystem();">
+                <div style="margin-bottom: 10px;">
+                    <label>Name:</label>
+                    <input type="text" id="new-fs-name" required style="width: 100%;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Zone:</label>
+                    <input type="text" id="new-fs-zone" required style="width: 100%;" placeholder="e.g., us-east-1a">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>VPC Name:</label>
+                    <input type="text" id="new-fs-vpc-name" required style="width: 100%;" placeholder="VPC NameId (required)">
+                    <small style="color: #666;">Enter the VPC NameId that you created in CB-Spider</small>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>NFS Version:</label>
+                    <input type="text" id="new-fs-nfs-version" required style="width: 100%;" placeholder="e.g., 4.1" value="4.1">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Access Subnet Names (comma-separated, optional):</label>
+                    <input type="text" id="new-fs-access-subnets" style="width: 100%;" placeholder="e.g., subnet1, subnet2">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>FileSystem Type (optional):</label>
+                    <select id="new-fs-type" style="width: 100%;">
+                        <option value="">Default (CSP Default)</option>
+                        <option value="RegionType">RegionType</option>
+                        <option value="ZoneType">ZoneType</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Capacity GB (optional):</label>
+                    <input type="number" id="new-fs-capacity" style="width: 100%;" placeholder="Leave empty for CSP default">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>
+                        <input type="checkbox" id="new-fs-encryption">
+                        Enable Encryption
+                    </label>
+                </div>
+                <div style="margin-top:20px; text-align:center;">
+                    <button type="submit">Create</button>
+                    <button type="button" onclick="hideFSCreateOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FileSystem Details Overlay -->
+    <div id="fs-details-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 600px; max-height: 80vh; overflow-y: auto;">
+            <button class="overlay-close-btn" onclick="hideFSDetailsOverlay()">X</button>
+            <h2>FileSystem Details: <span id="details-fs-name"></span></h2>
+            <div id="fs-details-content"></div>
+        </div>
+    </div>
+
+    <!-- Subnet Add Overlay -->
+    <div id="subnet-add-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 400px;">
+            <button class="overlay-close-btn" onclick="hideSubnetAddOverlay()">X</button>
+            <h2>Add Access Subnet to <span id="add-subnet-fs-name"></span></h2>
+            <form id="subnet-add-form" onsubmit="event.preventDefault(); addAccessSubnet();">
+                <div style="margin-bottom: 10px;">
+                    <label>Subnet Name:</label>
+                    <input type="text" id="subnet-name-id" required style="width: 100%;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Subnet SystemId (optional):</label>
+                    <input type="text" id="subnet-system-id" style="width: 100%;">
+                </div>
+                <div style="margin-top:20px; text-align:center;">
+                    <button type="submit">Add</button>
+                    <button type="button" onclick="hideSubnetAddOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- System ID Overlay -->
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+    <script>
+        const connConfig = '{{.ConnectionConfig}}';
+        let currentFileSystemName = '';
+
+        function searchKeyword() {
+            let input = document.getElementById('searchInput');
+            let filter = input.value.toUpperCase().trim();
+
+            if (!filter) {
+                clearSearchInput();
+                return;
+            }
+
+            let table = document.getElementById('filesystem-table');
+            let tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                let tds = tr[i].getElementsByTagName('td');
+
+                for (let j = 0; j < tds.length; j++) {
+                    let td = tds[j];
+                    if (td) {
+                        let txtValue = td.textContent || td.innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            td.classList.add('highlight');
+                        } else {
+                            td.classList.remove('highlight');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearSearchInput() {
+            let input = document.getElementById('searchInput');
+            input.value = '';
+
+            let table = document.getElementById('filesystem-table');
+            let tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                let tds = tr[i].getElementsByTagName('td');
+                for (let j = 0; j < tds.length; j++) {
+                    tds[j].classList.remove('highlight');
+                }
+            }
+        }
+
+        function toggleSelectAll(source) {
+            const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+            for (const checkbox of checkboxes) {
+                checkbox.checked = source.checked;
+            }
+        }
+
+        function toggleSelectAllSubnets(source) {
+            const checkboxes = document.querySelectorAll('input[name="subnet-checkbox"]');
+            for (const checkbox of checkboxes) {
+                checkbox.checked = source.checked;
+            }
+        }
+
+        function showFSCreateOverlay() {
+            document.getElementById('fs-create-overlay').style.display = 'flex';
+            document.addEventListener('keydown', handleFSCreateEsc);
+        }
+
+        function handleFSCreateEsc(event) {
+            if (event.key === 'Escape') {
+                hideFSCreateOverlay();
+            }
+        }
+
+        function hideFSCreateOverlay() {
+            document.getElementById('fs-create-overlay').style.display = 'none';
+            document.removeEventListener('keydown', handleFSCreateEsc);
+            document.getElementById('fs-create-form').reset();
+        }
+
+        function showFSDetailsOverlay() {
+            document.getElementById('fs-details-overlay').style.display = 'flex';
+            document.addEventListener('keydown', handleFSDetailsEsc);
+        }
+
+        function handleFSDetailsEsc(event) {
+            if (event.key === 'Escape') {
+                hideFSDetailsOverlay();
+            }
+        }
+
+        function hideFSDetailsOverlay() {
+            document.getElementById('fs-details-overlay').style.display = 'none';
+            document.removeEventListener('keydown', handleFSDetailsEsc);
+        }
+
+        function showSubnetAddOverlay() {
+            document.getElementById('subnet-add-overlay').style.display = 'flex';
+            document.getElementById('add-subnet-fs-name').textContent = currentFileSystemName;
+            document.addEventListener('keydown', handleSubnetAddEsc);
+        }
+
+        function handleSubnetAddEsc(event) {
+            if (event.key === 'Escape') {
+                hideSubnetAddOverlay();
+            }
+        }
+
+        function hideSubnetAddOverlay() {
+            document.getElementById('subnet-add-overlay').style.display = 'none';
+            document.removeEventListener('keydown', handleSubnetAddEsc);
+            document.getElementById('subnet-add-form').reset();
+        }
+
+        function createFileSystem() {
+            const name = document.getElementById('new-fs-name').value;
+            const zone = document.getElementById('new-fs-zone').value;
+            const vpcName = document.getElementById('new-fs-vpc-name').value;
+            const nfsVersion = document.getElementById('new-fs-nfs-version').value;
+            const accessSubnetsStr = document.getElementById('new-fs-access-subnets').value;
+            const fsType = document.getElementById('new-fs-type').value;
+            const capacityGB = document.getElementById('new-fs-capacity').value;
+            const encryption = document.getElementById('new-fs-encryption').checked;
+
+            // Parse access subnets
+            let accessSubnetList = [];
+            if (accessSubnetsStr && accessSubnetsStr.trim()) {
+                const subnetNames = accessSubnetsStr.split(',').map(s => s.trim()).filter(s => s);
+                accessSubnetList = subnetNames.map(name => ({
+                    NameId: name,
+                    SystemId: ''
+                }));
+            }
+
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: name,
+                    Zone: zone,
+                    VpcIID: {
+                        NameId: vpcName,
+                        SystemId: ''
+                    },
+                    NFSVersion: nfsVersion,
+                    AccessSubnetList: accessSubnetList,
+                    FileSystemType: fsType || '',
+                    Encryption: encryption
+                }
+            };
+
+            // Add optional CapacityGB
+            if (capacityGB && capacityGB.trim()) {
+                data.ReqInfo.CapacityGB = parseInt(capacityGB);
+            }
+
+            showProgress('Creating FileSystem...');
+            fetch('/spider/filesystem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    hideProgress();
+                    alert('Error: ' + result.error);
+                } else {
+                    // Keep overlay and progress bar until reload completes
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                hideProgress();
+                alert('Error creating FileSystem: ' + error);
+            });
+        }
+
+        function deleteFileSystem(name) {
+            if (!confirm('Are you sure you want to delete FileSystem "' + name + '"?')) {
+                return;
+            }
+
+            const data = {
+                ConnectionName: connConfig
+            };
+
+            showProgress('Deleting FileSystem...');
+            fetch('/spider/filesystem/' + name, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                hideProgress();
+                if (result.Result === 'true') {
+                    location.reload();
+                } else {
+                    alert('Error deleting FileSystem');
+                }
+            })
+            .catch(error => {
+                hideProgress();
+                alert('Error: ' + error);
+            });
+        }
+
+        function deleteSelectedFileSystems() {
+            const checkboxes = document.getElementsByName('deleteCheckbox');
+            const selected = [];
+            for (let i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].checked) {
+                    selected.push(checkboxes[i].value);
+                }
+            }
+
+            if (selected.length === 0) {
+                alert('Please select at least one FileSystem to delete');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to delete ' + selected.length + ' FileSystem(s)?')) {
+                return;
+            }
+
+            let deleteCount = 0;
+            showProgress('Deleting FileSystems...');
+            
+            selected.forEach(name => {
+                const data = { ConnectionName: connConfig };
+                fetch('/spider/filesystem/' + name, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                .then(() => {
+                    deleteCount++;
+                    if (deleteCount === selected.length) {
+                        hideProgress();
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting:', error);
+                });
+            });
+        }
+
+        function showFSDetails(name) {
+            showProgress('Loading details...');
+            fetch('/spider/filesystem/' + name + '?ConnectionName=' + connConfig)
+            .then(response => response.json())
+            .then(fs => {
+                hideProgress();
+                console.log('FileSystem Details:', fs); // Debug log
+                let html = '<table class="detail-table" style="width:100%;">';
+                html += '<tr><th>Name</th><td>' + (fs.IId?.NameId || 'N/A') + '</td></tr>';
+                html += '<tr><th>SystemId</th><td>' + (fs.IId?.SystemId || 'N/A') + '</td></tr>';
+                html += '<tr><th>Zone</th><td>' + (fs.Zone || 'NA') + '</td></tr>';
+                html += '<tr><th>Type</th><td>' + (fs.FileSystemType || 'N/A') + '</td></tr>';
+                html += '<tr><th>Status</th><td>' + (fs.Status || 'N/A') + '</td></tr>';
+                html += '<tr><th>Created Time</th><td>' + (fs.CreatedTime || 'N/A') + '</td></tr>';
+                
+                // Add Access Subnet List
+                if (fs.AccessSubnetList && fs.AccessSubnetList.length > 0) {
+                    html += '<tr><th>Access Subnets</th><td>';
+                    fs.AccessSubnetList.forEach((subnet, idx) => {
+                        if (idx > 0) html += '<br>';
+                        const subnetName = subnet.NameId || subnet.SystemId || 'N/A';
+                        const subnetSystemId = subnet.SystemId || 'N/A';
+                        html += subnetName + ' (' + subnetSystemId + ')';
+                    });
+                    html += '</td></tr>';
+                } else {
+                    html += '<tr><th>Access Subnets</th><td>None</td></tr>';
+                }
+                
+                if (fs.KeyValueList && fs.KeyValueList.length > 0) {
+                    html += '<tr><th colspan="2" style="background:#e9ecef;">Additional Properties</th></tr>';
+                    fs.KeyValueList.forEach(kv => {
+                        html += '<tr><th>' + kv.Key + '</th><td>' + kv.Value + '</td></tr>';
+                    });
+                }
+                
+                html += '</table>';
+                
+                // Add mount command section
+                html += generateMountCommandSection(fs);
+                
+                document.getElementById('details-fs-name').textContent = name;
+                document.getElementById('fs-details-content').innerHTML = html;
+                showFSDetailsOverlay();
+            })
+            .catch(error => {
+                hideProgress();
+                alert('Error loading details: ' + error);
+            });
+        }
+
+        function generateMountCommandSection(fs) {
+            // Use only MountTargetList endpoint (CSP-independent standard field)
+            let mountDnsName = 'FILE_SYSTEM_DNS_NAME';
+            
+            // Use MountTargetList endpoint (IP address or DNS)
+            if (fs.MountTargetList && fs.MountTargetList.length > 0 && fs.MountTargetList[0].Endpoint) {
+                mountDnsName = fs.MountTargetList[0].Endpoint;
+            }
+
+            const mountPath = '/mnt/' + (fs.IId?.NameId || 'filesystem');
+            
+            // Generate Linux/Mac NFS mount command
+            const linuxCommand = `# Install NFS client (if not installed)
+# Ubuntu/Debian (older):
+sudo apt-get update
+sudo apt-get install -y nfs-common
+
+# Ubuntu/Debian (newer, if nfs-common not found):
+sudo apt-get install -y nfs-client
+
+# RHEL/CentOS/Rocky:
+sudo yum install -y nfs-utils
+
+# macOS: NFS client is built-in
+
+# Create mount point
+sudo mkdir -p ${mountPath}
+
+# Mount the filesystem
+sudo mount -t nfs -o nfsvers=4.1 ${mountDnsName}:/ ${mountPath}
+
+# Verify mount
+df -h ${mountPath}
+
+# To auto-mount on boot, add to /etc/fstab:
+# ${mountDnsName}:/ ${mountPath} nfs nfsvers=4.1,_netdev 0 0`;
+
+            // Generate Windows mount command
+            const windowsCommand = `# Mount the filesystem (Run as Administrator in PowerShell)
+mount -o anon \\\\${mountDnsName}\\nfs Z:
+
+# Or use net use command:
+net use Z: \\\\${mountDnsName}\\nfs
+
+# Verify mount
+dir Z:`;
+
+            let html = '<div class="mount-command-section">';
+            html += '<h3>📌 Mount Commands</h3>';
+            
+            // Linux/Mac section
+            html += '<div style="margin-bottom: 15px;">';
+            html += '<strong>Linux / macOS:</strong>';
+            html += '<div class="mount-command-box">';
+            html += '<button class="copy-button" onclick="copyToClipboard(this, \'linux-mount\')">Copy</button>';
+            html += '<pre id="linux-mount">' + escapeHtml(linuxCommand) + '</pre>';
+            html += '</div>';
+            html += '</div>';
+            
+            // Windows section
+            html += '<div>';
+            html += '<strong>Windows:</strong>';
+            html += '<div class="mount-command-box">';
+            html += '<button class="copy-button" onclick="copyToClipboard(this, \'windows-mount\')">Copy</button>';
+            html += '<pre id="windows-mount">' + escapeHtml(windowsCommand) + '</pre>';
+            html += '</div>';
+            html += '</div>';
+            
+            html += '<p style="margin-top:10px; font-size:11px; color:#666;">';
+            html += '<strong>⚠️ Prerequisites:</strong><br>';
+            html += '• <strong>Ubuntu/Debian (older):</strong> <code>sudo apt-get install -y nfs-common</code><br>';
+            html += '• <strong>Ubuntu/Debian (newer):</strong> <code>sudo apt-get install -y nfs-client</code> (if nfs-common not found)<br>';
+            html += '• <strong>RHEL/CentOS/Rocky:</strong> <code>sudo yum install -y nfs-utils</code><br>';
+            html += '• <strong>macOS:</strong> NFS client is built-in<br><br>';
+            if (fs.MountTargetList && fs.MountTargetList.length > 0) {
+                html += '<strong>Mount Endpoint:</strong> ' + escapeHtml(mountDnsName) + '<br>';
+                if (fs.MountTargetList.length > 1) {
+                    html += '<strong>Additional Mount Targets:</strong><br>';
+                    for (let i = 1; i < fs.MountTargetList.length; i++) {
+                        if (fs.MountTargetList[i].Endpoint) {
+                            html += '&nbsp;&nbsp;• ' + escapeHtml(fs.MountTargetList[i].Endpoint) + '<br>';
+                        }
+                    }
+                }
+            }
+            html += '</p>';
+            
+            html += '</div>';
+            
+            return html;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function copyToClipboard(button, elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy: ' + err);
+            });
+        }
+
+        function showSubnetPanel(fsName) {
+            currentFileSystemName = fsName;
+            document.getElementById('subnet-panel').style.display = 'block';
+            loadAccessSubnets(fsName);
+        }
+
+        function loadAccessSubnets(fsName) {
+            showProgress('Loading subnets...');
+            // Get subnets from FileSystem details instead of separate API
+            fetch('/spider/filesystem/' + fsName + '?ConnectionName=' + connConfig)
+            .then(response => response.json())
+            .then(fs => {
+                hideProgress();
+                console.log('FileSystem for subnets:', fs); // Debug log
+                const tbody = document.getElementById('subnet-list-body');
+                tbody.innerHTML = '';
+                
+                // Get AccessSubnetList from FileSystem
+                let subnets = [];
+                if (fs && fs.AccessSubnetList && Array.isArray(fs.AccessSubnetList)) {
+                    subnets = fs.AccessSubnetList;
+                }
+                
+                console.log('Processed subnets:', subnets); // Debug log
+                
+                if (!subnets || subnets.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No access subnets configured</td></tr>';
+                    return;
+                }
+                
+                subnets.forEach((subnet, idx) => {
+                    const subnetName = subnet.NameId || subnet.SystemId || 'N/A';
+                    const subnetSystemId = subnet.SystemId || 'N/A';
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td class="column-num">${idx + 1}</td>
+                        <td class="center-align">${subnetName}</td>
+                        <td class="center-align">${subnetSystemId}</td>
+                        <td class="center-align">
+                            <button onclick="removeAccessSubnet('${subnetName}', '${subnetSystemId}')">Remove</button>
+                        </td>
+                        <td class="check-column"><input type="checkbox" name="subnet-checkbox" value="${subnetName}"></td>
+                    `;
+                });
+            })
+            .catch(error => {
+                hideProgress();
+                console.error('Error loading subnets:', error); // Debug log
+                alert('Error loading subnets: ' + error);
+            });
+        }
+
+        function addAccessSubnet() {
+            const nameId = document.getElementById('subnet-name-id').value;
+            const systemId = document.getElementById('subnet-system-id').value;
+
+            const data = {
+                ConnectionName: connConfig,
+                SubnetIID: {
+                    NameId: nameId,
+                    SystemId: systemId || ''
+                }
+            };
+
+            showProgress('Adding subnet...');
+            fetch('/spider/filesystem/' + currentFileSystemName + '/access-subnet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                hideProgress();
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    alert('Subnet added successfully!');
+                    hideSubnetAddOverlay();
+                    loadAccessSubnets(currentFileSystemName);
+                }
+            })
+            .catch(error => {
+                hideProgress();
+                alert('Error adding subnet: ' + error);
+            });
+        }
+
+        function removeAccessSubnet(nameId, systemId) {
+            if (!confirm('Are you sure you want to remove subnet "' + nameId + '"?')) {
+                return;
+            }
+
+            const data = {
+                ConnectionName: connConfig,
+                SubnetIID: {
+                    NameId: nameId,
+                    SystemId: systemId || ''
+                }
+            };
+
+            showProgress('Removing subnet...');
+            fetch('/spider/filesystem/' + currentFileSystemName + '/access-subnet', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                hideProgress();
+                if (result.Result === 'true') {
+                    alert('Subnet removed successfully!');
+                    loadAccessSubnets(currentFileSystemName);
+                } else {
+                    alert('Error removing subnet');
+                }
+            })
+            .catch(error => {
+                hideProgress();
+                alert('Error: ' + error);
+            });
+        }
+
+        function removeSelectedSubnets() {
+            const checkboxes = document.getElementsByName('subnet-checkbox');
+            const selected = [];
+            for (let i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].checked) {
+                    selected.push(checkboxes[i].value);
+                }
+            }
+
+            if (selected.length === 0) {
+                alert('Please select at least one subnet to remove');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to remove ' + selected.length + ' subnet(s)?')) {
+                return;
+            }
+
+            let removeCount = 0;
+            showProgress('Removing subnets...');
+            
+            selected.forEach(nameId => {
+                const data = {
+                    ConnectionName: connConfig,
+                    SubnetIID: { NameId: nameId, SystemId: '' }
+                };
+                fetch('/spider/filesystem/' + currentFileSystemName + '/access-subnet', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                .then(() => {
+                    removeCount++;
+                    if (removeCount === selected.length) {
+                        hideProgress();
+                        alert('Removed ' + removeCount + ' subnet(s)');
+                        loadAccessSubnets(currentFileSystemName);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error removing:', error);
+                });
+            });
+        }
+
+        let progressTimer = null;
+        let progressStartTime = null;
+
+        function showProgress(message) {
+            const container = document.getElementById('progressBarContainer');
+            const bar = document.getElementById('progressBar');
+            const timeDisplay = document.getElementById('timeDisplay');
+            
+            container.style.display = 'block';
+            bar.style.width = '0%';
+            setTimeout(() => { bar.style.width = '100%'; }, 100);
+
+            // Start time tracking
+            progressStartTime = Date.now();
+            const timerInterval = 500;
+            progressTimer = setInterval(() => {
+                const elapsedTime = (Date.now() - progressStartTime) / 1000;
+                timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+            }, timerInterval);
+        }
+
+        function showProgressBar() {
+            const container = document.getElementById('progressBarContainer');
+            const bar = document.getElementById('progressBar');
+            
+            container.style.display = 'block';
+            bar.style.width = '0%';
+            setTimeout(() => { bar.style.width = '100%'; }, 100);
+        }
+
+        function hideProgress() {
+            const container = document.getElementById('progressBarContainer');
+            const timeDisplay = document.getElementById('timeDisplay');
+            
+            // Clear timer
+            if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+            }
+
+            setTimeout(() => {
+                container.style.display = 'none';
+                timeDisplay.textContent = '';
+            }, 500);
+        }
+
+        function hideProgressBar() {
+            const container = document.getElementById('progressBarContainer');
+            
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 500);
+        }
+
+        // Add lower filter for template
+        if (typeof String.prototype.lower !== 'function') {
+            String.prototype.lower = function() {
+                return this.toLowerCase();
+            };
+        }
+
+        // System ID Overlay Functions
+        function showSystemIdOverlay(systemId) {
+            const overlay = document.getElementById('system-id-overlay');
+            const fullSystemIdElement = document.getElementById('fullSystemId');
+            fullSystemIdElement.textContent = systemId;
+
+            overlay.style.display = 'block';
+            document.addEventListener('keydown', handleEscSystemIdOverlay);
+        }
+
+        function closeSystemIdOverlay() {
+            const overlay = document.getElementById('system-id-overlay');
+            overlay.style.display = 'none';
+            document.removeEventListener('keydown', handleEscSystemIdOverlay);
+        }
+
+        function handleEscSystemIdOverlay(event) {
+            if (event.key === "Escape") {
+                closeSystemIdOverlay();
+            }
+        }
+
+        function copySystemId() {
+            const fullSystemIdElement = document.getElementById('fullSystemId');
+            const range = document.createRange();
+            range.selectNode(fullSystemIdElement);
+            const selection = window.getSelection();
+
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            try {
+                document.execCommand('copy');
+                closeSystemIdOverlay();
+            } catch (err) {
+                console.error('Error copying SystemId: ', err);
+            }
+        }
+
+        // Show progress bar immediately when page starts loading
+        (function() {
+            showProgressBar();
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    hideProgressBar();
+                }, 500);
+            });
+        })();
+
+        // Format FileSystem created time
+        document.addEventListener('DOMContentLoaded', function() {
+            const timeElements = document.querySelectorAll('.fs-created-time');
+
+            timeElements.forEach(function(element) {
+                const originalTime = element.getAttribute('data-time');
+                const formattedTime = formatTime(originalTime);
+                element.innerHTML = '&nbsp;• ' + formattedTime;
+            });
+
+            function formatTime(originalTime) {
+                if (!originalTime) return '';
+                const parts = originalTime.split(" ");
+                const date = parts[0];
+                const time = parts[1] ? parts[1].slice(0, 5) : '';
+                const timezone = parts[2] || '';
+                return `${date} ${time} ${timezone}`;
+            }
+        });
+    </script>
+</body>
+</html>
