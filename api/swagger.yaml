@@ -6573,6 +6573,343 @@ paths:
       summary: Get KeyPair
       tags:
       - '[KeyPair Management]'
+  /mcinsight/price-info:
+    get:
+      consumes:
+      - application/json
+      description: Proxy endpoint to retrieve VM Price information from MC-Insight
+        API with filters
+      operationId: proxy-mcinsight-vmprice
+      parameters:
+      - description: CSP name (aws, gcp, azure, etc.)
+        in: query
+        name: csp
+        required: true
+        type: string
+      - description: Region filter
+        in: query
+        name: region
+        type: string
+      - description: Zone filter
+        in: query
+        name: zone
+        type: string
+      - description: Instance type filter
+        in: query
+        name: instance_type
+        type: string
+      - description: vCPU count filter
+        in: query
+        name: vcpu_count
+        type: integer
+      - description: Memory size in MiB filter
+        in: query
+        name: mem_size_mib
+        type: integer
+      - description: OS type filter (linux, windows, etc.)
+        in: query
+        name: os_type
+        type: string
+      - description: Pricing type filter (on-demand, spot, reserved, etc.)
+        in: query
+        name: pricing_type
+        type: string
+      - description: Number of records to skip for pagination
+        in: query
+        name: skip
+        type: integer
+      - description: Maximum number of records to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VM Price list data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Price Info from MC-Insight
+      tags:
+      - '[Cloud Metadata] MC-Insight'
+  /mcinsight/price-info/filters:
+    get:
+      consumes:
+      - application/json
+      description: Proxy endpoint to retrieve VM Price filters from MC-Insight API
+      operationId: proxy-mcinsight-vmprice-filters
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Filter hierarchy data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Price Filters from MC-Insight
+      tags:
+      - '[Cloud Metadata] MC-Insight'
+  /mcinsight/vm-image:
+    get:
+      consumes:
+      - application/json
+      description: Proxy endpoint to retrieve VM Image list from MC-Insight API with
+        filters
+      operationId: proxy-mcinsight-vmimage
+      parameters:
+      - description: CSP name (aws, gcp, azure, etc.)
+        in: query
+        name: csp
+        required: true
+        type: string
+      - description: Region filter
+        in: query
+        name: region
+        type: string
+      - description: Zone filter
+        in: query
+        name: zone
+        type: string
+      - description: Image ID filter (partial match)
+        in: query
+        name: image_id
+        type: string
+      - description: Image name filter (partial match)
+        in: query
+        name: image_name
+        type: string
+      - description: OS Architecture filter
+        in: query
+        name: os_architecture
+        type: string
+      - description: OS Platform filter
+        in: query
+        name: os_platform
+        type: string
+      - description: OS Distribution filter (partial match)
+        in: query
+        name: os_distribution
+        type: string
+      - description: OS Disk Type filter
+        in: query
+        name: os_disk_type
+        type: string
+      - description: Image Status filter
+        in: query
+        name: image_status
+        type: string
+      - description: Minimum OS disk size in GB
+        in: query
+        name: min_os_disk_size_gb
+        type: integer
+      - description: Maximum OS disk size in GB
+        in: query
+        name: max_os_disk_size_gb
+        type: integer
+      - description: Search text in key_value_json field
+        in: query
+        name: key_value_json_search_text
+        type: string
+      - description: Sort fields (e.g., 'name' or '-name' for descending). Can be
+          used multiple times.
+        in: query
+        name: sort
+        type: string
+      - description: Number of records to skip for pagination
+        in: query
+        name: skip
+        type: integer
+      - description: Maximum number of records to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VM Image list data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Images from MC-Insight
+      tags:
+      - '[Cloud Metadata] MC-Insight'
+  /mcinsight/vm-image/filters:
+    get:
+      consumes:
+      - application/json
+      description: Proxy endpoint to retrieve VM Image filters from MC-Insight API
+      operationId: proxy-mcinsight-vmimage-filters
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Filter hierarchy data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Image Filters from MC-Insight
+      tags:
+      - '[Cloud Metadata] MC-Insight'
+  /mcinsight/vm-spec:
+    get:
+      consumes:
+      - application/json
+      description: Proxy endpoint to retrieve VM Spec list from MC-Insight API with
+        filters
+      operationId: proxy-mcinsight-vmspec
+      parameters:
+      - description: CSP name (aws, gcp, azure, etc.)
+        in: query
+        name: csp
+        required: true
+        type: string
+      - description: Spec name filter (partial match)
+        in: query
+        name: name
+        type: string
+      - description: Region filter
+        in: query
+        name: region
+        type: string
+      - description: Zone filter
+        in: query
+        name: zone
+        type: string
+      - description: Minimum vCPU count
+        in: query
+        name: min_vcpu_count
+        type: integer
+      - description: Maximum vCPU count
+        in: query
+        name: max_vcpu_count
+        type: integer
+      - description: Minimum memory size in MiB
+        in: query
+        name: min_mem_size_mib
+        type: integer
+      - description: Maximum memory size in MiB
+        in: query
+        name: max_mem_size_mib
+        type: integer
+      - description: Minimum vCPU clock speed in GHz
+        in: query
+        name: min_vcpu_clock_ghz
+        type: number
+      - description: Maximum vCPU clock speed in GHz
+        in: query
+        name: max_vcpu_clock_ghz
+        type: number
+      - description: Minimum disk size in GB
+        in: query
+        name: min_disk_size_gb
+        type: integer
+      - description: Maximum disk size in GB
+        in: query
+        name: max_disk_size_gb
+        type: integer
+      - description: Minimum GPU count
+        in: query
+        name: min_gpu_count
+        type: integer
+      - description: Maximum GPU count
+        in: query
+        name: max_gpu_count
+        type: integer
+      - description: Minimum GPU memory size in GB
+        in: query
+        name: min_gpu_mem_size_gb
+        type: integer
+      - description: Maximum GPU memory size in GB
+        in: query
+        name: max_gpu_mem_size_gb
+        type: integer
+      - description: GPU manufacturer filter
+        in: query
+        name: gpu_mfr
+        type: string
+      - description: GPU model filter
+        in: query
+        name: gpu_model
+        type: string
+      - description: Minimum GPU total memory size in GB
+        in: query
+        name: min_gpu_total_mem_size_gb
+        type: integer
+      - description: Maximum GPU total memory size in GB
+        in: query
+        name: max_gpu_total_mem_size_gb
+        type: integer
+      - description: Search text in key_value_json field
+        in: query
+        name: search_text
+        type: string
+      - description: Sort fields (e.g., 'name' or '-name' for descending). Can be
+          used multiple times.
+        in: query
+        name: sort
+        type: string
+      - description: Number of records to skip for pagination
+        in: query
+        name: skip
+        type: integer
+      - description: Maximum number of records to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VM Spec list data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Specs from MC-Insight
+      tags:
+      - '[Cloud Metadata] MC-Insight'
+  /mcinsight/vm-spec/filters:
+    get:
+      consumes:
+      - application/json
+      description: Proxy endpoint to retrieve VM Spec filters from MC-Insight API
+      operationId: proxy-mcinsight-vmspec-filters
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Filter hierarchy data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Spec Filters from MC-Insight
+      tags:
+      - '[Cloud Metadata] MC-Insight'
   /myimage:
     get:
       consumes:
