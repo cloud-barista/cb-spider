@@ -114,6 +114,31 @@ func VMManagement(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	// Get Region info to extract Region ID
+	resBody, err := getResource_JsonByte("region", regionName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get region info: " + err.Error()})
+	}
+	var regionInfo map[string]interface{}
+	if err := json.Unmarshal(resBody, &regionInfo); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse region info: " + err.Error()})
+	}
+	
+	// Extract Region field from KeyValueInfoList
+	region := ""
+	if kvList, ok := regionInfo["KeyValueInfoList"].([]interface{}); ok {
+		for _, kv := range kvList {
+			if kvMap, ok := kv.(map[string]interface{}); ok {
+				if key, keyOk := kvMap["Key"].(string); keyOk && (key == "Region" || key == "region") {
+					if val, valOk := kvMap["Value"].(string); valOk {
+						region = val
+						break
+					}
+				}
+			}
+		}
+	}
+
 	vms, err := fetchVMs(connConfig)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -132,11 +157,13 @@ func VMManagement(c echo.Context) error {
 	data := struct {
 		ConnectionConfig string
 		RegionName       string
+		Region           string
 		VMs              []*cres.VMInfo
 		VMStatusMap      VMStatusMap
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
+		Region:           region,
 		VMs:              vms,
 		VMStatusMap:      statusMap,
 	}

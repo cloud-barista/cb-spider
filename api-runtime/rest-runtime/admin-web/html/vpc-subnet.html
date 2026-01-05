@@ -195,6 +195,21 @@
     .form-group button {
         margin-left: 10px;
     }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    .info-group legend {
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    .info-group .form-group:last-child {
+        margin-bottom: 0;
+    }
     .vpc-count {
         width: 50px;
     }
@@ -775,27 +790,33 @@
             <h2>Add New VPC/Subnet</h2>
             <form id="addVPCForm" onsubmit="event.preventDefault(); postVPC();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div id="vpc-info-group">
-                    <h3>VPC Info:</h3>
+
+                <!-- VPC Info Group -->
+                <fieldset class="info-group">
+                    <legend>VPC Info:</legend>
                     <div class="form-group">
                         <label for="vpcName">Name:</label>
-                        <input type="text" id="vpcName" name="vpcName" required>
+                        <input type="text" id="vpcName" name="vpcName" required style="color: #3366CC; font-weight: bold;">
                     </div>
                     <div class="form-group">
                         <label for="vpcCIDR">CIDR:</label>
                         <input type="text" id="vpcCIDR" name="vpcCIDR" required>
                     </div>
-                    <div class="form-group" style="padding-left: 145px;">
-                        <label for="vpcTags">Tags:</label>
-                        <div id="vpc-tag-container"></div>
-                        <button type="button" onclick="addVPCTagField()">+</button>
-                    </div>
+                </fieldset>
+
+                <!-- VPC Tags -->
+                <div class="form-group" style="padding-left: 145px;">
+                    <label for="vpcTags">VPC Tags:</label>
+                    <div id="vpc-tag-container"></div>
+                    <button type="button" onclick="addVPCTagField()">+</button>
                 </div>
-                <div id="subnet-info-group" style="margin-top: 20px;">
-                    <h3>Subnet Info:</h3>
+
+                <!-- Subnet Info Group -->
+                <fieldset class="info-group">
+                    <legend>Subnet Info:</legend>
                     <div class="form-group">
                         <label for="subnetName">Name:</label>
-                        <input type="text" id="subnetName" name="subnetName" required>
+                        <input type="text" id="subnetName" name="subnetName" required style="color: #3366CC; font-weight: bold;">
                     </div>
                     <div class="form-group">
                         <label for="subnetCIDR">CIDR:</label>
@@ -805,12 +826,15 @@
                         <label for="subnetZone">Zone:</label>
                         <select id="subnetZone" name="subnetZone" required></select>
                     </div>
-                    <div class="form-group" style="padding-left: 145px;">
-                        <label for="subnetTags">Tags:</label>
-                        <div id="subnet-tag-container"></div>
-                        <button type="button" onclick="addSubnetTagField()">+</button>
-                    </div>
+                </fieldset>
+
+                <!-- Subnet Tags -->
+                <div class="form-group" style="padding-left: 145px;">
+                    <label for="subnetTags">Subnet Tags:</label>
+                    <div id="subnet-tag-container"></div>
+                    <button type="button" onclick="addSubnetTagField()">+</button>
                 </div>
+
                 <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
                     <label for="vpcCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
                     <input type="number" id="vpcCount" name="vpcCount" class="vpc-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
@@ -1115,7 +1139,7 @@
         vpcCIDRInput.value = '10.0.0.0/16';
         disableVPCCIDRForProviders(connConfig);
         zoneInput.value = zone;
-        subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        subnetNameInput.value = `${region}-subnet-${Math.random().toString(36).substring(2, 5)}`;
         subnetCIDRInput.value = '10.0.1.0/24';
 
         document.querySelectorAll('.vpc-tag-input, .subnet-tag-input').forEach(tagInput => tagInput.remove());
@@ -1130,7 +1154,7 @@
         
         document.getElementById('subnetVPCName').value = vpcName;
         document.getElementById('subnetVPCNameDisplay').value = vpcName;
-        document.getElementById('addSubnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('addSubnetName').value = `${region}-subnet-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('addSubnetCIDR').value = '10.0.2.0/24';
 
         document.getElementById('subnet-overlay').style.display = 'flex';

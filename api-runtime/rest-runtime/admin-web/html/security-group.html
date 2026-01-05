@@ -171,6 +171,49 @@
         align-items: center;
         margin-bottom: 10px;
     }
+    .form-group-container {
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+    }
+    .form-group-container .form-group {
+        margin-bottom: 5px;
+    }
+    .form-group-container .form-group:last-child {
+        margin-bottom: 0;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    .info-group legend {
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    .info-group .form-group:last-child {
+        margin-bottom: 0;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    .info-group legend {
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    .info-group .form-group:last-child {
+        margin-bottom: 0;
+    }
     .form-group label {
         flex: 1;
         text-align: right;
@@ -705,60 +748,65 @@
             <h2>Add New SecurityGroup</h2>
             <form id="addSGForm" onsubmit="event.preventDefault(); postSecurityGroup();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div id="sg-info-group">
-                    <h3>SecurityGroup Info:</h3>
+
+                <!-- SecurityGroup Info Group -->
+                <fieldset class="info-group">
+                    <legend>SecurityGroup Info:</legend>
                     <div class="form-group">
                         <label for="sgName">Name:</label>
-                        <input type="text" id="sgName" name="sgName" required style="width: 65%;">
+                        <input type="text" id="sgName" name="sgName" required style="width: 65%; color: #3366CC; font-weight: bold;">
                     </div>
                     <div class="form-group">
                         <label for="vpcName">VPC Name:</label>
                         <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
                     </div>
-                    <div style="margin-top: 20px;"></div>
-                    <h3>Security Rules Info:</h3>
-                    <div class="form-group">
-                        <label for="protocol">Protocol:</label>
-                        <select id="protocol" name="protocol" required style="background-color: #E6E6FA; width: 65%;">
-                            <option value="TCP">TCP</option>
-                            <option value="UDP">UDP</option>
-                            <option value="ICMP">ICMP</option>
-                            <option value="ALL">ALL</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="fromPort">From Port:</label>
-                        <input type="number" id="fromPort" name="fromPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="toPort">To Port:</label>
-                        <input type="number" id="toPort" name="toPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="direction">Direction:</label>
-                        <div id="direction" style="display: flex; justify-content: center; align-items: center; width: 65%; background-color: #fee2e2; border-radius: 5px;">
-                            <label style="margin-right: 10px; flex: 1; text-align: center;">
-                                <input type="radio" name="direction" value="inbound" required checked> Inbound
-                            </label>
-                            <label style="flex: 1; text-align: center;">
-                                <input type="radio" name="direction" value="outbound" required> Outbound
-                            </label>
+                </fieldset>
+
+                <!-- Security Rules Info Group -->
+                <fieldset class="info-group">
+                    <legend>Security Rules Info:</legend>
+                        <div class="form-group">
+                            <label for="protocol">Protocol:</label>
+                            <select id="protocol" name="protocol" required style="background-color: #E6E6FA; width: 65%;">
+                                <option value="TCP">TCP</option>
+                                <option value="UDP">UDP</option>
+                                <option value="ICMP">ICMP</option>
+                                <option value="ALL">ALL</option>
+                            </select>
                         </div>
-                    </div>                    
+                        
+                        <div class="form-group">
+                            <label for="fromPort">From Port:</label>
+                            <input type="number" id="fromPort" name="fromPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="toPort">To Port:</label>
+                            <input type="number" id="toPort" name="toPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="direction">Direction:</label>
+                            <div id="direction" style="display: flex; justify-content: center; align-items: center; width: 65%; background-color: #fee2e2; border-radius: 5px;">
+                                <label style="margin-right: 10px; flex: 1; text-align: center;">
+                                    <input type="radio" name="direction" value="inbound" required checked> Inbound
+                                </label>
+                                <label style="flex: 1; text-align: center;">
+                                    <input type="radio" name="direction" value="outbound" required> Outbound
+                                </label>
+                            </div>
+                        </div>                    
 
-                    <div class="form-group">
-                        <label for="cidr">CIDR:</label>
-                        <input type="text" id="cidr" name="cidr" value="0.0.0.0/0" required style="width: 65%;">
-                    </div>
+                        <div class="form-group">
+                            <label for="cidr">CIDR:</label>
+                            <input type="text" id="cidr" name="cidr" value="0.0.0.0/0" required style="width: 65%;">
+                        </div>
+                </fieldset>
 
-                    <div class="form-group" style="padding-left: 10px;">
-                        <label for="sgTags">Tags:</label>
-                        <div id="sg-tag-container"></div>
-                        <button type="button" onclick="addSGTagField()">+</button>
-                    </div>
+                <div class="form-group" style="padding-left: 10px;">
+                    <label for="sgTags">Tags:</label>
+                    <div id="sg-tag-container"></div>
+                    <button type="button" onclick="addSGTagField()">+</button>
                 </div>
                 <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
                     <label for="sgCount" style="margin-right: 5px;margin-left: 40px;">#:</label>

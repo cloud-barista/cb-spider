@@ -541,6 +541,22 @@
         align-items: center;
         margin-bottom: 10px;
     }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    .info-group legend {
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    .info-group .form-group:last-child,
+    .info-group .form-group-tags:last-child {
+        margin-bottom: 0;
+    }
     .form-group-tags label {
         flex: 1;
         text-align: right;
@@ -722,12 +738,14 @@
     }
 
     #vmContainer, #addVMContainer {
-        border: 1px solid black;
-        padding: 10px;
-        width: 60%;
+        border: 1px solid #767676;
+        padding: 2px 5px;
+        width: 62%;
         overflow-y: auto;
+        overflow-x: auto;
         margin: 0 auto;
         white-space: normal;
+        max-height: 80px;
     }
 
     .spinner {
@@ -950,92 +968,105 @@
             <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>Add New NLB</h2>
             <form id="addNLBForm" onsubmit="event.preventDefault(); postNLB();">
-                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">                
-                <h3>NLB Info:</h3>
-                <div class="form-group">
-                    <label for="nlbName">Name:</label>
-                    <input type="text" id="nlbName" name="nlbName" required style="width: 65%;">
-                </div>
-                <div class="form-group">
-                    <label for="vpcName">VPC Name:</label>
-                    <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
-                </div>
-                <div class="form-group">
-                    <label for="type">Type:</label>
-                    <select id="type" name="type" required style="background-color: #E6E6FA; width: 65%;">
-                        <option value="PUBLIC">PUBLIC</option>
-                        <option value="INTERNAL">INTERNAL</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="scope">Scope:</label>
-                    <select id="scope" name="scope" required style="background-color: #F5F5DC; width: 65%;">
-                        <option value="REGION">REGION</option>
-                        <option value="GLOBAL">GLOBAL</option>
-                    </select>
-                </div>
-    
-                <div style="margin-top: 20px;"></div>
-                <h3>Listener:</h3>
-                <div class="form-group">
-                    <label for="protocol">Protocol:</label>
-                    <select id="protocol" name="protocol" required style="background-color: #E6E6FA; width: 65%;">
-                        <option value="TCP">TCP</option>
-                        <option value="UDP">UDP</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="port">Port:</label>
-                    <input type="number" id="port" name="port" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
-                </div>
-    
-                <div style="margin-top: 20px;"></div>
-                <h3>VM Groups:</h3>
-                <div class="form-group">
-                    <label for="vmProtocol">Protocol:</label>
-                    <select id="vmProtocol" name="vmProtocol" required style="background-color: #E6E6FA; width: 65%;">
-                        <option value="TCP">TCP</option>
-                        <option value="UDP">UDP</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="vmPort">Port:</label>
-                    <input type="number" id="vmPort" name="vmPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
-                </div>
-                <div class="form-group">
-                    <label for="vmContainer">VMs:</label>
-                    <div id="vmContainer" name="vmContainer"></div>                        
-                </div>
-    
-                <div style="margin-top: 20px;"></div>
-                <h3>Health Checker:</h3>
-                <div id="gcpHealthCheckWarning" style="display: none; margin-bottom: 10px;">
-                    <span style="color: #856404; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: right;" 
-                          title="GCP Target Pool-based NLB only supports HTTP health checks.&#10;Please ensure an HTTP service is listening on the specified port on the VM.(e.g., $apt install nginx)">※ GCP requires HTTP service on the VM (e.g., nginx)...</span>
-                </div>
-                <div class="form-group">
-                    <label for="hcProtocol">Protocol:</label>
-                    <select id="hcProtocol" name="hcProtocol" required style="background-color: #E6E6FA; width: 65%;">
-                        <option value="TCP">TCP</option>
-                        <option value="HTTP">HTTP</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="hcPort">Port:</label>
-                    <input type="number" id="hcPort" name="hcPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
-                </div>
-                <div class="form-group-tags">
-                    <label for="interval">Interval:</label>
-                    <input type="text" id="interval" name="interval" value="default" style="width: 43px;">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
 
-                    <label for="timeout">Timeout:</label>
-                    <input type="text" id="timeout" name="timeout" value="default" style="width: 43px;">
+                <!-- NLB Info Group -->
+                <fieldset class="info-group">
+                    <legend>NLB Info:</legend>
+                    <div class="form-group">
+                        <label for="nlbName">Name:</label>
+                        <input type="text" id="nlbName" name="nlbName" required style="width: 65%; color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label for="vpcName">VPC Name:</label>
+                        <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="type">Type:</label>
+                        <select id="type" name="type" required style="background-color: #E6E6FA; width: 65%;">
+                            <option value="PUBLIC">PUBLIC</option>
+                            <option value="INTERNAL">INTERNAL</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scope">Scope:</label>
+                        <select id="scope" name="scope" required style="background-color: #F5F5DC; width: 65%;">
+                            <option value="REGION">REGION</option>
+                            <option value="GLOBAL">GLOBAL</option>
+                        </select>
+                    </div>
+                </fieldset>
 
-                    <label for="threshold">Threshold:</label>
-                    <input type="text" id="threshold" name="threshold" value="default" style="width: 43px;">
-                </div>
+                <!-- Listener Group -->
+                <fieldset class="info-group">
+                    <legend>Listener:</legend>
+                    <div class="form-group">
+                        <label for="protocol">Protocol:</label>
+                        <select id="protocol" name="protocol" required style="background-color: #E6E6FA; width: 65%;">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="port">Port:</label>
+                        <input type="number" id="port" name="port" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
+                    </div>
+                </fieldset>
+
+                <!-- VM Groups -->
+                <fieldset class="info-group">
+                    <legend>VM Groups:</legend>
+                    <div class="form-group">
+                        <label for="vmProtocol">Protocol:</label>
+                        <select id="vmProtocol" name="vmProtocol" required style="background-color: #E6E6FA; width: 65%;">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="vmPort">Port:</label>
+                        <input type="number" id="vmPort" name="vmPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
+                    </div>
+                    <div class="form-group">
+                        <label for="vmContainer">VMs:</label>
+                        <div id="vmContainer" name="vmContainer"></div>
+                    </div>
+                </fieldset>
+
+                <!-- Health Checker Group -->
+                <fieldset class="info-group">
+                    <legend>Health Checker:</legend>
+                    <div id="gcpHealthCheckWarning" style="display: none; margin-bottom: 10px;">
+                        <span style="color: #856404; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: right;"
+                              title="GCP Target Pool-based NLB only supports HTTP health checks.&#10;Please ensure an HTTP service is listening on the specified port on the VM.(e.g., $apt install nginx)">※ GCP requires HTTP service on the VM (e.g., nginx)...</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="hcProtocol">Protocol:</label>
+                        <select id="hcProtocol" name="hcProtocol" required style="background-color: #E6E6FA; width: 65%;">
+                            <option value="TCP">TCP</option>
+                            <option value="HTTP">HTTP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="hcPort">Port:</label>
+                        <input type="number" id="hcPort" name="hcPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
+                    </div>
+                    <div style="margin-top: 15px;"></div>
+                    <div class="form-group-tags">
+                        <label for="interval">Interval:</label>
+                        <input type="text" id="interval" name="interval" value="default" style="width: 43px;">
+
+                        <label for="timeout">Timeout:</label>
+                        <input type="text" id="timeout" name="timeout" value="default" style="width: 43px;">
+
+                        <label for="threshold">Threshold:</label>
+                        <input type="text" id="threshold" name="threshold" value="default" style="width: 43px;">
+                    </div>
+                </fieldset>
+
+                <!-- Tags -->
                 <div class="form-group">
-                    <h3>Tags:</h3>
+                    <label for="nlb-tag-container">Tags:</label>
                     <div id="nlb-tag-container"></div>
                     <button type="button" onclick="addNLBTagField()">+</button>
                 </div>    
@@ -2076,7 +2107,9 @@
         if (vms.length === 0) {
             const noVMMessage = document.createElement('p');
             noVMMessage.textContent = 'No VMs available.';
-            noVMMessage.style.color = 'red';
+            noVMMessage.style.color = 'black';
+            noVMMessage.style.margin = '2px 0';
+            noVMMessage.style.fontSize = '12px';
             vmContainer.appendChild(noVMMessage);
         } else {
             vms.forEach((vm) => {
