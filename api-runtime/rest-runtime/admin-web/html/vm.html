@@ -234,6 +234,19 @@ THE SOFTWARE.
         align-items: center;
         margin-bottom: 10px;
     }
+    .form-group-container {
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+    }
+    .form-group-container .form-group {
+        margin-bottom: 5px;
+    }
+    .form-group-container .form-group:last-child {
+        margin-bottom: 0;
+    }
     .form-group label {
         flex: 1;
         text-align: right;
@@ -648,24 +661,23 @@ THE SOFTWARE.
     }
 
     #dataDiskSelect, #securityGroupSelect {
-        border: 1px solid black;
-        padding: 10px;
-        width: 60%;
+        border: 1px solid #767676;
+        padding: 2px 5px;
+        flex: 2;
         overflow-y: auto;
         overflow-x: auto;
         margin: 0 auto;
         white-space: normal;
-        max-height:300px;
+        max-height: 80px;
+    }
+
+    #dataDiskSelect p, #securityGroupSelect p {
+        margin: 2px 0;
+        font-size: 12px;
     }
 
     #securityGroupSelect {
         background-color: #f3f3fd;
-    }
-
-    #diskSelect p {
-        margin: 5px 0;
-        color: black;
-        font-size: 14px;
     }
 
     @keyframes progress-animation {
@@ -1196,85 +1208,95 @@ THE SOFTWARE.
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
                 <div class="form-group">
                     <label for="vmName">Name:</label>
-                    <input type="text" id="vmName" name="vmName" required>
+                    <input type="text" id="vmName" name="vmName" required style="color: #3366CC; font-weight: bold;">
                 </div>
 
-                <div class="form-group">
-                    <label for="vpcSelect">VPC:</label>
-                    <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets(); loadSecurityGroups();" style="background-color: #f3f3fd;">
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="subnetSelect">Subnet:</label>
-                    <select id="subnetSelect" name="subnetSelect" required onchange="updateSelectedSubnetZone()" style="background-color: #f3f3fd;">
-                        <option value="">Please select a VPC first.</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="subnetZone">Subnet Zone:</label>
-                    <input type="text" id="subnetZone" readonly style="background-color: #f3f3fd; cursor: not-allowed; border: 1px solid #767676; padding: 2px; height: auto; box-sizing: border-box;" placeholder="Select a subnet to see its zone">
-                </div>
-                
-                <div class="form-group">
-                    <label for="securityGroupSelect">Security Groups:</label>
-                    <div id="securityGroupSelect" name="securityGroupSelect"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="keypairSelect">KeyPair:</label>
-                    <select id="keypairSelect" name="keypairSelect" required style="background-color: #f3f3fd;">
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="imageType">Image Type:</label>
-                    <select id="imageType" name="imageType" required onchange="updateImageNameField()" style="background-color: #f7f7e6;">
-                        <option value="PublicImage">PublicImage</option>
-                        <option value="MyImage">MyImage</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="imageName">VM Image Name:</label>
-                    <div id="imageNameField" style="display: flex; flex: 2; align-items: center;">
-                        <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
-                        <button type="button" onclick="showImageSelectionOverlay()" style="margin-left: 5px; min-width: 35px; font-size: 16px;">🔍</button>
+                <div class="form-group-container">
+                    <div class="form-group">
+                        <label for="vpcSelect">VPC:</label>
+                        <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets(); loadSecurityGroups();" style="background-color: #f3f3fd;">
+                        </select>
                     </div>
-                </div>                
+                    
+                    <div class="form-group">
+                        <label for="subnetSelect">Subnet:</label>
+                        <select id="subnetSelect" name="subnetSelect" required onchange="updateSelectedSubnetZone()" style="background-color: #f3f3fd;">
+                            <option value="">Please select a VPC first.</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="subnetZone">Subnet Zone:</label>
+                        <input type="text" id="subnetZone" readonly disabled style="background-color: #e9ecef; cursor: not-allowed;" placeholder="Select a subnet to see its zone">
+                    </div>
+                </div>
                 
-                <div class="form-group">
-                    <label for="vmSpecName">VM Spec Name:</label>
-                    <div style="display: flex; flex: 2; align-items: center;">
-                        <input type="text" id="vmSpecName" name="vmSpecName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
-                        <button type="button" onclick="showSpecSelectionOverlay()" style="margin-left: 5px; min-width: 35px; font-size: 16px;">🔍</button>
+                <div class="form-group-container">
+                    <div class="form-group">
+                        <label for="securityGroupSelect">Security Groups:</label>
+                        <div id="securityGroupSelect" name="securityGroupSelect"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="keypairSelect">KeyPair:</label>
+                        <select id="keypairSelect" name="keypairSelect" required style="background-color: #f3f3fd; flex: 2;">
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group-container">
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label for="imageType">Image Type:</label>
+                        <select id="imageType" name="imageType" required onchange="updateImageNameField()" style="background-color: #f7f7e6; flex: 2;">
+                            <option value="PublicImage">PublicImage</option>
+                            <option value="MyImage">MyImage</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="imageName">VM Image Name:</label>
+                        <div id="imageNameField" style="display: flex; flex: 2; align-items: center;">
+                            <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
+                            <button type="button" onclick="showImageSelectionOverlay()" style="margin-left: 5px; min-width: 26px; height: 22px; padding: 0 4px; font-size: 12px; line-height: 1;">🔍</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vmSpecName">VM Spec Name:</label>
+                        <div style="display: flex; flex: 2; align-items: center;">
+                            <input type="text" id="vmSpecName" name="vmSpecName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
+                            <button type="button" onclick="showSpecSelectionOverlay()" style="margin-left: 5px; min-width: 26px; height: 22px; padding: 0 4px; font-size: 12px; line-height: 1;">🔍</button>
+                        </div>
                     </div>
                 </div>                              
 
-                <div class="form-group">
-                    <label for="rootDiskType">Root Disk Type:</label>
-                    <input type="text" id="rootDiskType" name="rootDiskType" value="default" required>
-                </div>
+                <div class="form-group-container">
+                    <div class="form-group">
+                        <label for="rootDiskType">Root Disk Type:</label>
+                        <input type="text" id="rootDiskType" name="rootDiskType" value="default" required>
+                    </div>
 
-                <div class="form-group">
-                    <label for="rootDiskSize">Root Disk Size:</label>
-                    <input type="text" id="rootDiskSize" name="rootDiskSize" placeholder="Size in GB">
+                    <div class="form-group">
+                        <label for="rootDiskSize">Root Disk Size:</label>
+                        <input type="text" id="rootDiskSize" name="rootDiskSize" placeholder="Size in GB">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dataDiskSelect">Data Disk Names:</label>
+                        <div id="dataDiskSelect" name="dataDiskSelect"></div>
+                    </div>
                 </div>              
-                
-                <div class="form-group">
-                    <label for="dataDiskSelect">Data Disk Names:</label>
-                    <div id="dataDiskSelect" name="dataDiskSelect"></div>
-                </div>
                                 
-                <div class="form-group">
-                    <label for="vmUserId">VM User ID:</label>
-                    <input type="text" id="vmUserId" name="vmUserId" placeholder="Administrator" disabled style="background-color: #e9ecef; cursor: not-allowed;">
-                </div>
-                
-                <div class="form-group">
-                    <label for="vmUserPasswd">VM User Password:</label>
-                    <input type="password" id="vmUserPasswd" name="vmUserPasswd" placeholder="Windows Only">
+                <div class="form-group-container">
+                    <div class="form-group">
+                        <label for="vmUserId">VM User ID:</label>
+                        <input type="text" id="vmUserId" name="vmUserId" placeholder="Administrator" disabled style="background-color: #e9ecef; cursor: not-allowed;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vmUserPasswd">VM User Password:</label>
+                        <input type="password" id="vmUserPasswd" name="vmUserPasswd" placeholder="Windows Only">
+                    </div>
                 </div>
 
                 <div class="form-group" style="padding-left: 100px;">
@@ -2456,13 +2478,43 @@ THE SOFTWARE.
             const zone = selectedOption.getAttribute('data-zone') || selectedOption.dataset.zone;
             
             if (zone) {
-                subnetZoneInput.value = zone;
+                // Fetch zone details to get DisplayName
+                fetchZoneDisplayName(zone).then(displayName => {
+                    if (displayName) {
+                        subnetZoneInput.value = `${zone} (${displayName})`;
+                    } else {
+                        subnetZoneInput.value = zone;
+                    }
+                }).catch(() => {
+                    subnetZoneInput.value = zone;
+                });
                 loadDataDisks(zone);
             } else {
                 subnetZoneInput.value = '';
             }
         } else {
             subnetZoneInput.value = '';
+        }
+    }
+
+    async function fetchZoneDisplayName(zoneName) {
+        try {
+            const regionId = '{{.Region}}';
+            const connConfig = document.getElementById('connConfig').value;
+            
+            const response = await fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`);
+            const data = await response.json();
+            
+            if (data && data.ZoneList) {
+                const zoneInfo = data.ZoneList.find(z => z.Name === zoneName);
+                if (zoneInfo && zoneInfo.DisplayName) {
+                    return zoneInfo.DisplayName;
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching zone display name:', error);
+            return null;
         }
     }
 
@@ -2911,7 +2963,8 @@ THE SOFTWARE.
             rootDiskTypeField.disabled = false;
             rootDiskSizeField.disabled = false;
             imageNameField.innerHTML = `
-                <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+                <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
+                <button type="button" onclick="showImageSelectionOverlay()" style="margin-left: 5px; min-width: 26px; height: 22px; padding: 0 4px; font-size: 12px; line-height: 1;">🔍</button>
             `;
         }
     }
@@ -3132,9 +3185,13 @@ THE SOFTWARE.
                 }
             }
             
-            // Get zone from subnet zone input field (updated when subnet is selected)
-            const subnetZoneInput = document.getElementById('subnetZone');
-            const zoneName = subnetZoneInput && subnetZoneInput.value ? subnetZoneInput.value : '';
+            // Get zone from currently selected subnet's data-zone attribute
+            let zoneName = '';
+            const subnetSelect = document.getElementById('subnetSelect');
+            if (subnetSelect && subnetSelect.selectedIndex >= 0) {
+                const selectedOption = subnetSelect.options[subnetSelect.selectedIndex];
+                zoneName = selectedOption.getAttribute('data-zone') || selectedOption.dataset.zone || '';
+            }
             
             return { csp: providerName, region: cspRegion, zone: zoneName };
         } catch (error) {
@@ -3163,19 +3220,38 @@ THE SOFTWARE.
         overlay.style.display = 'flex';
         document.addEventListener('keydown', handleImageSelectionOverlayEsc);
         
-        // Check if MC-Insight token is configured
-        checkMCInsightToken().then(hasToken => {
-            if (!hasToken) {
-                showTokenWarning('image-list-container');
-                document.getElementById('image-pagination').style.display = 'none';
+        // Get current connection info and set filters
+        getConnectionInfo().then(info => {
+            if (!info.zone) {
+                alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
+                closeImageSelectionOverlay();
                 return;
             }
             
-            // Get current connection info and set filters
-            getConnectionInfo().then(info => {
-                if (!info.zone) {
-                    alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
-                    closeImageSelectionOverlay();
+            // For OpenStack and MOCK, skip MC-Insight token check and load filters directly
+            if (info.csp.toLowerCase() === 'openstack' || info.csp.toLowerCase() === 'mock') {
+                loadImageFilterOptions(info.csp, info.region, info.zone);
+                
+                // Add Enter key event listeners to filter inputs
+                ['image-filter-name', 'image-filter-distribution'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.addEventListener('keypress', function(event) {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                applyImageFilters();
+                            }
+                        });
+                    }
+                });
+                return;
+            }
+            
+            // For other CSPs, check if MC-Insight token is configured
+            checkMCInsightToken().then(hasToken => {
+                if (!hasToken) {
+                    showTokenWarning('image-list-container');
+                    document.getElementById('image-pagination').style.display = 'none';
                     return;
                 }
                 
@@ -3193,11 +3269,11 @@ THE SOFTWARE.
                         });
                     }
                 });
-            }).catch(error => {
-                console.error('Error loading connection info:', error);
-                alert('Failed to load connection information');
-                closeImageSelectionOverlay();
             });
+        }).catch(error => {
+            console.error('Error loading connection info:', error);
+            alert('Failed to load connection information');
+            closeImageSelectionOverlay();
         });
     }
 
@@ -3220,8 +3296,8 @@ THE SOFTWARE.
     }
 
     function loadImageFilterOptions(csp, currentRegion, currentZone) {
-        // ==================== OPENSTACK: EXTRACT FROM CACHED DATA ====================
-        if (csp.toLowerCase() === 'openstack') {
+        // ==================== OPENSTACK & MOCK: EXTRACT FROM CACHED DATA ====================
+        if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
             const regionSelect = document.getElementById('image-filter-region');
             const zoneSelect = document.getElementById('image-filter-zone');
             const archSelect = document.getElementById('image-filter-arch');
@@ -3596,9 +3672,9 @@ THE SOFTWARE.
 
     function loadImages() {
         getCSPFromConnection().then(csp => {
-            // ==================== OPENSTACK: USE SPIDER API ====================
-            if (csp.toLowerCase() === 'openstack') {
-                // Hide MC-Insight badge for OpenStack
+            // ==================== OPENSTACK & MOCK: USE SPIDER API ====================
+            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
+                // Hide MC-Insight badge for OpenStack and MOCK
                 const badge = document.getElementById('image-mcinsight-badge');
                 if (badge) badge.style.display = 'none';
                 
@@ -3967,22 +4043,16 @@ THE SOFTWARE.
         overlay.style.display = 'flex';
         document.addEventListener('keydown', handleSpecSelectionOverlayEsc);
         
-        // Check if MC-Insight token is configured
-        checkMCInsightToken().then(hasToken => {
-            if (!hasToken) {
-                showTokenWarning('spec-list-container');
-                document.getElementById('spec-pagination').style.display = 'none';
+        // Get current connection info and set filters
+        getConnectionInfo().then(info => {
+            if (!info.zone) {
+                alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
+                closeSpecSelectionOverlay();
                 return;
             }
             
-            // Get current connection info and set filters
-            getConnectionInfo().then(info => {
-                if (!info.zone) {
-                    alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
-                    closeSpecSelectionOverlay();
-                    return;
-                }
-                
+            // For OpenStack and MOCK, skip MC-Insight token check and load filters directly
+            if (info.csp.toLowerCase() === 'openstack' || info.csp.toLowerCase() === 'mock') {
                 loadSpecFilterOptions(info.csp, info.region, info.zone);
                 
                 // Add focus event listeners to set placeholder as initial value for number inputs
@@ -4184,11 +4254,188 @@ THE SOFTWARE.
                         });
                     }
                 });
-            }).catch(error => {
-                console.error('Error loading connection info:', error);
-                alert('Failed to load connection information');
-                closeSpecSelectionOverlay();
+                return;
+            }
+            
+            // For other CSPs, check if MC-Insight token is configured
+            checkMCInsightToken().then(hasToken => {
+                if (!hasToken) {
+                    showTokenWarning('spec-list-container');
+                    document.getElementById('spec-pagination').style.display = 'none';
+                    return;
+                }
+                
+                loadSpecFilterOptions(info.csp, info.region, info.zone);
+                
+                // Add the same event listeners for MC-Insight based CSPs
+                const numberInputs = [
+                    { id: 'spec-filter-min-vcpu', defaultValue: '2' },
+                    { id: 'spec-filter-max-vcpu', defaultValue: '16' },
+                    { id: 'spec-filter-min-mem', defaultValue: '4096' },
+                    { id: 'spec-filter-max-mem', defaultValue: '65536' },
+                    { id: 'spec-filter-min-gpu', defaultValue: '1' },
+                    { id: 'spec-filter-max-gpu', defaultValue: '8' },
+                    { id: 'spec-filter-min-gpu-mem', defaultValue: '8' },
+                    { id: 'spec-filter-max-gpu-mem', defaultValue: '128' }
+                ];
+                
+                numberInputs.forEach(input => {
+                    const element = document.getElementById(input.id);
+                    if (element) {
+                        element.addEventListener('focus', function() {
+                            if (this.value === '') {
+                                this.value = input.defaultValue;
+                            }
+                        });
+                        
+                        // Add custom step behavior for memory inputs (*2, /2)
+                        if (input.id.includes('-mem')) {
+                            let isTyping = false;
+                            let previousValue = null;
+                            let isComposing = false;
+                            
+                            // Block IME (Korean, etc.) input
+                            element.addEventListener('compositionstart', function() {
+                                isComposing = true;
+                            });
+                            
+                            element.addEventListener('compositionend', function() {
+                                isComposing = false;
+                                this.value = this.value.replace(/[^0-9]/g, '');
+                            });
+                            
+                            element.addEventListener('focus', function() {
+                                previousValue = parseInt(this.value) || parseInt(input.defaultValue);
+                            });
+                            
+                            // Detect direct keyboard number input
+                            element.addEventListener('keydown', function(event) {
+                                // Block all non-numeric keys except special keys
+                                if (isComposing) {
+                                    event.preventDefault();
+                                    return;
+                                }
+                                
+                                // Arrow keys - apply *2, /2
+                                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                                    event.preventDefault();
+                                    const currentValue = parseInt(this.value) || parseInt(input.defaultValue);
+                                    if (event.key === 'ArrowUp') {
+                                        this.value = currentValue * 2;
+                                    } else {
+                                        const newValue = Math.floor(currentValue / 2);
+                                        this.value = newValue > 0 ? newValue : 1;
+                                    }
+                                    previousValue = parseInt(this.value);
+                                    return;
+                                }
+                                
+                                // Number keys, backspace, delete - mark as typing
+                                if ((event.key >= '0' && event.key <= '9') || 
+                                    event.key === 'Backspace' || 
+                                    event.key === 'Delete') {
+                                    isTyping = true;
+                                }
+                            });
+                            
+                            // Handle spinner clicks and other value changes
+                            element.addEventListener('input', function() {
+                                // Block non-numeric characters (including Korean)
+                                const cleaned = this.value.replace(/[^0-9]/g, '');
+                                if (this.value !== cleaned) {
+                                    this.value = cleaned;
+                                    previousValue = parseInt(this.value) || 0;
+                                    return;
+                                }
+                                
+                                if (isTyping) {
+                                    // Direct keyboard input - allow normal behavior
+                                    isTyping = false;
+                                    previousValue = parseInt(this.value);
+                                    return;
+                                }
+                                
+                                // Spinner click or other change - apply *2, /2
+                                const currentValue = parseInt(this.value);
+                                if (!isNaN(currentValue) && previousValue !== null && currentValue !== previousValue) {
+                                    if (currentValue > previousValue) {
+                                        this.value = previousValue * 2;
+                                    } else {
+                                        const newValue = Math.floor(previousValue / 2);
+                                        this.value = newValue > 0 ? newValue : 1;
+                                    }
+                                    previousValue = parseInt(this.value);
+                                }
+                            });
+                        } else {
+                            // For non-memory inputs (vCPU, GPU count)
+                            element.addEventListener('compositionstart', function() {
+                                isComposing = true;
+                            });
+                            
+                            element.addEventListener('compositionend', function() {
+                                isComposing = false;
+                                this.value = this.value.replace(/[^0-9]/g, '');
+                            });
+                            
+                            element.addEventListener('keydown', function(event) {
+                                if (isComposing) {
+                                    event.preventDefault();
+                                    return;
+                                }
+                            });
+                            
+                            element.addEventListener('input', function() {
+                                this.value = this.value.replace(/[^0-9]/g, '');
+                            });
+                        }
+                    }
+                });
+                
+                // Add validation for max fields to ensure max >= min
+                const maxFieldValidations = [
+                    { maxId: 'spec-filter-max-vcpu', minId: 'spec-filter-min-vcpu', isMemory: false },
+                    { maxId: 'spec-filter-max-mem', minId: 'spec-filter-min-mem', isMemory: true },
+                    { maxId: 'spec-filter-max-gpu', minId: 'spec-filter-min-gpu', isMemory: false },
+                    { maxId: 'spec-filter-max-gpu-mem', minId: 'spec-filter-min-gpu-mem', isMemory: true }
+                ];
+                
+                maxFieldValidations.forEach(validation => {
+                    const maxElement = document.getElementById(validation.maxId);
+                    const minElement = document.getElementById(validation.minId);
+                    
+                    if (maxElement && minElement) {
+                        const validateMaxValue = function() {
+                            const maxValue = parseInt(this.value) || 0;
+                            const minValue = parseInt(minElement.value) || 0;
+                            
+                            if (maxValue > 0 && minValue > 0 && maxValue < minValue) {
+                                this.value = minValue;
+                            }
+                        };
+                        
+                        maxElement.addEventListener('blur', validateMaxValue);
+                        maxElement.addEventListener('change', validateMaxValue);
+                    }
+                });
+                
+                // Add Enter key event listeners to filter inputs
+                ['spec-filter-name', 'spec-filter-gpu-model', 'spec-filter-min-vcpu', 'spec-filter-max-vcpu', 'spec-filter-min-mem', 'spec-filter-max-mem', 'spec-filter-min-gpu', 'spec-filter-max-gpu', 'spec-filter-min-gpu-mem', 'spec-filter-max-gpu-mem'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.addEventListener('keypress', function(event) {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                applySpecFilters();
+                            }
+                        });
+                    }
+                });
             });
+        }).catch(error => {
+            console.error('Error loading connection info:', error);
+            alert('Failed to load connection information');
+            closeSpecSelectionOverlay();
         });
     }
 
@@ -4234,8 +4481,8 @@ THE SOFTWARE.
     }
 
     function loadSpecFilterOptions(csp, currentRegion, currentZone) {
-        // ==================== OPENSTACK: SIMPLE REGION/ZONE SETUP ====================
-        if (csp.toLowerCase() === 'openstack') {
+        // ==================== OPENSTACK & MOCK: SIMPLE REGION/ZONE SETUP ====================
+        if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
             const regionSelect = document.getElementById('spec-filter-region');
             const zoneSelect = document.getElementById('spec-filter-zone');
             
@@ -4417,9 +4664,9 @@ THE SOFTWARE.
 
     function loadSpecs() {
         getCSPFromConnection().then(csp => {
-            // ==================== OPENSTACK: USE SPIDER API ====================
-            if (csp.toLowerCase() === 'openstack') {
-                // Hide MC-Insight badge for OpenStack
+            // ==================== OPENSTACK & MOCK: USE SPIDER API ====================
+            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
+                // Hide MC-Insight badge for OpenStack and MOCK
                 const badge = document.getElementById('spec-mcinsight-badge');
                 if (badge) badge.style.display = 'none';
                 
