@@ -34,6 +34,14 @@ THE SOFTWARE.
         font-family: Arial, sans-serif;
         font-size: 12px;
     }
+    
+    /* Placeholder Styles */
+    input::placeholder,
+    textarea::placeholder {
+        color: #c0c0c0;
+        opacity: 1;
+    }
+    
     .header-container {
         display: flex;
         align-items: flex-end;
@@ -651,7 +659,7 @@ THE SOFTWARE.
     }
 
     #securityGroupSelect {
-        background-color: #faeded;
+        background-color: #f3f3fd;
     }
 
     #diskSelect p {
@@ -667,6 +675,373 @@ THE SOFTWARE.
         100% {
             transform: translateX(100%);
         }
+    }
+
+    /* Image and Spec Selection Overlays */
+    .selection-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+    }
+
+    .selection-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        width: 90%;
+        max-width: 1200px;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    }
+
+    .table-loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        font-size: 14px;
+        color: #666;
+    }
+
+    .table-loading-overlay.active {
+        display: flex;
+    }
+
+    .filter-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%);
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        border: 1px solid #dee2e6;
+    }
+
+    .filter-section h3 {
+        color: #495057;
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0 0 15px 0;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .filter-section h3::before {
+        content: "🔍";
+        font-size: 14px;
+    }
+
+    .filter-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    .filter-item {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .filter-item label {
+        font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #495057;
+    }
+
+    .filter-item select,
+    .filter-item input {
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 12px;
+        background-color: white;
+    }
+
+    .filter-item select:focus,
+    .filter-item input:focus {
+        outline: none;
+        border-color: #80bdff;
+    }
+
+    .filter-item select:disabled {
+        background-color: #f0f0f0;
+        cursor: not-allowed;
+    }
+
+    .filter-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .filter-buttons button {
+        flex: 1;
+        padding: 8px 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: normal;
+        cursor: pointer;
+        background-color: white;
+    }
+
+    .filter-buttons button:first-child {
+        background-color: #e7f3ff;
+        color: #0066cc;
+        border-color: #99ccff;
+    }
+
+    .filter-buttons button:first-child:hover {
+        background-color: #cce6ff;
+        border-color: #66b3ff;
+    }
+
+    .filter-buttons button:last-child {
+        background-color: white;
+        color: #333;
+    }
+
+    .filter-buttons button:last-child:hover {
+        background-color: #f8f9fa;
+    }
+
+    .selection-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 12px;
+    }
+
+    .selection-table th,
+    .selection-table td {
+        border: 1px solid black;
+        padding: 2px 6px;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    .selection-table th {
+        background-color: #f2f2f2;
+        color: black;
+        font-size: 14px;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .selection-table th:first-child,
+    .selection-table td:first-child {
+        width: 50px;
+    }
+
+    .selection-table th:nth-child(2) {
+        max-width: 300px;
+        text-align: center;
+    }
+
+    .selection-table td:nth-child(2) {
+        max-width: 300px;
+        white-space: normal;
+        word-break: break-all;
+        text-align: left;
+    }
+
+    .selection-table th:nth-child(3),
+    .selection-table td:nth-child(3) {
+        width: 80px;
+    }
+
+    .selection-table th:nth-child(4),
+    .selection-table td:nth-child(4) {
+        width: 90px;
+    }
+
+    .selection-table th:nth-child(5),
+    .selection-table td:nth-child(5) {
+        width: 160px;
+    }
+
+    .selection-table th:nth-child(6),
+    .selection-table td:nth-child(6) {
+        width: 90px;
+    }
+
+    .selection-table th:nth-child(7),
+    .selection-table td:nth-child(7) {
+        width: 80px;
+    }
+
+    .selection-table th:last-child,
+    .selection-table td:last-child {
+        width: 70px;
+    }
+
+    .selection-table tr:hover {
+        background-color: #f5f5f5;
+        cursor: pointer;
+    }
+
+    .selection-table tr.selected {
+        background-color: #fffab6;
+    }
+
+    .select-btn {
+        background-color: white;
+        color: black;
+        border: 1px solid #ccc;
+        padding: 3px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .select-btn:hover {
+        background-color: #f0f0f0;
+    }
+
+    .clear-filter-btn {
+        background-color: white;
+        color: black;
+        border: 1px solid #ddd;
+        padding: 1px 4px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: normal;
+        line-height: 1;
+    }
+
+    .clear-filter-btn:hover {
+        background-color: #f0f0f0;
+        border-color: #ccc;
+    }
+
+    .loading-message {
+        text-align: center;
+        padding: 20px;
+        font-size: 14px;
+        color: #666;
+    }
+
+    #image-list-container,
+    #spec-list-container {
+        position: relative;
+        min-height: 400px;
+    }
+
+    .no-data-message {
+        text-align: center;
+        padding: 20px;
+        font-size: 14px;
+        color: #999;
+    }
+
+    .pagination-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .pagination-info-left {
+        font-size: 14px;
+        color: #495057;
+    }
+
+    .pagination-info-left .total-count {
+        font-weight: bold;
+        color: #212529;
+    }
+
+    .pagination-info-left .data-version {
+        color: #6c757d;
+        font-size: 13px;
+    }
+
+    .pagination-nav-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .pagination-controls button {
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background-color: white;
+        color: #495057;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    .pagination-controls button:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .pagination-controls button:hover:not(:disabled) {
+        background-color: #e9ecef;
+        border-color: #adb5bd;
+    }
+
+    .pagination-page-info {
+        font-size: 14px;
+        color: #495057;
+        min-width: 70px;
+        text-align: center;
+    }
+
+    .powered-by-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: #6c757d;
+        margin-left: 15px;
+        padding: 3px 8px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+
+    .powered-by-badge::before {
+        content: "⚡";
+        font-size: 13px;
+    }
+
+    .powered-by-badge a {
+        color: #0066cc;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .powered-by-badge a:hover {
+        text-decoration: underline;
     }
 </style>
 </head>
@@ -832,9 +1207,14 @@ THE SOFTWARE.
                 
                 <div class="form-group">
                     <label for="subnetSelect">Subnet:</label>
-                    <select id="subnetSelect" name="subnetSelect" required style="background-color: #f3f3fd;">
+                    <select id="subnetSelect" name="subnetSelect" required onchange="updateSelectedSubnetZone()" style="background-color: #f3f3fd;">
                         <option value="">Please select a VPC first.</option>
                     </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subnetZone">Subnet Zone:</label>
+                    <input type="text" id="subnetZone" readonly style="background-color: #f3f3fd; cursor: not-allowed; border: 1px solid #767676; padding: 2px; height: auto; box-sizing: border-box;" placeholder="Select a subnet to see its zone">
                 </div>
                 
                 <div class="form-group">
@@ -844,7 +1224,7 @@ THE SOFTWARE.
                 
                 <div class="form-group">
                     <label for="keypairSelect">KeyPair:</label>
-                    <select id="keypairSelect" name="keypairSelect" required style="background-color: #faeded;">
+                    <select id="keypairSelect" name="keypairSelect" required style="background-color: #f3f3fd;">
                     </select>
                 </div>
                 
@@ -857,15 +1237,19 @@ THE SOFTWARE.
                 </div>
                 
                 <div class="form-group">
-                    <label for="imageName">Image Name:</label>
-                    <div id="imageNameField">
-                        <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+                    <label for="imageName">VM Image Name:</label>
+                    <div id="imageNameField" style="display: flex; flex: 2; align-items: center;">
+                        <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
+                        <button type="button" onclick="showImageSelectionOverlay()" style="margin-left: 5px; min-width: 35px; font-size: 16px;">🔍</button>
                     </div>
                 </div>                
                 
                 <div class="form-group">
                     <label for="vmSpecName">VM Spec Name:</label>
-                    <input type="text" id="vmSpecName" name="vmSpecName" required style="background-color: #f7f7e6;">
+                    <div style="display: flex; flex: 2; align-items: center;">
+                        <input type="text" id="vmSpecName" name="vmSpecName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
+                        <button type="button" onclick="showSpecSelectionOverlay()" style="margin-left: 5px; min-width: 35px; font-size: 16px;">🔍</button>
+                    </div>
                 </div>                              
 
                 <div class="form-group">
@@ -934,6 +1318,267 @@ THE SOFTWARE.
             <h2>System ID (Managed by CSP)</h2>
             <p id="fullSystemId"></p>
             <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+    <!-- Image Selection Overlay -->
+    <div id="image-selection-overlay" class="selection-overlay">
+        <div class="selection-overlay-content">
+            <button class="overlay-close-btn" onclick="closeImageSelectionOverlay()">X</button>
+            <h2>Select VM Image
+                <span id="image-mcinsight-badge" class="powered-by-badge" style="display: none;">Powered by <a href="http://mc-insight.cloud-barista.org" target="_blank">MC-Insight</a></span>
+            </h2>
+            
+            <div class="filter-section">
+                <h3>Filters</h3>
+                <div class="filter-row">
+                    <div class="filter-item">
+                        <label>Region:</label>
+                        <select id="image-filter-region">
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Zone:</label>
+                        <select id="image-filter-zone">
+                            <option value="">All Zones</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <div style="display: flex; align-items: flex-start; gap: 3px;">
+                            <label>Image Name:</label>
+                            <button onclick="clearFilter('image-name')" class="clear-filter-btn" title="Clear Image Name filter">CLR</button>
+                        </div>
+                        <input type="text" id="image-filter-name" placeholder="Search by name">
+                    </div>
+                    <div class="filter-item">
+                        <label>OS Architecture:</label>
+                        <select id="image-filter-arch">
+                            <option value="">All</option>
+                            <option value="x86_64">x86_64</option>
+                            <option value="arm64">arm64</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>OS Platform:</label>
+                        <select id="image-filter-platform">
+                            <option value="">All</option>
+                            <option value="linux/unix">Linux/UNIX</option>
+                            <option value="windows">Windows</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <div style="display: flex; align-items: flex-start; gap: 3px;">
+                            <label>OS Distribution:</label>
+                            <button onclick="clearFilter('image-distribution')" class="clear-filter-btn" title="Clear OS Distribution filter">CLR</button>
+                        </div>
+                        <input type="text" id="image-filter-distribution" placeholder="e.g., ubuntu, centos">
+                    </div>
+                </div>
+                <div class="filter-buttons">
+                    <button class="select-btn" onclick="applyImageFilters()">Search</button>
+                    <button class="select-btn" onclick="resetImageFilters()">Reset</button>
+                </div>
+            </div>
+
+            <div class="pagination-controls" id="image-pagination" style="display: none;">
+                <div class="pagination-info-left">
+                    <span class="total-count" id="image-total-info">Total: 0</span>
+                    <span class="data-version" id="image-data-version"></span>
+                </div>
+                <div class="pagination-nav-right">
+                    <button onclick="loadImagePage('prev')" id="image-prev-btn">◀</button>
+                    <span class="pagination-page-info" id="image-page-info">1 / 1</span>
+                    <button onclick="loadImagePage('next')" id="image-next-btn">▶</button>
+                </div>
+            </div>
+
+            <div id="image-list-container">
+                <div class="loading-message">Press Search to load images</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VM Spec Selection Overlay -->
+    <div id="spec-selection-overlay" class="selection-overlay">
+        <div class="selection-overlay-content">
+            <button class="overlay-close-btn" onclick="closeSpecSelectionOverlay()">X</button>
+            <h2>Select VM Spec
+                <span id="spec-mcinsight-badge" class="powered-by-badge" style="display: none;">Powered by <a href="http://mc-insight.cloud-barista.org" target="_blank">MC-Insight</a></span>
+            </h2>
+            
+            <div class="filter-section">
+                <h3>Filters</h3>
+                <div class="filter-row">
+                    <div class="filter-item">
+                        <label>Region:</label>
+                        <select id="spec-filter-region">
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Zone:</label>
+                        <select id="spec-filter-zone">
+                            <option value="">All Zones</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <div style="display: flex; align-items: flex-start; gap: 3px;">
+                            <label>Spec Name:</label>
+                            <button onclick="clearFilter('spec-name')" class="clear-filter-btn" title="Clear Spec Name filter">CLR</button>
+                        </div>
+                        <input type="text" id="spec-filter-name" placeholder="e.g., t2, c5">
+                    </div>
+                </div>
+                <div class="filter-row" style="display: flex; gap: 15px;">
+                    <div style="flex: 0.9; display: flex; gap: 15px; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <div class="filter-item" style="flex: 1;">
+                            <div style="display: flex; align-items: flex-start; gap: 3px;">
+                                <label>vCPU:</label>
+                                <button onclick="clearFilter('vcpu')" class="clear-filter-btn" title="Clear vCPU filter">CLR</button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <input type="number" id="spec-filter-min-vcpu" min="1" placeholder="2" style="width: 100%;">
+                                <span>~</span>
+                                <input type="number" id="spec-filter-max-vcpu" min="1" placeholder="16" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="filter-item" style="flex: 1;">
+                            <div style="display: flex; align-items: flex-start; gap: 3px;">
+                                <label>Memory (MiB):</label>
+                                <button onclick="clearFilter('mem')" class="clear-filter-btn" title="Clear Memory filter">CLR</button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <input type="number" id="spec-filter-min-mem" min="1" placeholder="4096" style="width: 100%;">
+                                <span>~</span>
+                                <input type="number" id="spec-filter-max-mem" min="1" placeholder="65536" style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex: 1.1; display: flex; gap: 15px; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <div class="filter-item" style="flex: 1;">
+                            <div style="display: flex; align-items: flex-start; gap: 3px;">
+                                <label>GPU:</label>
+                                <button onclick="clearFilter('gpu')" class="clear-filter-btn" title="Clear GPU filter">CLR</button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <input type="number" id="spec-filter-min-gpu" min="1" placeholder="1" style="width: 100%;">
+                                <span>~</span>
+                                <input type="number" id="spec-filter-max-gpu" min="1" placeholder="8" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="filter-item" style="flex: 1;">
+                            <div style="display: flex; align-items: flex-start; gap: 3px;">
+                                <label>GPU Memory (GB):</label>
+                                <button onclick="clearFilter('gpu-mem')" class="clear-filter-btn" title="Clear GPU Memory filter">CLR</button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <input type="number" id="spec-filter-min-gpu-mem" min="0" placeholder="8" style="width: 100%;">
+                                <span>~</span>
+                                <input type="number" id="spec-filter-max-gpu-mem" min="0" placeholder="128" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="filter-item" style="flex: 1;">
+                            <div style="display: flex; align-items: flex-start; gap: 3px;">
+                                <label>GPU Model:</label>
+                                <button onclick="clearFilter('gpu-model')" class="clear-filter-btn" title="Clear GPU Model filter">CLR</button>
+                            </div>
+                            <input type="text" id="spec-filter-gpu-model" placeholder="e.g., a100, t4" style="width: 89%;">
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-buttons">
+                    <button class="select-btn" onclick="applySpecFilters()">Search</button>
+                    <button class="select-btn" onclick="resetSpecFilters()">Reset</button>
+                </div>
+            </div>
+
+            <div class="pagination-controls" id="spec-pagination" style="display: none;">
+                <div class="pagination-info-left">
+                    <span class="total-count" id="spec-total-info">Total: 0</span>
+                    <span class="data-version" id="spec-data-version"></span>
+                </div>
+                <div class="pagination-nav-right">
+                    <button onclick="loadSpecPage('prev')" id="spec-prev-btn">◀</button>
+                    <span class="pagination-page-info" id="spec-page-info">1 / 1</span>
+                    <button onclick="loadSpecPage('next')" id="spec-next-btn">▶</button>
+                </div>
+            </div>
+
+            <div id="spec-list-container">
+                <div class="loading-message">Press Search to load VM specs</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Price Info Overlay -->
+    <div id="price-info-overlay" class="selection-overlay">
+        <div class="selection-overlay-content" style="max-width: 600px;">
+            <button class="overlay-close-btn" onclick="closePriceInfoOverlay()">X</button>
+            <h2>VM Price Information</h2>
+            
+            <div style="padding: 20px; max-height: 600px; overflow-y: auto;">
+                <div style="margin: 0 0 25px 0; padding: 12px 15px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                    <strong style="color: #1565c0;">Data Source:</strong> 
+                    <span style="color: #333;">Price information is sourced from <a href="http://mc-insight.cloud-barista.org/" target="_blank" style="color: #1976d2; text-decoration: underline; font-weight: 500;">MC-Insight</a> API and regularly updated to reflect the latest CSP pricing.</span>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <th style="text-align: left; padding: 10px; background-color: #f5f5f5; width: 30%;">Category</th>
+                        <th style="text-align: left; padding: 10px; background-color: #f5f5f5;">Details</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold; vertical-align: top;">Provided VM Price</td>
+                        <td style="padding: 10px;">VM Spec-based OnDemand pricing (USD/Hour)<br><span style="font-size: 12px; color: #666;">※ OS/Software license costs not included</span></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; font-weight: bold; vertical-align: top;">Supported CSPs</td>
+                        <td style="padding: 10px;">AWS, Azure, GCP, Alibaba, Tencent, IBM, NCP</td>
+                    </tr>
+                </table>
+
+                <div style="margin: 20px 0; padding: 12px 15px; background-color: #fff8e1; border-left: 4px solid #ffa726; border-radius: 4px;">
+                    <strong style="color: #e65100;">⚠ Important:</strong> 
+                    <span style="color: #333;">Root Disk and Network costs may or may not be included in the price, depending on the CSP.</span>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-left: 0;">Reference: CSP Official Pricing Pages</h3>
+                <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <th style="text-align: left; padding: 10px; background-color: #f5f5f5; width: 20%;">CSP</th>
+                        <th style="text-align: left; padding: 10px; background-color: #f5f5f5;">Official Pricing Page</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold;">AWS</td>
+                        <td style="padding: 10px;"><a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank" style="color: #007bff; text-decoration: underline;">EC2 On-Demand Pricing</a></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold;">Azure</td>
+                        <td style="padding: 10px;"><a href="https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/" target="_blank" style="color: #007bff; text-decoration: underline;">Virtual Machines Pricing</a></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold;">GCP</td>
+                        <td style="padding: 10px;"><a href="https://cloud.google.com/compute/all-pricing" target="_blank" style="color: #007bff; text-decoration: underline;">Compute Engine Pricing</a></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold;">Alibaba</td>
+                        <td style="padding: 10px;"><a href="https://www.alibabacloud.com/en/product/ecs" target="_blank" style="color: #007bff; text-decoration: underline;">Elastic Compute Service</a></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold;">Tencent</td>
+                        <td style="padding: 10px;"><a href="https://intl.cloud.tencent.com/pricing/cvm" target="_blank" style="color: #007bff; text-decoration: underline;">Cloud Virtual Machine Pricing</a></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold;">IBM</td>
+                        <td style="padding: 10px;"><a href="https://www.ibm.com/cloud/virtual-servers/pricing" target="_blank" style="color: #007bff; text-decoration: underline;">Virtual Servers Pricing</a></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; font-weight: bold;">NCP</td>
+                        <td style="padding: 10px;"><a href="https://www.ncloud.com/v2/product/compute/server#pricing" target="_blank" style="color: #007bff; text-decoration: underline;">Server Pricing</a></td>
+                    </tr>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -1292,17 +1937,26 @@ THE SOFTWARE.
                 if (!ok || data.message) {
                     const errorMessage = data.message || "Unknown error";
                     showError(`VM Name: ${vmName}: Failed to create VM: ${errorMessage}`);
+                    return { success: false, vmName };
                 } else if (data.IId && data.IId.NameId) {
                     console.log(`VM "${data.IId.NameId}" created successfully.`);
+                    return { success: true, vmName };
                 }
             })
             .catch(error => {
                 showError(`VM Name: ${vmName}: Error creating VM: ${error.message}`);
+                return { success: false, vmName };
             });
         });
 
         Promise.all(vmPromises)
-            .then(() => location.reload())
+            .then((results) => {
+                const successCount = results.filter(r => r && r.success).length;
+                if (successCount > 0) {
+                    location.reload();
+                }
+                // If all failed, keep the overlay open for retry
+            })
             .catch(error => {
                 showError("Error creating VMs: " + error.message, "Multiple VMs");
             });
@@ -1348,15 +2002,23 @@ THE SOFTWARE.
     }
 
     function showOverlay() {
-        console.log("showOverlay()");
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleOverlayEsc);
         clearFormFields();
     }
 
     function clearFormFields() {
+        // Save current zone value before reset
+        const subnetZoneInput = document.getElementById('subnetZone');
+        const currentZone = subnetZoneInput ? subnetZoneInput.value : '';
+        
         // Clear form fields
         document.getElementById('addVMForm').reset();
+
+        // Restore zone value after reset
+        if (subnetZoneInput && currentZone) {
+            subnetZoneInput.value = currentZone;
+        }
 
         const region = '{{.RegionName}}';
         const vmNameInput = document.getElementById('vmName');
@@ -1377,6 +2039,17 @@ THE SOFTWARE.
 
     function handleOverlayEsc(event) {
         if (event.key === "Escape") {
+            // Don't close Add New VM overlay if Image/Spec/Price selection overlay is open
+            const imageOverlay = document.getElementById('image-selection-overlay');
+            const specOverlay = document.getElementById('spec-selection-overlay');
+            const priceOverlay = document.getElementById('price-info-overlay');
+            
+            if ((imageOverlay && imageOverlay.style.display === 'flex') ||
+                (specOverlay && specOverlay.style.display === 'flex') ||
+                (priceOverlay && priceOverlay.style.display === 'flex')) {
+                return; // Let the selection overlay handle the ESC key
+            }
+            
             hideOverlay();
         }
     }
@@ -1688,15 +2361,17 @@ THE SOFTWARE.
         })
         .then(response => response.json())
         .then(data => {
+            
             vpcSelect.innerHTML = ''; // Clear existing options
 
             if (data.vpc && data.vpc.length > 0) {
-                data.vpc.forEach(vpc => {
+                data.vpc.forEach((vpc, index) => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(vpc.SubnetInfoList);
                     option.textContent = `${vpc.IId.NameId} (${vpc.IPv4_CIDR})`;
                     vpcSelect.appendChild(option);
                 });
+                
                 updateSubnets(); // Update subnets based on selected VPC
                 loadSecurityGroups(); // Load security groups based on selected VPC
             } else {
@@ -1710,25 +2385,84 @@ THE SOFTWARE.
 
     function updateSubnets() {
         const vpcSelect = document.getElementById('vpcSelect');
-        const selectedSubnets = JSON.parse(vpcSelect.value);
         const subnetSelect = document.getElementById('subnetSelect');
-        const dataDiskSelect = document.getElementById('dataDiskSelect');
+        const subnetZoneInput = document.getElementById('subnetZone');
 
         subnetSelect.innerHTML = '';
+        
+        if (!vpcSelect.value) {
+            subnetSelect.innerHTML = '<option>Please select a VPC first.</option>';
+            if (subnetZoneInput) subnetZoneInput.value = '';
+            return;
+        }
+        
+        let selectedSubnets;
+        try {
+            selectedSubnets = JSON.parse(vpcSelect.value);
+        } catch (e) {
+            subnetSelect.innerHTML = '<option>Error loading subnets</option>';
+            if (subnetZoneInput) subnetZoneInput.value = '';
+            return;
+        }
 
-        if (selectedSubnets && selectedSubnets.length > 0) {
-            selectedSubnets.forEach(subnet => {
+        if (selectedSubnets && Array.isArray(selectedSubnets) && selectedSubnets.length > 0) {
+            selectedSubnets.forEach((subnet, index) => {
                 const option = document.createElement('option');
                 option.value = subnet.IId.NameId;
                 option.textContent = `${subnet.IId.NameId} (${subnet.IPv4_CIDR})`;
-                option.dataset.zone = subnet.Zone;
+                
+                // Set zone as data attribute
+                if (subnet.Zone) {
+                    option.setAttribute('data-zone', subnet.Zone);
+                }
+                
                 subnetSelect.appendChild(option);
             });
 
-            const firstSubnetZone = selectedSubnets[0].Zone;
-            loadDataDisks(firstSubnetZone);
+            // Explicitly select first subnet
+            subnetSelect.selectedIndex = 0;
+            
+            // Update zone display for first subnet
+            updateSelectedSubnetZone();
+            
+            // Load data disks for first subnet's zone
+            if (selectedSubnets[0].Zone) {
+                loadDataDisks(selectedSubnets[0].Zone);
+            }
         } else {
             subnetSelect.innerHTML = '<option>No subnets available for this VPC.</option>';
+            if (subnetZoneInput) {
+                subnetZoneInput.value = '';
+            }
+        }
+    }
+
+    function updateSelectedSubnetZone() {
+        const subnetSelect = document.getElementById('subnetSelect');
+        const subnetZoneInput = document.getElementById('subnetZone');
+        
+        if (!subnetZoneInput) {
+            return;
+        }
+        
+        if (!subnetSelect || subnetSelect.options.length === 0) {
+            subnetZoneInput.value = '';
+            return;
+        }
+        
+        const selectedOption = subnetSelect.options[subnetSelect.selectedIndex];
+        
+        if (selectedOption) {
+            const zone = selectedOption.getAttribute('data-zone') || selectedOption.dataset.zone;
+            
+            if (zone) {
+                subnetZoneInput.value = zone;
+                loadDataDisks(zone);
+            } else {
+                subnetZoneInput.value = '';
+            }
+        } else {
+            subnetZoneInput.value = '';
         }
     }
 
@@ -2106,7 +2840,6 @@ THE SOFTWARE.
             const filteredDisks = data.disk.filter(disk => disk.Zone === zone && disk.Status === "Available");
             
             if (filteredDisks.length > 0){
-                console.log(filteredDisks);
                 filteredDisks.forEach(disk => {
                     if (disk.Zone === zone && disk.Status === "Available"){
                         const checkboxWrapper = document.createElement('div');
@@ -2319,6 +3052,1884 @@ THE SOFTWARE.
         }
 
         selection.removeAllRanges();
+    }
+
+    // MC-Insight API Configuration (via Spider Proxy)
+    const MC_INSIGHT_API_BASE = '/spider/mcinsight';
+    const ITEMS_PER_PAGE = 50;
+
+    let currentImagePage = 0;
+    let currentSpecPage = 0;
+    let imageFilters = {};
+    let specFilters = {};
+    let imageTotalCount = 0;
+    let specTotalCount = 0;
+    let imageSortField = 'image_id';
+    let imageSortOrder = 'asc';
+    let specSortField = 'name';
+    let specSortOrder = 'asc';
+    
+    // OpenStack data cache (fetched from Spider API)
+    let openstackAllImages = [];
+    let openstackAllSpecs = [];
+
+    // Check if MC-Insight API Token is configured
+    async function checkMCInsightToken() {
+        try {
+            const response = await fetch(`${MC_INSIGHT_API_BASE}/vm-image/filters`);
+            return response.status !== 503;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function showTokenWarning(containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `
+            <div style="
+                background: #fff3cd;
+                border: 2px solid #ffc107;
+                border-radius: 8px;
+                padding: 20px 30px;
+                margin: 20px auto;
+                max-width: 600px;
+                box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+            ">
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <span style="font-size: 32px; margin-right: 15px;">⚠️</span>
+                    <h3 style="margin: 0; color: #856404; font-size: 18px;">MC-Insight API Token Required</h3>
+                </div>
+                <div style="color: #856404; line-height: 1.6;">
+                    <p style="margin: 10px 0;">To search multi-cloud metadata using MC-Insight, you need to configure the MC-Insight API Token.</p>
+                    <p style="margin: 10px 0;">Please follow these steps:</p>
+                    <ol style="margin: 10px 0; padding-left: 20px;">
+                        <li>Get token from <strong>MC-Insight service administrator</strong></li>
+                        <li>Set the <code style="background: #fff; padding: 2px 6px; border-radius: 3px; border: 1px solid #ddd;">MC_INSIGHT_API_TOKEN</code> value in <code style="background: #fff; padding: 2px 6px; border-radius: 3px; border: 1px solid #ddd;">./setup.env</code></li>
+                        <li>Restart CB-Spider</li>
+                    </ol>
+                </div>
+            </div>
+        `;
+    }
+
+    // Helper function to get CSP and Region info from connection config
+    async function getConnectionInfo() {
+        try {
+            const connConfig = document.getElementById('connConfig').value;
+            const connData = await fetch(`/spider/connectionconfig/${connConfig}`).then(r => r.json());
+            const providerName = connData.ProviderName.toLowerCase();
+            const regionName = connData.RegionName;
+            
+            // Get Region details to find actual CSP region name
+            const regionData = await fetch(`/spider/region/${regionName}`).then(r => r.json());
+            
+            // Extract actual CSP region from KeyValueInfoList
+            let cspRegion = '';
+            if (regionData && regionData.KeyValueInfoList) {
+                const regionEntry = regionData.KeyValueInfoList.find(kv => kv.Key === 'Region');
+                if (regionEntry) {
+                    cspRegion = regionEntry.Value;
+                }
+            }
+            
+            // Get zone from subnet zone input field (updated when subnet is selected)
+            const subnetZoneInput = document.getElementById('subnetZone');
+            const zoneName = subnetZoneInput && subnetZoneInput.value ? subnetZoneInput.value : '';
+            
+            return { csp: providerName, region: cspRegion, zone: zoneName };
+        } catch (error) {
+            console.error('Error getting connection info:', error);
+            throw error;
+        }
+    }
+
+    // Helper function to get CSP name from connection config (backward compatibility)
+    function getCSPFromConnection() {
+        return getConnectionInfo().then(info => info.csp);
+    }
+
+    // ==================== IMAGE SELECTION FUNCTIONS ====================
+
+    function showImageSelectionOverlay() {
+        // Check if subnet is selected
+        const subnetSelect = document.getElementById('subnetSelect');
+        
+        if (!subnetSelect.value || subnetSelect.value === '') {
+            alert('Please select a Subnet first. The Zone will be determined from the selected Subnet.');
+            return;
+        }
+        
+        const overlay = document.getElementById('image-selection-overlay');
+        overlay.style.display = 'flex';
+        document.addEventListener('keydown', handleImageSelectionOverlayEsc);
+        
+        // Check if MC-Insight token is configured
+        checkMCInsightToken().then(hasToken => {
+            if (!hasToken) {
+                showTokenWarning('image-list-container');
+                document.getElementById('image-pagination').style.display = 'none';
+                return;
+            }
+            
+            // Get current connection info and set filters
+            getConnectionInfo().then(info => {
+                if (!info.zone) {
+                    alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
+                    closeImageSelectionOverlay();
+                    return;
+                }
+                
+                loadImageFilterOptions(info.csp, info.region, info.zone);
+                
+                // Add Enter key event listeners to filter inputs
+                ['image-filter-name', 'image-filter-distribution'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.addEventListener('keypress', function(event) {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                applyImageFilters();
+                            }
+                        });
+                    }
+                });
+            }).catch(error => {
+                console.error('Error loading connection info:', error);
+                alert('Failed to load connection information');
+                closeImageSelectionOverlay();
+            });
+        });
+    }
+
+    function closeImageSelectionOverlay() {
+        const overlay = document.getElementById('image-selection-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleImageSelectionOverlayEsc);
+    }
+
+    function handleImageSelectionOverlayEsc(event) {
+        if (event.key === 'Escape') {
+            const priceOverlay = document.getElementById('price-info-overlay');
+            // Don't close if Price Info overlay is open (it should close first)
+            if (priceOverlay && priceOverlay.style.display === 'flex') {
+                return;
+            }
+            event.stopImmediatePropagation();
+            closeImageSelectionOverlay();
+        }
+    }
+
+    function loadImageFilterOptions(csp, currentRegion, currentZone) {
+        // ==================== OPENSTACK: EXTRACT FROM CACHED DATA ====================
+        if (csp.toLowerCase() === 'openstack') {
+            const regionSelect = document.getElementById('image-filter-region');
+            const zoneSelect = document.getElementById('image-filter-zone');
+            const archSelect = document.getElementById('image-filter-arch');
+            const platformSelect = document.getElementById('image-filter-platform');
+            
+            // Set region and zone from connection (locked)
+            regionSelect.innerHTML = `<option value="${currentRegion}">${currentRegion}</option>`;
+            regionSelect.disabled = true;
+            regionSelect.style.backgroundColor = '#f0f0f0';
+            
+            zoneSelect.innerHTML = `<option value="${currentZone}">${currentZone}</option>`;
+            zoneSelect.disabled = true;
+            zoneSelect.style.backgroundColor = '#f0f0f0';
+            
+            // If we have cached images, extract unique values for filters
+            if (openstackAllImages.length > 0) {
+                // Extract unique architectures
+                const uniqueArchs = [...new Set(openstackAllImages.map(img => img.os_architecture).filter(v => v && v !== 'NA'))];
+                archSelect.innerHTML = '<option value="">All</option>';
+                uniqueArchs.forEach(arch => {
+                    const option = document.createElement('option');
+                    option.value = arch;
+                    option.textContent = arch;
+                    archSelect.appendChild(option);
+                });
+                archSelect.value = '';
+                
+                // Extract unique platforms
+                const uniquePlatforms = [...new Set(openstackAllImages.map(img => img.os_platform).filter(v => v && v !== 'na'))];
+                platformSelect.innerHTML = '<option value="">All</option>';
+                uniquePlatforms.forEach(platform => {
+                    const option = document.createElement('option');
+                    option.value = platform;
+                    option.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
+                    platformSelect.appendChild(option);
+                });
+                platformSelect.value = '';
+            } else {
+                // Set defaults while data is loading
+                archSelect.innerHTML = '<option value="">All</option>';
+                archSelect.value = '';
+                platformSelect.innerHTML = '<option value="">All</option>';
+                platformSelect.value = '';
+            }
+            
+            // Set filters with locked region/zone
+            imageFilters = {
+                region: currentRegion,
+                zone: currentZone
+            };
+            
+            // Set initial message - data loads when Search is clicked
+            document.getElementById('image-list-container').innerHTML = '<div class="loading-message">Press Search to load images</div>';
+            document.getElementById('image-pagination').style.display = 'none';
+            return;
+        }
+        
+        // ==================== NON-OPENSTACK: USE MC-INSIGHT FILTER API ====================
+        // Show MC-Insight badge for non-OpenStack CSPs
+        const badge = document.getElementById('image-mcinsight-badge');
+        if (badge) badge.style.display = '';
+        
+        fetch(`/spider/mcinsight/vm-image/filters`)
+        .then(response => response.json())
+        .then(data => {
+            
+            const regionSelect = document.getElementById('image-filter-region');
+            const zoneSelect = document.getElementById('image-filter-zone');
+            const archSelect = document.getElementById('image-filter-arch');
+            const platformSelect = document.getElementById('image-filter-platform');
+            
+            regionSelect.innerHTML = '';
+            zoneSelect.innerHTML = '';
+            
+            // Try NCP first, fallback to NCPVPC if not found
+            let actualCsp = csp;
+            if (csp.toLowerCase() === 'ncp' && (!data.cloud_hierarchy || !data.cloud_hierarchy[csp])) {
+                actualCsp = 'ncpvpc';
+                console.log('NCP not found in filters, using NCPVPC');
+            }
+            // Try NHN first, fallback to nhncloud if not found
+            if (csp.toLowerCase() === 'nhn' && (!data.cloud_hierarchy || !data.cloud_hierarchy[csp])) {
+                actualCsp = 'nhncloud';
+                console.log('NHN not found in filters, using nhncloud');
+            }
+            // Try KT first, fallback to ktvpc if not found
+            if (csp.toLowerCase() === 'kt' && (!data.cloud_hierarchy || !data.cloud_hierarchy[csp])) {
+                actualCsp = 'ktvpc';
+                console.log('KT not found in filters, using ktvpc');
+            }
+            
+            // Populate Region/Zone (cloud_hierarchy)
+            if (data.cloud_hierarchy && data.cloud_hierarchy[actualCsp]) {
+                const regions = Object.keys(data.cloud_hierarchy[actualCsp]);
+                
+                regions.forEach(region => {
+                    const option = document.createElement('option');
+                    option.value = region;
+                    option.textContent = region;
+                    if (region === currentRegion) {
+                        option.selected = true;
+                    }
+                    regionSelect.appendChild(option);
+                });
+                
+                regionSelect.disabled = true;
+                regionSelect.style.backgroundColor = '#f0f0f0';
+                
+                const zones = data.cloud_hierarchy[actualCsp][currentRegion];
+                
+                if (zones && zones.length > 0) {
+                    zones.forEach(zone => {
+                        const option = document.createElement('option');
+                        option.value = zone;
+                        option.textContent = zone;
+                        if (zone === currentZone) {
+                            option.selected = true;
+                        }
+                        zoneSelect.appendChild(option);
+                    });
+                    
+                    zoneSelect.disabled = true;
+                    zoneSelect.style.backgroundColor = '#f0f0f0';
+                }
+            }
+            
+            // Populate OS Architecture options dynamically
+            if (data.os_architecture) {
+                archSelect.innerHTML = '<option value="">All</option>';
+                data.os_architecture.filter(val => val !== '~null').forEach(arch => {
+                    const option = document.createElement('option');
+                    option.value = arch;
+                    option.textContent = arch;
+                    archSelect.appendChild(option);
+                });
+                // Default to All
+                archSelect.value = '';
+            }
+            
+            // Populate OS Platform options dynamically
+            if (data.os_platform) {
+                platformSelect.innerHTML = '<option value="">All</option>';
+                data.os_platform.filter(val => val !== '~null').forEach(platform => {
+                    const option = document.createElement('option');
+                    option.value = platform;
+                    option.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
+                    platformSelect.appendChild(option);
+                });
+                // Default to All
+                platformSelect.value = '';
+            }
+            
+        })
+        .catch(error => {
+            console.error('Error loading image filters:', error);
+            alert('Failed to load image filters');
+        });
+    }
+
+    function loadImageZones(csp, zones) {
+        // This function is no longer needed as zones are loaded and locked in loadImageFilterOptions
+    }
+
+    function applyImageFilters() {
+        currentImagePage = 0;
+        imageFilters = {
+            region: document.getElementById('image-filter-region').value,
+            zone: document.getElementById('image-filter-zone').value,
+            os_architecture: document.getElementById('image-filter-arch').value,
+            os_platform: document.getElementById('image-filter-platform').value,
+            os_distribution: document.getElementById('image-filter-distribution').value.trim(),
+            image_name: document.getElementById('image-filter-name').value.trim()
+        };
+        loadImages();
+    }
+
+    function resetImageFilters() {
+        // Region and Zone are locked, so we don't reset them
+        // Reset to initial values
+        document.getElementById('image-filter-arch').value = '';
+        document.getElementById('image-filter-platform').value = '';
+        document.getElementById('image-filter-distribution').value = '';
+        document.getElementById('image-filter-name').value = '';
+        
+        // Keep region and zone filters but reset others
+        imageFilters = {
+            region: document.getElementById('image-filter-region').value,
+            zone: document.getElementById('image-filter-zone').value
+        };
+        currentImagePage = 0;
+        imageSortField = 'image_id';
+        imageSortOrder = 'asc';
+        document.getElementById('image-list-container').innerHTML = '<div class="loading-message">Press Search to load images</div>';
+        document.getElementById('image-pagination').style.display = 'none';
+    }
+
+    // ==================== OPENSTACK SPIDER API FUNCTIONS ====================
+    
+    async function loadImagesFromSpider(connectionName) {
+        const url = `/spider/vmimage?ConnectionName=${encodeURIComponent(connectionName)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Spider API error: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Transform Spider API format to MC-Insight format
+        // Spider returns: {image: [{IId, Name, OSArchitecture, OSPlatform, OSDistribution, OSDiskType, OSDiskSizeGB, ImageStatus, KeyValueList}]}
+        const transformedImages = (data.image || []).map(img => {
+            // Parse disk size
+            let diskSize = -1;
+            if (img.OSDiskSizeGB && img.OSDiskSizeGB !== 'NA' && img.OSDiskSizeGB !== '0') {
+                const parsed = parseInt(img.OSDiskSizeGB);
+                if (!isNaN(parsed) && parsed > 0) diskSize = parsed;
+            }
+            
+            return {
+                image_id: img.IId?.NameId || img.Name || 'Unknown',
+                system_id: img.IId?.SystemId || img.Name || '',
+                os_architecture: img.OSArchitecture && img.OSArchitecture !== 'NA' ? img.OSArchitecture : 'NA',
+                os_platform: img.OSPlatform && img.OSPlatform !== 'NA' ? img.OSPlatform.toLowerCase() : 'na',
+                os_distribution: img.OSDistribution && img.OSDistribution !== 'NA' ? img.OSDistribution : 'NA',
+                os_disk_type: img.OSDiskType && img.OSDiskType !== 'NA' ? img.OSDiskType : 'NA',
+                os_disk_size_gb: diskSize,
+                image_status: img.ImageStatus || 'NA'
+            };
+        });
+        
+        return transformedImages;
+    }
+    
+    async function loadSpecsFromSpider(connectionName) {
+        const url = `/spider/vmspec?ConnectionName=${encodeURIComponent(connectionName)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Spider API error: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Transform Spider API format to MC-Insight format
+        // Spider returns: {vmspec: [{Region, Name, VCpu: {Count, ClockGHz}, MemSizeMiB, DiskSizeGB, Gpu, KeyValueList}]}
+        const transformedSpecs = (data.vmspec || []).map(spec => {
+            // Parse Memory (MiB)
+            let memSizeMib = -1;
+            if (spec.MemSizeMiB) {
+                const parsed = parseInt(spec.MemSizeMiB);
+                if (!isNaN(parsed) && parsed > 0) memSizeMib = parsed;
+            }
+            
+            // Parse Disk (GB)
+            let diskSizeGb = -1;
+            if (spec.DiskSizeGB) {
+                const parsed = parseInt(spec.DiskSizeGB);
+                if (!isNaN(parsed) && parsed > 0) diskSizeGb = parsed;
+            }
+            
+            // Parse vCPU Count
+            let vcpuCount = -1;
+            if (spec.VCpu?.Count) {
+                const parsed = parseInt(spec.VCpu.Count);
+                if (!isNaN(parsed) && parsed > 0) vcpuCount = parsed;
+            }
+            
+            // Parse vCPU Clock
+            let vcpuClockGhz = 'NA';
+            if (spec.VCpu?.ClockGHz && spec.VCpu.ClockGHz !== '-1') {
+                vcpuClockGhz = spec.VCpu.ClockGHz;
+            }
+            
+            return {
+                name: spec.Name || 'Unknown',
+                vcpu_count: vcpuCount,
+                vcpu_clock_ghz: vcpuClockGhz,
+                mem_size_mib: memSizeMib,
+                disk_size_gb: diskSizeGb,
+                gpu_count: spec.Gpu?.length > 0 ? spec.Gpu[0].Count : -1,
+                gpu_mem_size_gb: spec.Gpu?.length > 0 && spec.Gpu[0].MemSizeGB ? parseInt(spec.Gpu[0].MemSizeGB) : -1,
+                gpu_model: spec.Gpu?.length > 0 ? spec.Gpu[0].Model : 'NA',
+                price_per_hour: null  // OpenStack doesn't have price info - use null to display as NA
+            };
+        });
+        
+        return transformedSpecs;
+    }
+    
+    function extractKeyValue(keyValueList, key) {
+        if (!keyValueList || !Array.isArray(keyValueList)) return null;
+        const item = keyValueList.find(kv => kv.Key === key);
+        return item ? item.Value : null;
+    }
+    
+    function filterOpenStackImages(images, filters) {
+        return images.filter(img => {
+            // Apply filters
+            if (filters.os_architecture && img.os_architecture !== filters.os_architecture) return false;
+            if (filters.os_platform && img.os_platform !== filters.os_platform.toLowerCase()) return false;
+            if (filters.os_distribution && !img.os_distribution.toLowerCase().includes(filters.os_distribution.toLowerCase())) return false;
+            if (filters.image_name && !img.image_id.toLowerCase().includes(filters.image_name.toLowerCase())) return false;
+            return true;
+        });
+    }
+    
+    function filterOpenStackSpecs(specs, filters) {
+        return specs.filter(spec => {
+            // Apply name filter
+            if (filters.name && !spec.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+            
+            // Apply vCPU filter
+            if (filters.min_vcpu_count !== undefined && filters.min_vcpu_count !== '' && spec.vcpu_count < parseInt(filters.min_vcpu_count)) return false;
+            if (filters.max_vcpu_count !== undefined && filters.max_vcpu_count !== '' && spec.vcpu_count > parseInt(filters.max_vcpu_count)) return false;
+            
+            // Apply memory filter (filters use MiB, spec uses MiB - direct comparison)
+            if (filters.min_mem_size_mib !== undefined && filters.min_mem_size_mib !== '' && spec.mem_size_mib > 0) {
+                if (spec.mem_size_mib < parseInt(filters.min_mem_size_mib)) return false;
+            }
+            if (filters.max_mem_size_mib !== undefined && filters.max_mem_size_mib !== '' && spec.mem_size_mib > 0) {
+                if (spec.mem_size_mib > parseInt(filters.max_mem_size_mib)) return false;
+            }
+            
+            // Apply GPU count filter (exclude NA when filter is set)
+            if (filters.min_gpu_count !== undefined && filters.min_gpu_count !== '') {
+                if (spec.gpu_count <= 0) return false;  // Exclude NA (-1) or 0
+                if (spec.gpu_count < parseInt(filters.min_gpu_count)) return false;
+            }
+            if (filters.max_gpu_count !== undefined && filters.max_gpu_count !== '') {
+                if (spec.gpu_count <= 0) return false;  // Exclude NA (-1) or 0
+                if (spec.gpu_count > parseInt(filters.max_gpu_count)) return false;
+            }
+            
+            // Apply GPU memory filter (exclude NA when filter is set)
+            if (filters.min_gpu_mem_size_gb !== undefined && filters.min_gpu_mem_size_gb !== '') {
+                if (spec.gpu_mem_size_gb <= 0) return false;  // Exclude NA (-1) or 0
+                if (spec.gpu_mem_size_gb < parseInt(filters.min_gpu_mem_size_gb)) return false;
+            }
+            if (filters.max_gpu_mem_size_gb !== undefined && filters.max_gpu_mem_size_gb !== '') {
+                if (spec.gpu_mem_size_gb <= 0) return false;  // Exclude NA (-1) or 0
+                if (spec.gpu_mem_size_gb > parseInt(filters.max_gpu_mem_size_gb)) return false;
+            }
+            
+            // Apply GPU model filter (exclude NA when filter is set)
+            if (filters.gpu_model && filters.gpu_model !== '') {
+                if (spec.gpu_model === 'NA' || !spec.gpu_model) return false;  // Exclude NA
+                if (!spec.gpu_model.toLowerCase().includes(filters.gpu_model.toLowerCase())) return false;
+            }
+            
+            return true;
+        });
+    }
+    
+    function sortOpenStackData(data, field, order) {
+        return [...data].sort((a, b) => {
+            let aVal = a[field];
+            let bVal = b[field];
+            
+            // Handle NA values
+            if (aVal === 'NA' || aVal === -1) aVal = order === 'asc' ? Infinity : -Infinity;
+            if (bVal === 'NA' || bVal === -1) bVal = order === 'asc' ? Infinity : -Infinity;
+            
+            // Convert to numbers if needed
+            if (typeof aVal === 'string' && !isNaN(aVal)) aVal = parseFloat(aVal);
+            if (typeof bVal === 'string' && !isNaN(bVal)) bVal = parseFloat(bVal);
+            
+            // String comparison (case-insensitive)
+            if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+            if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+            
+            if (aVal < bVal) return order === 'asc' ? -1 : 1;
+            if (aVal > bVal) return order === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    function loadImages() {
+        getCSPFromConnection().then(csp => {
+            // ==================== OPENSTACK: USE SPIDER API ====================
+            if (csp.toLowerCase() === 'openstack') {
+                // Hide MC-Insight badge for OpenStack
+                const badge = document.getElementById('image-mcinsight-badge');
+                if (badge) badge.style.display = 'none';
+                
+                const container = document.getElementById('image-list-container');
+                let loadingOverlay = container.querySelector('.table-loading-overlay');
+                if (!loadingOverlay) {
+                    loadingOverlay = document.createElement('div');
+                    loadingOverlay.className = 'table-loading-overlay';
+                    loadingOverlay.textContent = 'Loading...';
+                    container.appendChild(loadingOverlay);
+                }
+                loadingOverlay.classList.add('active');
+                
+                // Get current connection name
+                const connectionName = document.getElementById('connConfig').value;
+                
+                // Load images from Spider API (only once, then cache)
+                if (openstackAllImages.length === 0) {
+                    loadImagesFromSpider(connectionName)
+                        .then(images => {
+                            openstackAllImages = images;
+                            
+                            // Apply filters and sorting
+                            let filteredImages = filterOpenStackImages(openstackAllImages, imageFilters);
+                            filteredImages = sortOpenStackData(filteredImages, imageSortField, imageSortOrder);
+                            
+                            // Update total count
+                            imageTotalCount = filteredImages.length;
+                            
+                            // Paginate
+                            const startIdx = currentImagePage * ITEMS_PER_PAGE;
+                            const endIdx = startIdx + ITEMS_PER_PAGE;
+                            const pageImages = filteredImages.slice(startIdx, endIdx);
+                            
+                            displayImages(pageImages);
+                            updateImagePagination('Spider-OpenStack');
+                            loadingOverlay.classList.remove('active');
+                        })
+                        .catch(error => {
+                            console.error('Error loading OpenStack images:', error);
+                            loadingOverlay.classList.remove('active');
+                            container.innerHTML = `
+                                <div class="no-data-message">
+                                    <p><strong>Error loading OpenStack images</strong></p>
+                                    <p style="font-size: 12px; color: #666;">${error.message}</p>
+                                    <button class="select-btn" onclick="openstackAllImages = []; loadImages();" style="margin-top: 10px;">Retry</button>
+                                </div>
+                            `;
+                        });
+                } else {
+                    // Use cached data
+                    let filteredImages = filterOpenStackImages(openstackAllImages, imageFilters);
+                    filteredImages = sortOpenStackData(filteredImages, imageSortField, imageSortOrder);
+                    
+                    imageTotalCount = filteredImages.length;
+                    const startIdx = currentImagePage * ITEMS_PER_PAGE;
+                    const endIdx = startIdx + ITEMS_PER_PAGE;
+                    const pageImages = filteredImages.slice(startIdx, endIdx);
+                    
+                    displayImages(pageImages);
+                    updateImagePagination('Spider-OpenStack');
+                    loadingOverlay.classList.remove('active');
+                }
+                return;
+            }
+            
+            // ==================== NON-OPENSTACK: USE MC-INSIGHT API ====================
+            // Show MC-Insight badge for non-OpenStack CSPs
+            const badge = document.getElementById('image-mcinsight-badge');
+            if (badge) badge.style.display = '';
+            
+            const params = new URLSearchParams({
+                csp: csp,
+                skip: currentImagePage * ITEMS_PER_PAGE,
+                limit: ITEMS_PER_PAGE
+            });
+
+            // Add filters if they exist
+            Object.keys(imageFilters).forEach(key => {
+                if (imageFilters[key]) {
+                    params.append(key, imageFilters[key]);
+                }
+            });
+
+            // Add sort parameter if set
+            if (imageSortField) {
+                const sortParam = imageSortOrder === 'desc' ? `-${imageSortField}` : imageSortField;
+                params.append('sort', sortParam);
+            }
+
+            const container = document.getElementById('image-list-container');
+            
+            // Show loading overlay instead of replacing content
+            let loadingOverlay = container.querySelector('.table-loading-overlay');
+            if (!loadingOverlay) {
+                loadingOverlay = document.createElement('div');
+                loadingOverlay.className = 'table-loading-overlay';
+                loadingOverlay.textContent = 'Loading...';
+                container.appendChild(loadingOverlay);
+            }
+            loadingOverlay.classList.add('active');
+
+            const apiUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params.toString()}`;
+
+            fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // If NCP returns no results, try with NCPVPC
+                if ((data.total === 0 || !data.items || data.items.length === 0) && csp.toLowerCase() === 'ncp') {
+                    console.log('NCP returned no results, trying NCPVPC...');
+                    params.set('csp', 'ncpvpc');
+                    const fallbackUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params.toString()}`;
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    });
+                }
+                // If NHN returns no results, try with nhncloud
+                if ((data.total === 0 || !data.items || data.items.length === 0) && csp.toLowerCase() === 'nhn') {
+                    console.log('NHN returned no results, trying nhncloud...');
+                    params.set('csp', 'nhncloud');
+                    const fallbackUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params.toString()}`;
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    });
+                }
+                // If KT returns no results, try with ktvpc
+                if ((data.total === 0 || !data.items || data.items.length === 0) && csp.toLowerCase() === 'kt') {
+                    console.log('KT returned no results, trying ktvpc...');
+                    params.set('csp', 'ktvpc');
+                    const fallbackUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params.toString()}`;
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    });
+                }
+                return data;
+            })
+            .then(data => {
+                imageTotalCount = data.total || 0;
+                displayImages(data.items || []);
+                updateImagePagination(data.data_version);
+                loadingOverlay.classList.remove('active');
+            })
+            .catch(error => {
+                console.error('Error loading images:', error);
+                const errorMsg = error.message || error.toString();
+                loadingOverlay.classList.remove('active');
+                
+                // Check if it's a token configuration error (503 Service Unavailable)
+                if (errorMsg.includes('503')) {
+                    container.innerHTML = `
+                        <div class="no-data-message">
+                            <p><strong>MC-Insight API Token Required</strong></p>
+                            <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                                To search multi-cloud metadata using MC-Insight, you need to configure the MC-Insight API Token.<br>
+                                Please set the <code>MC_INSIGHT_API_TOKEN</code> value in <code>./setup.env</code> and restart CB-Spider.
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="no-data-message">
+                            <p><strong>Error loading images</strong></p>
+                            <p style="font-size: 12px; color: #666;">${errorMsg}</p>
+                            <button class="select-btn" onclick="applyImageFilters()" style="margin-top: 10px;">Retry</button>
+                        </div>
+                    `;
+                }
+            });
+        }).catch(error => {
+            console.error('Error getting CSP:', error);
+            const container = document.getElementById('image-list-container');
+            container.innerHTML = `<div class="no-data-message">Error loading connection configuration: ${error.message}</div>`;
+        });
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            // Show a brief feedback
+            const tooltip = document.createElement('div');
+            tooltip.textContent = 'Copied!';
+            tooltip.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #495057; color: white; padding: 10px 20px; border-radius: 4px; z-index: 10000; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);';
+            document.body.appendChild(tooltip);
+            setTimeout(() => tooltip.remove(), 1000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy to clipboard');
+        });
+    }
+
+    function displayImages(images) {
+        const container = document.getElementById('image-list-container');
+        
+        if (images.length === 0) {
+            container.innerHTML = '<div class="no-data-message">No images found matching the filters.</div>';
+            return;
+        }
+
+        // Helper function to display value or NA
+        const displayValue = (value) => {
+            if (value === -1 || value === '-' || value === '-1') return '<span style="color: #999;">NA</span>';
+            if (value === null || value === undefined || value === '') return '<span style="color: #999;">NA</span>';
+            return value;
+        };
+
+        // Helper function to create sortable header
+        const createSortableHeader = (label, field) => {
+            const isActive = imageSortField === field;
+            const arrow = isActive ? (imageSortOrder === 'asc' ? ' ▲' : ' ▼') : '';
+            return `<th onclick="sortImages('${field}')" style="cursor: pointer; user-select: none;" title="Click to sort">${label}${arrow}</th>`;
+        };
+
+        let tableHTML = `
+            <table class="selection-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        ${createSortableHeader('Name', 'image_id')}
+                        ${createSortableHeader('OS Arch', 'os_architecture')}
+                        ${createSortableHeader('OS Platform', 'os_platform')}
+                        ${createSortableHeader('OS Distribution', 'os_distribution')}
+                        ${createSortableHeader('Disk Type', 'os_disk_type')}
+                        ${createSortableHeader('Disk Size (GB)', 'os_disk_size_gb')}
+                        ${createSortableHeader('Status', 'image_status')}
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        images.forEach((image, index) => {
+            const rowNumber = currentImagePage * ITEMS_PER_PAGE + index + 1;
+            tableHTML += `
+                <tr>
+                    <td style="color: #6c757d;">${rowNumber}</td>
+                    <td style="font-family: monospace;"><a href="javascript:void(0)" onclick='selectImage("${image.image_id}")' title="Click to select this image" style="cursor: pointer; color: #007bff; text-decoration: underline;">${image.image_id}</a></td>
+                    <td>${image.os_architecture === 'NA' ? '<span style="color: #999;">NA</span>' : displayValue(image.os_architecture)}</td>
+                    <td>${image.os_platform === 'na' ? '<span style="color: #999;">NA</span>' : displayValue(image.os_platform)}</td>
+                    <td>${displayValue(image.os_distribution)}</td>
+                    <td>${image.os_disk_type === 'NA' ? '<span style="color: #999;">NA</span>' : displayValue(image.os_disk_type)}</td>
+                    <td>${image.os_disk_size_gb === 0 ? '0' : (image.os_disk_size_gb > 0 ? image.os_disk_size_gb.toLocaleString() : '<span style="color: #999;">NA</span>')}</td>
+                    <td>${displayValue(image.image_status)}</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += '</tbody></table>';
+        container.innerHTML = tableHTML;
+    }
+
+    function sortImages(field) {
+        if (imageSortField === field) {
+            // Toggle sort order if clicking the same field
+            imageSortOrder = imageSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Set new field and default to ascending
+            imageSortField = field;
+            imageSortOrder = 'asc';
+        }
+        // Reset to first page when sorting changes
+        currentImagePage = 0;
+        loadImages();
+    }
+
+    function selectImage(imageId) {
+        document.getElementById('imageName').value = imageId;
+        closeImageSelectionOverlay();
+    }
+
+    function loadImagePage(direction) {
+        if (direction === 'next' && (currentImagePage + 1) * ITEMS_PER_PAGE < imageTotalCount) {
+            currentImagePage++;
+            loadImages();
+        } else if (direction === 'prev' && currentImagePage > 0) {
+            currentImagePage--;
+            loadImages();
+        }
+    }
+
+    function updateImagePagination(dataVersion) {
+        const pagination = document.getElementById('image-pagination');
+        const pageInfo = document.getElementById('image-page-info');
+        const totalInfo = document.getElementById('image-total-info');
+        const versionInfo = document.getElementById('image-data-version');
+        const prevBtn = document.getElementById('image-prev-btn');
+        const nextBtn = document.getElementById('image-next-btn');
+
+        const totalPages = Math.ceil(imageTotalCount / ITEMS_PER_PAGE);
+        pageInfo.textContent = `${currentImagePage + 1} / ${totalPages}`;
+        totalInfo.textContent = `Total: ${imageTotalCount.toLocaleString()}`;
+        
+        if (dataVersion) {
+            let formattedDate = dataVersion;
+            try {
+                // Parse format: YYYYMMDD-HHMMSS
+                const match = dataVersion.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+                if (match) {
+                    const year = match[1];
+                    const month = parseInt(match[2]) - 1; // 0-based
+                    const day = match[3];
+                    const hour = match[4];
+                    const minute = match[5];
+                    const second = match[6];
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    formattedDate = `${months[month]} ${parseInt(day)}, ${year}, ${hour}:${minute}:${second}`;
+                }
+            } catch (e) {
+                // If parsing fails, use the raw value
+            }
+            versionInfo.textContent = ` (data_ver: ${formattedDate})`;
+        }
+
+        prevBtn.disabled = currentImagePage === 0;
+        nextBtn.disabled = (currentImagePage + 1) * ITEMS_PER_PAGE >= imageTotalCount;
+
+        pagination.style.display = imageTotalCount > 0 ? 'flex' : 'none';
+    }
+
+    // ==================== VM SPEC SELECTION FUNCTIONS ====================
+
+    function showSpecSelectionOverlay() {
+        // Check if subnet is selected
+        const subnetSelect = document.getElementById('subnetSelect');
+        
+        if (!subnetSelect.value || subnetSelect.value === '') {
+            alert('Please select a Subnet first. The Zone will be determined from the selected Subnet.');
+            return;
+        }
+        
+        const overlay = document.getElementById('spec-selection-overlay');
+        overlay.style.display = 'flex';
+        document.addEventListener('keydown', handleSpecSelectionOverlayEsc);
+        
+        // Check if MC-Insight token is configured
+        checkMCInsightToken().then(hasToken => {
+            if (!hasToken) {
+                showTokenWarning('spec-list-container');
+                document.getElementById('spec-pagination').style.display = 'none';
+                return;
+            }
+            
+            // Get current connection info and set filters
+            getConnectionInfo().then(info => {
+                if (!info.zone) {
+                    alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
+                    closeSpecSelectionOverlay();
+                    return;
+                }
+                
+                loadSpecFilterOptions(info.csp, info.region, info.zone);
+                
+                // Add focus event listeners to set placeholder as initial value for number inputs
+                const numberInputs = [
+                    { id: 'spec-filter-min-vcpu', defaultValue: '2' },
+                    { id: 'spec-filter-max-vcpu', defaultValue: '16' },
+                    { id: 'spec-filter-min-mem', defaultValue: '4096' },
+                    { id: 'spec-filter-max-mem', defaultValue: '65536' },
+                    { id: 'spec-filter-min-gpu', defaultValue: '1' },
+                    { id: 'spec-filter-max-gpu', defaultValue: '8' },
+                    { id: 'spec-filter-min-gpu-mem', defaultValue: '8' },
+                    { id: 'spec-filter-max-gpu-mem', defaultValue: '128' }
+                ];
+                
+                numberInputs.forEach(input => {
+                    const element = document.getElementById(input.id);
+                    if (element) {
+                        element.addEventListener('focus', function() {
+                            if (this.value === '') {
+                                this.value = input.defaultValue;
+                            }
+                        });
+                        
+                        // Add custom step behavior for memory inputs (*2, /2)
+                        if (input.id.includes('-mem')) {
+                            let isTyping = false;
+                            let previousValue = null;
+                            let isComposing = false;
+                            
+                            // Block IME (Korean, etc.) input
+                            element.addEventListener('compositionstart', function() {
+                                isComposing = true;
+                            });
+                            
+                            element.addEventListener('compositionend', function() {
+                                isComposing = false;
+                                this.value = this.value.replace(/[^0-9]/g, '');
+                            });
+                            
+                            element.addEventListener('focus', function() {
+                                previousValue = parseInt(this.value) || parseInt(input.defaultValue);
+                            });
+                            
+                            // Detect direct keyboard number input
+                            element.addEventListener('keydown', function(event) {
+                                // Block all non-numeric keys except special keys
+                                if (isComposing) {
+                                    event.preventDefault();
+                                    return;
+                                }
+                                
+                                // Arrow keys - apply *2, /2
+                                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                                    event.preventDefault();
+                                    const currentValue = parseInt(this.value) || parseInt(input.defaultValue);
+                                    if (event.key === 'ArrowUp') {
+                                        this.value = currentValue * 2;
+                                    } else {
+                                        const newValue = Math.floor(currentValue / 2);
+                                        this.value = newValue > 0 ? newValue : 1;
+                                    }
+                                    previousValue = parseInt(this.value);
+                                    return;
+                                }
+                                
+                                // Number keys, backspace, delete - mark as typing
+                                if ((event.key >= '0' && event.key <= '9') || 
+                                    event.key === 'Backspace' || 
+                                    event.key === 'Delete') {
+                                    isTyping = true;
+                                }
+                            });
+                            
+                            // Handle spinner clicks and other value changes
+                            element.addEventListener('input', function() {
+                                // Block non-numeric characters (including Korean)
+                                const cleaned = this.value.replace(/[^0-9]/g, '');
+                                if (this.value !== cleaned) {
+                                    this.value = cleaned;
+                                    previousValue = parseInt(this.value) || 0;
+                                    return;
+                                }
+                                
+                                if (isTyping) {
+                                    // Direct keyboard input - allow normal behavior
+                                    isTyping = false;
+                                    previousValue = parseInt(this.value);
+                                    return;
+                                }
+                                
+                                // Spinner click or other change - apply *2, /2
+                                const currentValue = parseInt(this.value);
+                                if (!isNaN(currentValue) && previousValue !== null && currentValue !== previousValue) {
+                                    if (currentValue > previousValue) {
+                                        this.value = previousValue * 2;
+                                    } else if (currentValue < previousValue) {
+                                        const newValue = Math.floor(previousValue / 2);
+                                        this.value = newValue > 0 ? newValue : 1;
+                                    }
+                                    previousValue = parseInt(this.value);
+                                }
+                            });
+                            
+                            element.addEventListener('wheel', function(event) {
+                                event.preventDefault();
+                                const currentValue = parseInt(this.value) || parseInt(input.defaultValue);
+                                if (event.deltaY < 0) {
+                                    this.value = currentValue * 2;
+                                } else {
+                                    const newValue = Math.floor(currentValue / 2);
+                                    this.value = newValue > 0 ? newValue : 1;
+                                }
+                                previousValue = parseInt(this.value);
+                            });
+                        } else {
+                            // For non-memory inputs, block non-numeric characters
+                            let isComposing = false;
+                            
+                            element.addEventListener('compositionstart', function() {
+                                isComposing = true;
+                            });
+                            
+                            element.addEventListener('compositionend', function() {
+                                isComposing = false;
+                                this.value = this.value.replace(/[^0-9]/g, '');
+                            });
+                            
+                            element.addEventListener('keydown', function(event) {
+                                if (isComposing) {
+                                    event.preventDefault();
+                                    return;
+                                }
+                            });
+                            
+                            element.addEventListener('input', function() {
+                                this.value = this.value.replace(/[^0-9]/g, '');
+                            });
+                        }
+                    }
+                });
+                
+                // Add validation for max fields to ensure max >= min
+                const maxFieldValidations = [
+                    { maxId: 'spec-filter-max-vcpu', minId: 'spec-filter-min-vcpu', isMemory: false },
+                    { maxId: 'spec-filter-max-mem', minId: 'spec-filter-min-mem', isMemory: true },
+                    { maxId: 'spec-filter-max-gpu', minId: 'spec-filter-min-gpu', isMemory: false },
+                    { maxId: 'spec-filter-max-gpu-mem', minId: 'spec-filter-min-gpu-mem', isMemory: true }
+                ];
+                
+                maxFieldValidations.forEach(validation => {
+                    const maxElement = document.getElementById(validation.maxId);
+                    const minElement = document.getElementById(validation.minId);
+                    
+                    if (maxElement && minElement) {
+                        const validateMaxValue = function() {
+                            const currentValue = this.value.trim();
+                            
+                            // Only validate if there's a value entered
+                            if (currentValue === '') return;
+                            
+                            const maxValue = parseInt(currentValue);
+                            const minValue = parseInt(minElement.value);
+                            
+                            // If max < min, set to min value (without alert)
+                            if (!isNaN(maxValue) && !isNaN(minValue) && maxValue < minValue) {
+                                this.value = minValue;
+                            }
+                        };
+                        
+                        // Validate on blur (when user finishes typing and clicks away)
+                        maxElement.addEventListener('blur', validateMaxValue);
+                        
+                        // Validate on wheel (after value changes)
+                        maxElement.addEventListener('wheel', function(event) {
+                            setTimeout(() => validateMaxValue.call(this), 0);
+                        });
+                        
+                        // For memory inputs, add validation after arrow key handling
+                        if (validation.isMemory) {
+                            const originalKeydownHandler = maxElement.onkeydown;
+                            maxElement.addEventListener('keydown', function(event) {
+                                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                                    setTimeout(() => validateMaxValue.call(this), 0);
+                                }
+                            });
+                        }
+                    }
+                });
+                
+                // Add Enter key event listeners to filter inputs
+                ['spec-filter-name', 'spec-filter-gpu-model', 'spec-filter-min-vcpu', 'spec-filter-max-vcpu', 'spec-filter-min-mem', 'spec-filter-max-mem', 'spec-filter-min-gpu', 'spec-filter-max-gpu', 'spec-filter-min-gpu-mem', 'spec-filter-max-gpu-mem'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.addEventListener('keypress', function(event) {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                applySpecFilters();
+                            }
+                        });
+                    }
+                });
+            }).catch(error => {
+                console.error('Error loading connection info:', error);
+                alert('Failed to load connection information');
+                closeSpecSelectionOverlay();
+            });
+        });
+    }
+
+    function closeSpecSelectionOverlay() {
+        const overlay = document.getElementById('spec-selection-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleSpecSelectionOverlayEsc);
+    }
+
+    function showPriceInfoOverlay() {
+        document.removeEventListener('keydown', handlePriceInfoOverlayEsc); // Prevent duplicate handlers
+        document.getElementById('price-info-overlay').style.display = 'flex';
+        document.addEventListener('keydown', handlePriceInfoOverlayEsc);
+    }
+
+    function closePriceInfoOverlay() {
+        document.getElementById('price-info-overlay').style.display = 'none';
+        document.removeEventListener('keydown', handlePriceInfoOverlayEsc);
+    }
+
+    function handlePriceInfoOverlayEsc(event) {
+        if (event.key === 'Escape') {
+            const priceOverlay = document.getElementById('price-info-overlay');
+            
+            // If price info overlay is visible, close it immediately
+            if (priceOverlay.style.display === 'flex') {
+                event.stopImmediatePropagation();
+                closePriceInfoOverlay();
+            }
+        }
+    }
+
+    function handleSpecSelectionOverlayEsc(event) {
+        if (event.key === 'Escape') {
+            const priceOverlay = document.getElementById('price-info-overlay');
+            // Don't close if Price Info overlay is open (it should close first)
+            if (priceOverlay && priceOverlay.style.display === 'flex') {
+                return;
+            }
+            event.stopImmediatePropagation();
+            closeSpecSelectionOverlay();
+        }
+    }
+
+    function loadSpecFilterOptions(csp, currentRegion, currentZone) {
+        // ==================== OPENSTACK: SIMPLE REGION/ZONE SETUP ====================
+        if (csp.toLowerCase() === 'openstack') {
+            const regionSelect = document.getElementById('spec-filter-region');
+            const zoneSelect = document.getElementById('spec-filter-zone');
+            
+            // Set region and zone from connection (locked)
+            regionSelect.innerHTML = `<option value="${currentRegion}">${currentRegion}</option>`;
+            regionSelect.disabled = true;
+            regionSelect.style.backgroundColor = '#f0f0f0';
+            
+            zoneSelect.innerHTML = `<option value="${currentZone}">${currentZone}</option>`;
+            zoneSelect.disabled = true;
+            zoneSelect.style.backgroundColor = '#f0f0f0';
+            
+            // Set filters with locked region/zone
+            specFilters = {
+                region: currentRegion,
+                zone: currentZone
+            };
+            
+            // Set initial message - data loads when Search is clicked
+            document.getElementById('spec-list-container').innerHTML = '<div class="loading-message">Press Search to load VM specs</div>';
+            document.getElementById('spec-pagination').style.display = 'none';
+            return;
+        }
+        
+        // ==================== NON-OPENSTACK: USE MC-INSIGHT FILTER API ====================
+        // Show MC-Insight badge for non-OpenStack CSPs
+        const badge = document.getElementById('spec-mcinsight-badge');
+        if (badge) badge.style.display = '';
+        
+        fetch(`/spider/mcinsight/vm-spec/filters`)
+        .then(response => response.json())
+        .then(data => {
+            
+            const regionSelect = document.getElementById('spec-filter-region');
+            const zoneSelect = document.getElementById('spec-filter-zone');
+            
+            regionSelect.innerHTML = '';
+            zoneSelect.innerHTML = '';
+            
+            // Try NCP first, fallback to NCPVPC if not found
+            let actualCsp = csp;
+            if (csp.toLowerCase() === 'ncp' && (!data.cloud_hierarchy || !data.cloud_hierarchy[csp])) {
+                actualCsp = 'ncpvpc';
+                console.log('NCP not found in filters, using NCPVPC');
+            }
+            // Try NHN first, fallback to nhncloud if not found
+            if (csp.toLowerCase() === 'nhn' && (!data.cloud_hierarchy || !data.cloud_hierarchy[csp])) {
+                actualCsp = 'nhncloud';
+                console.log('NHN not found in filters, using nhncloud');
+            }
+            // Try KT first, fallback to ktvpc if not found
+            if (csp.toLowerCase() === 'kt' && (!data.cloud_hierarchy || !data.cloud_hierarchy[csp])) {
+                actualCsp = 'ktvpc';
+                console.log('KT not found in filters, using ktvpc');
+            }
+            
+            // Populate Region/Zone (cloud_hierarchy)
+            if (data.cloud_hierarchy && data.cloud_hierarchy[actualCsp]) {
+                const regions = Object.keys(data.cloud_hierarchy[actualCsp]);
+                
+                regions.forEach(region => {
+                    const option = document.createElement('option');
+                    option.value = region;
+                    option.textContent = region;
+                    if (region === currentRegion) {
+                        option.selected = true;
+                    }
+                    regionSelect.appendChild(option);
+                });
+                
+                regionSelect.disabled = true;
+                regionSelect.style.backgroundColor = '#f0f0f0';
+                
+                const zones = data.cloud_hierarchy[actualCsp][currentRegion];
+                
+                if (zones && zones.length > 0) {
+                    zones.forEach(zone => {
+                        const option = document.createElement('option');
+                        option.value = zone;
+                        option.textContent = zone;
+                        if (zone === currentZone) {
+                            option.selected = true;
+                        }
+                        zoneSelect.appendChild(option);
+                    });
+                    
+                    zoneSelect.disabled = true;
+                    zoneSelect.style.backgroundColor = '#f0f0f0';
+                }
+            }
+            
+        })
+        .catch(error => {
+            console.error('Error loading spec filters:', error);
+            alert('Failed to load spec filters');
+        });
+    }
+
+    function loadSpecZones(csp, zones) {
+        // This function is no longer needed as zones are loaded and locked in loadSpecFilterOptions
+    }
+
+    function applySpecFilters() {
+        currentSpecPage = 0;
+        specFilters = {
+            name: document.getElementById('spec-filter-name').value.trim(),
+            region: document.getElementById('spec-filter-region').value,
+            zone: document.getElementById('spec-filter-zone').value,
+            gpu_model: document.getElementById('spec-filter-gpu-model').value.trim(),
+            min_vcpu_count: document.getElementById('spec-filter-min-vcpu').value,
+            max_vcpu_count: document.getElementById('spec-filter-max-vcpu').value,
+            min_mem_size_mib: document.getElementById('spec-filter-min-mem').value,
+            max_mem_size_mib: document.getElementById('spec-filter-max-mem').value,
+            min_gpu_count: document.getElementById('spec-filter-min-gpu').value,
+            max_gpu_count: document.getElementById('spec-filter-max-gpu').value,
+            min_gpu_mem_size_gb: document.getElementById('spec-filter-min-gpu-mem').value,
+            max_gpu_mem_size_gb: document.getElementById('spec-filter-max-gpu-mem').value
+        };
+        loadSpecs();
+    }
+
+    function clearFilter(filterType) {
+        switch(filterType) {
+            case 'vcpu':
+                document.getElementById('spec-filter-min-vcpu').value = '';
+                document.getElementById('spec-filter-max-vcpu').value = '';
+                break;
+            case 'mem':
+                document.getElementById('spec-filter-min-mem').value = '';
+                document.getElementById('spec-filter-max-mem').value = '';
+                break;
+            case 'gpu':
+                document.getElementById('spec-filter-min-gpu').value = '';
+                document.getElementById('spec-filter-max-gpu').value = '';
+                break;
+            case 'gpu-mem':
+                document.getElementById('spec-filter-min-gpu-mem').value = '';
+                document.getElementById('spec-filter-max-gpu-mem').value = '';
+                break;
+            case 'gpu-model':
+                document.getElementById('spec-filter-gpu-model').value = '';
+                break;
+            case 'spec-name':
+                document.getElementById('spec-filter-name').value = '';
+                break;
+            case 'image-name':
+                document.getElementById('image-filter-name').value = '';
+                break;
+            case 'image-distribution':
+                document.getElementById('image-filter-distribution').value = '';
+                break;
+        }
+    }
+
+    function resetSpecFilters() {
+        // Region and Zone are locked, so we don't reset them
+        document.getElementById('spec-filter-name').value = '';
+        document.getElementById('spec-filter-gpu-model').value = '';
+        document.getElementById('spec-filter-min-vcpu').value = '';
+        document.getElementById('spec-filter-max-vcpu').value = '';
+        document.getElementById('spec-filter-min-mem').value = '';
+        document.getElementById('spec-filter-max-mem').value = '';
+        document.getElementById('spec-filter-min-gpu').value = '';
+        document.getElementById('spec-filter-max-gpu').value = '';
+        document.getElementById('spec-filter-min-gpu-mem').value = '';
+        document.getElementById('spec-filter-max-gpu-mem').value = '';
+        
+        // Keep region and zone filters but reset others
+        specFilters = {
+            region: document.getElementById('spec-filter-region').value,
+            zone: document.getElementById('spec-filter-zone').value
+        };
+        currentSpecPage = 0;
+        specSortField = 'name';
+        specSortOrder = 'asc';
+        document.getElementById('spec-list-container').innerHTML = '<div class="loading-message">Press Search to load VM specs</div>';
+        document.getElementById('spec-pagination').style.display = 'none';
+    }
+
+    function loadSpecs() {
+        getCSPFromConnection().then(csp => {
+            // ==================== OPENSTACK: USE SPIDER API ====================
+            if (csp.toLowerCase() === 'openstack') {
+                // Hide MC-Insight badge for OpenStack
+                const badge = document.getElementById('spec-mcinsight-badge');
+                if (badge) badge.style.display = 'none';
+                
+                const container = document.getElementById('spec-list-container');
+                let loadingOverlay = container.querySelector('.table-loading-overlay');
+                if (!loadingOverlay) {
+                    loadingOverlay = document.createElement('div');
+                    loadingOverlay.className = 'table-loading-overlay';
+                    loadingOverlay.textContent = 'Loading specs...';
+                    container.appendChild(loadingOverlay);
+                }
+                loadingOverlay.classList.add('active');
+                
+                // Get current connection name
+                const connectionName = document.getElementById('connConfig').value;
+                
+                // Load specs from Spider API (only once, then cache)
+                if (openstackAllSpecs.length === 0) {
+                    loadSpecsFromSpider(connectionName)
+                        .then(specs => {
+                            openstackAllSpecs = specs;
+                            
+                            // Apply filters and sorting
+                            let filteredSpecs = filterOpenStackSpecs(openstackAllSpecs, specFilters);
+                            filteredSpecs = sortOpenStackData(filteredSpecs, specSortField, specSortOrder);
+                            
+                            // Update total count
+                            specTotalCount = filteredSpecs.length;
+                            
+                            // Paginate
+                            const startIdx = currentSpecPage * ITEMS_PER_PAGE;
+                            const endIdx = startIdx + ITEMS_PER_PAGE;
+                            const pageSpecs = filteredSpecs.slice(startIdx, endIdx);
+                            
+                            displaySpecs(pageSpecs);
+                            updateSpecPagination('Spider-OpenStack');
+                            loadingOverlay.classList.remove('active');
+                        })
+                        .catch(error => {
+                            console.error('Error loading OpenStack specs:', error);
+                            loadingOverlay.classList.remove('active');
+                            container.innerHTML = `
+                                <div class="no-data-message">
+                                    <p><strong>Error loading OpenStack specs</strong></p>
+                                    <p style="font-size: 12px; color: #666;">${error.message}</p>
+                                    <button class="select-btn" onclick="openstackAllSpecs = []; loadSpecs();" style="margin-top: 10px;">Retry</button>
+                                </div>
+                            `;
+                        });
+                } else {
+                    // Use cached data
+                    let filteredSpecs = filterOpenStackSpecs(openstackAllSpecs, specFilters);
+                    filteredSpecs = sortOpenStackData(filteredSpecs, specSortField, specSortOrder);
+                    
+                    specTotalCount = filteredSpecs.length;
+                    const startIdx = currentSpecPage * ITEMS_PER_PAGE;
+                    const endIdx = startIdx + ITEMS_PER_PAGE;
+                    const pageSpecs = filteredSpecs.slice(startIdx, endIdx);
+                    
+                    displaySpecs(pageSpecs);
+                    updateSpecPagination('Spider-OpenStack');
+                    loadingOverlay.classList.remove('active');
+                }
+                return;
+            }
+            
+            // ==================== NON-OPENSTACK: USE MC-INSIGHT API ====================
+            // Show MC-Insight badge for non-OpenStack CSPs
+            const badge = document.getElementById('spec-mcinsight-badge');
+            if (badge) badge.style.display = '';
+            
+            // If sorting by price, fetch all data for client-side sorting
+            const isPriceSorting = specSortField === 'price_per_hour';
+            
+            const params = new URLSearchParams({
+                csp: csp,
+                skip: isPriceSorting ? 0 : currentSpecPage * ITEMS_PER_PAGE,
+                limit: isPriceSorting ? 10000 : ITEMS_PER_PAGE
+            });
+
+            // Add filters if they exist
+            Object.keys(specFilters).forEach(key => {
+                if (specFilters[key]) {
+                    params.append(key, specFilters[key]);
+                }
+            });
+
+            // Add sort parameter if set (except for price_per_hour which is client-side sorted)
+            if (specSortField && specSortField !== 'price_per_hour') {
+                const sortParam = specSortOrder === 'desc' ? `-${specSortField}` : specSortField;
+                params.append('sort', sortParam);
+            }
+
+            const container = document.getElementById('spec-list-container');
+            
+            // Show loading overlay instead of replacing content
+            let loadingOverlay = container.querySelector('.table-loading-overlay');
+            if (!loadingOverlay) {
+                loadingOverlay = document.createElement('div');
+                loadingOverlay.className = 'table-loading-overlay';
+                loadingOverlay.textContent = 'Loading specs and prices...';
+                container.appendChild(loadingOverlay);
+            }
+            loadingOverlay.classList.add('active');
+
+            const apiUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params.toString()}`;
+
+            // Fetch specs first
+            fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(specData => {
+                // If NCP returns no results, try with NCPVPC
+                if ((specData.total === 0 || !specData.items || specData.items.length === 0) && csp.toLowerCase() === 'ncp') {
+                    console.log('NCP returned no results, trying NCPVPC...');
+                    params.set('csp', 'ncpvpc');
+                    const fallbackUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params.toString()}`;
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(fallbackData => {
+                        return { ...fallbackData, usedFallback: true, fallbackCsp: 'ncpvpc' };
+                    });
+                }
+                // If NHN returns no results, try with nhncloud
+                if ((specData.total === 0 || !specData.items || specData.items.length === 0) && csp.toLowerCase() === 'nhn') {
+                    console.log('NHN returned no results, trying nhncloud...');
+                    params.set('csp', 'nhncloud');
+                    const fallbackUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params.toString()}`;
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(fallbackData => {
+                        return { ...fallbackData, usedFallback: true, fallbackCsp: 'nhncloud' };
+                    });
+                }
+                // If KT returns no results, try with ktvpc
+                if ((specData.total === 0 || !specData.items || specData.items.length === 0) && csp.toLowerCase() === 'kt') {
+                    console.log('KT returned no results, trying ktvpc...');
+                    params.set('csp', 'ktvpc');
+                    const fallbackUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params.toString()}`;
+                    return fetch(fallbackUrl, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(fallbackData => {
+                        return { ...fallbackData, usedFallback: true, fallbackCsp: 'ktvpc' };
+                    });
+                }
+                return specData;
+            })
+            .then(specData => {
+                specTotalCount = specData.total || 0;
+                const specs = specData.items || [];
+                const actualCsp = specData.usedFallback ? specData.fallbackCsp : csp;
+                
+                // Build price API parameters based on filters
+                const priceParams = new URLSearchParams({
+                    csp: actualCsp,
+                    skip: 0,
+                    limit: 10000  // Get all prices to match with specs
+                });
+                
+                // Add region/zone filters if they exist
+                if (specFilters.region) priceParams.append('region', specFilters.region);
+                if (specFilters.zone) priceParams.append('zone', specFilters.zone);
+                
+                const priceApiUrl = `${MC_INSIGHT_API_BASE}/price-info?${priceParams.toString()}`;
+                
+                // Fetch price data
+                return fetch(priceApiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json'
+                    }
+                })
+                .then(priceResponse => {
+                    if (!priceResponse.ok) {
+                        console.warn('Failed to fetch price info, displaying specs without prices');
+                        return { specs: specs, prices: [] };
+                    }
+                    return priceResponse.json();
+                })
+                .then(priceData => {
+                    return { 
+                        specs: specs, 
+                        prices: priceData.items || [],
+                        dataVersion: specData.data_version
+                    };
+                })
+                .catch(priceError => {
+                    console.warn('Error fetching prices:', priceError);
+                    return { 
+                        specs: specs, 
+                        prices: [],
+                        dataVersion: specData.data_version
+                    };
+                });
+            })
+            .then(combinedData => {
+                // Merge specs with price data
+                let specsWithPrices = mergeSpecsWithPrices(combinedData.specs, combinedData.prices);
+                
+                // If sorting by price, do client-side sorting and pagination
+                if (specSortField === 'price_per_hour') {
+                    specsWithPrices.sort((a, b) => {
+                        const priceA = a.price_per_hour !== null && a.price_per_hour !== undefined ? parseFloat(a.price_per_hour) : Infinity;
+                        const priceB = b.price_per_hour !== null && b.price_per_hour !== undefined ? parseFloat(b.price_per_hour) : Infinity;
+                        
+                        if (specSortOrder === 'asc') {
+                            return priceA - priceB;
+                        } else {
+                            return priceB - priceA;
+                        }
+                    });
+                    
+                    // Apply pagination to sorted data
+                    const start = currentSpecPage * ITEMS_PER_PAGE;
+                    const end = start + ITEMS_PER_PAGE;
+                    specsWithPrices = specsWithPrices.slice(start, end);
+                }
+                
+                displaySpecs(specsWithPrices);
+                updateSpecPagination(combinedData.dataVersion);
+                loadingOverlay.classList.remove('active');
+            })
+            .catch(error => {
+                console.error('Error loading specs:', error);
+                const errorMsg = error.message || error.toString();
+                loadingOverlay.classList.remove('active');
+                
+                // Check if it's a token configuration error (503 Service Unavailable)
+                if (errorMsg.includes('503')) {
+                    container.innerHTML = `
+                        <div class="no-data-message">
+                            <p><strong>MC-Insight API Token Required</strong></p>
+                            <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                                To search multi-cloud metadata using MC-Insight, you need to configure the MC-Insight API Token.<br>
+                                Please set the <code>MC_INSIGHT_API_TOKEN</code> value in <code>./setup.env</code> and restart CB-Spider.
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="no-data-message">
+                            <p><strong>Error loading VM specs</strong></p>
+                            <p style="font-size: 12px; color: #666;">${errorMsg}</p>
+                            <button class="select-btn" onclick="applySpecFilters()" style="margin-top: 10px;">Retry</button>
+                        </div>
+                    `;
+                }
+            });
+        }).catch(error => {
+            console.error('Error getting CSP:', error);
+            const container = document.getElementById('spec-list-container');
+            container.innerHTML = `<div class="no-data-message">Connection Config를 불러오는 중 오류가 발생했습니다: ${error.message}</div>`;
+        });
+    }
+
+    function mergeSpecsWithPrices(specs, prices) {
+        // Create a map of name -> price info for quick lookup
+        const priceMap = {};
+        prices.forEach(price => {
+            const key = price.name;
+            if (!priceMap[key] || (priceMap[key].price > price.price)) {
+                // Keep the lowest price (typically on-demand Linux)
+                priceMap[key] = price;
+            }
+        });
+        
+        // Merge price info with specs
+        return specs.map(spec => {
+            const priceInfo = priceMap[spec.name];
+            return {
+                ...spec,
+                price_per_hour: priceInfo ? priceInfo.price : null,
+                price_currency: priceInfo ? priceInfo.currency : null,
+                price_description: priceInfo ? priceInfo.price_description : null,
+                unit: priceInfo ? priceInfo.unit : null
+            };
+        });
+    }
+
+    function displaySpecs(specs) {
+        const container = document.getElementById('spec-list-container');
+        
+        if (specs.length === 0) {
+            container.innerHTML = '<div class="no-data-message">No VM specs found matching the filters.</div>';
+            return;
+        }
+
+        // Helper function to display value or NA
+        const displayValue = (value) => {
+            if (value === -1 || value === '-' || value === '-1' || !value || value === 0) return '<span style="color: #999;">NA</span>';
+            return value;
+        };
+        
+        const displayNumeric = (value) => {
+            if (value === -1 || value === '-' || value === '-1' || !value) return '<span style="color: #999;">NA</span>';
+            return typeof value === 'number' ? value.toLocaleString() : value;
+        };
+
+        // Helper function to create sortable header
+        const createSortableSpecHeader = (label, field, style = '') => {
+            const isActive = specSortField === field;
+            const arrow = isActive ? (specSortOrder === 'asc' ? ' ▲' : ' ▼') : '';
+            const baseStyle = 'cursor: pointer; user-select: none;';
+            const finalStyle = style ? `${baseStyle} ${style}` : baseStyle;
+            return `<th onclick="sortSpecs('${field}')" style="${finalStyle}" title="Click to sort">${label}${arrow}</th>`;
+        };
+
+        let tableHTML = `
+            <table class="selection-table">
+                <colgroup>
+                    <col style="width: 40px;">
+                    <col style="width: 180px;">
+                    <col style="width: 70px;">
+                    <col style="width: 110px;">
+                    <col style="width: 85px;">
+                    <col style="width: 50px;">
+                    <col style="width: 90px;">
+                    <col style="width: 150px;">
+                    <col style="width: 130px;">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        ${createSortableSpecHeader('Name', 'name')}
+                        ${createSortableSpecHeader('vCPU', 'vcpu_count')}
+                        ${createSortableSpecHeader('Memory (MiB)', 'mem_size_mib')}
+                        ${createSortableSpecHeader('Disk (GB)', 'disk_size_gb')}
+                        ${createSortableSpecHeader('GPU', 'gpu_count', 'background-color: #e8f4f8;')}
+                        ${createSortableSpecHeader('Memory (GB)', 'gpu_mem_size_gb', 'background-color: #e8f4f8;')}
+                        ${createSortableSpecHeader('Model', 'gpu_model', 'background-color: #e8f4f8;')}
+                        <th onclick="sortSpecsByPrice()" style="cursor: pointer; user-select: none; background-color: #fff4e6;" title="Click to sort">
+                            Price/Hour${specSortField === 'price_per_hour' ? (specSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            <span onclick="event.stopPropagation(); showPriceInfoOverlay()" style="cursor: pointer; color: #007bff; font-weight: bold; margin-left: 5px;" title="Click for price info details">ⓘ</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        specs.forEach((spec, index) => {
+            const rowNumber = currentSpecPage * ITEMS_PER_PAGE + index + 1;
+            
+            // Format vCPU with clock
+            let vcpuDisplay = displayNumeric(spec.vcpu_count);
+            if (spec.vcpu_clock_ghz && spec.vcpu_clock_ghz !== -1 && spec.vcpu_clock_ghz !== '-' && spec.vcpu_clock_ghz !== 'NA') {
+                vcpuDisplay += ` <span style="color: #666;">(${spec.vcpu_clock_ghz}GHz)</span>`;
+            }
+            
+            // Format price display
+            let priceDisplay = '<span style="color: #999;">NA</span>';
+            if (spec.price_per_hour !== null && spec.price_per_hour !== undefined) {
+                const priceValue = parseFloat(spec.price_per_hour);
+                if (!isNaN(priceValue)) {
+                    priceDisplay = `$${priceValue.toFixed(4)}`;
+                    // Add On-Demand or Spot type if available
+                    const details = [];
+                    if (spec.price_description) {
+                        const desc = spec.price_description.toLowerCase();
+                        if (desc.includes('on-demand') || desc.includes('ondemand')) details.push('On-Demand');
+                        else if (desc.includes('spot')) details.push('Spot');
+                    }
+                    if (details.length > 0) {
+                        priceDisplay += ` <span style="color: #999; font-size: 0.85em;">(${details.join(', ')})</span>`;
+                    }
+                }
+            }
+            
+            // Format GPU Model display
+            let gpuModelDisplay = spec.gpu_model === 'NA' || !spec.gpu_model 
+                ? '<span style="color: #999;">NA</span>' 
+                : spec.gpu_model;
+            
+            tableHTML += `
+                <tr>
+                    <td style="color: #6c757d;">${rowNumber}</td>
+                    <td><a href="javascript:void(0)" onclick='selectSpec("${spec.name}")' title="Click to select this spec" style="cursor: pointer; color: #007bff; text-decoration: underline;">${spec.name}</a></td>
+                    <td>${vcpuDisplay}</td>
+                    <td>${displayNumeric(spec.mem_size_mib)}</td>
+                    <td>${displayNumeric(spec.disk_size_gb)}</td>
+                    <td>${spec.gpu_count > 0 ? spec.gpu_count : '<span style="color: #999;">NA</span>'}</td>
+                    <td>${displayNumeric(spec.gpu_mem_size_gb)}</td>
+                    <td>${gpuModelDisplay}</td>
+                    <td>${priceDisplay}</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += '</tbody></table>';
+        container.innerHTML = tableHTML;
+    }
+
+    function sortSpecs(field) {
+        if (specSortField === field) {
+            // Toggle sort order if clicking the same field
+            specSortOrder = specSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Set new field and default to ascending
+            specSortField = field;
+            specSortOrder = 'asc';
+        }
+        // Reset to first page when sorting changes
+        currentSpecPage = 0;
+        loadSpecs();
+    }
+
+    function selectSpec(specName) {
+        document.getElementById('vmSpecName').value = specName;
+        closeSpecSelectionOverlay();
+    }
+
+    function sortSpecsByPrice() {
+        if (specSortField === 'price_per_hour') {
+            // Toggle sort order if clicking the same field
+            specSortOrder = specSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Set new field and default to ascending
+            specSortField = 'price_per_hour';
+            specSortOrder = 'asc';
+        }
+        // Reset to first page when sorting changes
+        currentSpecPage = 0;
+        loadSpecs();
+    }
+
+    function loadSpecPage(direction) {
+        if (direction === 'next' && (currentSpecPage + 1) * ITEMS_PER_PAGE < specTotalCount) {
+            currentSpecPage++;
+            loadSpecs();
+        } else if (direction === 'prev' && currentSpecPage > 0) {
+            currentSpecPage--;
+            loadSpecs();
+        }
+    }
+
+    function updateSpecPagination(dataVersion) {
+        const pagination = document.getElementById('spec-pagination');
+        const pageInfo = document.getElementById('spec-page-info');
+        const totalInfo = document.getElementById('spec-total-info');
+        const versionInfo = document.getElementById('spec-data-version');
+        const prevBtn = document.getElementById('spec-prev-btn');
+        const nextBtn = document.getElementById('spec-next-btn');
+
+        const totalPages = Math.ceil(specTotalCount / ITEMS_PER_PAGE);
+        pageInfo.textContent = `${currentSpecPage + 1} / ${totalPages}`;
+        totalInfo.textContent = `Total: ${specTotalCount.toLocaleString()}`;
+        
+        if (dataVersion) {
+            let formattedDate = dataVersion;
+            try {
+                // Parse format: YYYYMMDD-HHMMSS
+                const match = dataVersion.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+                if (match) {
+                    const year = match[1];
+                    const month = parseInt(match[2]) - 1; // 0-based
+                    const day = match[3];
+                    const hour = match[4];
+                    const minute = match[5];
+                    const second = match[6];
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    formattedDate = `${months[month]} ${parseInt(day)}, ${year}, ${hour}:${minute}:${second}`;
+                }
+            } catch (e) {
+                // If parsing fails, use the raw value
+            }
+            versionInfo.textContent = ` (data_ver: ${formattedDate})`;
+        }
+
+        prevBtn.disabled = currentSpecPage === 0;
+        nextBtn.disabled = (currentSpecPage + 1) * ITEMS_PER_PAGE >= specTotalCount;
+
+        pagination.style.display = specTotalCount > 0 ? 'flex' : 'none';
     }
 
 </script>

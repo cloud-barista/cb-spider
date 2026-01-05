@@ -267,6 +267,14 @@ func getRoutes() []route {
 		{"GET", "/priceinfo/vm/:RegionName", GetVMPriceInfo},  // GET with a body for backward compatibility
 		{"POST", "/priceinfo/vm/:RegionName", GetVMPriceInfo}, // POST with a body for standard
 
+		//----------MC-Insight Proxy Handler
+		{"GET", "/mcinsight/vm-image/filters", ProxyMcInsightVMImageFilters},
+		{"GET", "/mcinsight/vm-image", ProxyMcInsightVMImage},
+		{"GET", "/mcinsight/vm-spec/filters", ProxyMcInsightVMSpecFilters},
+		{"GET", "/mcinsight/vm-spec", ProxyMcInsightVMSpec},
+		{"GET", "/mcinsight/price-info/filters", ProxyMcInsightVMPriceFilters},
+		{"GET", "/mcinsight/price-info", ProxyMcInsightVMPrice},
+
 		//----------Image Handler
 		{"GET", "/vmimage", ListImage},
 		{"GET", "/vmimage/:Name", GetImage},

@@ -4654,6 +4654,501 @@
                 }
             }
         },
+        "/mcinsight/price-info": {
+            "get": {
+                "description": "Proxy endpoint to retrieve VM Price information from MC-Insight API with filters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] MC-Insight"
+                ],
+                "summary": "Get VM Price Info from MC-Insight",
+                "operationId": "proxy-mcinsight-vmprice",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CSP name (aws, gcp, azure, etc.)",
+                        "name": "csp",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Region filter",
+                        "name": "region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Zone filter",
+                        "name": "zone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Instance type filter",
+                        "name": "instance_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "vCPU count filter",
+                        "name": "vcpu_count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Memory size in MiB filter",
+                        "name": "mem_size_mib",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "OS type filter (linux, windows, etc.)",
+                        "name": "os_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pricing type filter (on-demand, spot, reserved, etc.)",
+                        "name": "pricing_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of records to skip for pagination",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of records to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VM Price list data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/mcinsight/price-info/filters": {
+            "get": {
+                "description": "Proxy endpoint to retrieve VM Price filters from MC-Insight API",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] MC-Insight"
+                ],
+                "summary": "Get VM Price Filters from MC-Insight",
+                "operationId": "proxy-mcinsight-vmprice-filters",
+                "responses": {
+                    "200": {
+                        "description": "Filter hierarchy data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/mcinsight/vm-image": {
+            "get": {
+                "description": "Proxy endpoint to retrieve VM Image list from MC-Insight API with filters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] MC-Insight"
+                ],
+                "summary": "Get VM Images from MC-Insight",
+                "operationId": "proxy-mcinsight-vmimage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CSP name (aws, gcp, azure, etc.)",
+                        "name": "csp",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Region filter",
+                        "name": "region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Zone filter",
+                        "name": "zone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Image ID filter (partial match)",
+                        "name": "image_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Image name filter (partial match)",
+                        "name": "image_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "OS Architecture filter",
+                        "name": "os_architecture",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "OS Platform filter",
+                        "name": "os_platform",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "OS Distribution filter (partial match)",
+                        "name": "os_distribution",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "OS Disk Type filter",
+                        "name": "os_disk_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Image Status filter",
+                        "name": "image_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum OS disk size in GB",
+                        "name": "min_os_disk_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum OS disk size in GB",
+                        "name": "max_os_disk_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search text in key_value_json field",
+                        "name": "key_value_json_search_text",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort fields (e.g., 'name' or '-name' for descending). Can be used multiple times.",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of records to skip for pagination",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of records to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VM Image list data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/mcinsight/vm-image/filters": {
+            "get": {
+                "description": "Proxy endpoint to retrieve VM Image filters from MC-Insight API",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] MC-Insight"
+                ],
+                "summary": "Get VM Image Filters from MC-Insight",
+                "operationId": "proxy-mcinsight-vmimage-filters",
+                "responses": {
+                    "200": {
+                        "description": "Filter hierarchy data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/mcinsight/vm-spec": {
+            "get": {
+                "description": "Proxy endpoint to retrieve VM Spec list from MC-Insight API with filters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] MC-Insight"
+                ],
+                "summary": "Get VM Specs from MC-Insight",
+                "operationId": "proxy-mcinsight-vmspec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CSP name (aws, gcp, azure, etc.)",
+                        "name": "csp",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Spec name filter (partial match)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Region filter",
+                        "name": "region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Zone filter",
+                        "name": "zone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum vCPU count",
+                        "name": "min_vcpu_count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum vCPU count",
+                        "name": "max_vcpu_count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum memory size in MiB",
+                        "name": "min_mem_size_mib",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum memory size in MiB",
+                        "name": "max_mem_size_mib",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Minimum vCPU clock speed in GHz",
+                        "name": "min_vcpu_clock_ghz",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Maximum vCPU clock speed in GHz",
+                        "name": "max_vcpu_clock_ghz",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum disk size in GB",
+                        "name": "min_disk_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum disk size in GB",
+                        "name": "max_disk_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum GPU count",
+                        "name": "min_gpu_count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum GPU count",
+                        "name": "max_gpu_count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum GPU memory size in GB",
+                        "name": "min_gpu_mem_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum GPU memory size in GB",
+                        "name": "max_gpu_mem_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "GPU manufacturer filter",
+                        "name": "gpu_mfr",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "GPU model filter",
+                        "name": "gpu_model",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum GPU total memory size in GB",
+                        "name": "min_gpu_total_mem_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum GPU total memory size in GB",
+                        "name": "max_gpu_total_mem_size_gb",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search text in key_value_json field",
+                        "name": "search_text",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort fields (e.g., 'name' or '-name' for descending). Can be used multiple times.",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of records to skip for pagination",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of records to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "VM Spec list data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/mcinsight/vm-spec/filters": {
+            "get": {
+                "description": "Proxy endpoint to retrieve VM Spec filters from MC-Insight API",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] MC-Insight"
+                ],
+                "summary": "Get VM Spec Filters from MC-Insight",
+                "operationId": "proxy-mcinsight-vmspec-filters",
+                "responses": {
+                    "200": {
+                        "description": "Filter hierarchy data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/myimage": {
             "get": {
                 "description": "Retrieve a list of MyImages associated with a specific connection.",

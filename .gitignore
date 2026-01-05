@@ -48,6 +48,7 @@ cloud-control-manager/cloud-driver/drivers/aws/main/log/cblogs.log
 api-runtime/rest-runtime/log/cblogs.log
 /.idea/
 conf/config.yaml
+setup.env
 
 bin/cb-spider
 bin/cb-spider-dyna
