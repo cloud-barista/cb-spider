@@ -54,7 +54,8 @@ log_warning() {
 # Check if the test bucket exists (returns 0 if exists)
 bucket_exists() {
     local code
-    code=$(curl -s -o /dev/null -w '%{http_code}' -I "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME")
+    code=$(curl -s -o /dev/null -w '%{http_code}' -I "$SPIDER_URL/$TEST_BUCKET" \
+    -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME")
     if [[ "$code" == "200" ]]; then
         return 0
     else
@@ -68,7 +69,8 @@ cleanup_multipart_uploads() {
     
     # Get list of all multipart uploads
     local uploads_response
-    uploads_response=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET?uploads&ConnectionName=$CONNECTION_NAME" 2>/dev/null)
+    uploads_response=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET?uploads" \
+  -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME" 2>/dev/null)
     
     if [[ -n "$uploads_response" ]] && [[ "$uploads_response" =~ \<UploadId\> ]]; then
         # Extract each Upload block and process Key/UploadId pairs properly
@@ -80,7 +82,8 @@ cleanup_multipart_uploads() {
             
             if [[ -n "$key" ]] && [[ -n "$upload_id" ]]; then
                 log_info "Aborting multipart upload: $key (ID: $upload_id)"
-                curl -s -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?uploadId=$upload_id&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+                curl -s -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?uploadId=$upload_id" \
+  -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME" >/dev/null 2>&1
             fi
         done
     fi
@@ -95,7 +98,8 @@ wait_for_bucket_deletion() {
     
     while [[ $wait_time -lt $max_wait ]]; do
         local check_response
-        check_response=$(curl -s -w '%{http_code}' -o /dev/null -I "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME")
+        check_response=$(curl -s -w '%{http_code}' -o /dev/null -I "$SPIDER_URL/$TEST_BUCKET" \
+    -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME")
         
         if [[ "$check_response" == "404" ]]; then
             log_info "Bucket successfully deleted after ${wait_time}s"
@@ -115,14 +119,16 @@ cleanup_all_objects() {
     
     # Get list of all objects
     local objects_response
-    objects_response=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME" 2>/dev/null)
+    objects_response=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET" \
+  -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME" 2>/dev/null)
     
     if [[ -n "$objects_response" ]] && [[ "$objects_response" =~ \<Key\> ]]; then
         # Extract object keys and delete them
         echo "$objects_response" | grep -o '<Key>[^<]*</Key>' | sed 's/<[^>]*>//g' | while read -r key; do
             if [[ -n "$key" ]]; then
                 log_info "Deleting object: $key"
-                curl -s -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+                curl -s -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key" \
+  -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME" >/dev/null 2>&1
             fi
         done
     fi
@@ -174,9 +180,14 @@ create_test_file() {
 cleanup() {
     log_info "Cleaning up test resources..."
     
-    # Force delete bucket (will empty it first) only if it exists
+    # Clean up multipart uploads and objects first if bucket exists
     if bucket_exists; then
-        curl -s -X DELETE "$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+        cleanup_multipart_uploads
+        cleanup_all_objects
+        
+        # Force delete bucket (will empty it first)
+        curl -s -X DELETE "$SPIDER_URL/$TEST_BUCKET?force=true" \
+  -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME" >/dev/null 2>&1
     else
         log_info "Bucket $TEST_BUCKET already removed, skipping force delete in cleanup"
     fi
@@ -291,12 +302,14 @@ main() {
     log_info "=== 1. BUCKET MANAGEMENT TESTS ==="
     
     run_test "list_buckets" \
-        "curl -s -X GET '$SPIDER_URL?ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -X GET '$SPIDER_URL' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "ListAllMyBucketsResult" \
         "List all buckets"
     
     run_test "create_bucket" \
-        "curl -s -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "200" \
         "Create test bucket"
     
@@ -304,17 +317,20 @@ main() {
     sleep 2
     
     run_test "get_bucket_info" \
-        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "ListBucketResult" \
         "Get bucket information"
     
     run_test "head_bucket" \
-        "curl -s -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "200" \
         "Check bucket exists"
     
     run_test "get_bucket_location" \
-        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET?location&ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET?location' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "LocationConstraint" \
         "Get bucket location"
     
@@ -322,14 +338,16 @@ main() {
     # Create a separate bucket for deletion test
     DELETE_BUCKET="${TEST_BUCKET}-delete-test"
     log_info "Creating separate bucket for deletion test: $DELETE_BUCKET"
-    DELETE_CREATE_RESPONSE=$(curl -s -w '%{http_code}' -X PUT "$SPIDER_URL/$DELETE_BUCKET?ConnectionName=$CONNECTION_NAME")
+    DELETE_CREATE_RESPONSE=$(curl -s -w '%{http_code}' -X PUT "$SPIDER_URL/$DELETE_BUCKET" \
+    -H "Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME")
     DELETE_CREATE_CODE=$(echo "$DELETE_CREATE_RESPONSE" | tail -c 4)
     
     if [[ "$DELETE_CREATE_CODE" == "200" || "$DELETE_CREATE_CODE" == "201" ]]; then
         sleep 2  # Wait for bucket to be ready
         
         run_test "delete_bucket" \
-            "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$DELETE_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+            "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$DELETE_BUCKET' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
             "204" \
             "Delete bucket"
     else
@@ -343,32 +361,38 @@ main() {
     log_info "=== 2. OBJECT MANAGEMENT TESTS ==="
     
     run_test "upload_object_file" \
-        "curl -s -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME' --data-binary '@$TEMP_DIR/$TEST_OBJECT'" \
+        "curl -s -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' --data-binary '@$TEMP_DIR/$TEST_OBJECT'" \
         "200" \
         "Upload object from file"
     
     run_test "upload_object_form" \
-        "curl -s -w '%{http_code}' -X POST '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME' -F 'key=form-upload.txt' -F 'file=@$TEMP_DIR/$TEST_OBJECT'" \
+        "curl -s -w '%{http_code}' -X POST '$SPIDER_URL/$TEST_BUCKET' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' -F 'key=form-upload.txt' -F 'file=@$TEMP_DIR/$TEST_OBJECT'" \
         "200" \
         "Upload object via form"
     
     run_test "download_object" \
-        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME' -o '$TEMP_DIR/downloaded-file.txt' && cat '$TEMP_DIR/downloaded-file.txt'" \
+        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' -o '$TEMP_DIR/downloaded-file.txt' && cat '$TEMP_DIR/downloaded-file.txt'" \
         "$TEST_CONTENT" \
         "Download object"
     
     run_test "head_object" \
-        "curl -s -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "200" \
         "Get object info"
     
     run_test "delete_object" \
-        "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET/form-upload.txt?ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET/form-upload.txt' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "204" \
         "Delete single object"
     
     run_test "delete_multiple_objects" \
-        "curl -s -X POST '$SPIDER_URL/$TEST_BUCKET?delete&ConnectionName=$CONNECTION_NAME' -d '<Delete><Object><Key>$TEST_OBJECT</Key></Object></Delete>'" \
+        "curl -s -X POST '$SPIDER_URL/$TEST_BUCKET?delete' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' -d '<Delete><Object><Key>$TEST_OBJECT</Key></Object></Delete>'" \
         "DeleteResult" \
         "Delete multiple objects"
     
@@ -404,22 +428,26 @@ main() {
     log_info "=== 5. CORS MANAGEMENT TESTS ==="
     
     run_test "set_bucket_cors" \
-        "curl -s -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET?cors&ConnectionName=$CONNECTION_NAME' -d '<CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>GET</AllowedMethod><AllowedMethod>PUT</AllowedMethod><AllowedHeader>*</AllowedHeader></CORSRule></CORSConfiguration>'" \
+        "curl -s -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET?cors' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' -d '<CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>GET</AllowedMethod><AllowedMethod>PUT</AllowedMethod><AllowedHeader>*</AllowedHeader></CORSRule></CORSConfiguration>'" \
         "200" \
         "Set bucket CORS configuration"
     
     run_test "get_bucket_cors" \
-        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET?cors&ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -X GET '$SPIDER_URL/$TEST_BUCKET?cors' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "CORSRule" \
         "Get bucket CORS configuration"
     
     run_test "test_cors_options" \
-        "curl -s -w '%{http_code}' -X OPTIONS '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME' -H 'Origin: http://example.com' -H 'Access-Control-Request-Method: GET'" \
+        "curl -s -w '%{http_code}' -X OPTIONS '$SPIDER_URL/$TEST_BUCKET' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' -H 'Origin: http://example.com' -H 'Access-Control-Request-Method: GET'" \
         "204" \
         "Test CORS with OPTIONS"
     
     run_test "delete_bucket_cors" \
-        "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?cors&ConnectionName=$CONNECTION_NAME'" \
+        "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?cors' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
         "204" \
         "Delete CORS configuration"
     
@@ -429,16 +457,19 @@ main() {
     log_info "=== 6. CB-SPIDER SPECIAL FEATURES ==="
     
     # Upload a test file for presigned URL tests
-    curl -s -X PUT "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/$TEST_OBJECT" >/dev/null
+    curl -s -X PUT "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt" \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\" --data-binary "@$TEMP_DIR/$TEST_OBJECT" >/dev/null
     
     # Test presigned download URL generation
     run_test "generate_presigned_download" \
-        "PRESIGNED_DOWNLOAD_URL=\$(curl -s -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_DOWNLOAD_URL:0:50}...\"" \
+        "PRESIGNED_DOWNLOAD_URL=\$(curl -s -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_DOWNLOAD_URL:0:50}...\"" \
         "Generated URL:" \
         "Generate presigned download URL"
     
     # Extract presigned download URL for actual test
-    PRESIGNED_DOWNLOAD_URL=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
+    PRESIGNED_DOWNLOAD_URL=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600" \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
     
     if [[ -n "$PRESIGNED_DOWNLOAD_URL" ]]; then
         run_test "test_presigned_download" \
@@ -455,12 +486,14 @@ main() {
     
     # Test presigned upload URL generation
     run_test "generate_presigned_upload" \
-        "PRESIGNED_UPLOAD_URL=\$(curl -s -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_UPLOAD_URL:0:50}...\"" \
+        "PRESIGNED_UPLOAD_URL=\$(curl -s -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600' \
+  -H 'Authorization: AWS4-HMAC-SHA256 Credential=$CONNECTION_NAME' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_UPLOAD_URL:0:50}...\"" \
         "Generated URL:" \
         "Generate presigned upload URL"
     
     # Extract presigned upload URL for actual test
-    PRESIGNED_UPLOAD_URL=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
+    PRESIGNED_UPLOAD_URL=$(curl -s -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600" \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
     
     if [[ -n "$PRESIGNED_UPLOAD_URL" ]]; then
         run_test "test_presigned_upload" \
@@ -481,7 +514,8 @@ main() {
         cleanup_all_objects
         cleanup_multipart_uploads
         run_test "force_empty_bucket" \
-            "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?empty=true&ConnectionName=$CONNECTION_NAME'" \
+            "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?empty=true' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
             "204" \
             "Force empty bucket"
     else
@@ -495,7 +529,8 @@ main() {
         cleanup_all_objects
         cleanup_multipart_uploads
         run_test "force_delete_bucket" \
-            "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME'" \
+            "curl -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?force=true' \
+    -H \"Authorization: AWS4-HMAC-SHA256 Credential=\$CONNECTION_NAME\"" \
             "204" \
             "Force delete bucket"
     else
@@ -525,10 +560,9 @@ main() {
 
 # Check if spider server is running
 check_server() {
-    if ! curl -s "$SPIDER_URL?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1; then
-        log_error "CB-Spider server is not running at $SPIDER_URL or connection $CONNECTION_NAME is not valid"
+    if ! curl -s "$SPIDER_URL" >/dev/null 2>&1; then
+        log_error "CB-Spider server is not running at $SPIDER_URL"
         log_info "Please start the server with: ./bin/start.sh"
-        log_info "And ensure connection '$CONNECTION_NAME' exists"
         exit 1
     fi
 }
