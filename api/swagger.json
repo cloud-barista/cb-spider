@@ -9395,6 +9395,421 @@
                 }
             }
         },
+        "/vm/imagespecfavorite": {
+            "get": {
+                "description": "Get list of favorite Image and Spec combinations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "List Favorite Image+Spec Combinations",
+                "operationId": "list-favorite-imagespec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by CSP",
+                        "name": "CSP",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Region",
+                        "name": "Region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Zone",
+                        "name": "Zone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field (default: created_at)",
+                        "name": "SortBy",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order: asc or desc (default: desc)",
+                        "name": "SortOrder",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of favorite Image+Spec combinations",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.VMFavoriteInfo"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add an Image and Spec combination to favorites",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Add Favorite Image+Spec",
+                "operationId": "add-favorite-imagespec",
+                "parameters": [
+                    {
+                        "description": "Request body with CSP, Region, Zone, ImageName, SpecName, and metadata",
+                        "name": "RequestBody",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully added to favorites",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove an Image and Spec combination from favorites",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Delete Favorite Image+Spec",
+                "operationId": "delete-favorite-imagespec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cloud Service Provider",
+                        "name": "CSP",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Region name",
+                        "name": "Region",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Zone name (optional, can be empty)",
+                        "name": "Zone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Image name",
+                        "name": "ImageName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Spec name",
+                        "name": "SpecName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully removed from favorites",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vm/imagespecfavorite/bulk": {
+            "post": {
+                "description": "Import multiple VM favorite records from JSON, skipping duplicates",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Bulk Import Favorite Image+Spec Records",
+                "operationId": "bulk-import-favorite-imagespec",
+                "parameters": [
+                    {
+                        "description": "Array of favorite VM records",
+                        "name": "FavoriteRecords",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Import result with inserted and skipped counts",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vm/imagespecrecent": {
+            "get": {
+                "description": "Get list of recently used Image and Spec combinations for VM creation with statistics",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "List Recent Image+Spec Combinations",
+                "operationId": "list-recent-imagespec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by connection name",
+                        "name": "ConnectionName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by CSP",
+                        "name": "CSP",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Region",
+                        "name": "Region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Zone",
+                        "name": "Zone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit number of results (default: 10)",
+                        "name": "Limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field (default: last_created_at)",
+                        "name": "SortBy",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order: asc or desc (default: desc)",
+                        "name": "SortOrder",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of recent Image+Spec combinations",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.VMRecentInfo"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove an Image and Spec combination from recent records",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Delete Recent Image+Spec",
+                "operationId": "delete-recent-imagespec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cloud Service Provider",
+                        "name": "CSP",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Region name",
+                        "name": "Region",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Zone name (optional, can be empty)",
+                        "name": "Zone",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Image name",
+                        "name": "ImageName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Spec name",
+                        "name": "SpecName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully removed from recent records",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vm/imagespecrecent/bulk": {
+            "post": {
+                "description": "Import multiple VM recent records from JSON, skipping duplicates",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Bulk Import Recent Image+Spec Records",
+                "operationId": "bulk-import-recent-imagespec",
+                "parameters": [
+                    {
+                        "description": "Array of recent VM records",
+                        "name": "RecentRecords",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Import result with inserted and skipped counts",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/vm/{Name}": {
             "get": {
                 "description": "Retrieve details of a specific Virtual Machine (VM).",
@@ -10646,6 +11061,88 @@
                     "type": "string"
                 },
                 "uptime": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.VMFavoriteInfo": {
+            "type": "object",
+            "properties": {
+                "CPUInfo": {
+                    "description": "CPU info (e.g., \"8/16 GiB\")",
+                    "type": "string"
+                },
+                "CSP": {
+                    "type": "string"
+                },
+                "CreatedAt": {
+                    "description": "Timestamp when added to favorites (RFC3339 format)",
+                    "type": "string"
+                },
+                "GPUInfo": {
+                    "description": "GPU info (e.g., \"2/16 GB\" or GPU model)",
+                    "type": "string"
+                },
+                "ImageName": {
+                    "type": "string"
+                },
+                "OSArch": {
+                    "description": "OS Architecture (e.g., x86_64, arm64)",
+                    "type": "string"
+                },
+                "OsDistribution": {
+                    "description": "OS Distribution (e.g., Ubuntu, CentOS)",
+                    "type": "string"
+                },
+                "OsPlatform": {
+                    "description": "OS Platform (e.g., Linux, Windows)",
+                    "type": "string"
+                },
+                "PriceInfo": {
+                    "description": "Price info (e.g., \"$0.0116\")",
+                    "type": "string"
+                },
+                "Region": {
+                    "type": "string"
+                },
+                "SpecName": {
+                    "type": "string"
+                },
+                "Zone": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.VMRecentInfo": {
+            "type": "object",
+            "properties": {
+                "avgCreationTime": {
+                    "description": "Average VM creation time in seconds",
+                    "type": "number",
+                    "format": "float64"
+                },
+                "creationCount": {
+                    "description": "Number of successful VM creations",
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "csp": {
+                    "type": "string"
+                },
+                "imageName": {
+                    "type": "string"
+                },
+                "lastCreatedAt": {
+                    "description": "Last creation timestamp (RFC3339 format)",
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "specName": {
+                    "type": "string"
+                },
+                "zone": {
                     "type": "string"
                 }
             }

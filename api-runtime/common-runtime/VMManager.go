@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	ccon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -39,6 +40,42 @@ func (VMIIDInfo) TableName() string {
 	return "vm_iid_infos"
 }
 
+// VMRecentInfo stores VM creation history for recent successful deployments
+type VMRecentInfo struct {
+	CSP             string  `gorm:"primaryKey"`
+	Region          string  `gorm:"primaryKey"`
+	Zone            string  `gorm:"primaryKey"`
+	ImageName       string  `gorm:"primaryKey"`
+	SpecName        string  `gorm:"primaryKey"`
+	AvgCreationTime float64 // Average VM creation time in seconds
+	CreationCount   int64   // Number of successful VM creations
+	LastCreatedAt   string  // Last creation timestamp (RFC3339 format)
+}
+
+func (VMRecentInfo) TableName() string {
+	return "vm_recent_infos"
+}
+
+// VMFavoriteInfo stores user's favorite VM image and spec combinations
+type VMFavoriteInfo struct {
+	CSP            string `gorm:"primaryKey" json:"CSP"`
+	Region         string `gorm:"primaryKey" json:"Region"`
+	Zone           string `gorm:"primaryKey" json:"Zone"`
+	ImageName      string `gorm:"primaryKey" json:"ImageName"`
+	SpecName       string `gorm:"primaryKey" json:"SpecName"`
+	OSArch         string `json:"OSArch"`         // OS Architecture (e.g., x86_64, arm64)
+	OsPlatform     string `json:"OsPlatform"`     // OS Platform (e.g., Linux, Windows)
+	OsDistribution string `json:"OsDistribution"` // OS Distribution (e.g., Ubuntu, CentOS)
+	CPUInfo        string `json:"CPUInfo"`        // CPU info (e.g., "8/16 GiB")
+	GPUInfo        string `json:"GPUInfo"`        // GPU info (e.g., "2/16 GB" or GPU model)
+	PriceInfo      string `json:"PriceInfo"`      // Price info (e.g., "$0.0116")
+	CreatedAt      string `json:"CreatedAt"`      // Timestamp when added to favorites (RFC3339 format)
+}
+
+func (VMFavoriteInfo) TableName() string {
+	return "vm_favorite_infos"
+}
+
 //====================================================================
 
 func init() {
@@ -48,6 +85,8 @@ func init() {
 		return
 	}
 	db.AutoMigrate(&VMIIDInfo{})
+	db.AutoMigrate(&VMRecentInfo{})
+	db.AutoMigrate(&VMFavoriteInfo{})
 	infostore.Close(db)
 }
 
@@ -713,6 +752,23 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		cblog.Error(err)
 		return nil, err
 	}
+
+	// Record successful VM creation in Recent table
+	elapsedSeconds := call.ElapsedSeconds(start)
+	go func() {
+		// Run in background to avoid blocking
+		err := InsertOrUpdateVMRecent(
+			providerName,
+			regionName,
+			zoneName,
+			reqInfoForDriver.ImageIID.NameId,
+			reqInfoForDriver.VMSpecName,
+			elapsedSeconds,
+		)
+		if err != nil {
+			cblog.Error("Failed to record VM creation in Recent table: ", err)
+		}
+	}()
 
 	/*
 		// set sg NameId from VPCNameId-SecurityGroupNameId
@@ -2163,4 +2219,358 @@ func CountVMsByConnection(connectionName string) (int64, error) {
 	}
 
 	return count, nil
+}
+
+//====================================================================
+// VM Recent Info Management
+//====================================================================
+
+// InsertOrUpdateVMRecent inserts or updates VM creation record in Recent table
+func InsertOrUpdateVMRecent(csp, region, zone, imageName, specName string, elapsedTimeSec float64) error {
+	cblog.Info("call InsertOrUpdateVMRecent()")
+
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	defer infostore.Close(db)
+
+	var existing VMRecentInfo
+	result := db.Where(&VMRecentInfo{
+		CSP:       csp,
+		Region:    region,
+		Zone:      zone,
+		ImageName: imageName,
+		SpecName:  specName,
+	}).First(&existing)
+
+	now := time.Now().Format(time.RFC3339)
+
+	if result.Error != nil {
+		// New record - insert
+		newRecord := VMRecentInfo{
+			CSP:             csp,
+			Region:          region,
+			Zone:            zone,
+			ImageName:       imageName,
+			SpecName:        specName,
+			AvgCreationTime: elapsedTimeSec,
+			CreationCount:   1,
+			LastCreatedAt:   now,
+		}
+		if err := db.Create(&newRecord).Error; err != nil {
+			cblog.Error(err)
+			return err
+		}
+	} else {
+		// Existing record - update with new average
+		newCount := existing.CreationCount + 1
+		newAvg := ((existing.AvgCreationTime * float64(existing.CreationCount)) + elapsedTimeSec) / float64(newCount)
+
+		updates := map[string]interface{}{
+			"avg_creation_time": newAvg,
+			"creation_count":    newCount,
+			"last_created_at":   now,
+		}
+
+		if err := db.Model(&existing).Updates(updates).Error; err != nil {
+			cblog.Error(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// InsertOrUpdateVMRecentBulk imports multiple VM recent records, skipping duplicates
+func InsertOrUpdateVMRecentBulk(records []VMRecentInfo) (inserted int, skipped int, err error) {
+	cblog.Info("call InsertOrUpdateVMRecentBulk()")
+
+	db, dbErr := infostore.Open()
+	if dbErr != nil {
+		cblog.Error(dbErr)
+		return 0, 0, dbErr
+	}
+	defer infostore.Close(db)
+
+	inserted = 0
+	skipped = 0
+
+	for _, record := range records {
+		var existing VMRecentInfo
+		result := db.Where(&VMRecentInfo{
+			CSP:       record.CSP,
+			Region:    record.Region,
+			Zone:      record.Zone,
+			ImageName: record.ImageName,
+			SpecName:  record.SpecName,
+		}).First(&existing)
+
+		if result.Error != nil {
+			// New record - insert
+			if createErr := db.Create(&record).Error; createErr != nil {
+				cblog.Error(createErr)
+				return inserted, skipped, createErr
+			}
+			inserted++
+		} else {
+			// Duplicate exists - skip
+			skipped++
+		}
+	}
+
+	cblog.Infof("Bulk import completed: %d inserted, %d skipped", inserted, skipped)
+	return inserted, skipped, nil
+}
+
+// GetVMRecentList retrieves recent VM creation records with optional sorting
+func GetVMRecentList(csp, region, zone string, limit int, sortBy, sortOrder string) ([]VMRecentInfo, error) {
+	cblog.Info("call GetVMRecentList()")
+	cblog.Infof("  - CSP: %s, Region: %s, Zone: %s, Limit: %d, SortBy: %s, SortOrder: %s", csp, region, zone, limit, sortBy, sortOrder)
+
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	defer infostore.Close(db)
+
+	query := db.Model(&VMRecentInfo{})
+
+	// Apply filters if provided (case-insensitive for CSP)
+	if csp != "" {
+		query = query.Where("UPPER(csp) = UPPER(?)", csp)
+	}
+	if region != "" {
+		query = query.Where("region = ?", region)
+	}
+	// Zone filter: match if zone is empty OR matches the provided zone
+	// This handles cases where zone wasn't stored during VM creation
+	if zone != "" {
+		query = query.Where("zone = ? OR zone = ''", zone)
+	}
+
+	// Apply sorting
+	if sortBy == "" {
+		sortBy = "last_created_at"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+	query = query.Order(sortBy + " " + sortOrder)
+
+	// Apply limit
+	if limit <= 0 {
+		limit = 10
+	}
+	query = query.Limit(limit)
+
+	var recentList []VMRecentInfo
+	if err := query.Find(&recentList).Error; err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cblog.Infof("  - Found %d records", len(recentList))
+	return recentList, nil
+}
+
+// DeleteVMRecent removes a recent VM record
+func DeleteVMRecent(csp, region, zone, imageName, specName string) error {
+	cblog.Info("call DeleteVMRecent()")
+
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	defer infostore.Close(db)
+
+	result := db.Where(&VMRecentInfo{
+		CSP:       csp,
+		Region:    region,
+		Zone:      zone,
+		ImageName: imageName,
+		SpecName:  specName,
+	}).Delete(&VMRecentInfo{})
+
+	if result.Error != nil {
+		cblog.Error(result.Error)
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("recent VM record not found")
+	}
+
+	return nil
+}
+
+//====================================================================
+// VM Favorite Info Management
+//====================================================================
+
+// AddVMFavorite adds a new favorite VM configuration
+func AddVMFavorite(csp, region, zone, imageName, specName, osArch, osPlatform, osDistribution, cpuInfo, gpuInfo, priceInfo string) error {
+	cblog.Info("call AddVMFavorite()")
+
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	defer infostore.Close(db)
+
+	// Check if already exists
+	var existing VMFavoriteInfo
+	result := db.Where(&VMFavoriteInfo{
+		CSP:       csp,
+		Region:    region,
+		Zone:      zone,
+		ImageName: imageName,
+		SpecName:  specName,
+	}).First(&existing)
+
+	if result.Error == nil {
+		return fmt.Errorf("favorite already exists")
+	}
+
+	now := time.Now().Format(time.RFC3339)
+
+	newFavorite := VMFavoriteInfo{
+		CSP:            csp,
+		Region:         region,
+		Zone:           zone,
+		ImageName:      imageName,
+		SpecName:       specName,
+		OSArch:         osArch,
+		OsPlatform:     osPlatform,
+		OsDistribution: osDistribution,
+		CPUInfo:        cpuInfo,
+		GPUInfo:        gpuInfo,
+		PriceInfo:      priceInfo,
+		CreatedAt:      now,
+	}
+
+	if err := db.Create(&newFavorite).Error; err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+// InsertOrUpdateVMFavoriteBulk imports multiple VM favorite records, skipping duplicates
+func InsertOrUpdateVMFavoriteBulk(records []VMFavoriteInfo) (inserted int, skipped int, err error) {
+	cblog.Info("call InsertOrUpdateVMFavoriteBulk()")
+
+	db, dbErr := infostore.Open()
+	if dbErr != nil {
+		cblog.Error(dbErr)
+		return 0, 0, dbErr
+	}
+	defer infostore.Close(db)
+
+	inserted = 0
+	skipped = 0
+
+	for _, record := range records {
+		var existing VMFavoriteInfo
+		result := db.Where(&VMFavoriteInfo{
+			CSP:       record.CSP,
+			Region:    record.Region,
+			Zone:      record.Zone,
+			ImageName: record.ImageName,
+			SpecName:  record.SpecName,
+		}).First(&existing)
+
+		if result.Error != nil {
+			// New record - insert
+			if createErr := db.Create(&record).Error; createErr != nil {
+				cblog.Error(createErr)
+				return inserted, skipped, createErr
+			}
+			inserted++
+		} else {
+			// Duplicate exists - skip
+			skipped++
+		}
+	}
+
+	return inserted, skipped, nil
+}
+
+// DeleteVMFavorite removes a favorite VM configuration
+func DeleteVMFavorite(csp, region, zone, imageName, specName string) error {
+	cblog.Info("call DeleteVMFavorite()")
+
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	defer infostore.Close(db)
+
+	result := db.Where(&VMFavoriteInfo{
+		CSP:       csp,
+		Region:    region,
+		Zone:      zone,
+		ImageName: imageName,
+		SpecName:  specName,
+	}).Delete(&VMFavoriteInfo{})
+
+	if result.Error != nil {
+		cblog.Error(result.Error)
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("favorite not found")
+	}
+
+	return nil
+}
+
+// GetVMFavoriteList retrieves favorite VM configurations
+func GetVMFavoriteList(csp, region, zone string, sortBy, sortOrder string) ([]VMFavoriteInfo, error) {
+	cblog.Info("call GetVMFavoriteList()")
+
+	db, err := infostore.Open()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	defer infostore.Close(db)
+
+	query := db.Model(&VMFavoriteInfo{})
+
+	// Apply filters if provided (case-insensitive for CSP)
+	if csp != "" {
+		query = query.Where("UPPER(csp) = UPPER(?)", csp)
+	}
+	if region != "" {
+		query = query.Where("region = ?", region)
+	}
+	// Zone filter: match if zone is empty OR matches the provided zone
+	if zone != "" {
+		query = query.Where("zone = ? OR zone = ''", zone)
+	}
+
+	// Apply sorting
+	if sortBy == "" {
+		sortBy = "created_at"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+	query = query.Order(sortBy + " " + sortOrder)
+
+	var favoriteList []VMFavoriteInfo
+	if err := query.Find(&favoriteList).Error; err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	return favoriteList, nil
 }

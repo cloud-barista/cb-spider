@@ -146,6 +146,64 @@ definitions:
       uptime:
         type: string
     type: object
+  spider.VMFavoriteInfo:
+    properties:
+      CPUInfo:
+        description: CPU info (e.g., "8/16 GiB")
+        type: string
+      CSP:
+        type: string
+      CreatedAt:
+        description: Timestamp when added to favorites (RFC3339 format)
+        type: string
+      GPUInfo:
+        description: GPU info (e.g., "2/16 GB" or GPU model)
+        type: string
+      ImageName:
+        type: string
+      OSArch:
+        description: OS Architecture (e.g., x86_64, arm64)
+        type: string
+      OsDistribution:
+        description: OS Distribution (e.g., Ubuntu, CentOS)
+        type: string
+      OsPlatform:
+        description: OS Platform (e.g., Linux, Windows)
+        type: string
+      PriceInfo:
+        description: Price info (e.g., "$0.0116")
+        type: string
+      Region:
+        type: string
+      SpecName:
+        type: string
+      Zone:
+        type: string
+    type: object
+  spider.VMRecentInfo:
+    properties:
+      avgCreationTime:
+        description: Average VM creation time in seconds
+        format: float64
+        type: number
+      creationCount:
+        description: Number of successful VM creations
+        format: int64
+        type: integer
+      csp:
+        type: string
+      imageName:
+        type: string
+      lastCreatedAt:
+        description: Last creation timestamp (RFC3339 format)
+        type: string
+      region:
+        type: string
+      specName:
+        type: string
+      zone:
+        type: string
+    type: object
   spider.AccessInfo:
     description: Access Information for a Kubernetes Cluster. <br> Take some time
       to provide.
@@ -10103,6 +10161,286 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get VM
+      tags:
+      - '[VM Management]'
+  /vm/imagespecfavorite:
+    delete:
+      consumes:
+      - application/json
+      description: Remove an Image and Spec combination from favorites
+      operationId: delete-favorite-imagespec
+      parameters:
+      - description: Cloud Service Provider
+        in: query
+        name: CSP
+        required: true
+        type: string
+      - description: Region name
+        in: query
+        name: Region
+        required: true
+        type: string
+      - description: Zone name (optional, can be empty)
+        in: query
+        name: Zone
+        type: string
+      - description: Image name
+        in: query
+        name: ImageName
+        required: true
+        type: string
+      - description: Spec name
+        in: query
+        name: SpecName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully removed from favorites
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete Favorite Image+Spec
+      tags:
+      - '[VM Management]'
+    get:
+      description: Get list of favorite Image and Spec combinations
+      operationId: list-favorite-imagespec
+      parameters:
+      - description: Filter by CSP
+        in: query
+        name: CSP
+        type: string
+      - description: Filter by Region
+        in: query
+        name: Region
+        type: string
+      - description: Filter by Zone
+        in: query
+        name: Zone
+        type: string
+      - description: 'Sort field (default: created_at)'
+        in: query
+        name: SortBy
+        type: string
+      - description: 'Sort order: asc or desc (default: desc)'
+        in: query
+        name: SortOrder
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of favorite Image+Spec combinations
+          schema:
+            items:
+              $ref: '#/definitions/spider.VMFavoriteInfo'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Favorite Image+Spec Combinations
+      tags:
+      - '[VM Management]'
+    post:
+      consumes:
+      - application/json
+      description: Add an Image and Spec combination to favorites
+      operationId: add-favorite-imagespec
+      parameters:
+      - description: Request body with CSP, Region, Zone, ImageName, SpecName, and
+          metadata
+        in: body
+        name: RequestBody
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully added to favorites
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Add Favorite Image+Spec
+      tags:
+      - '[VM Management]'
+  /vm/imagespecfavorite/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Import multiple VM favorite records from JSON, skipping duplicates
+      operationId: bulk-import-favorite-imagespec
+      parameters:
+      - description: Array of favorite VM records
+        in: body
+        name: FavoriteRecords
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Import result with inserted and skipped counts
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Bulk Import Favorite Image+Spec Records
+      tags:
+      - '[VM Management]'
+  /vm/imagespecrecent:
+    delete:
+      consumes:
+      - application/json
+      description: Remove an Image and Spec combination from recent records
+      operationId: delete-recent-imagespec
+      parameters:
+      - description: Cloud Service Provider
+        in: query
+        name: CSP
+        required: true
+        type: string
+      - description: Region name
+        in: query
+        name: Region
+        required: true
+        type: string
+      - description: Zone name (optional, can be empty)
+        in: query
+        name: Zone
+        type: string
+      - description: Image name
+        in: query
+        name: ImageName
+        required: true
+        type: string
+      - description: Spec name
+        in: query
+        name: SpecName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully removed from recent records
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete Recent Image+Spec
+      tags:
+      - '[VM Management]'
+    get:
+      description: Get list of recently used Image and Spec combinations for VM creation
+        with statistics
+      operationId: list-recent-imagespec
+      parameters:
+      - description: Filter by connection name
+        in: query
+        name: ConnectionName
+        type: string
+      - description: Filter by CSP
+        in: query
+        name: CSP
+        type: string
+      - description: Filter by Region
+        in: query
+        name: Region
+        type: string
+      - description: Filter by Zone
+        in: query
+        name: Zone
+        type: string
+      - description: 'Limit number of results (default: 10)'
+        in: query
+        name: Limit
+        type: integer
+      - description: 'Sort field (default: last_created_at)'
+        in: query
+        name: SortBy
+        type: string
+      - description: 'Sort order: asc or desc (default: desc)'
+        in: query
+        name: SortOrder
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of recent Image+Spec combinations
+          schema:
+            items:
+              $ref: '#/definitions/spider.VMRecentInfo'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Recent Image+Spec Combinations
+      tags:
+      - '[VM Management]'
+  /vm/imagespecrecent/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Import multiple VM recent records from JSON, skipping duplicates
+      operationId: bulk-import-recent-imagespec
+      parameters:
+      - description: Array of recent VM records
+        in: body
+        name: RecentRecords
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Import result with inserted and skipped counts
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Bulk Import Recent Image+Spec Records
       tags:
       - '[VM Management]'
   /vmimage:

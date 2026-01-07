@@ -42,6 +42,34 @@ THE SOFTWARE.
         opacity: 1;
     }
     
+    /* Loading Spinner */
+    .global-loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    }
+    
+    .loading-spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
     .header-container {
         display: flex;
         align-items: flex-end;
@@ -240,9 +268,75 @@ THE SOFTWARE.
         padding: 10px;
         margin-bottom: 10px;
         background-color: #f9f9f9;
+        position: relative;
+    }
+    .form-group-recent-btn {
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        font-size: 11px;
+        padding: 1px 5px;
+        border: 1px solid #89b4d1;
+        background-color: #e3f2fd;
+        border-radius: 2px;
+        cursor: pointer;
+        z-index: 1;
+        color: #1565c0;
+    }
+    .form-group-recent-btn:hover {
+        background-color: #bbdefb;
+        border-color: #1565c0;
+    }
+    .form-group-favorite-btn {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        font-size: 11px;
+        padding: 1px 5px;
+        border: 1px solid #b8860b;
+        background-color: #fffef0;
+        border-radius: 2px;
+        cursor: pointer;
+        z-index: 1;
+        color: #8b6914;
+    }
+    .form-group-favorite-btn:hover {
+        background-color: #fffacd;
+        border-color: #8b6914;
+    }
+    .overlay-import-btn {
+        font-size: 12px;
+        padding: 3px 10px;
+        border: 1px solid #4caf50;
+        background-color: #e8f5e9;
+        border-radius: 3px;
+        cursor: pointer;
+        color: #2e7d32;
+        margin-left: 8px;
+    }
+    .overlay-import-btn:hover {
+        background-color: #c8e6c9;
+        border-color: #2e7d32;
+    }
+    .overlay-export-btn {
+        font-size: 12px;
+        padding: 3px 10px;
+        border: 1px solid #ff9800;
+        background-color: #fff3e0;
+        border-radius: 3px;
+        cursor: pointer;
+        color: #e65100;
+        margin-left: 8px;
+    }
+    .overlay-export-btn:hover {
+        background-color: #ffe0b2;
+        border-color: #e65100;
     }
     .form-group-container .form-group {
         margin-bottom: 5px;
+    }
+    .form-group-container .form-group:first-of-type {
+        margin-top: 16px;
     }
     .form-group-container .form-group:last-child {
         margin-bottom: 0;
@@ -950,6 +1044,24 @@ THE SOFTWARE.
         border-color: #ccc;
     }
 
+    .preset-btn {
+        background-color: #f0f4ff;
+        color: black;
+        border: 1px solid #ccc;
+        padding: 5px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s ease;
+        min-width: 130px;
+        text-align: center;
+    }
+
+    .preset-btn:hover {
+        background-color: #e0e8f8;
+        border-color: #ccc;
+    }
+
     .loading-message {
         text-align: center;
         padding: 20px;
@@ -1055,6 +1167,62 @@ THE SOFTWARE.
     .powered-by-badge a:hover {
         text-decoration: underline;
     }
+
+    .os-info-display {
+        display: none;
+        flex: 10;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    .os-info-display.active {
+        display: flex;
+    }
+
+    .os-info-box {
+        background-color: #ffffe6;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        color: #333;
+        text-align: center;
+        border: 1px solid #ffdd66;
+        box-shadow: 0 0 3px rgba(255, 204, 0, 0.3);
+        width: 16ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .spec-info-display {
+        display: none;
+        flex: 10;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    .spec-info-display.active {
+        display: flex;
+    }
+
+    .spec-info-box {
+        background-color: #f8fcff;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        color: #333;
+        text-align: center;
+        border: 1px solid #99ddff;
+        box-shadow: 0 0 3px rgba(102, 204, 255, 0.3);
+        width: 16ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 </style>
 </head>
 <body>
@@ -1075,7 +1243,7 @@ THE SOFTWARE.
 
     <div class="content">
         <div class="header-with-progress">
-            <button class="add-button" onclick="showOverlay()">+</button>
+            <button class="add-button" onclick="showOverlay()">+ VM</button>
             <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
@@ -1245,9 +1413,11 @@ THE SOFTWARE.
                 </div>
                 
                 <div class="form-group-container">
+                    <button type="button" class="form-group-recent-btn" onclick="showVMRecentOverlay()" title="View recent VMs with this image and spec">Recent</button>
+                    <button type="button" class="form-group-favorite-btn" onclick="showVMFavoriteOverlay()" title="Save/Load favorite image and spec combination">Favorite</button>
                     <div class="form-group" style="margin-bottom: 8px;">
                         <label for="imageType">Image Type:</label>
-                        <select id="imageType" name="imageType" required onchange="updateImageNameField()" style="background-color: #f7f7e6; flex: 2;">
+                        <select id="imageType" name="imageType" required onchange="updateImageNameField()" style="background-color: #ffffe6; flex: 2;">
                             <option value="PublicImage">PublicImage</option>
                             <option value="MyImage">MyImage</option>
                         </select>
@@ -1256,7 +1426,7 @@ THE SOFTWARE.
                     <div class="form-group">
                         <label for="imageName">VM Image Name:</label>
                         <div id="imageNameField" style="display: flex; flex: 2; align-items: center;">
-                            <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
+                            <input type="text" id="imageName" name="imageName" required style="background-color: #ffffe6; flex: 1; border: 1px solid #767676; padding: 2px;">
                             <button type="button" onclick="showImageSelectionOverlay()" style="margin-left: 5px; min-width: 26px; height: 22px; padding: 0 4px; font-size: 12px; line-height: 1;">🔍</button>
                         </div>
                     </div>
@@ -1264,9 +1434,19 @@ THE SOFTWARE.
                     <div class="form-group">
                         <label for="vmSpecName">VM Spec Name:</label>
                         <div style="display: flex; flex: 2; align-items: center;">
-                            <input type="text" id="vmSpecName" name="vmSpecName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
+                            <input type="text" id="vmSpecName" name="vmSpecName" required style="background-color: #f8fcff; flex: 1; border: 1px solid #767676; padding: 2px;">
                             <button type="button" onclick="showSpecSelectionOverlay()" style="margin-left: 5px; min-width: 26px; height: 22px; padding: 0 4px; font-size: 12px; line-height: 1;">🔍</button>
                         </div>
+                    </div>
+                    
+                    <div class="form-group" id="osInfoFormGroup" style="display: none;">
+                        <label>&nbsp;</label>
+                        <div class="os-info-display" id="osInfoDisplay"></div>
+                    </div>
+                    
+                    <div class="form-group" id="specInfoFormGroup" style="display: none;">
+                        <label>&nbsp;</label>
+                        <div class="spec-info-display" id="specInfoDisplay"></div>
                     </div>
                 </div>                              
 
@@ -1430,7 +1610,14 @@ THE SOFTWARE.
             </h2>
             
             <div class="filter-section">
-                <h3>Filters</h3>
+                <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6; margin-bottom: 15px; flex-wrap: wrap;">
+                    <h3 style="margin: 0; margin-right: 24px; padding: 0; border: none;">Filters</h3>
+                    <button class="preset-btn" onclick="applyIntensivePreset('general')" title="Web servers, small applications, general workloads">General Purpose</button>
+                    <button class="preset-btn" onclick="applyIntensivePreset('dev')" title="Development, testing, learning environments">Small/Dev</button>
+                    <button class="preset-btn" onclick="applyIntensivePreset('high-performance')" title="Large-scale production, enterprise applications">High Perf</button>
+                    <button class="preset-btn" onclick="applyIntensivePreset('database')" title="RDBMS, NoSQL databases">Database</button>
+                    <button class="preset-btn" onclick="applyIntensivePreset('ai-ml')" title="Deep learning training, large-scale model training">AI/ML Training</button>
+                </div>
                 <div class="filter-row">
                     <div class="filter-item">
                         <label>Region:</label>
@@ -1443,6 +1630,13 @@ THE SOFTWARE.
                         <select id="spec-filter-zone">
                             <option value="">All Zones</option>
                         </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Architecture:</label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="spec-os-arch-display" class="os-info-box" style="display: none; height: 28px; line-height: 28px; padding: 0 10px; width: 12ch; font-weight: normal; color: #555;"></span>
+                            <input type="checkbox" id="spec-os-arch-filter-enabled" style="margin: 0; display: none;">
+                        </div>
                     </div>
                     <div class="filter-item">
                         <div style="display: flex; align-items: flex-start; gap: 3px;">
@@ -1602,6 +1796,106 @@ THE SOFTWARE.
                 </table>
             </div>
         </div>
+    </div>
+
+    <!-- VM Recent Overlay -->
+    <div id="vm-recent-overlay" class="selection-overlay">
+        <div id="recent-overlay-content" class="selection-overlay-content" style="max-width: 1300px;">
+            <button class="overlay-close-btn" onclick="closeVMRecentOverlay()">X</button>
+            <h2 style="display: flex; justify-content: space-between; align-items: center; margin-top: 35px;">
+                <span>Recent VM Creations
+                    <span id="recent-mcinsight-badge" class="powered-by-badge" style="display: none;">Powered by <a href="http://mc-insight.cloud-barista.org" target="_blank">MC-Insight</a></span>
+                </span>
+                <span style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 6px;">
+                    <button class="overlay-import-btn" onclick="importRecentData()" title="Import recent VM data from JSON file">Import</button>
+                    <button class="overlay-export-btn" onclick="exportRecentData()" title="Export recent VM data to JSON file">Export</button>
+                    <label style="font-size: 13px; font-weight: normal; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="export-all-checkbox" onchange="onAllCheckboxChange()" style="margin-right: 4px; cursor: pointer;">
+                        All
+                    </label>
+                </span>
+            </h2>
+            
+            <div id="recent-list-container" style="margin-top: 20px;">
+                <div class="loading-message" style="display: none;">Loading recent VM data...</div>
+                <table class="selection-table" id="recent-table" style="display: none;">
+                    <thead>
+                        <tr id="recent-table-header">
+                            <th style="width: 30px;">#</th>
+                            <th id="recent-csp-header" style="width: 60px; display: none;">CSP</th>
+                            <th id="recent-region-header" style="width: 80px; display: none;">Region</th>
+                            <th id="recent-zone-header" style="width: 80px; display: none;">Zone</th>
+                            <th style="width: 140px; text-align: center;">Image Name</th>
+                            <th style="width: 130px; text-align: center;">Spec Name</th>
+                            <th style="width: 65px;">OS Arch</th>
+                            <th style="width: 70px;">CPU</th>
+                            <th style="width: 65px;">GPU</th>
+                            <th style="width: 70px;">Price/Hr</th>
+                            <th style="width: 65px;">Avg Time</th>
+                            <th onclick="sortRecentTable('count')" style="cursor: pointer; user-select: none; width: 45px;" title="Click to sort">Count</th>
+                            <th onclick="sortRecentTable('last_created')" style="cursor: pointer; user-select: none; width: 120px;" title="Click to sort">Last Created</th>
+                            <th style="width: 80px;">
+                                <button id="recent-bulk-star-btn" class="select-btn" style="font-size: 14px; padding: 1px 4px; color: #ffc107; margin-left: 4px;" onclick="bulkToggleRecentFavorite(event)" title="Toggle all as favorite">★</button>
+                                <button class="select-btn" style="font-size: 14px; padding: 1px 4px; color: #dc3545; margin-left: 2px;" onclick="bulkDeleteRecent(event)" title="Delete all">✕</button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-table-body">
+                    </tbody>
+                </table>
+                <div class="no-data-message" id="recent-no-data" style="display: none;">No recent VM creation records found.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VM Favorite Overlay -->
+    <div id="vm-favorite-overlay" class="selection-overlay">
+        <div id="favorite-overlay-content" class="selection-overlay-content" style="max-width: 1000px;">
+            <button class="overlay-close-btn" onclick="closeVMFavoriteOverlay()">X</button>
+            <h2 style="display: flex; justify-content: space-between; align-items: center; margin-top: 35px;">
+                <span>Favorite VM Configurations</span>
+                <span style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 6px;">
+                    <button class="overlay-import-btn" onclick="importFavoriteData()" title="Import favorite VM data from JSON file">Import</button>
+                    <button class="overlay-export-btn" onclick="exportFavoriteData()" title="Export favorite VM data to JSON file">Export</button>
+                    <label style="font-size: 13px; font-weight: normal; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="favorite-all-checkbox" onchange="onFavoriteAllCheckboxChange()" style="margin-right: 4px; cursor: pointer;">
+                        All
+                    </label>
+                </span>
+            </h2>
+            
+            <div id="favorite-list-container" style="margin-top: 20px;">
+                <div class="loading-message" style="display: none;">Loading favorite VM configurations...</div>
+                <table class="selection-table" id="favorite-table" style="display: none;">
+                    <thead>
+                        <tr id="favorite-table-header">
+                            <th style="width: 30px;">#</th>
+                            <th id="favorite-csp-header" style="width: 60px; display: none;">CSP</th>
+                            <th id="favorite-region-header" style="width: 80px; display: none;">Region</th>
+                            <th id="favorite-zone-header" style="width: 80px; display: none;">Zone</th>
+                            <th onclick="sortFavoriteTable('image_name')" style="cursor: pointer; user-select: none; width: 140px; text-align: center;" title="Click to sort">Image Name</th>
+                            <th onclick="sortFavoriteTable('spec_name')" style="cursor: pointer; user-select: none; width: 130px; text-align: center;" title="Click to sort">Spec Name</th>
+                            <th onclick="sortFavoriteTable('os_arch')" style="cursor: pointer; user-select: none; width: 65px;" title="Click to sort">OS Arch</th>
+                            <th onclick="sortFavoriteTable('cpu')" style="cursor: pointer; user-select: none; width: 85px;" title="Click to sort">CPU</th>
+                            <th onclick="sortFavoriteTable('gpu')" style="cursor: pointer; user-select: none; width: 75px;" title="Click to sort">GPU</th>
+                            <th onclick="sortFavoriteTable('price')" style="cursor: pointer; user-select: none; width: 70px;" title="Click to sort">Price/Hr</th>
+                            <th onclick="sortFavoriteTable('created_at')" style="cursor: pointer; user-select: none; width: 120px;" title="Click to sort">Added Date</th>
+                            <th style="width: 70px;">
+                                <button class="select-btn" style="font-size: 14px; padding: 1px 4px; color: #dc3545; margin-left: 4px;" onclick="bulkDeleteFavorite(event)" title="Delete all">✕</button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="favorite-table-body">
+                    </tbody>
+                </table>
+                <div class="no-data-message" id="favorite-no-data" style="display: none;">No favorite VM configurations found.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Loading Spinner -->
+    <div id="global-loading-overlay" class="global-loading-overlay">
+        <div class="loading-spinner"></div>
     </div>
 
 </body>
@@ -2065,10 +2359,14 @@ THE SOFTWARE.
             const imageOverlay = document.getElementById('image-selection-overlay');
             const specOverlay = document.getElementById('spec-selection-overlay');
             const priceOverlay = document.getElementById('price-info-overlay');
+            const recentOverlay = document.getElementById('vm-recent-overlay');
+            const favoriteOverlay = document.getElementById('vm-favorite-overlay');
             
             if ((imageOverlay && imageOverlay.style.display === 'flex') ||
                 (specOverlay && specOverlay.style.display === 'flex') ||
-                (priceOverlay && priceOverlay.style.display === 'flex')) {
+                (priceOverlay && priceOverlay.style.display === 'flex') ||
+                (recentOverlay && recentOverlay.style.display === 'flex') ||
+                (favoriteOverlay && favoriteOverlay.style.display === 'flex')) {
                 return; // Let the selection overlay handle the ESC key
             }
             
@@ -3125,6 +3423,9 @@ THE SOFTWARE.
     // OpenStack data cache (fetched from Spider API)
     let openstackAllImages = [];
     let openstackAllSpecs = [];
+    let currentImageData = []; // Store current page image data for selection
+    let currentSpecData = []; // Store current page spec data for selection
+    let selectedOSArch = ''; // Store selected OS architecture from image selection
 
     // Check if MC-Insight API Token is configured
     async function checkMCInsightToken() {
@@ -3312,6 +3613,10 @@ THE SOFTWARE.
             zoneSelect.disabled = true;
             zoneSelect.style.backgroundColor = '#f0f0f0';
             
+            // Save current filter values to restore after repopulating
+            const savedArchValue = archSelect.value;
+            const savedPlatformValue = platformSelect.value;
+            
             // If we have cached images, extract unique values for filters
             if (openstackAllImages.length > 0) {
                 // Extract unique architectures
@@ -3323,7 +3628,8 @@ THE SOFTWARE.
                     option.textContent = arch;
                     archSelect.appendChild(option);
                 });
-                archSelect.value = '';
+                // Restore saved value if it exists in options
+                archSelect.value = savedArchValue || '';
                 
                 // Extract unique platforms
                 const uniquePlatforms = [...new Set(openstackAllImages.map(img => img.os_platform).filter(v => v && v !== 'na'))];
@@ -3334,13 +3640,14 @@ THE SOFTWARE.
                     option.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
                     platformSelect.appendChild(option);
                 });
-                platformSelect.value = '';
+                // Restore saved value if it exists in options
+                platformSelect.value = savedPlatformValue || '';
             } else {
                 // Set defaults while data is loading
                 archSelect.innerHTML = '<option value="">All</option>';
-                archSelect.value = '';
+                archSelect.value = savedArchValue || '';
                 platformSelect.innerHTML = '<option value="">All</option>';
-                platformSelect.value = '';
+                platformSelect.value = savedPlatformValue || '';
             }
             
             // Set filters with locked region/zone
@@ -3424,6 +3731,10 @@ THE SOFTWARE.
                 }
             }
             
+            // Save current filter values to restore after repopulating
+            const savedArchValue = archSelect.value;
+            const savedPlatformValue = platformSelect.value;
+            
             // Populate OS Architecture options dynamically
             if (data.os_architecture) {
                 archSelect.innerHTML = '<option value="">All</option>';
@@ -3433,8 +3744,8 @@ THE SOFTWARE.
                     option.textContent = arch;
                     archSelect.appendChild(option);
                 });
-                // Default to All
-                archSelect.value = '';
+                // Restore saved value if it exists in options
+                archSelect.value = savedArchValue || '';
             }
             
             // Populate OS Platform options dynamically
@@ -3446,8 +3757,8 @@ THE SOFTWARE.
                     option.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
                     platformSelect.appendChild(option);
                 });
-                // Default to All
-                platformSelect.value = '';
+                // Restore saved value if it exists in options
+                platformSelect.value = savedPlatformValue || '';
             }
             
         })
@@ -3958,6 +4269,9 @@ THE SOFTWARE.
 
         tableHTML += '</tbody></table>';
         container.innerHTML = tableHTML;
+        
+        // Store current image data for selectImage() function
+        currentImageData = images;
     }
 
     function sortImages(field) {
@@ -3976,6 +4290,47 @@ THE SOFTWARE.
 
     function selectImage(imageId) {
         document.getElementById('imageName').value = imageId;
+        
+        // Find the selected image data
+        const selectedImage = currentImageData.find(img => img.image_id === imageId);
+        
+        // Update OS information display
+        const osInfoDisplay = document.getElementById('osInfoDisplay');
+        if (selectedImage && osInfoDisplay) {
+            const osArch = (selectedImage.os_architecture && selectedImage.os_architecture !== 'NA' && selectedImage.os_architecture !== '-') ? selectedImage.os_architecture : '-';
+            const osPlatform = (selectedImage.os_platform && selectedImage.os_platform !== 'na' && selectedImage.os_platform !== 'NA' && selectedImage.os_platform !== '-') ? selectedImage.os_platform : '-';
+            const osDistribution = (selectedImage.os_distribution && selectedImage.os_distribution !== 'NA' && selectedImage.os_distribution !== '-') ? selectedImage.os_distribution : '-';
+            
+            // Store selected OS Arch globally (only if it has value)
+            selectedOSArch = (osArch !== '-') ? osArch : '';
+            
+            // Clear previous content
+            osInfoDisplay.innerHTML = '';
+            
+            // Always create boxes, even if values are "-"
+            const archBox = document.createElement('span');
+            archBox.className = 'os-info-box';
+            archBox.textContent = osArch;
+            archBox.title = osArch;
+            osInfoDisplay.appendChild(archBox);
+            
+            const platformBox = document.createElement('span');
+            platformBox.className = 'os-info-box';
+            platformBox.textContent = osPlatform;
+            platformBox.title = osPlatform;
+            osInfoDisplay.appendChild(platformBox);
+            
+            const distBox = document.createElement('span');
+            distBox.className = 'os-info-box';
+            distBox.textContent = osDistribution;
+            distBox.title = osDistribution;
+            osInfoDisplay.appendChild(distBox);
+            
+            // Show the form group and display
+            document.getElementById('osInfoFormGroup').style.display = '';
+            osInfoDisplay.classList.add('active');
+        }
+        
         closeImageSelectionOverlay();
     }
 
@@ -4042,6 +4397,23 @@ THE SOFTWARE.
         const overlay = document.getElementById('spec-selection-overlay');
         overlay.style.display = 'flex';
         document.addEventListener('keydown', handleSpecSelectionOverlayEsc);
+        
+        // Display selected OS Arch if available
+        const osArchDisplay = document.getElementById('spec-os-arch-display');
+        const osArchCheckbox = document.getElementById('spec-os-arch-filter-enabled');
+        
+        if (selectedOSArch) {
+            osArchDisplay.textContent = selectedOSArch;
+            if (selectedOSArch.length > 16) {
+                osArchDisplay.title = selectedOSArch;
+            }
+            osArchDisplay.style.display = 'inline-block';
+            osArchCheckbox.style.display = 'inline-block';
+            osArchCheckbox.checked = true; // Default checked
+        } else {
+            osArchDisplay.style.display = 'none';
+            osArchCheckbox.style.display = 'none';
+        }
         
         // Get current connection info and set filters
         getConnectionInfo().then(info => {
@@ -4601,6 +4973,14 @@ THE SOFTWARE.
             min_gpu_mem_size_gb: document.getElementById('spec-filter-min-gpu-mem').value,
             max_gpu_mem_size_gb: document.getElementById('spec-filter-max-gpu-mem').value
         };
+        
+        // Add OS Arch filter if checkbox is enabled
+        const osArchCheckbox = document.getElementById('spec-os-arch-filter-enabled');
+        const osArchDisplay = document.getElementById('spec-os-arch-display');
+        if (osArchCheckbox && osArchCheckbox.checked && osArchDisplay) {
+            specFilters.os_arch = osArchDisplay.textContent.trim();
+        }
+        
         loadSpecs();
     }
 
@@ -4637,6 +5017,60 @@ THE SOFTWARE.
         }
     }
 
+    // Apply workload preset filters
+    function applyIntensivePreset(type) {
+        // Clear filter input fields only (don't reset table)
+        document.getElementById('spec-filter-name').value = '';
+        document.getElementById('spec-filter-gpu-model').value = '';
+        document.getElementById('spec-filter-min-vcpu').value = '';
+        document.getElementById('spec-filter-max-vcpu').value = '';
+        document.getElementById('spec-filter-min-mem').value = '';
+        document.getElementById('spec-filter-max-mem').value = '';
+        document.getElementById('spec-filter-min-gpu').value = '';
+        document.getElementById('spec-filter-max-gpu').value = '';
+        document.getElementById('spec-filter-min-gpu-mem').value = '';
+        document.getElementById('spec-filter-max-gpu-mem').value = '';
+        
+        switch(type) {
+            case 'general':
+                // General Purpose: vCPU 2-4, Memory 4-8 GiB
+                document.getElementById('spec-filter-min-vcpu').value = '2';
+                document.getElementById('spec-filter-max-vcpu').value = '4';
+                document.getElementById('spec-filter-min-mem').value = '4096';  // 4 GiB
+                document.getElementById('spec-filter-max-mem').value = '8192';  // 8 GiB
+                break;
+            
+            case 'dev':
+                // Small/Dev: vCPU 1-2, Memory 1-4 GiB
+                document.getElementById('spec-filter-min-vcpu').value = '1';
+                document.getElementById('spec-filter-max-vcpu').value = '2';
+                document.getElementById('spec-filter-min-mem').value = '1024';  // 1 GiB
+                document.getElementById('spec-filter-max-mem').value = '4096';  // 4 GiB
+                break;
+            
+            case 'high-performance':
+                // High Performance: vCPU ≥16, Memory ≥64 GiB
+                document.getElementById('spec-filter-min-vcpu').value = '16';
+                document.getElementById('spec-filter-min-mem').value = '65536';  // 64 GiB
+                break;
+            
+            case 'database':
+                // Database: vCPU 4-8, Memory ≥16 GiB
+                document.getElementById('spec-filter-min-vcpu').value = '4';
+                document.getElementById('spec-filter-max-vcpu').value = '8';
+                document.getElementById('spec-filter-min-mem').value = '16384';  // 16 GiB
+                break;
+            
+            case 'ai-ml':
+                // AI/ML Training: vCPU ≥8, Memory ≥32 GiB, GPU ≥2, GPU Mem ≥16 GB
+                document.getElementById('spec-filter-min-vcpu').value = '8';
+                document.getElementById('spec-filter-min-mem').value = '32768';  // 32 GiB
+                document.getElementById('spec-filter-min-gpu').value = '2';
+                document.getElementById('spec-filter-min-gpu-mem').value = '16';  // 16 GB
+                break;
+        }
+    }
+
     function resetSpecFilters() {
         // Region and Zone are locked, so we don't reset them
         document.getElementById('spec-filter-name').value = '';
@@ -4660,6 +5094,49 @@ THE SOFTWARE.
         specSortOrder = 'asc';
         document.getElementById('spec-list-container').innerHTML = '<div class="loading-message">Press Search to load VM specs</div>';
         document.getElementById('spec-pagination').style.display = 'none';
+    }
+
+    // Convert Spider Arch type to CSP-specific key_value_json search values
+    function convertArchToCSPValues(spiderArch, csp) {
+        const cspLower = csp.toLowerCase();
+        
+        // Return array of search values (for multiple mappings)
+        switch(spiderArch) {
+            case 'arm64':
+                if (cspLower === 'aws') return ['arm64'];
+                if (cspLower === 'alibaba') return ['ARM'];
+                if (cspLower === 'tencent') return ['Ampere Altra'];
+                break;
+            
+            case 'arm64_mac':
+                if (cspLower === 'aws') return ['arm64_mac'];
+                break;
+            
+            case 'x86_32':
+                if (cspLower === 'aws') return ['i386'];
+                if (cspLower === 'alibaba') return ['X86'];
+                break;
+            
+            case 'x86_64':
+                if (cspLower === 'aws') return ['x86_64', 'i386'];
+                if (cspLower === 'alibaba') return ['X86'];
+                if (cspLower === 'tencent') return ['AMD', 'Intel'];
+                if (cspLower === 'ibm') return ['amd64'];
+                if (cspLower === 'ncp' || cspLower === 'ncpvpc') return ['X86_64'];
+                break;
+            
+            case 'x86_64_mac':
+                if (cspLower === 'aws') return ['x86_64_mac'];
+                break;
+            
+            // Handle combined display like "x86_32, x86_64"
+            case 'x86_32, x86_64':
+                if (cspLower === 'aws') return ['i386'];
+                if (cspLower === 'alibaba') return ['X86'];
+                break;
+        }
+        
+        return [];
     }
 
     function loadSpecs() {
@@ -4737,6 +5214,25 @@ THE SOFTWARE.
             // Show MC-Insight badge for non-OpenStack CSPs
             const badge = document.getElementById('spec-mcinsight-badge');
             if (badge) badge.style.display = '';
+            
+            // Check if OS Arch filter is enabled
+            const osArchValues = specFilters.os_arch ? convertArchToCSPValues(specFilters.os_arch, csp) : [];
+            
+            // If OS Arch filter exists and has multiple values, need multiple API calls
+            if (osArchValues.length > 0) {
+                loadSpecsWithArchFilter(csp, osArchValues);
+            } else {
+                loadSpecsWithoutArchFilter(csp);
+            }
+        }).catch(error => {
+            console.error('Error getting CSP:', error);
+            const container = document.getElementById('spec-list-container');
+            container.innerHTML = `<div class=\"no-data-message\">Connection Config를 불러오는 중 오류가 발생했습니다: ${error.message}</div>`;
+        });
+    }
+
+    // Load specs without OS Arch filter (original logic)
+    function loadSpecsWithoutArchFilter(csp) {
             
             // If sorting by price, fetch all data for client-side sorting
             const isPriceSorting = specSortField === 'price_per_hour';
@@ -4954,11 +5450,180 @@ THE SOFTWARE.
                     `;
                 }
             });
-        }).catch(error => {
-            console.error('Error getting CSP:', error);
-            const container = document.getElementById('spec-list-container');
-            container.innerHTML = `<div class="no-data-message">Connection Config를 불러오는 중 오류가 발생했습니다: ${error.message}</div>`;
-        });
+    }
+
+    // Load specs with OS Arch filter (multiple API calls for multiple arch values)
+    async function loadSpecsWithArchFilter(csp, archValues) {
+        const container = document.getElementById('spec-list-container');
+        
+        // Show loading overlay
+        let loadingOverlay = container.querySelector('.table-loading-overlay');
+        if (!loadingOverlay) {
+            loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'table-loading-overlay';
+            loadingOverlay.textContent = `Loading specs for ${archValues.length} architecture value(s)...`;
+            container.appendChild(loadingOverlay);
+        }
+        loadingOverlay.classList.add('active');
+
+        try {
+            // Create filters object without os_arch
+            const baseFilters = { ...specFilters };
+            delete baseFilters.os_arch;
+
+            // Fetch specs for each arch value
+            const fetchPromises = archValues.map(async (archValue) => {
+                const params = new URLSearchParams({
+                    csp: csp,
+                    skip: 0,
+                    limit: 10000  // Fetch all for merging
+                });
+
+                // Add base filters
+                Object.keys(baseFilters).forEach(key => {
+                    if (baseFilters[key]) {
+                        params.append(key, baseFilters[key]);
+                    }
+                });
+
+                // Add search_text filter for this arch value
+                params.append('search_text', archValue);
+
+                const apiUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params.toString()}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: { 'accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                return await response.json();
+            });
+
+            // Wait for all API calls to complete
+            const results = await Promise.all(fetchPromises);
+
+            // Merge all results and remove duplicates by spec name
+            const allSpecs = [];
+            const seenNames = new Set();
+            let dataVersion = null;
+
+            results.forEach(result => {
+                if (result.items && result.items.length > 0) {
+                    // Extract data_ver from first result
+                    if (!dataVersion && result.data_ver) {
+                        dataVersion = result.data_ver;
+                    }
+                    result.items.forEach(spec => {
+                        if (!seenNames.has(spec.name)) {
+                            seenNames.add(spec.name);
+                            allSpecs.push(spec);
+                        }
+                    });
+                }
+            });
+
+            // Update total count
+            specTotalCount = allSpecs.length;
+
+            // Apply sorting
+            if (specSortField && specSortField !== 'price_per_hour') {
+                allSpecs.sort((a, b) => {
+                    let valA = a[specSortField];
+                    let valB = b[specSortField];
+                    
+                    // Handle null/undefined
+                    if (valA === null || valA === undefined || valA === -1) valA = specSortOrder === 'asc' ? Infinity : -Infinity;
+                    if (valB === null || valB === undefined || valB === -1) valB = specSortOrder === 'asc' ? Infinity : -Infinity;
+                    
+                    if (typeof valA === 'string') {
+                        return specSortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    } else {
+                        return specSortOrder === 'asc' ? valA - valB : valB - valA;
+                    }
+                });
+            }
+
+            // Fetch prices for all specs
+            const priceParams = new URLSearchParams({
+                csp: csp,
+                skip: 0,
+                limit: 10000
+            });
+
+            if (specFilters.region) priceParams.append('region', specFilters.region);
+            if (specFilters.zone) priceParams.append('zone', specFilters.zone);
+
+            const priceApiUrl = `${MC_INSIGHT_API_BASE}/price-info?${priceParams.toString()}`;
+
+            fetch(priceApiUrl, {
+                method: 'GET',
+                headers: { 'accept': 'application/json' }
+            })
+            .then(priceResponse => priceResponse.ok ? priceResponse.json() : { items: [] })
+            .then(priceData => {
+                // Merge specs with prices
+                let specsWithPrices = mergeSpecsWithPrices(allSpecs, priceData.items || []);
+
+                // Apply price sorting if needed
+                if (specSortField === 'price_per_hour') {
+                    specsWithPrices.sort((a, b) => {
+                        const priceA = a.price_per_hour !== null && a.price_per_hour !== undefined ? parseFloat(a.price_per_hour) : Infinity;
+                        const priceB = b.price_per_hour !== null && b.price_per_hour !== undefined ? parseFloat(b.price_per_hour) : Infinity;
+                        return specSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+                    });
+                }
+
+                // Apply pagination
+                const start = currentSpecPage * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                const pageSpecs = specsWithPrices.slice(start, end);
+
+                displaySpecs(pageSpecs);
+                updateSpecPagination(dataVersion);
+                loadingOverlay.classList.remove('active');
+            })
+            .catch(priceError => {
+                console.warn('Error fetching prices:', priceError);
+                
+                // Display specs without prices
+                const start = currentSpecPage * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                const pageSpecs = allSpecs.slice(start, end);
+
+                displaySpecs(pageSpecs);
+                updateSpecPagination(dataVersion);
+                loadingOverlay.classList.remove('active');
+            });
+
+        } catch (error) {
+            console.error('Error loading specs with arch filter:', error);
+            loadingOverlay.classList.remove('active');
+            
+            const errorMsg = error.message || error.toString();
+            if (errorMsg.includes('503')) {
+                container.innerHTML = `
+                    <div class="no-data-message">
+                        <p><strong>MC-Insight API Token Required</strong></p>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            To search multi-cloud metadata using MC-Insight, you need to configure the MC-Insight API Token.<br>
+                            Please set the <code>MC_INSIGHT_API_TOKEN</code> value in <code>./setup.env</code> and restart CB-Spider.
+                        </p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="no-data-message">
+                        <p><strong>Error loading VM specs</strong></p>
+                        <p style="font-size: 12px; color: #666;">${errorMsg}</p>
+                        <button class="select-btn" onclick="applySpecFilters()" style="margin-top: 10px;">Retry</button>
+                    </div>
+                `;
+            }
+        }
     }
 
     function mergeSpecsWithPrices(specs, prices) {
@@ -4983,6 +5648,88 @@ THE SOFTWARE.
                 unit: priceInfo ? priceInfo.unit : null
             };
         });
+    }
+
+    // Extract OS Architecture from key_value_json and map to Spider Arch type
+    function extractOSArch(spec) {
+        const csp = spec.csp ? spec.csp.toLowerCase() : '';
+        
+        if (!spec.key_value_json) {
+            return 'NA';
+        }
+        
+        try {
+            const keyValueData = JSON.parse(spec.key_value_json);
+            
+            // AWS: Extract from ProcessorInfo -> SupportedArchitectures
+            if (csp === 'aws') {
+                const processorInfo = keyValueData.ProcessorInfo;
+                if (processorInfo) {
+                    // ProcessorInfo can be a string like "{SupportedArchitectures:[x86_64],...}"
+                    if (typeof processorInfo === 'string') {
+                        const match = processorInfo.match(/SupportedArchitectures:\[([^\]]+)\]/);
+                        if (match) {
+                            const archList = match[1].split(',').map(a => a.trim());
+                            
+                            // Check for [i386,x86_64] combination (supports both x86_32 and x86_64)
+                            if (archList.includes('i386') && archList.includes('x86_64')) {
+                                return 'x86_32, x86_64';
+                            }
+                            
+                            // Single architecture mappings
+                            const arch = archList[0];
+                            if (arch === 'arm64') return 'arm64';
+                            if (arch === 'arm64_mac') return 'arm64_mac';
+                            if (arch === 'x86_64') return 'x86_64';
+                            if (arch === 'x86_64_mac') return 'x86_64_mac';
+                        }
+                    }
+                }
+            }
+            
+            // Alibaba: Extract from InstanceTypeFamily or CpuArchitecture
+            else if (csp === 'alibaba') {
+                const cpuArch = keyValueData.CpuArchitecture || keyValueData.cpu_architecture;
+                if (cpuArch) {
+                    const archStr = cpuArch.toString().toLowerCase();
+                    if (archStr.includes('arm')) return 'arm64';
+                    if (archStr.includes('x86')) return 'x86_64';
+                }
+            }
+            
+            // Tencent: Extract from InstanceFamily or CPU info
+            else if (csp === 'tencent') {
+                const cpuType = keyValueData.CPU || keyValueData.InstanceFamily;
+                if (cpuType) {
+                    const cpuStr = cpuType.toString().toLowerCase();
+                    if (cpuStr.includes('ampere') || cpuStr.includes('altra')) return 'arm64';
+                    if (cpuStr.includes('amd') || cpuStr.includes('intel')) return 'x86_64';
+                }
+            }
+            
+            // IBM: Extract from Architecture
+            else if (csp === 'ibm') {
+                const arch = keyValueData.Architecture || keyValueData.architecture;
+                if (arch) {
+                    const archStr = arch.toString().toLowerCase();
+                    if (archStr === 'amd64') return 'x86_64';
+                }
+            }
+            
+            // NCP/NCPVPC: Extract from architecture or cpu_architecture
+            else if (csp === 'ncp' || csp === 'ncpvpc') {
+                const arch = keyValueData.architecture || keyValueData.cpu_architecture;
+                if (arch) {
+                    const archStr = arch.toString().toUpperCase();
+                    if (archStr === 'X86_64') return 'x86_64';
+                }
+            }
+            
+        } catch (e) {
+            console.warn('Error parsing key_value_json for OS Arch:', e);
+        }
+        
+        return 'NA';
     }
 
     function displaySpecs(specs) {
@@ -5030,6 +5777,7 @@ THE SOFTWARE.
                     <tr>
                         <th>#</th>
                         ${createSortableSpecHeader('Name', 'name')}
+                        <th style="width: 80px;">OS Arch</th>
                         ${createSortableSpecHeader('vCPU', 'vcpu_count')}
                         ${createSortableSpecHeader('Memory (MiB)', 'mem_size_mib')}
                         ${createSortableSpecHeader('Disk (GB)', 'disk_size_gb')}
@@ -5047,6 +5795,12 @@ THE SOFTWARE.
 
         specs.forEach((spec, index) => {
             const rowNumber = currentSpecPage * ITEMS_PER_PAGE + index + 1;
+            
+            // Extract OS Architecture
+            const osArch = extractOSArch(spec);
+            const osArchDisplay = osArch === 'NA' 
+                ? '<span style="color: #999;">NA</span>' 
+                : `<span style="color: #333; font-weight: 500;">${osArch}</span>`;
             
             // Format vCPU with clock
             let vcpuDisplay = displayNumeric(spec.vcpu_count);
@@ -5082,6 +5836,7 @@ THE SOFTWARE.
                 <tr>
                     <td style="color: #6c757d;">${rowNumber}</td>
                     <td><a href="javascript:void(0)" onclick='selectSpec("${spec.name}")' title="Click to select this spec" style="cursor: pointer; color: #007bff; text-decoration: underline;">${spec.name}</a></td>
+                    <td style="text-align: center;">${osArchDisplay}</td>
                     <td>${vcpuDisplay}</td>
                     <td>${displayNumeric(spec.mem_size_mib)}</td>
                     <td>${displayNumeric(spec.disk_size_gb)}</td>
@@ -5095,6 +5850,9 @@ THE SOFTWARE.
 
         tableHTML += '</tbody></table>';
         container.innerHTML = tableHTML;
+        
+        // Store current spec data for selectSpec() function
+        currentSpecData = specs;
     }
 
     function sortSpecs(field) {
@@ -5113,6 +5871,74 @@ THE SOFTWARE.
 
     function selectSpec(specName) {
         document.getElementById('vmSpecName').value = specName;
+        
+        // Find the selected spec data
+        const selectedSpec = currentSpecData.find(spec => spec.name === specName);
+        
+        // Update Spec information display
+        const specInfoDisplay = document.getElementById('specInfoDisplay');
+        if (selectedSpec && specInfoDisplay) {
+            // Clear previous content
+            specInfoDisplay.innerHTML = '';
+            
+            // Box 1: CPU / Memory - Always display
+            const cpuMemBox = document.createElement('span');
+            cpuMemBox.className = 'spec-info-box';
+            
+            const hasCPU = selectedSpec.vcpu_count && selectedSpec.vcpu_count !== -1 && selectedSpec.vcpu_count !== '-';
+            const hasMemory = selectedSpec.mem_size_mib && selectedSpec.mem_size_mib !== -1 && selectedSpec.mem_size_mib !== '-';
+            
+            const cpuValue = hasCPU ? selectedSpec.vcpu_count : '-';
+            const memValue = hasMemory ? Math.round(selectedSpec.mem_size_mib / 1024) : '-';
+            const cpuMemText = `CPU: ${cpuValue}/${memValue} GiB`;
+            
+            cpuMemBox.textContent = cpuMemText;
+            cpuMemBox.title = cpuMemText;
+            specInfoDisplay.appendChild(cpuMemBox);
+            
+            // Box 2: GPU / GPU Memory - Always display
+            const gpuBox = document.createElement('span');
+            gpuBox.className = 'spec-info-box';
+            
+            const hasGPU = selectedSpec.gpu_count && selectedSpec.gpu_count > 0;
+            const hasGPUMem = selectedSpec.gpu_mem_size_gb && selectedSpec.gpu_mem_size_gb !== -1 && selectedSpec.gpu_mem_size_gb !== '-';
+            
+            let gpuText;
+            if (!hasGPU && !hasGPUMem) {
+                // Both values missing
+                gpuText = 'GPU: -';
+            } else {
+                // At least one value exists
+                const gpuValue = hasGPU ? selectedSpec.gpu_count : '-';
+                const gpuMemValue = hasGPUMem ? selectedSpec.gpu_mem_size_gb : '-';
+                gpuText = `GPU: ${gpuValue}/${gpuMemValue} GB`;
+            }
+            
+            gpuBox.textContent = gpuText;
+            gpuBox.title = gpuText;
+            specInfoDisplay.appendChild(gpuBox);
+            
+            // Box 3: Price - Always display
+            const priceBox = document.createElement('span');
+            priceBox.className = 'spec-info-box';
+            
+            let priceText = '$-';
+            if (selectedSpec.price_per_hour !== null && selectedSpec.price_per_hour !== undefined) {
+                const priceValue = parseFloat(selectedSpec.price_per_hour);
+                if (!isNaN(priceValue)) {
+                    priceText = `$${priceValue.toFixed(4)}/H`;
+                }
+            }
+            
+            priceBox.textContent = priceText;
+            priceBox.title = priceText;
+            specInfoDisplay.appendChild(priceBox);
+            
+            // Show the form group and display
+            document.getElementById('specInfoFormGroup').style.display = '';
+            specInfoDisplay.classList.add('active');
+        }
+        
         closeSpecSelectionOverlay();
     }
 
@@ -5177,6 +6003,1904 @@ THE SOFTWARE.
         nextBtn.disabled = (currentSpecPage + 1) * ITEMS_PER_PAGE >= specTotalCount;
 
         pagination.style.display = specTotalCount > 0 ? 'flex' : 'none';
+    }
+
+    // ==================== VM RECENT AND FAVORITE FUNCTIONS ====================
+    
+    let recentData = [];
+    let recentSortField = 'last_created';
+    let recentSortOrder = 'desc';
+    let recentDataBackup = []; // Backup for restoring when unchecking All
+    
+    let favoriteData = [];
+    let favoriteSortField = 'created_at';
+    let favoriteSortOrder = 'desc';
+    let favoriteDataBackup = []; // Backup for restoring when unchecking All
+    
+    // Handle All checkbox change
+    async function onAllCheckboxChange() {
+        const checkbox = document.getElementById('export-all-checkbox');
+        const isAllMode = checkbox.checked;
+        
+        // Show loading overlay
+        const loadingOverlay = document.getElementById('global-loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            // Show/hide CSP, Region, Zone columns
+            const cspHeader = document.getElementById('recent-csp-header');
+            const regionHeader = document.getElementById('recent-region-header');
+            const zoneHeader = document.getElementById('recent-zone-header');
+            
+            if (cspHeader) cspHeader.style.display = isAllMode ? '' : 'none';
+            if (regionHeader) regionHeader.style.display = isAllMode ? '' : 'none';
+            if (zoneHeader) zoneHeader.style.display = isAllMode ? '' : 'none';
+            
+            // Resize overlay content
+            const overlayContent = document.getElementById('recent-overlay-content');
+            if (overlayContent) {
+                overlayContent.style.maxWidth = isAllMode ? '90vw' : '1300px';
+            }
+            
+            // Disable/enable bulk star button
+            const bulkStarBtn = document.getElementById('recent-bulk-star-btn');
+            if (bulkStarBtn) {
+                bulkStarBtn.disabled = isAllMode;
+                bulkStarBtn.style.opacity = isAllMode ? '0.3' : '1';
+                bulkStarBtn.style.cursor = isAllMode ? 'not-allowed' : 'pointer';
+            }
+            
+            if (isAllMode) {
+                // Backup current connection data before loading all
+                recentDataBackup = [...recentData];
+                // Check mode: Load all data
+                await loadVMRecentList();
+            } else {
+                // Uncheck mode: Restore backed up data
+                recentData = [...recentDataBackup];
+                recentDataBackup = [];
+                renderRecentTable();
+            }
+        } finally {
+            // Hide loading overlay
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    // Show VM Recent Overlay
+    async function showVMRecentOverlay() {
+        // 1. Show loading spinner
+        const loadingOverlay = document.getElementById('global-loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            // 2. Initialize All checkbox state and column visibility
+            const checkbox = document.getElementById('export-all-checkbox');
+            const isAllMode = checkbox?.checked || false;
+            
+            const cspHeader = document.getElementById('recent-csp-header');
+            const regionHeader = document.getElementById('recent-region-header');
+            const zoneHeader = document.getElementById('recent-zone-header');
+            
+            if (cspHeader) cspHeader.style.display = isAllMode ? '' : 'none';
+            if (regionHeader) regionHeader.style.display = isAllMode ? '' : 'none';
+            if (zoneHeader) zoneHeader.style.display = isAllMode ? '' : 'none';
+            
+            const overlayContent = document.getElementById('recent-overlay-content');
+            if (overlayContent) {
+                overlayContent.style.maxWidth = isAllMode ? '90vw' : '1300px';
+            }
+            
+            // Initialize bulk star button state
+            const bulkStarBtn = document.getElementById('recent-bulk-star-btn');
+            if (bulkStarBtn) {
+                bulkStarBtn.disabled = isAllMode;
+                bulkStarBtn.style.opacity = isAllMode ? '0.3' : '1';
+                bulkStarBtn.style.cursor = isAllMode ? 'not-allowed' : 'pointer';
+            }
+            
+            // 3. Fetch data
+            await loadVMRecentList();
+            
+            // 4. Show overlay
+            document.getElementById('vm-recent-overlay').style.display = 'flex';
+            document.addEventListener('keydown', handleVMRecentOverlayEsc);
+        } catch (error) {
+            console.error('Error loading recent VM data:', error);
+            alert('Failed to load recent VM data: ' + error.message);
+        } finally {
+            // Hide loading spinner
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    // Close VM Recent Overlay
+    function closeVMRecentOverlay() {
+        document.getElementById('vm-recent-overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleVMRecentOverlayEsc);
+    }
+
+    function handleVMRecentOverlayEsc(event) {
+        if (event.key === 'Escape') {
+            event.stopImmediatePropagation();
+            closeVMRecentOverlay();
+        }
+    }
+    
+    // Load VM Recent List
+    async function loadVMRecentList() {
+        const loadingMsg = document.querySelector('#recent-list-container .loading-message');
+        const table = document.getElementById('recent-table');
+        const tbody = document.getElementById('recent-table-body');
+        const noDataMsg = document.getElementById('recent-no-data');
+        
+        loadingMsg.style.display = 'block';
+        table.style.display = 'none';
+        noDataMsg.style.display = 'none';
+        tbody.innerHTML = '';
+        
+        try {
+            const connConfig = document.getElementById('connConfig').value;
+            
+            // Get connection info for CSP, Region, Zone
+            const connInfo = await getConnectionInfo();
+            
+            // Show/hide MC-Insight badge based on CSP
+            const recentBadge = document.getElementById('recent-mcinsight-badge');
+            if (connInfo.csp.toUpperCase() === 'OPENSTACK' || connInfo.csp.toUpperCase() === 'MOCK' || connInfo.csp.toUpperCase() === 'CLOUDTWIN') {
+                recentBadge.style.display = 'none';
+            } else {
+                recentBadge.style.display = 'inline';
+            }
+            
+            // Check if All mode is enabled
+            const isAllMode = document.getElementById('export-all-checkbox')?.checked || false;
+            
+            const params = new URLSearchParams({
+                CSP: isAllMode ? '' : (connInfo.csp || ''),
+                Region: isAllMode ? '' : (connInfo.region || ''),
+                Zone: isAllMode ? '' : (connInfo.zone || ''),
+                Limit: isAllMode ? '1000' : '10',
+                SortBy: recentSortField === 'last_created' ? 'last_created_at' : 'creation_count',
+                SortOrder: recentSortOrder
+            });
+            
+            const response = await fetch(`/spider/vm/imagespecrecent?${params}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch recent VM data');
+            }
+            
+            const recentList = await response.json();
+            loadingMsg.style.display = 'none';
+            
+            if (!recentList || recentList.length === 0) {
+                noDataMsg.style.display = 'block';
+                recentData = [];
+                return;
+            }
+            
+            // Store data and fetch MC-Insight info
+            // In All mode, preserve existing connection data and only add new items
+            const existingDataMap = new Map();
+            if (isAllMode && recentData.length > 0) {
+                // Keep existing data with metadata
+                recentData.forEach(item => {
+                    const key = `${item.CSP}|${item.Region}|${item.Zone}|${item.ImageName}|${item.SpecName}`;
+                    existingDataMap.set(key, item);
+                });
+            } else {
+                // Clear data in non-All mode
+                recentData = [];
+            }
+            
+            const newData = [];
+            for (let i = 0; i < recentList.length; i++) {
+                const record = recentList[i];
+                
+                let osArch = '-';
+                let osPlatform = '-';
+                let osDistribution = '-';
+                let cpuInfo = '-';
+                let gpuInfo = '-';
+                let priceDisplay = '$-';
+                
+                // Only fetch MC-Insight data in non-All mode (single connection)
+                if (!isAllMode) {
+                    // Fetch image and spec info from MC-Insight
+                    const imageInfo = await fetchImageInfoForRecent(connInfo, record.Zone, record.ImageName);
+                    const specInfo = await fetchSpecInfoForRecent(connInfo, record.Zone, record.SpecName);
+                    
+                    // Extract OS information separately
+                    osArch = (imageInfo?.os_architecture && imageInfo.os_architecture !== 'NA' && imageInfo.os_architecture !== '-') ? imageInfo.os_architecture : '-';
+                    osPlatform = (imageInfo?.os_platform && imageInfo.os_platform !== 'na' && imageInfo.os_platform !== 'NA' && imageInfo.os_platform !== '-') ? imageInfo.os_platform : '-';
+                    osDistribution = (imageInfo?.os_distribution && imageInfo.os_distribution !== 'NA' && imageInfo.os_distribution !== '-') ? imageInfo.os_distribution : '-';
+                    
+                    // Format CPU/Memory info
+                    if (specInfo) {
+                        const hasCPU = specInfo.vcpu_count && specInfo.vcpu_count !== -1;
+                        const hasMemory = specInfo.mem_size_mib && specInfo.mem_size_mib !== -1;
+                        const cpuValue = hasCPU ? specInfo.vcpu_count : '-';
+                        const memValue = hasMemory ? Math.round(specInfo.mem_size_mib / 1024) : '-';
+                        cpuInfo = `${cpuValue}/${memValue} GiB`;
+                    }
+                    
+                    // Format GPU info
+                    if (specInfo) {
+                        const hasGPU = specInfo.gpu_count && specInfo.gpu_count > 0;
+                        const hasGPUMem = specInfo.gpu_mem_size_gb && specInfo.gpu_mem_size_gb !== -1;
+                        const hasGPUModel = specInfo.gpu_model && specInfo.gpu_model !== 'NA' && specInfo.gpu_model !== '-';
+                        
+                        if (hasGPU || hasGPUMem) {
+                            const gpuValue = hasGPU ? specInfo.gpu_count : '-';
+                            const gpuMemValue = hasGPUMem ? specInfo.gpu_mem_size_gb : '-';
+                            gpuInfo = `${gpuValue}/${gpuMemValue} GB`;
+                        } else if (hasGPUModel) {
+                            gpuInfo = specInfo.gpu_model;
+                        }
+                    }
+                    
+                    // Format price info
+                    if (specInfo?.price_per_hour && specInfo.price_per_hour > 0) {
+                        const priceValue = parseFloat(specInfo.price_per_hour);
+                        if (!isNaN(priceValue)) {
+                            priceDisplay = `$${priceValue.toFixed(4)}`;
+                        }
+                    }
+                }
+                
+                // Check if favorited
+                const isFavorite = await checkIfFavorite(record.CSP, record.Region, record.Zone, record.ImageName, record.SpecName);
+                
+                const itemData = {
+                    ...record,
+                    osArch,
+                    osPlatform,
+                    osDistribution,
+                    cpuInfo,
+                    gpuInfo,
+                    priceDisplay,
+                    isFavorite
+                };
+                
+                // Check if this item already exists in All mode
+                const key = `${record.CSP}|${record.Region}|${record.Zone}|${record.ImageName}|${record.SpecName}`;
+                if (isAllMode && existingDataMap.has(key)) {
+                    // Use existing data with metadata
+                    newData.push(existingDataMap.get(key));
+                    existingDataMap.delete(key); // Remove from map to avoid duplicates
+                } else {
+                    // Add new data
+                    newData.push(itemData);
+                }
+            }
+            
+            // Combine remaining existing data (in case some items were removed from backend)
+            if (isAllMode && existingDataMap.size > 0) {
+                existingDataMap.forEach(item => newData.push(item));
+            }
+            
+            recentData = newData;
+            
+            renderRecentTable();
+        } catch (error) {
+            console.error('Error loading recent VM list:', error);
+            loadingMsg.style.display = 'none';
+            noDataMsg.textContent = 'Error loading recent VM data: ' + error.message;
+            noDataMsg.style.display = 'block';
+        }
+    }
+    
+    // Render Recent Table
+    function renderRecentTable() {
+        const tbody = document.getElementById('recent-table-body');
+        const table = document.getElementById('recent-table');
+        tbody.innerHTML = '';
+        
+        const isAllMode = document.getElementById('export-all-checkbox')?.checked || false;
+        
+        // Sort data: existing items first, new items last (in All mode)
+        let sortedData = [...recentData];
+        if (isAllMode && recentDataBackup.length > 0) {
+            sortedData.sort((a, b) => {
+                const keyA = `${a.CSP}|${a.Region}|${a.Zone}|${a.ImageName}|${a.SpecName}`;
+                const keyB = `${b.CSP}|${b.Region}|${b.Zone}|${b.ImageName}|${b.SpecName}`;
+                const isNewA = !recentDataBackup.some(item => 
+                    `${item.CSP}|${item.Region}|${item.Zone}|${item.ImageName}|${item.SpecName}` === keyA
+                );
+                const isNewB = !recentDataBackup.some(item => 
+                    `${item.CSP}|${item.Region}|${item.Zone}|${item.ImageName}|${item.SpecName}` === keyB
+                );
+                // Existing items (false) come before new items (true)
+                return isNewA - isNewB;
+            });
+        }
+        
+        sortedData.forEach((record, i) => {
+            const row = document.createElement('tr');
+            
+            // Check if this is a newly added item (not in backup)
+            let isNewItem = false;
+            if (isAllMode && recentDataBackup.length > 0) {
+                const key = `${record.CSP}|${record.Region}|${record.Zone}|${record.ImageName}|${record.SpecName}`;
+                isNewItem = !recentDataBackup.some(item => 
+                    `${item.CSP}|${item.Region}|${item.Zone}|${item.ImageName}|${item.SpecName}` === key
+                );
+            }
+            
+            // Apply darker background to new items
+            if (isNewItem) {
+                row.style.backgroundColor = '#d0d0d0'; // Darker gray background
+            }
+            
+            // Disable row selection in All mode
+            if (!isAllMode) {
+                row.style.cursor = 'pointer';
+                row.onclick = function(e) {
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                        return;
+                    }
+                    selectRecentConfig(record.ImageName, record.SpecName);
+                };
+            } else {
+                row.style.cursor = 'not-allowed';
+                row.style.opacity = '0.8';
+            }
+            
+            const starIcon = record.isFavorite ? '★' : '☆';
+            const starColor = record.isFavorite ? '#ffc107' : '#666';
+            const starDisabled = isAllMode ? 'disabled' : '';
+            const starOpacity = isAllMode ? 'opacity: 0.3; cursor: not-allowed;' : '';
+            const starOnclick = isAllMode ? '' : `onclick="toggleFavoriteFromRecent(this, ${i})"`;
+            
+            // Build row HTML based on All mode
+            let rowHTML = `<td style="text-align: center;">${i + 1}</td>`;
+            
+            if (isAllMode) {
+                rowHTML += `
+                    <td style="text-align: center;">${record.CSP || '-'}</td>
+                    <td style="text-align: center;">${record.Region || '-'}</td>
+                    <td style="text-align: center;">${record.Zone || '-'}</td>
+                `;
+            }
+            
+            rowHTML += `
+                <td style="text-align: center;">${record.ImageName}</td>
+                <td style="text-align: center;">${record.SpecName}</td>
+                <td>${record.osArch}</td>
+                <td>${record.cpuInfo}</td>
+                <td>${record.gpuInfo}</td>
+                <td>${record.priceDisplay}</td>
+                <td>${record.AvgCreationTime.toFixed(2)} s</td>
+                <td>${record.CreationCount}</td>
+                <td>${formatDateTime(record.LastCreatedAt)}</td>
+                <td style="text-align: center;">
+                    <button class="select-btn" style="font-size: 18px; padding: 2px 6px; color: ${starColor}; ${starOpacity}" ${starDisabled} ${starOnclick}>${starIcon}</button>
+                    <button class="select-btn" style="font-size: 16px; padding: 2px 6px; color: #dc3545; margin-left: 2px;" onclick="deleteRecentRecord(${i})" title="Delete">✕</button>
+                </td>
+            `;
+            
+            row.innerHTML = rowHTML;
+            tbody.appendChild(row);
+        });
+        
+        updateRecentTableHeaders();
+        table.style.display = 'table';
+    }
+    
+    // Fetch image info from MC-Insight
+    async function fetchImageInfoForRecent(connInfo, zone, imageName) {
+        try {
+            // Use Spider API for OpenStack and Mock
+            if (connInfo.csp.toUpperCase() === 'OPENSTACK' || connInfo.csp.toUpperCase() === 'MOCK' || connInfo.csp.toUpperCase() === 'CLOUDTWIN') {
+                const connectionName = document.getElementById('connConfig').value;
+                const response = await fetch(`/spider/vmimage?ConnectionName=${encodeURIComponent(connectionName)}`);
+                if (!response.ok) return null;
+                
+                const data = await response.json();
+                const image = data.image?.find(img => img.IId?.NameId === imageName);
+                if (!image) return null;
+                
+                // Transform Spider API format to MC-Insight format
+                return {
+                    os_architecture: image.OSArchitecture || 'NA',
+                    os_platform: image.OSPlatform || 'NA',
+                    os_distribution: image.OSDistribution || 'NA'
+                };
+            }
+            
+            // Use MC-Insight API for other CSPs
+            const params = new URLSearchParams({
+                csp: connInfo.csp.toLowerCase(),
+                image_id: imageName,  // Send image_id as a separate parameter instead of inside filters
+                page: '0',
+                limit: '1'
+            });
+            
+            // Add region and zone to filters if available
+            const filters = {};
+            if (connInfo.region) filters.region = connInfo.region;
+            if (zone) filters.zone = zone;
+            
+            if (Object.keys(filters).length > 0) {
+                params.append('filters', JSON.stringify(filters));
+            }
+            
+            const apiUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params}`;
+            let response = await fetch(apiUrl);
+            if (!response.ok) {
+                // Retry with alternative CSP names for NCP, NHN, KT
+                const cspLower = connInfo.csp.toLowerCase();
+                let altCsp = null;
+                if (cspLower === 'ncp') {
+                    altCsp = 'ncpvpc';
+                } else if (cspLower === 'nhn') {
+                    altCsp = 'nhncloud';
+                } else if (cspLower === 'kt') {
+                    altCsp = 'ktvpc';
+                }
+                
+                if (altCsp) {
+                    console.log(`${connInfo.csp} failed, trying ${altCsp}...`);
+                    params.set('csp', altCsp);
+                    const altUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params}`;
+                    response = await fetch(altUrl);
+                    if (!response.ok) return null;
+                } else {
+                    return null;
+                }
+            }
+            
+            const data = await response.json();
+            
+            // Check if we need to retry with alternative CSP name
+            if ((!data.items || data.items.length === 0) && data.total === 0) {
+                const cspLower = connInfo.csp.toLowerCase();
+                let altCsp = null;
+                if (cspLower === 'ncp') {
+                    altCsp = 'ncpvpc';
+                } else if (cspLower === 'nhn') {
+                    altCsp = 'nhncloud';
+                } else if (cspLower === 'kt') {
+                    altCsp = 'ktvpc';
+                }
+                
+                if (altCsp) {
+                    console.log(`${connInfo.csp} returned no results, trying ${altCsp}...`);
+                    params.set('csp', altCsp);
+                    const altUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params}`;
+                    const altResponse = await fetch(altUrl);
+                    if (altResponse.ok) {
+                        const altData = await altResponse.json();
+                        return altData.items?.[0] || null;
+                    }
+                }
+            }
+            
+            const imageData = data.items?.[0] || null;
+            return imageData;
+        } catch (error) {
+            console.error('Error fetching image info:', error);
+            return null;
+        }
+    }
+    
+    // Fetch spec info from MC-Insight
+    async function fetchSpecInfoForRecent(connInfo, zone, specName) {
+        try {
+            // Use Spider API for OpenStack and Mock
+            if (connInfo.csp.toUpperCase() === 'OPENSTACK' || connInfo.csp.toUpperCase() === 'MOCK' || connInfo.csp.toUpperCase() === 'CLOUDTWIN') {
+                const connectionName = document.getElementById('connConfig').value;
+                const response = await fetch(`/spider/vmspec?ConnectionName=${encodeURIComponent(connectionName)}`);
+                if (!response.ok) return null;
+                
+                const data = await response.json();
+                const spec = data.vmspec?.find(s => s.Name === specName);
+                if (!spec) return null;
+                
+                // Transform Spider API format to MC-Insight format
+                let memSizeMiB = -1;
+                if (spec.MemSizeMiB) {
+                    const parsed = parseInt(spec.MemSizeMiB);
+                    if (!isNaN(parsed) && parsed > 0) {
+                        memSizeMiB = parsed;
+                    }
+                }
+                
+                let vcpuCount = -1;
+                if (spec.VCpu?.Count) {
+                    const parsed = parseInt(spec.VCpu.Count);
+                    if (!isNaN(parsed) && parsed > 0) {
+                        vcpuCount = parsed;
+                    }
+                }
+                
+                let gpuCount = -1;
+                let gpuMemSizeGb = -1;
+                let gpuModel = 'NA';
+                
+                if (spec.Gpu && spec.Gpu.length > 0) {
+                    // GPU Count
+                    if (spec.Gpu[0].Count) {
+                        const parsed = parseInt(spec.Gpu[0].Count);
+                        if (!isNaN(parsed) && parsed > 0) {
+                            gpuCount = parsed;
+                        }
+                    }
+                    
+                    // GPU Model
+                    if (spec.Gpu[0].Model && spec.Gpu[0].Model !== 'NA' && spec.Gpu[0].Model !== '-1') {
+                        gpuModel = spec.Gpu[0].Model;
+                    }
+                    
+                    // GPU Memory
+                    if (spec.Gpu[0].MemSizeGB) {
+                        const parsed = parseInt(spec.Gpu[0].MemSizeGB);
+                        if (!isNaN(parsed) && parsed > 0) {
+                            gpuMemSizeGb = parsed;
+                        }
+                    }
+                }
+                
+                return {
+                    vcpu_count: vcpuCount,
+                    mem_size_mib: memSizeMiB,
+                    gpu_count: gpuCount,
+                    gpu_mem_size_gb: gpuMemSizeGb,
+                    gpu_model: gpuModel,
+                    price_per_hour: null  // Spider API doesn't provide price
+                };
+            }
+            
+            // Use MC-Insight API for other CSPs
+            const params = new URLSearchParams({
+                csp: connInfo.csp.toLowerCase(),
+                name: specName,  // Send name as a separate parameter instead of inside filters
+                page: '0',
+                limit: '1'
+            });
+            
+            // Add region and zone to filters if available
+            const filters = {};
+            if (connInfo.region) filters.region = connInfo.region;
+            if (zone) filters.zone = zone;
+            
+            if (Object.keys(filters).length > 0) {
+                params.append('filters', JSON.stringify(filters));
+            }
+            
+            let actualCsp = connInfo.csp.toLowerCase(); // Track which CSP name actually worked
+            
+            const apiUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params}`;
+            let response = await fetch(apiUrl);
+            if (!response.ok) {
+                // Retry with alternative CSP names for NCP, NHN, KT
+                const cspLower = connInfo.csp.toLowerCase();
+                let altCsp = null;
+                if (cspLower === 'ncp') {
+                    altCsp = 'ncpvpc';
+                } else if (cspLower === 'nhn') {
+                    altCsp = 'nhncloud';
+                } else if (cspLower === 'kt') {
+                    altCsp = 'ktvpc';
+                }
+                
+                if (altCsp) {
+                    console.log(`${connInfo.csp} spec failed, trying ${altCsp}...`);
+                    params.set('csp', altCsp);
+                    actualCsp = altCsp; // Update actual CSP name
+                    const altUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params}`;
+                    response = await fetch(altUrl);
+                    if (!response.ok) return null;
+                } else {
+                    return null;
+                }
+            }
+            
+            let data = await response.json();
+            
+            // Check if we need to retry with alternative CSP name
+            if ((!data.items || data.items.length === 0) && data.total === 0) {
+                const cspLower = connInfo.csp.toLowerCase();
+                let altCsp = null;
+                if (cspLower === 'ncp') {
+                    altCsp = 'ncpvpc';
+                } else if (cspLower === 'nhn') {
+                    altCsp = 'nhncloud';
+                } else if (cspLower === 'kt') {
+                    altCsp = 'ktvpc';
+                }
+                
+                if (altCsp) {
+                    console.log(`${connInfo.csp} spec returned no results, trying ${altCsp}...`);
+                    params.set('csp', altCsp);
+                    actualCsp = altCsp; // Update actual CSP name
+                    const altUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params}`;
+                    const altResponse = await fetch(altUrl);
+                    if (altResponse.ok) {
+                        data = await altResponse.json();
+                    }
+                }
+            }
+            
+            // Find the matching spec by name
+            let specData = null;
+            if (data.items && data.items.length > 0) {
+                specData = data.items.find(item => item.name === specName);
+                if (!specData) {
+                    console.warn(`[Recent-Spec] No matching spec found for ${specName}, using first item`);
+                    specData = data.items[0];
+                }
+            }
+            
+            // Fetch price info separately - always start with original CSP name
+            if (specData) {
+                try {
+                    const priceParams = new URLSearchParams({
+                        csp: connInfo.csp.toLowerCase(), // Always start with original CSP name (e.g., ncp)
+                        product_id: specName,  // Use product_id instead of name for spec filtering
+                        limit: '1000'  // Increase limit in case filtering is not exact
+                    });
+                    if (connInfo.region) priceParams.append('region', connInfo.region);
+                    if (zone) priceParams.append('zone', zone);
+                    
+                    const priceUrl = `${MC_INSIGHT_API_BASE}/price-info?${priceParams}`;
+                    let priceResponse = await fetch(priceUrl);
+                    let priceData = null;
+                    
+                    if (priceResponse.ok) {
+                        priceData = await priceResponse.json();
+                    }
+                    
+                    // Retry with alternative CSP names if failed or no results
+                    if (!priceResponse.ok || !priceData || !priceData.items || priceData.items.length === 0) {
+                        const cspLower = connInfo.csp.toLowerCase();
+                        let altCsp = null;
+                        if (cspLower === 'ncp') {
+                            altCsp = 'ncpvpc';
+                        } else if (cspLower === 'nhn') {
+                            altCsp = 'nhncloud';
+                        } else if (cspLower === 'kt') {
+                            altCsp = 'ktvpc';
+                        }
+                        
+                        if (altCsp) {
+                            console.log(`${connInfo.csp} price failed or no results, trying ${altCsp}...`);
+                            priceParams.set('csp', altCsp);
+                            const altPriceUrl = `${MC_INSIGHT_API_BASE}/price-info?${priceParams}`;
+                            priceResponse = await fetch(altPriceUrl);
+                            if (priceResponse.ok) {
+                                priceData = await priceResponse.json();
+                            }
+                        }
+                    }
+                    
+                    if (priceData && priceData.items && priceData.items.length > 0) {
+                        // Find exact match by name field
+                        let priceItem = priceData.items.find(item => item.name === specName);
+                        
+                        if (!priceItem) {
+                            console.warn(`[Recent-Price] No exact match by name for ${specName}, using first item`);
+                            priceItem = priceData.items[0];
+                        }
+                        
+                        specData.price_per_hour = priceItem.price;
+                        specData.price_currency = priceItem.currency;
+                    }
+                } catch (priceError) {
+                    console.warn('[Recent-Spec] Failed to fetch price:', priceError);
+                }
+            }
+            
+            return specData;
+        } catch (error) {
+            console.error('Error fetching spec info:', error);
+            return null;
+        }
+    }
+    
+    // Sort recent table (client-side)
+    function sortRecentTable(field) {
+        if (recentSortField === field) {
+            recentSortOrder = recentSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            recentSortField = field;
+            recentSortOrder = 'desc';
+        }
+        
+        // Client-side sort
+        recentData.sort((a, b) => {
+            let aVal, bVal;
+            
+            if (field === 'count') {
+                aVal = a.CreationCount;
+                bVal = b.CreationCount;
+            } else if (field === 'last_created') {
+                aVal = new Date(a.LastCreatedAt).getTime();
+                bVal = new Date(b.LastCreatedAt).getTime();
+            }
+            
+            if (recentSortOrder === 'asc') {
+                return aVal - bVal;
+            } else {
+                return bVal - aVal;
+            }
+        });
+        
+        updateRecentTableHeaders();
+        renderRecentTable();
+    }
+    
+    // Update Recent table headers with sort arrows
+    function updateRecentTableHeaders() {
+        const headers = document.querySelectorAll('#recent-table-header th');
+        headers.forEach(header => {
+            const onclick = header.getAttribute('onclick');
+            if (onclick) {
+                const match = onclick.match(/sortRecentTable\('([^']+)'\)/);
+                if (match) {
+                    const field = match[1];
+                    const isActive = recentSortField === field;
+                    const arrow = isActive ? (recentSortOrder === 'asc' ? ' ▲' : ' ▼') : '';
+                    
+                    let text = header.textContent.replace(/\s*[▲▼]\s*$/, '').trim();
+                    header.textContent = text + arrow;
+                }
+            }
+        });
+    }
+    
+    // Check if config is in favorites
+    async function checkIfFavorite(csp, region, zone, imageName, specName) {
+        try {
+            const params = new URLSearchParams({
+                CSP: csp,
+                Region: region,
+                Zone: zone || ''
+            });
+            
+            const response = await fetch(`/spider/vm/imagespecfavorite?${params}`);
+            if (!response.ok) return false;
+            
+            const favoriteList = await response.json();
+            return favoriteList.some(fav => 
+                fav.ImageName === imageName && fav.SpecName === specName
+            );
+        } catch (error) {
+            console.error('Error checking favorite status:', error);
+            return false;
+        }
+    }
+    
+    // Toggle favorite from recent
+    async function toggleFavoriteFromRecent(buttonElement, index) {
+        const record = recentData[index];
+        
+        try {
+            const params = new URLSearchParams({
+                CSP: record.CSP,
+                Region: record.Region,
+                Zone: record.Zone || '',
+                ImageName: record.ImageName,
+                SpecName: record.SpecName
+            });
+            
+            if (record.isFavorite) {
+                // Remove from favorites
+                const response = await fetch(`/spider/vm/imagespecfavorite?${params}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to remove from favorites');
+                }
+                
+                // Update local state
+                recentData[index].isFavorite = false;
+                
+                // Update button
+                buttonElement.textContent = '☆';
+                buttonElement.style.color = '#666';
+            } else {
+                // Add to favorites with all metadata
+                const body = {
+                    CSP: record.CSP,
+                    Region: record.Region,
+                    Zone: record.Zone || '',
+                    ImageName: record.ImageName,
+                    SpecName: record.SpecName,
+                    OSArch: record.osArch,
+                    OsPlatform: record.osPlatform,
+                    OsDistribution: record.osDistribution,
+                    CPUInfo: record.cpuInfo,
+                    GPUInfo: record.gpuInfo,
+                    PriceInfo: record.priceDisplay
+                };
+                
+                const response = await fetch(`/spider/vm/imagespecfavorite`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to add favorite');
+                }
+                
+                // Update local state
+                recentData[index].isFavorite = true;
+                
+                // Update button
+                buttonElement.textContent = '★';
+                buttonElement.style.color = '#ffc107';
+            }
+        } catch (error) {
+            alert('Error toggling favorite: ' + error.message);
+        }
+    }
+    
+    // Delete recent record
+    // Bulk toggle favorite for all recent records
+    async function bulkToggleRecentFavorite(event) {
+        event.stopPropagation(); // Prevent header click event
+        
+        const isAllMode = document.getElementById('export-all-checkbox')?.checked || false;
+        if (isAllMode) {
+            alert('Cannot add favorites in All mode');
+            return;
+        }
+        
+        if (!recentData || recentData.length === 0) {
+            alert('No recent records to add to favorites');
+            return;
+        }
+        
+        if (!confirm(`Add all ${recentData.length} recent record(s) to favorites?`)) {
+            return;
+        }
+        
+        const loadingOverlay = document.getElementById('global-loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const record of recentData) {
+                try {
+                    const response = await fetch('/spider/vm/imagespecfavorite', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            CSP: record.CSP,
+                            Region: record.Region,
+                            Zone: record.Zone || '',
+                            ImageName: record.ImageName,
+                            SpecName: record.SpecName,
+                            OSArch: record.osArch || '',
+                            OsPlatform: record.osPlatform || '',
+                            OsDistribution: record.osDistribution || '',
+                            CPUInfo: record.cpuInfo || '',
+                            GPUInfo: record.gpuInfo || '',
+                            PriceInfo: record.priceDisplay || ''
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                        record.isFavorite = true;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (err) {
+                    errorCount++;
+                }
+            }
+            
+            renderRecentTable();
+            alert(`Added to favorites: ${successCount} succeeded, ${errorCount} failed (may be duplicates)`);
+        } catch (error) {
+            alert('Error adding to favorites: ' + error.message);
+        } finally {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    // Bulk delete all recent records
+    async function bulkDeleteRecent(event) {
+        event.stopPropagation(); // Prevent header click event
+        
+        if (!recentData || recentData.length === 0) {
+            alert('No recent records to delete');
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to delete all ${recentData.length} recent record(s)?`)) {
+            return;
+        }
+        
+        const loadingOverlay = document.getElementById('global-loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+            
+            // Delete in reverse order to avoid index issues
+            for (let i = recentData.length - 1; i >= 0; i--) {
+                const record = recentData[i];
+                try {
+                    const params = new URLSearchParams({
+                        CSP: record.CSP,
+                        Region: record.Region,
+                        Zone: record.Zone || '',
+                        ImageName: record.ImageName,
+                        SpecName: record.SpecName
+                    });
+                    
+                    const response = await fetch(`/spider/vm/imagespecrecent?${params}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                        recentData.splice(i, 1);
+                    } else {
+                        errorCount++;
+                    }
+                } catch (err) {
+                    errorCount++;
+                }
+            }
+            
+            renderRecentTable();
+            alert(`Deleted: ${successCount} succeeded, ${errorCount} failed`);
+        } catch (error) {
+            alert('Error deleting records: ' + error.message);
+        } finally {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    async function deleteRecentRecord(index) {
+        if (!confirm('Are you sure you want to remove this recent VM record?')) {
+            return;
+        }
+        
+        const record = recentData[index];
+        
+        try {
+            const params = new URLSearchParams({
+                CSP: record.CSP,
+                Region: record.Region,
+                Zone: record.Zone || '',
+                ImageName: record.ImageName,
+                SpecName: record.SpecName
+            });
+            
+            const response = await fetch(`/spider/vm/imagespecrecent?${params}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete recent record');
+            }
+            
+            // Remove from local data and re-render
+            recentData.splice(index, 1);
+            renderRecentTable();
+            
+            // Show success message (optional)
+            // alert('Successfully removed from recent records');
+        } catch (error) {
+            alert('Error deleting recent record: ' + error.message);
+        }
+    }
+    
+    // Export recent data to JSON file
+    async function exportRecentData() {
+        const exportAll = document.getElementById('export-all-checkbox')?.checked || false;
+        
+        try {
+            let exportData;
+            let filenamePrefix = 'cb-spider-recent-vms';
+            
+            if (exportAll) {
+                // Fetch all recent data from backend
+                const response = await fetch('/spider/vm/imagespecrecent?Limit=1000');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch all recent VM data');
+                }
+                const allRecords = await response.json();
+                
+                if (!allRecords || allRecords.length === 0) {
+                    alert('No recent VM data to export');
+                    return;
+                }
+                
+                exportData = allRecords.map(record => ({
+                    CSP: record.CSP,
+                    Region: record.Region,
+                    Zone: record.Zone,
+                    ImageName: record.ImageName,
+                    SpecName: record.SpecName,
+                    AvgCreationTime: record.AvgCreationTime,
+                    CreationCount: record.CreationCount,
+                    LastCreatedAt: record.LastCreatedAt
+                }));
+                
+                filenamePrefix = 'cb-spider-recent-vms-all';
+            } else {
+                // Export current view data only
+                if (!recentData || recentData.length === 0) {
+                    alert('No recent VM data to export');
+                    return;
+                }
+                
+                exportData = recentData.map(record => ({
+                    CSP: record.CSP,
+                    Region: record.Region,
+                    Zone: record.Zone,
+                    ImageName: record.ImageName,
+                    SpecName: record.SpecName,
+                    AvgCreationTime: record.AvgCreationTime,
+                    CreationCount: record.CreationCount,
+                    LastCreatedAt: record.LastCreatedAt
+                }));
+            }
+            
+            // Create JSON file and download
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filenamePrefix}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            alert('Error exporting data: ' + error.message);
+        }
+    }
+    
+    // Import recent data from JSON file
+    function importRecentData() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json,.json';
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const importData = JSON.parse(text);
+                
+                if (!Array.isArray(importData)) {
+                    alert('Invalid JSON format: Expected an array of records');
+                    return;
+                }
+                
+                // Auto-detect if this is All data by checking CSP diversity
+                const uniqueCSPs = [...new Set(importData.map(r => r.CSP?.toUpperCase()))];
+                const isAllData = uniqueCSPs.length > 1;
+                
+                // Show confirmation message
+                const dataType = isAllData ? 'ALL CSPs/Regions' : 'specific CSP/Region';
+                const confirmMsg = `Import ${importData.length} record(s) from ${dataType}?\n\nThis will skip duplicates.`;
+                
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+                
+                // Show loading
+                const loadingMsg = document.querySelector('#recent-list-container .loading-message');
+                if (loadingMsg) {
+                    loadingMsg.textContent = 'Importing data...';
+                    loadingMsg.style.display = 'block';
+                }
+                
+                // Send to backend API
+                const response = await fetch('/spider/vm/imagespecrecent/bulk', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ records: importData })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to import data');
+                }
+                
+                const result = await response.json();
+                
+                // Hide loading
+                if (loadingMsg) {
+                    loadingMsg.style.display = 'none';
+                }
+                
+                // Reload the recent list
+                await loadVMRecentList();
+                
+                // Show result message
+                alert(`Import completed: ${result.inserted || 0} inserted, ${result.skipped || 0} skipped (duplicates)`);
+                
+            } catch (error) {
+                // Hide loading
+                const loadingMsg = document.querySelector('#recent-list-container .loading-message');
+                if (loadingMsg) {
+                    loadingMsg.style.display = 'none';
+                }
+                alert('Error importing data: ' + error.message);
+            }
+        };
+        
+        input.click();
+    }
+    
+    // Select recent config
+    function selectRecentConfig(imageName, specName) {
+        document.getElementById('imageName').value = imageName;
+        document.getElementById('vmSpecName').value = specName;
+        
+        // Find the selected record from recentData
+        const selectedRecord = recentData.find(record => 
+            record.ImageName === imageName && record.SpecName === specName
+        );
+        
+        if (selectedRecord) {
+            // Update OS Information Display
+            const osInfoDisplay = document.getElementById('osInfoDisplay');
+            if (osInfoDisplay) {
+                osInfoDisplay.innerHTML = '';
+                
+                // Use individual fields
+                const osArch = selectedRecord.osArch || '-';
+                const osPlatform = selectedRecord.osPlatform || '-';
+                const osDistribution = selectedRecord.osDistribution || '-';
+                
+                // Store selected OS Arch globally (only if it has value)
+                selectedOSArch = (osArch !== '-') ? osArch : '';
+                
+                // Create OS info boxes
+                const archBox = document.createElement('span');
+                archBox.className = 'os-info-box';
+                archBox.textContent = osArch;
+                archBox.title = osArch;
+                osInfoDisplay.appendChild(archBox);
+                
+                const platformBox = document.createElement('span');
+                platformBox.className = 'os-info-box';
+                platformBox.textContent = osPlatform;
+                platformBox.title = osPlatform;
+                osInfoDisplay.appendChild(platformBox);
+                
+                const distBox = document.createElement('span');
+                distBox.className = 'os-info-box';
+                distBox.textContent = osDistribution;
+                distBox.title = osDistribution;
+                osInfoDisplay.appendChild(distBox);
+                
+                // Show the form group and display
+                document.getElementById('osInfoFormGroup').style.display = '';
+                osInfoDisplay.classList.add('active');
+            }
+            
+            // Update Spec Information Display
+            const specInfoDisplay = document.getElementById('specInfoDisplay');
+            if (specInfoDisplay) {
+                specInfoDisplay.innerHTML = '';
+                
+                // Box 1: CPU / Memory
+                const cpuMemBox = document.createElement('span');
+                cpuMemBox.className = 'spec-info-box';
+                cpuMemBox.textContent = selectedRecord.cpuInfo;
+                cpuMemBox.title = selectedRecord.cpuInfo;
+                specInfoDisplay.appendChild(cpuMemBox);
+                
+                // Box 2: GPU / GPU Memory
+                const gpuBox = document.createElement('span');
+                gpuBox.className = 'spec-info-box';
+                const gpuText = selectedRecord.gpuInfo.includes('/') ? `GPU: ${selectedRecord.gpuInfo}` : `GPU: ${selectedRecord.gpuInfo}`;
+                gpuBox.textContent = gpuText;
+                gpuBox.title = gpuText;
+                specInfoDisplay.appendChild(gpuBox);
+                
+                // Box 3: Price
+                const priceBox = document.createElement('span');
+                priceBox.className = 'spec-info-box';
+                priceBox.textContent = selectedRecord.priceDisplay;
+                priceBox.title = selectedRecord.priceDisplay;
+                specInfoDisplay.appendChild(priceBox);
+                
+                // Show the form group and display
+                document.getElementById('specInfoFormGroup').style.display = '';
+                specInfoDisplay.classList.add('active');
+            }
+        }
+        
+        closeVMRecentOverlay();
+    }
+    
+    // Handle Favorite All checkbox change
+    async function onFavoriteAllCheckboxChange() {
+        const checkbox = document.getElementById('favorite-all-checkbox');
+        const isAllMode = checkbox.checked;
+        
+        // Show loading overlay
+        const loadingOverlay = document.getElementById('global-loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            // Show/hide CSP, Region, Zone columns
+            const cspHeader = document.getElementById('favorite-csp-header');
+            const regionHeader = document.getElementById('favorite-region-header');
+            const zoneHeader = document.getElementById('favorite-zone-header');
+            
+            if (cspHeader) cspHeader.style.display = isAllMode ? '' : 'none';
+            if (regionHeader) regionHeader.style.display = isAllMode ? '' : 'none';
+            if (zoneHeader) zoneHeader.style.display = isAllMode ? '' : 'none';
+            
+            // Resize overlay content
+            const overlayContent = document.getElementById('favorite-overlay-content');
+            if (overlayContent) {
+                overlayContent.style.maxWidth = isAllMode ? '90vw' : '1000px';
+            }
+            
+            if (isAllMode) {
+                // Backup current connection data before loading all
+                favoriteDataBackup = [...favoriteData];
+                // Check mode: Load all data
+                await loadVMFavoriteList();
+            } else {
+                // Uncheck mode: Restore backed up data
+                favoriteData = [...favoriteDataBackup];
+                favoriteDataBackup = [];
+                renderFavoriteTable();
+            }
+        } finally {
+            // Hide loading overlay
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    // Show VM Favorite Overlay
+    async function showVMFavoriteOverlay() {
+        // 1. Show loading spinner
+        const loadingOverlay = document.getElementById('global-loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            // 2. Initialize All checkbox state and column visibility
+            const checkbox = document.getElementById('favorite-all-checkbox');
+            const isAllMode = checkbox?.checked || false;
+            
+            const cspHeader = document.getElementById('favorite-csp-header');
+            const regionHeader = document.getElementById('favorite-region-header');
+            const zoneHeader = document.getElementById('favorite-zone-header');
+            
+            if (cspHeader) cspHeader.style.display = isAllMode ? '' : 'none';
+            if (regionHeader) regionHeader.style.display = isAllMode ? '' : 'none';
+            if (zoneHeader) zoneHeader.style.display = isAllMode ? '' : 'none';
+            
+            const overlayContent = document.getElementById('favorite-overlay-content');
+            if (overlayContent) {
+                overlayContent.style.maxWidth = isAllMode ? '90vw' : '1000px';
+            }
+            
+            // 3. Fetch data
+            await loadVMFavoriteList();
+            
+            // 4. Show overlay
+            document.getElementById('vm-favorite-overlay').style.display = 'flex';
+            document.addEventListener('keydown', handleVMFavoriteOverlayEsc);
+        } catch (error) {
+            console.error('Error loading favorite VM data:', error);
+            alert('Failed to load favorite VM data: ' + error.message);
+        } finally {
+            // Hide loading spinner
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    // Close VM Favorite Overlay
+    function closeVMFavoriteOverlay() {
+        document.getElementById('vm-favorite-overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleVMFavoriteOverlayEsc);
+    }
+
+    function handleVMFavoriteOverlayEsc(event) {
+        if (event.key === 'Escape') {
+            event.stopImmediatePropagation();
+            closeVMFavoriteOverlay();
+        }
+    }
+    
+    // Load VM Favorite List
+    async function loadVMFavoriteList() {
+        const loadingMsg = document.querySelector('#favorite-list-container .loading-message');
+        const table = document.getElementById('favorite-table');
+        const tbody = document.getElementById('favorite-table-body');
+        const noDataMsg = document.getElementById('favorite-no-data');
+        
+        loadingMsg.style.display = 'block';
+        table.style.display = 'none';
+        noDataMsg.style.display = 'none';
+        tbody.innerHTML = '';
+        
+        try {
+            const connInfo = await getConnectionInfo();
+            
+            // Check if All mode is enabled
+            const isAllMode = document.getElementById('favorite-all-checkbox')?.checked || false;
+            
+            const params = new URLSearchParams({
+                CSP: isAllMode ? '' : (connInfo.csp || ''),
+                Region: isAllMode ? '' : (connInfo.region || ''),
+                Zone: isAllMode ? '' : (connInfo.zone || ''),
+                Limit: isAllMode ? '1000' : '100'
+            });
+            
+            const response = await fetch(`/spider/vm/imagespecfavorite?${params}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch favorite VM data');
+            }
+            
+            const favoriteList = await response.json();
+            loadingMsg.style.display = 'none';
+            
+            if (!favoriteList || favoriteList.length === 0) {
+                noDataMsg.style.display = 'block';
+                favoriteData = [];
+                return;
+            }
+            
+            // Store data (no MC-Insight API calls needed)
+            favoriteData = favoriteList.map(record => ({
+                ...record,
+                // Use stored metadata or fallback to defaults
+                osArch: record.OSArch || '-',
+                osPlatform: record.OsPlatform || '-',
+                osDistribution: record.OsDistribution || '-',
+                cpuInfo: record.CPUInfo || '-',
+                gpuInfo: record.GPUInfo || '-',
+                priceDisplay: record.PriceInfo || '$-'
+            }));
+            
+            renderFavoriteTable();
+        } catch (error) {
+            console.error('Error loading favorite VM list:', error);
+            loadingMsg.style.display = 'none';
+            noDataMsg.textContent = 'Error loading favorite VM data: ' + error.message;
+            noDataMsg.style.display = 'block';
+        }
+    }
+    
+    // Render Favorite Table
+    function renderFavoriteTable() {
+        const tbody = document.getElementById('favorite-table-body');
+        const table = document.getElementById('favorite-table');
+        tbody.innerHTML = '';
+        
+        const isAllMode = document.getElementById('favorite-all-checkbox')?.checked || false;
+        
+        // Sort data: existing items first, new items last (in All mode)
+        let sortedData = [...favoriteData];
+        if (isAllMode && favoriteDataBackup.length > 0) {
+            sortedData.sort((a, b) => {
+                const keyA = `${a.CSP}|${a.Region}|${a.Zone}|${a.ImageName}|${a.SpecName}`;
+                const keyB = `${b.CSP}|${b.Region}|${b.Zone}|${b.ImageName}|${b.SpecName}`;
+                const isNewA = !favoriteDataBackup.some(item => 
+                    `${item.CSP}|${item.Region}|${item.Zone}|${item.ImageName}|${item.SpecName}` === keyA
+                );
+                const isNewB = !favoriteDataBackup.some(item => 
+                    `${item.CSP}|${item.Region}|${item.Zone}|${item.ImageName}|${item.SpecName}` === keyB
+                );
+                // Existing items (false) come before new items (true)
+                return isNewA - isNewB;
+            });
+        }
+        
+        sortedData.forEach((record, i) => {
+            const row = document.createElement('tr');
+            
+            // Check if this is a newly added item (not in backup)
+            let isNewItem = false;
+            if (isAllMode && favoriteDataBackup.length > 0) {
+                const key = `${record.CSP}|${record.Region}|${record.Zone}|${record.ImageName}|${record.SpecName}`;
+                isNewItem = !favoriteDataBackup.some(item => 
+                    `${item.CSP}|${item.Region}|${item.Zone}|${item.ImageName}|${item.SpecName}` === key
+                );
+            }
+            
+            // Apply darker background to new items
+            if (isNewItem) {
+                row.style.backgroundColor = '#d0d0d0'; // Darker gray background
+            }
+            
+            // Disable row selection in All mode
+            if (!isAllMode) {
+                row.style.cursor = 'pointer';
+                row.onclick = function(e) {
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                        return;
+                    }
+                    selectFavoriteConfig(record.ImageName, record.SpecName);
+                };
+            } else {
+                row.style.cursor = 'not-allowed';
+                row.style.opacity = '0.8';
+            }
+            
+            // Build row HTML based on All mode
+            let rowHTML = `<td style="text-align: center;">${i + 1}</td>`;
+            
+            if (isAllMode) {
+                rowHTML += `
+                    <td style="text-align: center;">${record.CSP || '-'}</td>
+                    <td style="text-align: center;">${record.Region || '-'}</td>
+                    <td style="text-align: center;">${record.Zone || '-'}</td>
+                `;
+            }
+            
+            rowHTML += `
+                <td style="text-align: center;">${record.ImageName}</td>
+                <td style="text-align: center;">${record.SpecName}</td>
+                <td>${record.osArch}</td>
+                <td>${record.cpuInfo}</td>
+                <td>${record.gpuInfo}</td>
+                <td>${record.priceDisplay}</td>
+                <td>${formatDateTime(record.CreatedAt)}</td>
+                <td style="text-align: center;">
+                    <button class="select-btn" style="font-size: 16px; padding: 2px 6px; color: #dc3545;" onclick="deleteFavorite(${i})" title="Delete">✕</button>
+                </td>
+            `;
+            
+            row.innerHTML = rowHTML;
+            tbody.appendChild(row);
+        });
+        
+        updateFavoriteTableHeaders();
+        table.style.display = 'table';
+    }
+    
+    // Sort favorite table (client-side)
+    function sortFavoriteTable(field) {
+        if (favoriteSortField === field) {
+            favoriteSortOrder = favoriteSortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            favoriteSortField = field;
+            favoriteSortOrder = 'desc';
+        }
+        
+        // Client-side sort
+        favoriteData.sort((a, b) => {
+            let aVal, bVal;
+            
+            switch(field) {
+                case 'image_name':
+                    aVal = a.ImageName.toLowerCase();
+                    bVal = b.ImageName.toLowerCase();
+                    break;
+                case 'spec_name':
+                    aVal = a.SpecName.toLowerCase();
+                    bVal = b.SpecName.toLowerCase();
+                    break;
+                case 'os_arch':
+                    aVal = a.osArch.toLowerCase();
+                    bVal = b.osArch.toLowerCase();
+                    break;
+                case 'cpu':
+                    aVal = a.cpuInfo.toLowerCase();
+                    bVal = b.cpuInfo.toLowerCase();
+                    break;
+                case 'gpu':
+                    aVal = a.gpuInfo.toLowerCase();
+                    bVal = b.gpuInfo.toLowerCase();
+                    break;
+                case 'price':
+                    aVal = a.priceDisplay.toLowerCase();
+                    bVal = b.priceDisplay.toLowerCase();
+                    break;
+                case 'created_at':
+                    aVal = new Date(a.CreatedAt).getTime();
+                    bVal = new Date(b.CreatedAt).getTime();
+                    break;
+            }
+            
+            if (typeof aVal === 'number') {
+                return favoriteSortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+            } else {
+                if (favoriteSortOrder === 'asc') {
+                    return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                } else {
+                    return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                }
+            }
+        });
+        
+        updateFavoriteTableHeaders();
+        renderFavoriteTable();
+    }
+    
+    // Update Favorite table headers with sort arrows
+    function updateFavoriteTableHeaders() {
+        const headers = document.querySelectorAll('#favorite-table-header th');
+        headers.forEach(header => {
+            const onclick = header.getAttribute('onclick');
+            if (onclick) {
+                const match = onclick.match(/sortFavoriteTable\('([^']+)'\)/);
+                if (match) {
+                    const field = match[1];
+                    const isActive = favoriteSortField === field;
+                    const arrow = isActive ? (favoriteSortOrder === 'asc' ? ' ▲' : ' ▼') : '';
+                    
+                    let text = header.textContent.replace(/\s*[▲▼]\s*$/, '').trim();
+                    header.textContent = text + arrow;
+                }
+            }
+        });
+    }
+    
+    // Select favorite config
+    function selectFavoriteConfig(imageName, specName) {
+        document.getElementById('imageName').value = imageName;
+        document.getElementById('vmSpecName').value = specName;
+        
+        // Find the selected record from favoriteData
+        const selectedRecord = favoriteData.find(record => 
+            record.ImageName === imageName && record.SpecName === specName
+        );
+        
+        if (selectedRecord) {
+            // Update OS Information Display
+            const osInfoDisplay = document.getElementById('osInfoDisplay');
+            if (osInfoDisplay) {
+                osInfoDisplay.innerHTML = '';
+                
+                // Use individual fields
+                const osArch = selectedRecord.osArch || '-';
+                const osPlatform = selectedRecord.osPlatform || '-';
+                const osDistribution = selectedRecord.osDistribution || '-';
+                
+                // Store selected OS Arch globally (only if it has value)
+                selectedOSArch = (osArch !== '-') ? osArch : '';
+                
+                // Create OS info boxes
+                const archBox = document.createElement('span');
+                archBox.className = 'os-info-box';
+                archBox.textContent = osArch;
+                archBox.title = osArch;
+                osInfoDisplay.appendChild(archBox);
+                
+                const platformBox = document.createElement('span');
+                platformBox.className = 'os-info-box';
+                platformBox.textContent = osPlatform;
+                platformBox.title = osPlatform;
+                osInfoDisplay.appendChild(platformBox);
+                
+                const distBox = document.createElement('span');
+                distBox.className = 'os-info-box';
+                distBox.textContent = osDistribution;
+                distBox.title = osDistribution;
+                osInfoDisplay.appendChild(distBox);
+                
+                // Show the form group and display
+                document.getElementById('osInfoFormGroup').style.display = '';
+                osInfoDisplay.classList.add('active');
+            }
+            
+            // Update Spec Information Display
+            const specInfoDisplay = document.getElementById('specInfoDisplay');
+            if (specInfoDisplay) {
+                specInfoDisplay.innerHTML = '';
+                
+                // Box 1: CPU / Memory
+                const cpuMemBox = document.createElement('span');
+                cpuMemBox.className = 'spec-info-box';
+                cpuMemBox.textContent = selectedRecord.cpuInfo;
+                cpuMemBox.title = selectedRecord.cpuInfo;
+                specInfoDisplay.appendChild(cpuMemBox);
+                
+                // Box 2: GPU / GPU Memory
+                const gpuBox = document.createElement('span');
+                gpuBox.className = 'spec-info-box';
+                const gpuText = selectedRecord.gpuInfo.includes('/') ? `GPU: ${selectedRecord.gpuInfo}` : `GPU: ${selectedRecord.gpuInfo}`;
+                gpuBox.textContent = gpuText;
+                gpuBox.title = gpuText;
+                specInfoDisplay.appendChild(gpuBox);
+                
+                // Box 3: Price
+                const priceBox = document.createElement('span');
+                priceBox.className = 'spec-info-box';
+                priceBox.textContent = selectedRecord.priceDisplay;
+                priceBox.title = selectedRecord.priceDisplay;
+                specInfoDisplay.appendChild(priceBox);
+                
+                // Show the form group and display
+                document.getElementById('specInfoFormGroup').style.display = '';
+                specInfoDisplay.classList.add('active');
+            }
+        }
+        
+        closeVMFavoriteOverlay();
+    }
+    
+    // Export Favorite Data
+    async function exportFavoriteData() {
+        const exportAll = document.getElementById('favorite-all-checkbox')?.checked || false;
+        
+        try {
+            let exportData;
+            let filenamePrefix = 'cb-spider-favorite-vms';
+            
+            if (exportAll) {
+                // Fetch all favorite data from backend
+                const response = await fetch('/spider/vm/imagespecfavorite?Limit=1000');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch all favorite VM data');
+                }
+                const allRecords = await response.json();
+                
+                if (!allRecords || allRecords.length === 0) {
+                    alert('No favorite VM data to export');
+                    return;
+                }
+                
+                exportData = allRecords.map(record => ({
+                    CSP: record.CSP,
+                    Region: record.Region,
+                    Zone: record.Zone,
+                    ImageName: record.ImageName,
+                    SpecName: record.SpecName,
+                    OSArch: record.OSArch,
+                    OsPlatform: record.OsPlatform,
+                    OsDistribution: record.OsDistribution,
+                    CPUInfo: record.CPUInfo,
+                    GPUInfo: record.GPUInfo,
+                    PriceInfo: record.PriceInfo,
+                    CreatedAt: record.CreatedAt
+                }));
+                
+                filenamePrefix = 'cb-spider-favorite-vms-all';
+            } else {
+                // Export current view data only
+                if (!favoriteData || favoriteData.length === 0) {
+                    alert('No favorite VM data to export');
+                    return;
+                }
+                
+                exportData = favoriteData.map(record => ({
+                    CSP: record.CSP,
+                    Region: record.Region,
+                    Zone: record.Zone,
+                    ImageName: record.ImageName,
+                    SpecName: record.SpecName,
+                    OSArch: record.OSArch,
+                    OsPlatform: record.OsPlatform,
+                    OsDistribution: record.OsDistribution,
+                    CPUInfo: record.CPUInfo,
+                    GPUInfo: record.GPUInfo,
+                    PriceInfo: record.PriceInfo,
+                    CreatedAt: record.CreatedAt
+                }));
+            }
+            
+            // Create JSON file and download
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filenamePrefix}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            alert('Error exporting data: ' + error.message);
+        }
+    }
+    
+    // Import Favorite Data
+    function importFavoriteData() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json,.json';
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const importData = JSON.parse(text);
+                
+                if (!Array.isArray(importData)) {
+                    alert('Invalid JSON format: Expected an array of records');
+                    return;
+                }
+                
+                // Auto-detect if this is All data by checking CSP diversity
+                const uniqueCSPs = [...new Set(importData.map(r => r.CSP?.toUpperCase()))];
+                const isAllData = uniqueCSPs.length > 1;
+                
+                // Show confirmation message
+                const dataType = isAllData ? 'ALL CSPs/Regions' : 'specific CSP/Region';
+                const confirmMsg = `Import ${importData.length} record(s) from ${dataType}?\n\nThis will skip duplicates.`;
+                
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+                
+                // Show loading
+                const loadingMsg = document.querySelector('#favorite-list-container .loading-message');
+                if (loadingMsg) {
+                    loadingMsg.textContent = 'Importing data...';
+                    loadingMsg.style.display = 'block';
+                }
+                
+                // Send to backend API
+                const response = await fetch('/spider/vm/imagespecfavorite/bulk', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ records: importData })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to import data');
+                }
+                
+                const result = await response.json();
+                
+                // Hide loading
+                if (loadingMsg) {
+                    loadingMsg.style.display = 'none';
+                }
+                
+                // Reload the favorite list
+                await loadVMFavoriteList();
+                
+                // Show result message
+                alert(`Import completed: ${result.inserted || 0} inserted, ${result.skipped || 0} skipped (duplicates)`);
+                
+            } catch (error) {
+                // Hide loading
+                const loadingMsg = document.querySelector('#favorite-list-container .loading-message');
+                if (loadingMsg) {
+                    loadingMsg.style.display = 'none';
+                }
+                alert('Error importing data: ' + error.message);
+            }
+        };
+        
+        input.click();
+    }
+    
+    // Bulk delete all favorite records
+    async function bulkDeleteFavorite(event) {
+        event.stopPropagation(); // Prevent header click event
+        
+        if (!favoriteData || favoriteData.length === 0) {
+            alert('No favorite records to delete');
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to delete all ${favoriteData.length} favorite record(s)?`)) {
+            return;
+        }
+        
+        const loadingOverlay = document.getElementById('global-loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            let successCount = 0;
+            let errorCount = 0;
+            
+            // Delete in reverse order to avoid index issues
+            for (let i = favoriteData.length - 1; i >= 0; i--) {
+                const record = favoriteData[i];
+                try {
+                    const params = new URLSearchParams({
+                        CSP: record.CSP,
+                        Region: record.Region,
+                        Zone: record.Zone || '',
+                        ImageName: record.ImageName,
+                        SpecName: record.SpecName
+                    });
+                    
+                    const response = await fetch(`/spider/vm/imagespecfavorite?${params}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                        favoriteData.splice(i, 1);
+                    } else {
+                        errorCount++;
+                    }
+                } catch (err) {
+                    errorCount++;
+                }
+            }
+            
+            renderFavoriteTable();
+            alert(`Deleted: ${successCount} succeeded, ${errorCount} failed`);
+        } catch (error) {
+            alert('Error deleting records: ' + error.message);
+        } finally {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    // Delete favorite
+    async function deleteFavorite(index) {
+        if (!confirm('Are you sure you want to remove this favorite configuration?')) {
+            return;
+        }
+        
+        const record = favoriteData[index];
+        
+        try {
+            const params = new URLSearchParams({
+                CSP: record.CSP,
+                Region: record.Region,
+                Zone: record.Zone,
+                ImageName: record.ImageName,
+                SpecName: record.SpecName
+            });
+            
+            const response = await fetch(`/spider/vm/imagespecfavorite?${params}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete favorite');
+            }
+            
+            // Remove from local data
+            favoriteData.splice(index, 1);
+            
+            // Re-render table
+            renderFavoriteTable();
+            
+            // If empty, show no data message
+            if (favoriteData.length === 0) {
+                document.getElementById('favorite-table').style.display = 'none';
+                document.getElementById('favorite-no-data').style.display = 'block';
+            }
+        } catch (error) {
+            alert('Error deleting favorite: ' + error.message);
+        }
+    }
+    
+    // Format date time
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '-';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        } catch (e) {
+            return dateStr;
+        }
     }
 
 </script>
