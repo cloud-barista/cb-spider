@@ -242,6 +242,10 @@ func Elapsed(start time.Time) string {
 	return fmt.Sprintf("%.4f", time.Since(start).Seconds())
 }
 
+func ElapsedSeconds(start time.Time) float64 {
+	return time.Since(start).Seconds()
+}
+
 func String(logInfo interface{}) string {
 	t := reflect.TypeOf(logInfo)
 	v := reflect.ValueOf(logInfo)

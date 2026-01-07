@@ -387,6 +387,15 @@ func getRoutes() []route {
 		{"GET", "/countvm", CountAllVMs},
 		{"GET", "/countvm/:ConnectionName", CountVMsByConnection},
 
+		//-- VM Image+Spec Recent and Favorite
+		{"GET", "/vm/imagespecrecent", ListRecentImageSpec},
+		{"DELETE", "/vm/imagespecrecent", DeleteRecentImageSpec},
+		{"POST", "/vm/imagespecrecent/bulk", BulkImportRecentImageSpec},
+		{"GET", "/vm/imagespecfavorite", ListFavoriteImageSpec},
+		{"POST", "/vm/imagespecfavorite", AddFavoriteImageSpec},
+		{"POST", "/vm/imagespecfavorite/bulk", BulkImportFavoriteImageSpec},
+		{"DELETE", "/vm/imagespecfavorite", DeleteFavoriteImageSpec},
+
 		//----------NLB Handler
 		{"GET", "/getnlbowner", GetNLBOwnerVPC},
 		{"POST", "/getnlbowner", GetNLBOwnerVPC},

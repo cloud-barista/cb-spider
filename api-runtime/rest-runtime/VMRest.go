@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"strconv"
+	"strings"
 )
 
 //================ VM Handler
@@ -664,4 +665,313 @@ func CountVMsByConnection(c echo.Context) error {
 
 	// Return JSON response
 	return c.JSON(http.StatusOK, jsonResult)
+}
+
+//================ VM Recent Info Handlers
+
+// listRecentImageSpec godoc
+// @ID list-recent-imagespec
+// @Summary List Recent Image+Spec Combinations
+// @Description Get list of recently used Image and Spec combinations for VM creation with statistics
+// @Tags [VM Management]
+// @Produce  json
+// @Param ConnectionName query string false "Filter by connection name"
+// @Param CSP query string false "Filter by CSP"
+// @Param Region query string false "Filter by Region"
+// @Param Zone query string false "Filter by Zone"
+// @Param Limit query int false "Limit number of results (default: 10)"
+// @Param SortBy query string false "Sort field (default: last_created_at)"
+// @Param SortOrder query string false "Sort order: asc or desc (default: desc)"
+// @Success 200 {array} cmrt.VMRecentInfo "List of recent Image+Spec combinations"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vm/imagespecrecent [get]
+func ListRecentImageSpec(c echo.Context) error {
+	cblog.Info("call ListRecentImageSpec()")
+
+	csp := c.QueryParam("CSP")
+	region := c.QueryParam("Region")
+	zone := c.QueryParam("Zone")
+	limitStr := c.QueryParam("Limit")
+	sortBy := c.QueryParam("SortBy")
+	sortOrder := c.QueryParam("SortOrder")
+
+	limit := 10
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil {
+			limit = l
+		}
+	}
+
+	result, err := cmrt.GetVMRecentList(csp, region, zone, limit, sortBy, sortOrder)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// deleteRecentImageSpec godoc
+// @ID delete-recent-imagespec
+// @Summary Delete Recent Image+Spec
+// @Description Remove an Image and Spec combination from recent records
+// @Tags [VM Management]
+// @Accept  json
+// @Produce  json
+// @Param CSP query string true "Cloud Service Provider"
+// @Param Region query string true "Region name"
+// @Param Zone query string false "Zone name (optional, can be empty)"
+// @Param ImageName query string true "Image name"
+// @Param SpecName query string true "Spec name"
+// @Success 200 {object} SimpleMsg "Successfully removed from recent records"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vm/imagespecrecent [delete]
+func DeleteRecentImageSpec(c echo.Context) error {
+	cblog.Info("call DeleteRecentImageSpec()")
+
+	csp := c.QueryParam("CSP")
+	region := c.QueryParam("Region")
+	zone := c.QueryParam("Zone")
+	imageName := c.QueryParam("ImageName")
+	specName := c.QueryParam("SpecName")
+
+	if csp == "" || region == "" || imageName == "" || specName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "CSP, Region, ImageName, and SpecName are required")
+	}
+
+	err := cmrt.DeleteVMRecent(csp, region, zone, imageName, specName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, SimpleMsg{Message: "Successfully removed from recent records"})
+}
+
+// bulkImportRecentImageSpec godoc
+// @ID bulk-import-recent-imagespec
+// @Summary Bulk Import Recent Image+Spec Records
+// @Description Import multiple VM recent records from JSON, skipping duplicates
+// @Tags [VM Management]
+// @Accept  json
+// @Produce  json
+// @Param RecentRecords body object true "Array of recent VM records"
+// @Success 200 {object} object "Import result with inserted and skipped counts"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vm/imagespecrecent/bulk [post]
+func BulkImportRecentImageSpec(c echo.Context) error {
+	cblog.Info("call BulkImportRecentImageSpec()")
+
+	var requestBody struct {
+		Records []cmrt.VMRecentInfo `json:"records"`
+	}
+
+	if err := c.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body: "+err.Error())
+	}
+
+	if len(requestBody.Records) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "No records to import")
+	}
+
+	inserted, skipped, err := cmrt.InsertOrUpdateVMRecentBulk(requestBody.Records)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"inserted": inserted,
+		"skipped":  skipped,
+		"total":    len(requestBody.Records),
+	})
+}
+
+//================ VM Favorite Info Handlers
+
+// bulkImportFavoriteImageSpec godoc
+// @ID bulk-import-favorite-imagespec
+// @Summary Bulk Import Favorite Image+Spec Records
+// @Description Import multiple VM favorite records from JSON, skipping duplicates
+// @Tags [VM Management]
+// @Accept  json
+// @Produce  json
+// @Param FavoriteRecords body object true "Array of favorite VM records"
+// @Success 200 {object} object "Import result with inserted and skipped counts"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vm/imagespecfavorite/bulk [post]
+func BulkImportFavoriteImageSpec(c echo.Context) error {
+	cblog.Info("call BulkImportFavoriteImageSpec()")
+
+	var requestBody struct {
+		Records []cmrt.VMFavoriteInfo `json:"records"`
+	}
+
+	if err := c.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body: "+err.Error())
+	}
+
+	if len(requestBody.Records) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "No records to import")
+	}
+
+	inserted, skipped, err := cmrt.InsertOrUpdateVMFavoriteBulk(requestBody.Records)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"inserted": inserted,
+		"skipped":  skipped,
+		"total":    len(requestBody.Records),
+	})
+}
+
+// addFavoriteImageSpec godoc
+// @ID add-favorite-imagespec
+// @Summary Add Favorite Image+Spec
+// @Description Add an Image and Spec combination to favorites
+// @Tags [VM Management]
+// @Accept  json
+// @Produce  json
+// @Param RequestBody body object true "Request body with CSP, Region, Zone, ImageName, SpecName, and metadata"
+// @Success 200 {object} SimpleMsg "Successfully added to favorites"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vm/imagespecfavorite [post]
+func AddFavoriteImageSpec(c echo.Context) error {
+	cblog.Info("call AddFavoriteImageSpec()")
+
+	// Try to parse JSON body first
+	var reqBody struct {
+		CSP            string `json:"CSP"`
+		Region         string `json:"Region"`
+		Zone           string `json:"Zone"`
+		ImageName      string `json:"ImageName"`
+		SpecName       string `json:"SpecName"`
+		OSArch         string `json:"OSArch"`
+		OsPlatform     string `json:"OsPlatform"`
+		OsDistribution string `json:"OsDistribution"`
+		CPUInfo        string `json:"CPUInfo"`
+		GPUInfo        string `json:"GPUInfo"`
+		PriceInfo      string `json:"PriceInfo"`
+	}
+
+	var csp, region, zone, imageName, specName, osArch, osPlatform, osDistribution, cpuInfo, gpuInfo, priceInfo string
+
+	// Check if request has JSON body
+	contentType := c.Request().Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		if err := c.Bind(&reqBody); err != nil {
+			cblog.Error("Failed to bind JSON body: ", err)
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+		}
+		csp = reqBody.CSP
+		region = reqBody.Region
+		zone = reqBody.Zone
+		imageName = reqBody.ImageName
+		specName = reqBody.SpecName
+		osArch = reqBody.OSArch
+		osPlatform = reqBody.OsPlatform
+		osDistribution = reqBody.OsDistribution
+		cpuInfo = reqBody.CPUInfo
+		gpuInfo = reqBody.GPUInfo
+		priceInfo = reqBody.PriceInfo
+
+		cblog.Infof("Received JSON body: CSP=%s, Region=%s, Zone=%s, ImageName=%s, SpecName=%s", csp, region, zone, imageName, specName)
+	} else {
+		// Fallback to query parameters for backward compatibility
+		csp = c.QueryParam("CSP")
+		region = c.QueryParam("Region")
+		zone = c.QueryParam("Zone")
+		imageName = c.QueryParam("ImageName")
+		specName = c.QueryParam("SpecName")
+		osArch = c.QueryParam("OSArch")
+		osPlatform = c.QueryParam("OsPlatform")
+		osDistribution = c.QueryParam("OsDistribution")
+		cpuInfo = c.QueryParam("CPUInfo")
+		gpuInfo = c.QueryParam("GPUInfo")
+		priceInfo = c.QueryParam("PriceInfo")
+
+		cblog.Infof("Received query params: CSP=%s, Region=%s, Zone=%s, ImageName=%s, SpecName=%s", csp, region, zone, imageName, specName)
+	}
+
+	if csp == "" || region == "" || imageName == "" || specName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "CSP, Region, ImageName, and SpecName are required")
+	}
+
+	err := cmrt.AddVMFavorite(csp, region, zone, imageName, specName, osArch, osPlatform, osDistribution, cpuInfo, gpuInfo, priceInfo)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, SimpleMsg{Message: "Successfully added to favorites"})
+}
+
+// deleteFavoriteImageSpec godoc
+// @ID delete-favorite-imagespec
+// @Summary Delete Favorite Image+Spec
+// @Description Remove an Image and Spec combination from favorites
+// @Tags [VM Management]
+// @Accept  json
+// @Produce  json
+// @Param CSP query string true "Cloud Service Provider"
+// @Param Region query string true "Region name"
+// @Param Zone query string false "Zone name (optional, can be empty)"
+// @Param ImageName query string true "Image name"
+// @Param SpecName query string true "Spec name"
+// @Success 200 {object} SimpleMsg "Successfully removed from favorites"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vm/imagespecfavorite [delete]
+func DeleteFavoriteImageSpec(c echo.Context) error {
+	cblog.Info("call DeleteFavoriteImageSpec()")
+
+	csp := c.QueryParam("CSP")
+	region := c.QueryParam("Region")
+	zone := c.QueryParam("Zone") // Zone can be empty string
+	imageName := c.QueryParam("ImageName")
+	specName := c.QueryParam("SpecName")
+
+	if csp == "" || region == "" || imageName == "" || specName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "CSP, Region, ImageName, and SpecName are required")
+	}
+
+	err := cmrt.DeleteVMFavorite(csp, region, zone, imageName, specName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, SimpleMsg{Message: "Successfully removed from favorites"})
+}
+
+// listFavoriteImageSpec godoc
+// @ID list-favorite-imagespec
+// @Summary List Favorite Image+Spec Combinations
+// @Description Get list of favorite Image and Spec combinations
+// @Tags [VM Management]
+// @Produce  json
+// @Param CSP query string false "Filter by CSP"
+// @Param Region query string false "Filter by Region"
+// @Param Zone query string false "Filter by Zone"
+// @Param SortBy query string false "Sort field (default: created_at)"
+// @Param SortOrder query string false "Sort order: asc or desc (default: desc)"
+// @Success 200 {array} cmrt.VMFavoriteInfo "List of favorite Image+Spec combinations"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vm/imagespecfavorite [get]
+func ListFavoriteImageSpec(c echo.Context) error {
+	cblog.Info("call ListFavoriteImageSpec()")
+
+	csp := c.QueryParam("CSP")
+	region := c.QueryParam("Region")
+	zone := c.QueryParam("Zone")
+	sortBy := c.QueryParam("SortBy")
+	sortOrder := c.QueryParam("SortOrder")
+
+	result, err := cmrt.GetVMFavoriteList(csp, region, zone, sortBy, sortOrder)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
 }
