@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -226,18 +227,19 @@ func setVmSpecInfoWithVMSpecName(Name string, region string) (irs.VMSpecInfo, er
 		DiskSizeGB: "-1",
 	}
 
-	specslice := strings.Split(Name, "-")
-	if len(specslice) > 1 {
-		specslice2 := strings.Split(specslice[1], "x")
-		if len(specslice2) > 1 {
-			vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0], ClockGHz: "-1"}
-			memValue, err := strconv.Atoi(specslice2[1])
-			if err != nil {
-				memValue = 0
-			}
-			memValueString := strconv.Itoa(memValue * 1024)
-			vmSpecInfo.MemSizeMiB = memValueString
+	// Extract vCPU and memory using regex pattern: {digits}x{digits}
+	// Supports both dot (bx2.4x16) and hyphen (bx2-4x16) formats
+	// Examples: bx2.4x16, bx2-4x16, bx2.metal.96x384, bx3d.128x640
+	re := regexp.MustCompile(`(\d+)x(\d+)`)
+	matches := re.FindStringSubmatch(Name)
+
+	if len(matches) >= 3 { // matches[0]=full match, matches[1]=vCPU, matches[2]=memory
+		vmSpecInfo.VCpu = irs.VCpuInfo{Count: matches[1], ClockGHz: "-1"}
+		memValue, err := strconv.Atoi(matches[2])
+		if err != nil {
+			memValue = 0
 		}
+		vmSpecInfo.MemSizeMiB = strconv.Itoa(memValue * 1024)
 	}
 
 	vmSpecInfo.Gpu = []irs.GpuInfo{}
