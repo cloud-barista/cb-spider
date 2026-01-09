@@ -325,7 +325,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		workerPool := ic.getWorkerPoolFromNodeGroupInfo(clusterReqInfo.NodeGroupList[0], vpcInfo.IId.SystemId, subnetInfo.IId.SystemId)
 
 		// create cluster if not exists
-		_, _, createClusterErr := ic.ClusterService.VpcCreateClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcCreateClusterOptions{
+		_, detailedResp, createClusterErr := ic.ClusterService.VpcCreateClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcCreateClusterOptions{
 			DisablePublicServiceEndpoint: core.BoolPtr(false),
 			KubeVersion:                  core.StringPtr(clusterReqInfo.Version),
 			Name:                         core.StringPtr(clusterReqInfo.IId.NameId),
@@ -334,9 +334,19 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 			XAuthResourceGroup:           core.StringPtr(resourceGroupId),
 		})
 		if createClusterErr != nil {
-			cblogger.Error(createClusterErr)
+			errMsg := fmt.Sprintf("Failed to create K8s cluster: %v", createClusterErr)
+			if detailedResp != nil {
+				errMsg += fmt.Sprintf(" (StatusCode=%d", detailedResp.StatusCode)
+				if detailedResp.Result != nil {
+					if resultBytes, marshalErr := json.Marshal(detailedResp.Result); marshalErr == nil {
+						errMsg += fmt.Sprintf(", Response=%s", string(resultBytes))
+					}
+				}
+				errMsg += ")"
+			}
+			cblogger.Error(errMsg)
 			LoggingError(hiscallInfo, createClusterErr)
-			return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", createClusterErr))
+			return irs.ClusterInfo{}, errors.New(errMsg)
 		}
 
 	} else if getClusterErr != nil {
@@ -669,9 +679,11 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		}
 	}
 
+	convertedSpecName := convertSpecNameForK8sAPI(nodeGroupReqInfo.VMSpecName)
+
 	addNodeGroupResponse, _, addNodeGroupErr := ic.ClusterService.VpcCreateWorkerPoolWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcCreateWorkerPoolOptions{
 		Cluster:     core.StringPtr(irsCluster.IId.SystemId),
-		Flavor:      core.StringPtr(nodeGroupReqInfo.VMSpecName),
+		Flavor:      core.StringPtr(convertedSpecName),
 		Isolation:   core.StringPtr("public"),
 		Name:        core.StringPtr(nodeGroupReqInfo.IId.NameId),
 		VpcID:       core.StringPtr(irsCluster.Network.VpcIID.SystemId),
@@ -1591,9 +1603,11 @@ func (ic *IbmClusterHandler) getNodeGroupStatusFromString(nodeGroupStatus string
 }
 
 func (ic *IbmClusterHandler) getWorkerPoolFromNodeGroupInfo(nodeGroupInfo irs.NodeGroupInfo, vpcId string, subnetId string) kubernetesserviceapiv1.VPCCreateClusterWorkerPool {
+	convertedSpecName := convertSpecNameForK8sAPI(nodeGroupInfo.VMSpecName)
+
 	return kubernetesserviceapiv1.VPCCreateClusterWorkerPool{
 		Name:        core.StringPtr(nodeGroupInfo.IId.NameId),
-		Flavor:      core.StringPtr(nodeGroupInfo.VMSpecName),
+		Flavor:      core.StringPtr(convertedSpecName),
 		Isolation:   core.StringPtr("public"),
 		VpcID:       core.StringPtr(vpcId),
 		WorkerCount: core.Int64Ptr(int64(nodeGroupInfo.DesiredNodeSize)),
@@ -2164,6 +2178,17 @@ func (ic *IbmClusterHandler) validateAtChangeNodeGroupScaling(clusterIID irs.IID
 
 func compareTag(tag string, statusCode string, status string) bool {
 	return strings.EqualFold(tag, fmt.Sprintf("%s%s", statusCode, status))
+}
+
+// convertSpecNameForK8sAPI converts hyphen format to dot format for IBM Kubernetes API
+// IBM VPC SDK returns hyphen format (bx2-4x16), but IBM K8s API requires dot format (bx2.4x16)
+// Examples:
+//
+//	bx2-4x16 -> bx2.4x16
+//	bx3d-128x640 -> bx3d.128x640
+//	bx2-metal-96x384 -> bx2.metal.96x384 (if metal specs exist)
+func convertSpecNameForK8sAPI(specName string) string {
+	return strings.ReplaceAll(specName, "-", ".")
 }
 
 func isTagStatusOf(tag string, statusCode string) bool {
