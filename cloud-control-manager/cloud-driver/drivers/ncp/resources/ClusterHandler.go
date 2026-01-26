@@ -2,6 +2,10 @@ package resources
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"runtime/debug"
@@ -14,6 +18,7 @@ import (
 	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
+	"gopkg.in/yaml.v2"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -21,12 +26,13 @@ import (
 )
 
 type NcpVpcClusterHandler struct {
-	RegionInfo    idrv.RegionInfo
-	Ctx           context.Context
-	VMClient      *vserver.APIClient
-	VPCClient     *vpc.APIClient
-	ClusterClient *vnks.APIClient
-	ASClient      *vas.APIClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	Ctx            context.Context
+	VMClient       *vserver.APIClient
+	VPCClient      *vpc.APIClient
+	ClusterClient  *vnks.APIClient
+	ASClient       *vas.APIClient
 }
 
 const (
@@ -572,7 +578,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 		Status:      convertNCPClusterStatus(ncloud.StringValue(targetCluster.Status)),
 		AccessInfo: irs.AccessInfo{
 			Endpoint:   ncloud.StringValue(targetCluster.Endpoint),
-			Kubeconfig: "Kubeconfig is not provided for NCP.", // NCP는 kubeconfig 미제공
+			Kubeconfig: nvch.getKubeConfig(targetCluster),
 		},
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{
@@ -643,46 +649,216 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 }
 
 // GenerateClusterToken generates a token for cluster authentication
-// NCP does not support dynamic token generation yet
+// For NCP, returns kubeconfig with OIDC authentication configuration
+// NCP NKS supports OIDC (OpenID Connect) authentication for kubectl access
 func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
-	return "", fmt.Errorf("GenerateClusterToken is not supported for NCP clusters yet")
+	cblogger.Info("call GenerateClusterToken()")
+
+	// Get cluster info first
+	clusterInfo, err := nvch.GetCluster(clusterIID)
+	if err != nil {
+		cblogger.Errorf("Failed to get cluster info: %v", err)
+		return "", fmt.Errorf("failed to get cluster info: %w", err)
+	}
+
+	// Get cluster object for UUID
+	clusterList, err := ncpClustersGet(nvch.ClusterClient, nvch.Ctx)
+	if err != nil {
+		cblogger.Errorf("Failed to get cluster list: %v", err)
+		return "", fmt.Errorf("failed to get cluster list: %w", err)
+	}
+
+	var targetCluster *vnks.Cluster
+	for _, cluster := range clusterList {
+		if ncloud.StringValue(cluster.Name) == clusterInfo.IId.NameId ||
+			ncloud.StringValue(cluster.Uuid) == clusterInfo.IId.SystemId {
+			targetCluster = cluster
+			break
+		}
+	}
+
+	if targetCluster == nil || targetCluster.Uuid == nil {
+		return "", fmt.Errorf("cluster not found or UUID is missing")
+	}
+
+	// Get kubeconfig with OIDC authentication
+	kubeconfigWithOIDC, err := nvch.getKubeConfigWithOIDC(targetCluster)
+	if err != nil {
+		cblogger.Errorf("Failed to generate kubeconfig with OIDC: %v", err)
+		return "", fmt.Errorf("failed to generate kubeconfig with OIDC: %w", err)
+	}
+
+	return kubeconfigWithOIDC, nil
 }
 
-/*
-func getKubeConfig(clusterDesc *vnks.DescribeClusterOutput) string {
+// getKubeConfig retrieves the kubeconfig from NCP NKS API with OIDC authentication
+// Returns kubeconfig with complete user authentication section
+func (nvch *NcpVpcClusterHandler) getKubeConfig(cluster *vnks.Cluster) string {
+	if cluster.Uuid == nil {
+		cblogger.Warn("Cluster UUID is nil, cannot retrieve kubeconfig")
+		return "Kubeconfig is not available: Cluster UUID is missing"
+	}
 
-	cluster := clusterDesc.Cluster
+	// Get kubeconfig with OIDC authentication
+	kubeconfigWithOIDC, err := nvch.getKubeConfigWithOIDC(cluster)
+	if err != nil {
+		// Check if cluster is still in progress (not an error, just not ready yet)
+		if strings.Contains(err.Error(), "cluster is not ready yet") {
+			// Don't log as error - cluster is simply not ready yet
+			cblogger.Debugf("Cluster is still being created, kubeconfig not yet available: %v", err)
+			return "Kubeconfig will be available after cluster reaches RUNNING status"
+		}
+		// Actual error
+		cblogger.Errorf("Failed to generate kubeconfig with OIDC: %v", err)
+		return fmt.Sprintf("Kubeconfig is not available: %v", err)
+	}
 
-	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
-clusters:
-- cluster:
-	server: %s
-	certificate-authority-data: %s
-  name: kubernetes
-contexts:
-- context:
-	cluster: kubernetes
-	user: aws
-  name: aws
-current-context: aws
-kind: Config
-preferences: {}
-users:
-- name: aws
-  user:
-	exec:
-	  apiVersion: client.authentication.k8s.io/v1beta1
-	  command: aws
-	  args:
-		- "eks"
-		- "get-token"
-		- "--cluster-name"
-		- "%s"
-`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name)
-
-	return kubeconfigContent
+	return kubeconfigWithOIDC
 }
-*/
+
+// getKubeConfigWithOIDC generates a complete kubeconfig with IAM authentication
+// NCP NKS API returns incomplete kubeconfig without 'users' section by default
+// This function generates NCP IAM tokens using CB-Spider's credentials and embeds them in kubeconfig
+// No external CLI tool (ncp-iam-authenticator) installation required
+func (nvch *NcpVpcClusterHandler) getKubeConfigWithOIDC(cluster *vnks.Cluster) (string, error) {
+	if cluster.Uuid == nil {
+		return "", fmt.Errorf("cluster UUID is nil")
+	}
+
+	// 1. Get base kubeconfig from NCP
+	kubeconfigRes, err := nvch.ClusterClient.V2Api.ClustersUuidKubeconfigGet(nvch.Ctx, cluster.Uuid)
+	if err != nil {
+		// Check if cluster is still in progress
+		if strings.Contains(err.Error(), "409") || strings.Contains(err.Error(), "in progress") {
+			return "", fmt.Errorf("cluster is not ready yet, please wait until cluster status is RUNNING: %w", err)
+		}
+		return "", fmt.Errorf("failed to get kubeconfig from NCP: %w", err)
+	}
+
+	if kubeconfigRes == nil || kubeconfigRes.Kubeconfig == nil {
+		return "", fmt.Errorf("kubeconfig response is empty")
+	}
+
+	baseKubeconfig := ncloud.StringValue(kubeconfigRes.Kubeconfig)
+
+	// 2. Add NCP IAM token-based authentication using CB-Spider's credentials
+	// Token is generated directly and embedded in kubeconfig
+	// Reference: https://github.com/NaverCloudPlatform/ncp-iam-authenticator
+	return nvch.addIAMAuthentication(baseKubeconfig, cluster)
+}
+
+// addIAMAuthentication adds NCP IAM token-based authentication to kubeconfig
+// This uses CB-Spider's existing NCP credentials to generate IAM tokens directly
+// No external CLI tool (ncp-iam-authenticator) installation required
+func (nvch *NcpVpcClusterHandler) addIAMAuthentication(baseKubeconfig string, cluster *vnks.Cluster) (string, error) {
+	// Parse base kubeconfig YAML
+	var kubeconfigMap map[string]interface{}
+	if err := yaml.Unmarshal([]byte(baseKubeconfig), &kubeconfigMap); err != nil {
+		return "", fmt.Errorf("failed to parse base kubeconfig: %w", err)
+	}
+
+	// Get region code from RegionInfo
+	regionCode := nvch.RegionInfo.Region
+
+	// Map region code to NCP region format (KR, SGN, JPN)
+	ncpRegion := regionCode
+	if strings.Contains(strings.ToLower(regionCode), "korea") || strings.Contains(strings.ToLower(regionCode), "kr") {
+		ncpRegion = "KR"
+	} else if strings.Contains(strings.ToLower(regionCode), "singapore") || strings.Contains(strings.ToLower(regionCode), "sgn") {
+		ncpRegion = "SGN"
+	} else if strings.Contains(strings.ToLower(regionCode), "japan") || strings.Contains(strings.ToLower(regionCode), "jpn") {
+		ncpRegion = "JPN"
+	}
+
+	// Get cluster name for user name (use cluster name from kubeconfig clusters section)
+	clusterName := ""
+	if clusters, ok := kubeconfigMap["clusters"].([]interface{}); ok && len(clusters) > 0 {
+		if clusterMap, ok := clusters[0].(map[string]interface{}); ok {
+			if name, ok := clusterMap["name"].(string); ok {
+				clusterName = name
+			}
+		}
+	}
+
+	// Fallback to cluster name from NCP API
+	if clusterName == "" && cluster.Name != nil {
+		clusterName = ncloud.StringValue(cluster.Name)
+	}
+
+	// Default user name following NCP convention
+	userName := fmt.Sprintf("nks_%s_%s_%s", ncpRegion, clusterName, ncloud.StringValue(cluster.Uuid))
+
+	// Generate NCP IAM token using CB-Spider's credentials
+	accessKey := nvch.CredentialInfo.ClientId
+	secretKey := nvch.CredentialInfo.ClientSecret
+	clusterUUID := ncloud.StringValue(cluster.Uuid)
+
+	token, err := generateNCPIAMToken(accessKey, secretKey, clusterUUID, ncpRegion)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate NCP IAM token: %w", err)
+	}
+
+	cblogger.Infof("[NCP-IAM] Successfully generated IAM token for cluster %s", clusterUUID)
+
+	// Add token-based user configuration
+	iamUser := map[string]interface{}{
+		"name": userName,
+		"user": map[string]interface{}{
+			"token": token,
+		},
+	}
+
+	// Add users section to kubeconfig
+	users := []interface{}{iamUser}
+	kubeconfigMap["users"] = users
+
+	// Update all contexts to use the IAM user
+	// Note: yaml.v2 may create map[interface{}]interface{} instead of map[string]interface{}
+	contextUpdated := false
+	if contexts, ok := kubeconfigMap["contexts"].([]interface{}); ok {
+		cblogger.Infof("[NCP-IAM] Found %d context(s) in kubeconfig", len(contexts))
+		for i, ctx := range contexts {
+			// Try map[interface{}]interface{} first (yaml.v2 default)
+			if contextMap, ok := ctx.(map[interface{}]interface{}); ok {
+				if contextData, ok := contextMap["context"].(map[interface{}]interface{}); ok {
+					oldUser := contextData["user"]
+					contextData["user"] = userName
+					contextUpdated = true
+					cblogger.Infof("[NCP-IAM] Updated context[%d] user from '%v' to '%s'", i, oldUser, userName)
+				} else {
+					cblogger.Warnf("[NCP-IAM] Context[%d] does not have 'context' field", i)
+				}
+			} else if contextMap, ok := ctx.(map[string]interface{}); ok {
+				// Fallback to map[string]interface{}
+				if contextData, ok := contextMap["context"].(map[string]interface{}); ok {
+					oldUser := contextData["user"]
+					contextData["user"] = userName
+					contextUpdated = true
+					cblogger.Infof("[NCP-IAM] Updated context[%d] user from '%v' to '%s'", i, oldUser, userName)
+				}
+			} else {
+				cblogger.Warnf("[NCP-IAM] Context[%d] has unexpected type: %T", i, ctx)
+			}
+		}
+	} else {
+		cblogger.Warnf("[NCP-IAM] Contexts field is not an array or does not exist")
+	}
+
+	if !contextUpdated {
+		cblogger.Error("[NCP-IAM] Failed to update any context user, kubeconfig may not work properly")
+	}
+
+	// Marshal back to YAML
+	modifiedKubeconfig, err := yaml.Marshal(kubeconfigMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal modified kubeconfig: %w", err)
+	}
+
+	cblogger.Infof("Successfully generated kubeconfig with NCP IAM token authentication (region: %s, cluster: %s, user: %s)", ncpRegion, clusterUUID, userName)
+	cblogger.Info("Note: Token is embedded in kubeconfig - no external CLI tool required")
+
+	return string(modifiedKubeconfig), nil
+}
 
 func (nvch *NcpVpcClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	cblogger.Infof("NCP Cloud Driver: called DeleteCluster()")
@@ -1679,4 +1855,110 @@ func validateAtChangeNodeGroupScaling(minNodeSize int, maxNodeSize int) error {
 	}
 
 	return nil
+}
+
+// ============================================================================
+// NCP IAM Token Generation Functions
+// Based on: https://github.com/NaverCloudPlatform/ncp-iam-authenticator/blob/main/pkg/token/token.go
+// ============================================================================
+
+const (
+	ncpTokenPrefix = "k8s-ncp-v1."
+)
+
+// ncpTokenClaim represents the token claim structure for NCP IAM authentication
+type ncpTokenClaim struct {
+	Timestamp string `json:"timestamp"`
+	AccessKey string `json:"accessKey"`
+	Signature string `json:"signature"`
+	Path      string `json:"path"`
+}
+
+// generateNCPIAMToken generates a presigned NCP IAM token for Kubernetes authentication
+// This token is used by Kubernetes API server to authenticate kubectl requests
+// Reference: https://github.com/NaverCloudPlatform/ncp-iam-authenticator
+func generateNCPIAMToken(accessKey, secretKey, clusterUUID, region string) (string, error) {
+	// 1. Generate timestamp (milliseconds since epoch)
+	timestamp := strconv.FormatInt(time.Now().UnixNano()/int64(time.Millisecond), 10)
+
+	// 2. Build IAM path with cluster UUID
+	path := getNCPIAMPath(clusterUUID, region)
+
+	// 3. Create HMAC-SHA256 signature
+	signature := makeNCPSignature("GET", path, accessKey, secretKey, timestamp)
+
+	// 4. Build token claim
+	claim := ncpTokenClaim{
+		Timestamp: timestamp,
+		AccessKey: accessKey,
+		Signature: signature,
+		Path:      path,
+	}
+
+	// 5. Marshal claim to JSON
+	claimJSON, err := json.Marshal(claim)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal token claim: %w", err)
+	}
+
+	// 6. Base64 encode and add prefix
+	token := ncpTokenPrefix + base64.StdEncoding.EncodeToString(claimJSON)
+
+	return token, nil
+}
+
+// getNCPIAMPath constructs the IAM API path with cluster UUID parameter
+// Path format: /iam/{stage}/user?clusterUuid={uuid}
+// Stage is determined by region (v1 for KR, sgn-v1 for SGN, etc.)
+func getNCPIAMPath(clusterUUID, region string) string {
+	stage := getNCPRegionStage(region)
+	return fmt.Sprintf("/iam/%s/user?clusterUuid=%s", stage, clusterUUID)
+}
+
+// getNCPRegionStage returns the API stage for the given region
+// - KR, FKR, PCS*, FCS*, GCS*: v1
+// - SGN: sgn-v1
+// - KRS: krs-v1
+// - JPN: jpn-v1
+func getNCPRegionStage(region string) string {
+	upperRegion := strings.ToUpper(region)
+
+	// Default v1 for Korea regions and cloud stack regions
+	if upperRegion == "" || upperRegion == "KR" {
+		return "v1"
+	}
+	if strings.HasPrefix(upperRegion, "F") { // FKR, FCS01, etc.
+		return "v1"
+	}
+	if strings.Contains(upperRegion, "CS") { // PCS01, FCS01, GCS01
+		return "v1"
+	}
+
+	// Region-specific stages
+	switch upperRegion {
+	case "SGN":
+		return "sgn-v1"
+	case "KRS":
+		return "krs-v1"
+	case "JPN":
+		return "jpn-v1"
+	default:
+		// For unknown regions, use lowercase-v1 format
+		return strings.ToLower(upperRegion) + "-v1"
+	}
+}
+
+// makeNCPSignature creates HMAC-SHA256 signature for NCP IAM authentication
+// Signature format: HMAC-SHA256(secretKey, "METHOD SPACE URI NEWLINE TIMESTAMP NEWLINE ACCESSKEY")
+func makeNCPSignature(method, uri, accessKey, secretKey, timestamp string) string {
+	// Build message to sign
+	// Format: "GET /iam/v1/user?clusterUuid=xxx\n1234567890\naccessKey"
+	message := fmt.Sprintf("%s %s\n%s\n%s", method, uri, timestamp, accessKey)
+
+	// Create HMAC-SHA256
+	mac := hmac.New(sha256.New, []byte(secretKey))
+	mac.Write([]byte(message))
+
+	// Return base64-encoded signature
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
