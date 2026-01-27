@@ -308,12 +308,18 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 			}
 		}
 
+		// Get NKS-specific ProductCode
+		productCode, err := nvch.getNKSProductCode(ng.VMSpecName, softwareCode)
+		if err != nil {
+			return "", fmt.Errorf("failed to get NKS ProductCode for VMSpec %s: %v", ng.VMSpecName, err)
+		}
+
 		nodePool := &vnks.NodePoolDto{
 			Name:           ncloud.String(ng.IId.NameId),
 			NodeCount:      ncloud.Int32(int32(ng.DesiredNodeSize)),
 			SoftwareCode:   ncloud.String(softwareCode),
 			ServerSpecCode: ncloud.String(ng.VMSpecName),
-			ProductCode:    ncloud.String("SVR.VSVR.STAND.C002.M008.NET.SSD.B050.G002"),
+			ProductCode:    ncloud.String(productCode),
 			// 필요시 SubnetNo, Labels, Taints, StorageSize 등 추가
 		}
 		nodePools = append(nodePools, nodePool)
@@ -708,147 +714,190 @@ func (nvch *NcpVpcClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 
 // ------ NodeGroup Management
 
-/*
-Cluster.NetworkInfo 설정과 동일 서브넷으로 설정
-NodeGroup 추가시에는 대상 Cluster 정보 획득하여 설정
-NodeGroup에 다른 Subnet 설정이 꼭 필요시 추후 재논의
-//https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API
-*/
+// AddNodeGroup adds a new node group to an existing cluster.
+// The node group uses the same subnet configuration as the cluster's NetworkInfo.
+// When adding a node group, it retrieves the target cluster information to configure the subnet.
+// Note: If different subnet settings are required for node groups, this should be discussed further.
+// Reference: https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API
 func (nvch *NcpVpcClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
-	return irs.NodeGroupInfo{}, fmt.Errorf("the MaxNodeSize value must be greater than or equal to 1")
-	/*
-		// validation check
-		if nodeGroupReqInfo.MaxNodeSize < 1 { // nodeGroupReqInfo.MaxNodeSize 는 최소가 1이다.
-			return irs.NodeGroupInfo{}, fmt.Errorf("The MaxNodeSize value must be greater than or equal to 1.")
-		}
+	cblogger.Infof("Cluster SystemId: [%s] / NodeGroup Name: [%s]", clusterIID.SystemId, nodeGroupReqInfo.IId.NameId)
 
-		clusterInfo, err := nvch.GetCluster(clusterIID)
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, nodeGroupReqInfo.IId.NameId, "AddNodeGroup()")
+	start := call.Start()
+
+	// Validation
+	if nodeGroupReqInfo.IId.NameId == "" {
+		addErr := fmt.Errorf("NodeGroup name is required")
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
+
+	if nodeGroupReqInfo.DesiredNodeSize < 1 {
+		addErr := fmt.Errorf("DesiredNodeSize must be greater than or equal to 1")
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
+
+	// Get cluster info to retrieve subnet information
+	clusterInfo, err := nvch.GetCluster(clusterIID)
+	if err != nil {
+		addErr := fmt.Errorf("failed to get cluster info: %w", err)
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
+
+	// Use first subnet from cluster if no subnet specified
+	var subnetNo int32
+	if len(clusterInfo.Network.SubnetIIDs) > 0 {
+		subnetNoStr := clusterInfo.Network.SubnetIIDs[0].SystemId
+		subnetNoInt, err := strconv.ParseInt(subnetNoStr, 10, 32)
 		if err != nil {
-			cblogger.Error(err)
-			return irs.NodeGroupInfo{}, err
+			addErr := fmt.Errorf("failed to parse subnet no: %w", err)
+			cblogger.Error(addErr)
+			LoggingError(hiscallInfo, addErr)
+			return irs.NodeGroupInfo{}, addErr
 		}
+		subnetNo = int32(subnetNoInt)
+	} else {
+		addErr := fmt.Errorf("no subnets found in cluster")
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
 
-		networkInfo := clusterInfo.Network
-		var subnetList []*string
-		for _, subnet := range networkInfo.SubnetIIDs {
-			subnetId := subnet.SystemId // 포인터라서 subnet.SystemId를 직접 Append하면 안 됨.
-			subnetList = append(subnetList, &subnetId)
-		}
+	// Build NodePoolCreationBody
+	nodePoolBody := &vnks.NodePoolCreationBody{
+		Name:      ncloud.String(nodeGroupReqInfo.IId.NameId),
+		NodeCount: ncloud.Int32(int32(nodeGroupReqInfo.DesiredNodeSize)),
+		SubnetNo:  ncloud.Int32(subnetNo),
+	}
 
-		cblogger.Debug("Final Subnet List")
-		// 이 부분에서 VPC subnet ID 를 바탕으로 리스트 순회하며 ModifySubnetAttribute 를 통해 Auto-assign public IPv4 address를 활성화
-		for _, subnetIdPtr := range subnetList {
-			input := &vserver.ModifySubnetAttributeInput{
-				MapPublicIpOnLaunch: &vserver.AttributeBooleanValue{
-					Value: ncloud.Bool(true),
-				},
-				SubnetId: subnetIdPtr,
+	// Set StorageSize (required: 50~2000 GB)
+	// Use RootDiskSize if provided, otherwise default to 100GB
+	storageSize := int32(100) // default 100GB
+	if nodeGroupReqInfo.RootDiskSize != "" && nodeGroupReqInfo.RootDiskSize != "0" {
+		if parsedSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 32); err == nil {
+			if parsedSize >= 50 && parsedSize <= 2000 {
+				storageSize = int32(parsedSize)
+			} else {
+				cblogger.Warnf("RootDiskSize %d out of range (50~2000), using default 100GB", parsedSize)
 			}
-			_, err := nvch.VMClient.ModifySubnetAttribute(input)
+		}
+	}
+	nodePoolBody.StorageSize = ncloud.Int32(storageSize)
+
+	// Set ServerSpecCode and ProductCode if VMSpecName is provided
+	if nodeGroupReqInfo.VMSpecName != "" {
+		nodePoolBody.ServerSpecCode = ncloud.String(nodeGroupReqInfo.VMSpecName)
+
+		// Get SoftwareCode (image code) for NKS ProductCode lookup
+		imageName := nodeGroupReqInfo.ImageIID.NameId
+		var softwareCode string
+		var err error
+		if imageName == "" || strings.EqualFold(imageName, "default") {
+			var defaultServerImageNamePrefix string
+			if hypervisorCodeDefault == hypervisorCodeXen {
+				defaultServerImageNamePrefix = defaultServerImageNamePrefixForXen
+			} else {
+				defaultServerImageNamePrefix = defaultServerImageNamePrefixForKvm
+			}
+			softwareCode, err = nvch.getServerImageByNamePrefix(defaultServerImageNamePrefix)
 			if err != nil {
-				errmsg := "error during ModifySubnetAttribute to MapPublicIpOnLaunch=TRUE on subnet : " + *subnetIdPtr
-				cblogger.Error(err)
-				cblogger.Error(errmsg)
-				// return irs.NodeGroupInfo{}, errors.New(errmsg) // 서브넷 순회 이므로 나머지 서브넷은 진행하도록 주석처리함.
+				addErr := fmt.Errorf("failed to get default server image: %w", err)
+				cblogger.Error(addErr)
+				LoggingError(hiscallInfo, addErr)
+				return irs.NodeGroupInfo{}, addErr
+			}
+		} else {
+			softwareCode, err = nvch.getServerImageByNamePrefix(imageName)
+			if err != nil {
+				addErr := fmt.Errorf("failed to get server image: %w", err)
+				cblogger.Error(addErr)
+				LoggingError(hiscallInfo, addErr)
+				return irs.NodeGroupInfo{}, addErr
 			}
 		}
 
-		cblogger.Debug("Subnet list")
-		cblogger.Debug(subnetList)
-
-		var nodeSecurityGroupList []*string
-		for _, securityGroup := range networkInfo.SecurityGroupIIDs {
-			nodeSecurityGroupList = append(nodeSecurityGroupList, &securityGroup.SystemId)
-		}
-
-		tags := map[string]string{}
-		tags["key"] = NODEGROUP_TAG
-		tags["value"] = nodeGroupReqInfo.IId.NameId
-
-		input := &vnks.CreateNodegroupInput{
-			//AmiType: "", // Valid Values: AL2_x86_64 | AL2_x86_64_GPU | AL2_ARM_64 | CUSTOM | BOTTLEROCKET_ARM_64 | BOTTLEROCKET_x86_64, Required: No
-			//CapacityType: ncloud.String("ON_DEMAND"),//Valid Values: ON_DEMAND | SPOT, Required: No
-
-			//ClusterName:   ncloud.String("cb-eks-cluster"),              //uri, required
-			ClusterName:   ncloud.String(clusterIID.SystemId),         //uri, required
-			NodegroupName: ncloud.String(nodeGroupReqInfo.IId.NameId), // required
-			Tags:          ncloud.StringMap(tags),
-			//NodeRole:      ncloud.String(eksRoleName), // roleName, required
-			//NodeRole: roleArn,
-			ScalingConfig: &vnks.NodegroupScalingConfig{
-				DesiredSize: ncloud.Int64(int64(nodeGroupReqInfo.DesiredNodeSize)),
-				MaxSize:     ncloud.Int64(int64(nodeGroupReqInfo.MaxNodeSize)),
-				MinSize:     ncloud.Int64(int64(nodeGroupReqInfo.MinNodeSize)),
-			},
-			Subnets: subnetList,
-
-			//DiskSize: 0,
-			//InstanceTypes: ["",""],
-			//Labels : {"key": "value"},
-			//LaunchTemplate: {
-			//	Id: "",
-			//	Name: "",
-			//	Version: ""
-			//},
-
-			//ReleaseVersion: "",
-			RemoteAccess: &vnks.RemoteAccessConfig{
-				Ec2SshKey:            &nodeGroupReqInfo.KeyPairIID.SystemId,
-				SourceSecurityGroups: nodeSecurityGroupList,
-			},
-
-			//Taints: [{
-			//	Effect:"",
-			//	Key : "",
-			//	Value :""
-			//}],
-			//UpdateConfig: {
-			//	MaxUnavailable: 0,
-			//	MaxUnavailablePercentage: 0
-			//},
-			//Version: ""
-		}
-
-		// 필수 외에 넣을 항목들 set
-		rootDiskSize, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
-		if rootDiskSize > 0 {
-			input.DiskSize = ncloud.Int64(rootDiskSize)
-		}
-
-		if !strings.EqualFold(nodeGroupReqInfo.VMSpecName, "") {
-			var nodeSpec []string
-			nodeSpec = append(nodeSpec, nodeGroupReqInfo.VMSpecName) //"p2.xlarge"
-			input.InstanceTypes = ncloud.StringSlice(nodeSpec)
-		}
-
-		cblogger.Debug(input)
-
-		result, err := nvch.ClusterClient.CreateNodegroup(input) // 비동기
+		// Get NKS-specific ProductCode
+		productCode, err := nvch.getNKSProductCode(nodeGroupReqInfo.VMSpecName, softwareCode)
 		if err != nil {
-			cblogger.Error(err)
-			return irs.NodeGroupInfo{}, err
+			addErr := fmt.Errorf("failed to get NKS ProductCode for VMSpec %s: %w", nodeGroupReqInfo.VMSpecName, err)
+			cblogger.Error(addErr)
+			LoggingError(hiscallInfo, addErr)
+			return irs.NodeGroupInfo{}, addErr
 		}
+		nodePoolBody.ProductCode = ncloud.String(productCode)
+		nodePoolBody.SoftwareCode = ncloud.String(softwareCode)
+		cblogger.Debugf("Resolved NKS ProductCode for VMSpec %s: %s (SoftwareCode: %s)", nodeGroupReqInfo.VMSpecName, productCode, softwareCode)
+	}
 
-		cblogger.Debug(result)
-
-		nodegroupName := result.Nodegroup.NodegroupName
-
-		// Sync Call에서 Async Call로 변경 - 이슈:#716
-		//노드 그룹이 활성화될 때까지 대기
-		errWait := nvch.WaitUntilNodegroupActive(clusterIID.SystemId, *nodegroupName)
-		if errWait != nil {
-			cblogger.Error(errWait)
-			return irs.NodeGroupInfo{}, errWait
+	// Override ProductCode/SoftwareCode if explicitly provided in KeyValueList
+	for _, kv := range nodeGroupReqInfo.KeyValueList {
+		if kv.Key == "ProductCode" {
+			nodePoolBody.ProductCode = ncloud.String(kv.Value)
+			cblogger.Debugf("ProductCode overridden from KeyValueList: %s", kv.Value)
 		}
-
-		nodeGroup, err := nvch.GetNodeGroup(clusterIID, irs.IID{NameId: nodeGroupReqInfo.IId.NameId, SystemId: *nodegroupName})
-		if err != nil {
-			cblogger.Error(err)
-			return irs.NodeGroupInfo{}, err
+		if kv.Key == "SoftwareCode" {
+			nodePoolBody.SoftwareCode = ncloud.String(kv.Value)
 		}
-		nodeGroup.IId.NameId = nodeGroupReqInfo.IId.NameId
-		return nodeGroup, nil
-	*/
+	}
+
+	// Set AutoScaling if enabled
+	if nodeGroupReqInfo.OnAutoScaling {
+		autoscaleOption := &vnks.AutoscalerUpdate{
+			Enabled: ncloud.Bool(true),
+			Min:     ncloud.Int32(int32(nodeGroupReqInfo.MinNodeSize)),
+			Max:     ncloud.Int32(int32(nodeGroupReqInfo.MaxNodeSize)),
+		}
+		nodePoolBody.Autoscale = autoscaleOption
+	}
+
+	cblogger.Debug("NodePoolCreationBody: ", nodePoolBody)
+
+	// Call NCP API to add node pool (async operation)
+	result, err := nvch.ClusterClient.V2Api.ClustersUuidNodePoolPost(nvch.Ctx, nodePoolBody, ncloud.String(clusterIID.SystemId))
+	if err != nil {
+		addErr := fmt.Errorf("failed to add node pool: %w", err)
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
+
+	cblogger.Debug("AddNodePool Result: ", result)
+	cblogger.Infof("NodePool [%s] creation initiated (async). Use GetCluster() to check status.", nodeGroupReqInfo.IId.NameId)
+
+	// Retrieve cluster info to get the newly created node pool
+	// NCP creates node pool asynchronously, so status will be "Creating" initially
+	clusterInfo, err = nvch.GetCluster(clusterIID)
+	if err != nil {
+		addErr := fmt.Errorf("failed to get cluster info after adding node pool: %w", err)
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
+
+	// Find the newly created node pool from cluster info
+	var nodeGroupInfo *irs.NodeGroupInfo
+	for _, ng := range clusterInfo.NodeGroupList {
+		if ng.IId.NameId == nodeGroupReqInfo.IId.NameId {
+			nodeGroupInfo = &ng
+			break
+		}
+	}
+
+	if nodeGroupInfo == nil {
+		addErr := fmt.Errorf("node pool [%s] not found in cluster after creation", nodeGroupReqInfo.IId.NameId)
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	cblogger.Infof("Added NodeGroup(name=%s, id=%s) to Cluster(%s)", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterIID.SystemId)
+	return *nodeGroupInfo, nil
 }
 
 func (nvch *NcpVpcClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
@@ -880,32 +929,107 @@ func (nvch *NcpVpcClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.Node
 }
 
 func (nvch *NcpVpcClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
-	cblogger.Debugf("Cluster SystemId : [%s] / NodeGroup SystemId : [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
+	cblogger.Infof("Cluster SystemId: [%s] / NodeGroup SystemId: [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
 
-	return irs.NodeGroupInfo{}, nil
-	/*
-		input := &vnks.DescribeNodegroupInput{
-			//AmiType: "", // Valid Values: AL2_x86_64 | AL2_x86_64_GPU | AL2_ARM_64 | CUSTOM | BOTTLEROCKET_ARM_64 | BOTTLEROCKET_x86_64, Required: No
-			//CapacityType: ncloud.String("ON_DEMAND"),//Valid Values: ON_DEMAND | SPOT, Required: No
-			ClusterName:   ncloud.String(clusterIID.SystemId),   //required
-			NodegroupName: ncloud.String(nodeGroupIID.SystemId), // required
-		}
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, nodeGroupIID.SystemId, "GetNodeGroup()")
+	start := call.Start()
 
-		result, err := nvch.ClusterClient.DescribeNodegroup(input)
-		cblogger.Debug("===> Node Group Invocation Result")
-		cblogger.Debug(result)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.NodeGroupInfo{}, err
-		}
+	// Get NodePool list for the cluster
+	nodePoolRes, err := nvch.ClusterClient.V2Api.ClustersUuidNodePoolGet(nvch.Ctx, ncloud.String(clusterIID.SystemId))
+	if err != nil {
+		getErr := fmt.Errorf("failed to get node pool list: %w", err)
+		cblogger.Error(getErr)
+		LoggingError(hiscallInfo, getErr)
+		return irs.NodeGroupInfo{}, getErr
+	}
 
-		nodeGroupInfo, err := nvch.convertNodeGroup(result)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.NodeGroupInfo{}, err
+	if nodePoolRes.NodePool == nil || len(nodePoolRes.NodePool) == 0 {
+		getErr := fmt.Errorf("no node pools found for cluster %s", clusterIID.SystemId)
+		cblogger.Error(getErr)
+		LoggingError(hiscallInfo, getErr)
+		return irs.NodeGroupInfo{}, getErr
+	}
+
+	// Find the target node pool by comparing SystemId (InstanceNo)
+	var targetNodePool *vnks.NodePool
+	for _, np := range nodePoolRes.NodePool {
+		if np.InstanceNo != nil && fmt.Sprintf("%d", ncloud.Int32Value(np.InstanceNo)) == nodeGroupIID.SystemId {
+			targetNodePool = np
+			break
 		}
-		return nodeGroupInfo, nil
-	*/
+	}
+
+	if targetNodePool == nil {
+		getErr := fmt.Errorf("node pool with SystemId %s not found in cluster %s", nodeGroupIID.SystemId, clusterIID.SystemId)
+		cblogger.Error(getErr)
+		LoggingError(hiscallInfo, getErr)
+		return irs.NodeGroupInfo{}, getErr
+	}
+
+	// Get cluster info for KeyPairIID
+	clusterList, err := ncpClustersGet(nvch.ClusterClient, nvch.Ctx)
+	if err != nil {
+		getErr := fmt.Errorf("failed to list clusters: %w", err)
+		cblogger.Error(getErr)
+		LoggingError(hiscallInfo, getErr)
+		return irs.NodeGroupInfo{}, getErr
+	}
+
+	var targetCluster *vnks.Cluster
+	for _, c := range clusterList {
+		if ncloud.StringValue(c.Uuid) == clusterIID.SystemId {
+			targetCluster = c
+			break
+		}
+	}
+	if targetCluster == nil {
+		getErr := fmt.Errorf("cluster with SystemId %s not found", clusterIID.SystemId)
+		cblogger.Error(getErr)
+		LoggingError(hiscallInfo, getErr)
+		return irs.NodeGroupInfo{}, getErr
+	}
+
+	// Build NodeGroupInfo
+	onAutoScaling := false
+	minNodeSize := 0
+	maxNodeSize := 0
+	if targetNodePool.Autoscale != nil {
+		onAutoScaling = ncloud.BoolValue(targetNodePool.Autoscale.Enabled)
+		minNodeSize = int(ncloud.Int32Value(targetNodePool.Autoscale.Min))
+		maxNodeSize = int(ncloud.Int32Value(targetNodePool.Autoscale.Max))
+	}
+
+	nodeGroupKeyValueList := []irs.KeyValue{
+		{Key: "InstanceNo", Value: fmt.Sprintf("%d", ncloud.Int32Value(targetNodePool.InstanceNo))},
+		{Key: "Status", Value: ncloud.StringValue(targetNodePool.Status)},
+		{Key: "ServerSpecCode", Value: ncloud.StringValue(targetNodePool.ServerSpecCode)},
+		{Key: "SoftwareCode", Value: ncloud.StringValue(targetNodePool.SoftwareCode)},
+	}
+	if targetNodePool.Autoscale != nil {
+		nodeGroupKeyValueList = append(nodeGroupKeyValueList,
+			irs.KeyValue{Key: "AutoScalingEnabled", Value: fmt.Sprintf("%v", ncloud.BoolValue(targetNodePool.Autoscale.Enabled))},
+			irs.KeyValue{Key: "AutoScalingMin", Value: fmt.Sprintf("%d", ncloud.Int32Value(targetNodePool.Autoscale.Min))},
+			irs.KeyValue{Key: "AutoScalingMax", Value: fmt.Sprintf("%d", ncloud.Int32Value(targetNodePool.Autoscale.Max))},
+		)
+	}
+
+	nodeGroupInfo := irs.NodeGroupInfo{
+		IId: irs.IID{
+			NameId:   ncloud.StringValue(targetNodePool.Name),
+			SystemId: fmt.Sprintf("%d", ncloud.Int32Value(targetNodePool.InstanceNo)),
+		},
+		DesiredNodeSize: int(ncloud.Int32Value(targetNodePool.NodeCount)),
+		MinNodeSize:     minNodeSize,
+		MaxNodeSize:     maxNodeSize,
+		KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName)},
+		OnAutoScaling:   onAutoScaling,
+		Status:          convertNCPNodePoolStatus(ncloud.StringValue(targetNodePool.Status)),
+		KeyValueList:    nodeGroupKeyValueList,
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	cblogger.Debug("NodeGroupInfo: ", nodeGroupInfo)
+	return nodeGroupInfo, nil
 }
 
 func (nvch *NcpVpcClusterHandler) GetAutoScalingGroups(autoScalingGroupName string) ([]irs.IID, error) {
@@ -999,24 +1123,107 @@ func (nvch *NcpVpcClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nod
 }
 
 func (nvch *NcpVpcClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
-	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
-	return false, nil
-	/*
-		input := &vnks.DeleteNodegroupInput{
-			ClusterName:   ncloud.String(clusterIID.SystemId),   //required
-			NodegroupName: ncloud.String(nodeGroupIID.SystemId), // required
-		}
+	cblogger.Infof("Cluster SystemId: [%s] / NodeGroup SystemId: [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
 
-		result, err := nvch.ClusterClient.DeleteNodegroup(input)
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, nodeGroupIID.SystemId, "RemoveNodeGroup()")
+	start := call.Start()
+
+	// Check if this is the default node pool (cannot be deleted)
+	nodePoolRes, err := nvch.ClusterClient.V2Api.ClustersUuidNodePoolGet(nvch.Ctx, ncloud.String(clusterIID.SystemId))
+	if err != nil {
+		removeErr := fmt.Errorf("failed to get node pool list: %w", err)
+		cblogger.Error(removeErr)
+		LoggingError(hiscallInfo, removeErr)
+		return false, removeErr
+	}
+
+	// Find the target node pool and check if it's default
+	var targetNodePool *vnks.NodePool
+	for _, np := range nodePoolRes.NodePool {
+		if fmt.Sprintf("%d", ncloud.Int32Value(np.InstanceNo)) == nodeGroupIID.SystemId {
+			targetNodePool = np
+			break
+		}
+	}
+
+	if targetNodePool == nil {
+		removeErr := fmt.Errorf("node pool with SystemId %s not found in cluster %s", nodeGroupIID.SystemId, clusterIID.SystemId)
+		cblogger.Error(removeErr)
+		LoggingError(hiscallInfo, removeErr)
+		return false, removeErr
+	}
+
+	// Check if it's a default node pool
+	if targetNodePool.IsDefault != nil && ncloud.BoolValue(targetNodePool.IsDefault) {
+		removeErr := fmt.Errorf("cannot delete default node pool '%s'. NCP does not allow deleting the default node pool", ncloud.StringValue(targetNodePool.Name))
+		cblogger.Error(removeErr)
+		LoggingError(hiscallInfo, removeErr)
+		return false, removeErr
+	}
+
+	// Convert SystemId (string) to InstanceNo (int32)
+	instanceNo, err := strconv.ParseInt(nodeGroupIID.SystemId, 10, 32)
+	if err != nil {
+		removeErr := fmt.Errorf("invalid NodeGroup SystemId (InstanceNo): %w", err)
+		cblogger.Error(removeErr)
+		LoggingError(hiscallInfo, removeErr)
+		return false, removeErr
+	}
+
+	// Call NCP API to delete node pool
+	err = nvch.ClusterClient.V2Api.ClustersUuidNodePoolInstanceNoDelete(
+		nvch.Ctx,
+		ncloud.String(clusterIID.SystemId),
+		ncloud.String(fmt.Sprintf("%d", instanceNo)),
+	)
+	if err != nil {
+		removeErr := fmt.Errorf("failed to remove node pool: %w", err)
+		cblogger.Error(removeErr)
+		LoggingError(hiscallInfo, removeErr)
+		return false, removeErr
+	}
+
+	cblogger.Info("NodePool deletion initiated successfully")
+
+	// Wait for node pool to be deleted (verify deletion)
+	maxRetries := 30
+	retryInterval := 10 * time.Second
+	deleted := false
+
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+
+		nodePoolRes, err := nvch.ClusterClient.V2Api.ClustersUuidNodePoolGet(nvch.Ctx, ncloud.String(clusterIID.SystemId))
 		if err != nil {
-			cblogger.Error(err)
-			return false, err
+			cblogger.Warnf("Failed to get node pool list (retry %d/%d): %v", i+1, maxRetries, err)
+			continue
 		}
 
-		cblogger.Debug(result)
+		// Check if node pool still exists
+		found := false
+		for _, np := range nodePoolRes.NodePool {
+			if fmt.Sprintf("%d", ncloud.Int32Value(np.InstanceNo)) == nodeGroupIID.SystemId {
+				status := ncloud.StringValue(np.Status)
+				cblogger.Infof("NodePool [%s] status: %s (retry %d/%d)", nodeGroupIID.SystemId, status, i+1, maxRetries)
+				found = true
+				break
+			}
+		}
 
-		return true, nil
-	*/
+		if !found {
+			deleted = true
+			cblogger.Info("NodePool successfully deleted")
+			break
+		}
+	}
+
+	if !deleted {
+		cblogger.Warn("NodePool deletion may still be in progress (timeout)")
+		// Don't return error as deletion was initiated successfully
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	return true, nil
 }
 
 // ------ Upgrade K8S
@@ -1646,7 +1853,7 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo, supportedK8sVersions [
 		}
 	}
 	if supported == false {
-		return fmt.Errorf("Unsupported K8s version. (Available version: " + strings.Join(supportedK8sVersions[:], ", ") + ")")
+		return fmt.Errorf("%s", "Unsupported K8s version. (Available version: "+strings.Join(supportedK8sVersions[:], ", ")+")")
 	}
 
 	// Check clusterInfo.NodeGroupList
@@ -1668,6 +1875,97 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 	}
 
 	return nil
+}
+
+// getNKSProductCode retrieves the NCP NKS-specific ProductCode for a given VMSpec and SoftwareCode
+// NKS requires a different ProductCode format than regular VM creation.
+// This function queries the NCP API to get the list of available ProductCodes for NKS clusters.
+func (nvch *NcpVpcClusterHandler) getNKSProductCode(specName string, softwareCode string) (string, error) {
+	if specName == "" {
+		return "", fmt.Errorf("invalid specName: empty string")
+	}
+	if softwareCode == "" {
+		return "", fmt.Errorf("invalid softwareCode: empty string")
+	}
+
+	// Get VMSpec details (CPU, Memory)
+	specReq := vserver.GetServerSpecListRequest{
+		RegionCode:         &nvch.RegionInfo.Region,
+		ZoneCode:           &nvch.RegionInfo.Zone,
+		ServerSpecCodeList: []*string{ncloud.String(specName)},
+	}
+
+	specResult, err := nvch.VMClient.V2Api.GetServerSpecList(&specReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to get VMSpec from NCP: %w", err)
+	}
+
+	if len(specResult.ServerSpecList) < 1 {
+		return "", fmt.Errorf("VMSpec %s does not exist", specName)
+	}
+
+	vmSpec := specResult.ServerSpecList[0]
+	if vmSpec.CpuCount == nil || vmSpec.MemorySize == nil {
+		return "", fmt.Errorf("VMSpec %s has no CPU or Memory info", specName)
+	}
+
+	cpuCount := *vmSpec.CpuCount
+	memorySize := int32(*vmSpec.MemorySize / (1024 * 1024 * 1024)) // Convert bytes to GB (int32)
+
+	// Query NCP API for available ProductCodes for NKS
+	optionsRes, err := ncpOptionServerProductCodeGet(
+		nvch.ClusterClient,
+		nvch.Ctx,
+		hypervisorCodeDefault,
+		softwareCode,
+		nvch.RegionInfo.Zone,
+		"", // zoneNo can be empty
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get NKS ProductCode options: %w", err)
+	}
+
+	// Find matching ProductCode based on CPU and Memory
+	for _, option := range optionsRes {
+		// Check if Detail field has the ServerProduct info
+		if option.Detail != nil {
+			detail := option.Detail
+			if detail.CpuCount != nil && detail.MemorySizeGb != nil {
+				optionCpu := *detail.CpuCount
+				optionMemory := *detail.MemorySizeGb
+
+				// Match based on CPU and Memory
+				if optionCpu == cpuCount && optionMemory == memorySize {
+					// Use Value field which contains the ProductCode
+					if option.Value != nil && *option.Value != "" {
+						cblogger.Debugf("Matched NKS ProductCode for VMSpec %s (CPU:%d, Mem:%dGB): %s",
+							specName, cpuCount, memorySize, *option.Value)
+						return *option.Value, nil
+					}
+				}
+			}
+		}
+	}
+
+	// If no exact match found, return error with available options
+	availableOptions := make([]string, 0)
+	for _, option := range optionsRes {
+		if option.Value != nil && *option.Value != "" && option.Detail != nil {
+			detail := option.Detail
+			cpu := "?"
+			mem := "?"
+			if detail.CpuCount != nil {
+				cpu = fmt.Sprintf("%d", *detail.CpuCount)
+			}
+			if detail.MemorySizeGb != nil {
+				mem = fmt.Sprintf("%d", *detail.MemorySizeGb)
+			}
+			availableOptions = append(availableOptions, fmt.Sprintf("%s (CPU:%s, Mem:%sGB)", *option.Value, cpu, mem))
+		}
+	}
+
+	return "", fmt.Errorf("no matching NKS ProductCode found for VMSpec %s (CPU:%d, Mem:%dGB). Available options: %s",
+		specName, cpuCount, memorySize, strings.Join(availableOptions, ", "))
 }
 
 func validateAtChangeNodeGroupScaling(minNodeSize int, maxNodeSize int) error {
