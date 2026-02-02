@@ -131,8 +131,14 @@ func (cloudConn *NcpVpcCloudConnection) CreateClusterHandler() (irs.ClusterHandl
 
 	ctx := context.Background()
 	clusterHandler := ncprs.NcpVpcClusterHandler{
-		cloudConn.RegionInfo, ctx, cloudConn.VmClient, cloudConn.VpcClient,
-		cloudConn.VnksClient, cloudConn.VasClient}
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		Ctx:            ctx,
+		VMClient:       cloudConn.VmClient,
+		VPCClient:      cloudConn.VpcClient,
+		ClusterClient:  cloudConn.VnksClient,
+		ASClient:       cloudConn.VasClient,
+	}
 	return &clusterHandler, nil
 }
 
