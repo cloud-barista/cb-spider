@@ -12,11 +12,13 @@
 package resources
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
+
 	// "strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -70,10 +72,10 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 	}
 
 	// Create New S/G
-	sgReq := vserver.CreateAccessControlGroupRequest {
-		RegionCode: 				&securityHandler.RegionInfo.Region,
-		AccessControlGroupName: 	&securityReqInfo.IId.NameId,
-		VpcNo: 						&securityReqInfo.VpcIID.SystemId,
+	sgReq := vserver.CreateAccessControlGroupRequest{
+		RegionCode:             &securityHandler.RegionInfo.Region,
+		AccessControlGroupName: &securityReqInfo.IId.NameId,
+		VpcNo:                  &securityReqInfo.VpcIID.SystemId,
 	}
 
 	callLogStart := call.Start()
@@ -99,7 +101,7 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 	sgNo := ncpVpcSG.AccessControlGroupList[0].AccessControlGroupNo
 
 	// Create S/G Rules
-	for _, curRule := range *securityReqInfo.SecurityRules {	
+	for _, curRule := range *securityReqInfo.SecurityRules {
 		if curRule.Direction == "" {
 			return irs.SecurityInfo{}, errors.New("Failed to Find 'Direction' Value in the requested rule!!")
 		} else if curRule.IPProtocol == "" {
@@ -126,35 +128,35 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 
 			if strings.EqualFold(protocolType, "ALL") {
 				if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
-					allProtocolTypeCode := []string {"TCP", "UDP", "ICMP"}
+					allProtocolTypeCode := []string{"TCP", "UDP", "ICMP"}
 					var allPortRange string
 					allCIDR := "0.0.0.0/0"
 
 					for _, curProtocolType := range allProtocolTypeCode {
 						if strings.EqualFold(curProtocolType, "ICMP") {
-							allPortRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+							allPortRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 						} else {
 							allPortRange = "1-65535" // All Range
 						}
 
 						var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
 
-						ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-							IpBlock: 					&allCIDR,
-							PortRange:					&allPortRange,
-							ProtocolTypeCode: 			&curProtocolType,
+						ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+							IpBlock:          &allCIDR,
+							PortRange:        &allPortRange,
+							ProtocolTypeCode: &curProtocolType,
 						}
-			
+
 						ruleParameterList = append(ruleParameterList, &ruleParameter)
-			
+
 						// Create Inbound Security Rule
-						inboundReq := vserver.AddAccessControlGroupInboundRuleRequest {
-							RegionCode: 				&securityHandler.RegionInfo.Region,
-							AccessControlGroupNo: 		sgNo,
-							VpcNo: 						&securityReqInfo.VpcIID.SystemId,
+						inboundReq := vserver.AddAccessControlGroupInboundRuleRequest{
+							RegionCode:                 &securityHandler.RegionInfo.Region,
+							AccessControlGroupNo:       sgNo,
+							VpcNo:                      &securityReqInfo.VpcIID.SystemId,
 							AccessControlGroupRuleList: ruleParameterList,
 						}
-			
+
 						callLogStart := call.Start()
 						sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
 						if err != nil {
@@ -164,13 +166,13 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 							return irs.SecurityInfo{}, err
 						}
 						LoggingInfo(callLogInfo, callLogStart)
-			
+
 						if *sgInboundRule.TotalRows < 1 {
 							return irs.SecurityInfo{}, errors.New("Failed to Create New S/G Inbound Rule!!")
 						} else {
 							cblogger.Infof("Succeeded in Creating New [%s] Inbound Rule!!", curProtocolType)
 
-							time.Sleep(time.Second * 5)  // Caution!!
+							time.Sleep(time.Second * 5) // Caution!!
 						}
 					}
 				} else {
@@ -178,40 +180,40 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 				}
 			} else {
 				var portRange string
-			
+
 				if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-					portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+					portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 				} else if strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort)	// string				
+					portRange = strings.ToLower(curRule.FromPort) // string
 				} else if !strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort) + "-"+ strings.ToLower(curRule.ToPort) // string				
+					portRange = strings.ToLower(curRule.FromPort) + "-" + strings.ToLower(curRule.ToPort) // string
 				}
-	
+
 				if strings.EqualFold(curRule.FromPort, "-1") || strings.EqualFold(curRule.ToPort, "-1") {
 					if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-						portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+						portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 					} else {
 						portRange = "1-65535" // All Range
 					}
 				}
-	
+
 				var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
 
-				ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-					IpBlock: 					&curRule.CIDR,
-					PortRange:					&portRange,
-					ProtocolTypeCode: 			&protocolType,
-				}	
+				ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+					IpBlock:          &curRule.CIDR,
+					PortRange:        &portRange,
+					ProtocolTypeCode: &protocolType,
+				}
 				ruleParameterList = append(ruleParameterList, &ruleParameter)
-	
+
 				// Create Inbound Security Rule
-				inboundReq := vserver.AddAccessControlGroupInboundRuleRequest {
-					RegionCode: 				&securityHandler.RegionInfo.Region,
-					AccessControlGroupNo: 		sgNo,
-					VpcNo: 						&securityReqInfo.VpcIID.SystemId,
+				inboundReq := vserver.AddAccessControlGroupInboundRuleRequest{
+					RegionCode:                 &securityHandler.RegionInfo.Region,
+					AccessControlGroupNo:       sgNo,
+					VpcNo:                      &securityReqInfo.VpcIID.SystemId,
 					AccessControlGroupRuleList: ruleParameterList,
 				}
-	
+
 				callLogStart := call.Start()
 				sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
 				if err != nil {
@@ -221,7 +223,7 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 					return irs.SecurityInfo{}, err
 				}
 				LoggingInfo(callLogInfo, callLogStart)
-	
+
 				if *sgInboundRule.TotalRows < 1 {
 					return irs.SecurityInfo{}, errors.New("Failed to Create S/G Inbound Rule!!")
 				} else {
@@ -231,37 +233,37 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 		}
 
 		if strings.EqualFold(ruleDirection, "outbound") {
-			protocolType := strings.ToUpper(curRule.IPProtocol) // Caution : Valid values : [TCP, UDP, ICMP] 
+			protocolType := strings.ToUpper(curRule.IPProtocol) // Caution : Valid values : [TCP, UDP, ICMP]
 
 			if strings.EqualFold(protocolType, "ALL") {
 				if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
-					allProtocolTypeCode := []string {"TCP", "UDP", "ICMP"}
+					allProtocolTypeCode := []string{"TCP", "UDP", "ICMP"}
 					var allPortRange string // All Range
 					allCIDR := "0.0.0.0/0"
 
 					for _, curProtocolType := range allProtocolTypeCode {
 						if strings.EqualFold(curProtocolType, "ICMP") {
-							allPortRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+							allPortRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 						} else {
 							allPortRange = "1-65535" // All Range
 						}
 
-						var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter		
-						ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-							IpBlock: 					&allCIDR,
-							PortRange:					&allPortRange,
-							ProtocolTypeCode: 			&curProtocolType,
-						}			
+						var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
+						ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+							IpBlock:          &allCIDR,
+							PortRange:        &allPortRange,
+							ProtocolTypeCode: &curProtocolType,
+						}
 						ruleParameterList = append(ruleParameterList, &ruleParameter)
-			
+
 						// Create Inbound Security Rule
-						outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest {
-							RegionCode: 				&securityHandler.RegionInfo.Region,
-							AccessControlGroupNo: 		sgNo,
-							VpcNo: 						&securityReqInfo.VpcIID.SystemId,
+						outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest{
+							RegionCode:                 &securityHandler.RegionInfo.Region,
+							AccessControlGroupNo:       sgNo,
+							VpcNo:                      &securityReqInfo.VpcIID.SystemId,
 							AccessControlGroupRuleList: ruleParameterList,
 						}
-			
+
 						callLogStart := call.Start()
 						sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
 						if err != nil {
@@ -271,13 +273,13 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 							return irs.SecurityInfo{}, err
 						}
 						LoggingInfo(callLogInfo, callLogStart)
-			
+
 						if *sgOutboundRule.TotalRows < 1 {
 							return irs.SecurityInfo{}, errors.New("Failed to Create New S/G Outbound Rule!!")
 						} else {
 							cblogger.Infof("Succeeded in Creating New [%s] Outbound Rule!!", curProtocolType)
 
-							time.Sleep(time.Second * 5)  // Caution!!
+							time.Sleep(time.Second * 5) // Caution!!
 						}
 					}
 				} else {
@@ -285,39 +287,39 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 				}
 			} else {
 				var portRange string
-			
+
 				if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-					portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+					portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 				} else if strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort)	// string				
+					portRange = strings.ToLower(curRule.FromPort) // string
 				} else if !strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort) + "-"+ strings.ToLower(curRule.ToPort) // string				
-				}
-	
-				if strings.EqualFold(curRule.FromPort, "-1") || strings.EqualFold(curRule.ToPort, "-1") {
-					if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-						portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
-					} else {
-						portRange = "1-65535" // All Range
-					}	
+					portRange = strings.ToLower(curRule.FromPort) + "-" + strings.ToLower(curRule.ToPort) // string
 				}
 
-				var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter	
-				ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-					IpBlock: 					&curRule.CIDR,
-					PortRange:					&portRange,
-					ProtocolTypeCode: 			&protocolType,
-				}	
+				if strings.EqualFold(curRule.FromPort, "-1") || strings.EqualFold(curRule.ToPort, "-1") {
+					if strings.EqualFold(curRule.IPProtocol, "ICMP") {
+						portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
+					} else {
+						portRange = "1-65535" // All Range
+					}
+				}
+
+				var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
+				ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+					IpBlock:          &curRule.CIDR,
+					PortRange:        &portRange,
+					ProtocolTypeCode: &protocolType,
+				}
 				ruleParameterList = append(ruleParameterList, &ruleParameter)
-	
+
 				// Create Inbound Security Rule
-				outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest {
-					RegionCode: 				&securityHandler.RegionInfo.Region,
-					AccessControlGroupNo: 		sgNo,
-					VpcNo: 						&securityReqInfo.VpcIID.SystemId,
+				outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest{
+					RegionCode:                 &securityHandler.RegionInfo.Region,
+					AccessControlGroupNo:       sgNo,
+					VpcNo:                      &securityReqInfo.VpcIID.SystemId,
 					AccessControlGroupRuleList: ruleParameterList,
 				}
-	
+
 				callLogStart := call.Start()
 				sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
 				if err != nil {
@@ -327,7 +329,7 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 					return irs.SecurityInfo{}, err
 				}
 				LoggingInfo(callLogInfo, callLogStart)
-	
+
 				if *sgOutboundRule.TotalRows < 1 {
 					return irs.SecurityInfo{}, errors.New("Failed to Create New S/G Outbound Rule!!")
 				} else {
@@ -363,10 +365,10 @@ func (securityHandler *NcpVpcSecurityHandler) GetSecurity(securityIID irs.IID) (
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, securityIID.SystemId, "GetSecurity()")
 
-	sgNumList := []*string{ncloud.String(securityIID.SystemId),}
-	sgReq := vserver.GetAccessControlGroupListRequest {
-		RegionCode: 				&securityHandler.RegionInfo.Region, 
-		AccessControlGroupNoList: 	sgNumList,
+	sgNumList := []*string{ncloud.String(securityIID.SystemId)}
+	sgReq := vserver.GetAccessControlGroupListRequest{
+		RegionCode:               &securityHandler.RegionInfo.Region,
+		AccessControlGroupNoList: sgNumList,
 	}
 
 	// Search NCP VPC AccessControlGroup with securityIID.SystemId
@@ -402,13 +404,13 @@ func (securityHandler *NcpVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInf
 	cblogger.Info("NCP VPC cloud driver: called ListSecurity()!!")
 
 	InitLog() // Caution!!
-    callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "ListSecurity()", "ListSecurity()")
+	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "ListSecurity()", "ListSecurity()")
 
 	var securityGroupList []*irs.SecurityInfo
 
 	sgReq := vserver.GetAccessControlGroupListRequest{
-		RegionCode: 				&securityHandler.RegionInfo.Region,
-		AccessControlGroupNoList: 	nil,
+		RegionCode:               &securityHandler.RegionInfo.Region,
+		AccessControlGroupNoList: nil,
 	}
 
 	// Search NCP VPC AccessControlGroup list
@@ -428,7 +430,7 @@ func (securityHandler *NcpVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInf
 
 	cblogger.Info("Succeeded in Getting S/G List.")
 
-	for _, sg := range sgList.AccessControlGroupList {		
+	for _, sg := range sgList.AccessControlGroupList {
 		cblogger.Infof("NCP VPC S/G No : [%s]", *sg.AccessControlGroupNo)
 		sgInfo, sgInfoErr := securityHandler.mappingSecurityInfo(*sg)
 		if sgInfoErr != nil {
@@ -465,17 +467,19 @@ func (securityHandler *NcpVpcSecurityHandler) DeleteSecurity(securityIID irs.IID
 	cblogger.Infof("The S/G Name to Delete : [%s]", ncpVpcSG.IId.NameId)
 
 	// Delete the S/G
-	sgDelReq := vserver.DeleteAccessControlGroupRequest {
-		RegionCode: 				&securityHandler.RegionInfo.Region,
-		VpcNo: 						&ncpVpcSG.VpcIID.SystemId,
-		AccessControlGroupNo: 		&securityIID.SystemId,
+	sgDelReq := vserver.DeleteAccessControlGroupRequest{
+		RegionCode:           &securityHandler.RegionInfo.Region,
+		VpcNo:                &ncpVpcSG.VpcIID.SystemId,
+		AccessControlGroupNo: &securityIID.SystemId,
 	}
 
 	callLogStart := call.Start()
 	delResult, err := securityHandler.VMClient.V2Api.DeleteAccessControlGroup(&sgDelReq)
 	if err != nil {
 		cblogger.Error(err)
-		cblogger.Error(*delResult.ReturnMessage)
+		if delResult != nil && delResult.ReturnMessage != nil {
+			cblogger.Error(*delResult.ReturnMessage)
+		}
 		LoggingError(callLogInfo, err)
 		return false, err
 	}
@@ -542,35 +546,35 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 
 			if strings.EqualFold(protocolType, "ALL") {
 				if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
-					allProtocolTypeCode := []string {"TCP", "UDP", "ICMP"}
+					allProtocolTypeCode := []string{"TCP", "UDP", "ICMP"}
 					var allPortRange string
 					allCIDR := "0.0.0.0/0"
 
 					for _, curProtocolType := range allProtocolTypeCode {
 						if strings.EqualFold(curProtocolType, "ICMP") {
-							allPortRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+							allPortRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 						} else {
 							allPortRange = "1-65535" // All Range
 						}
 
 						var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
 
-						ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-							IpBlock: 					&allCIDR,
-							PortRange:					&allPortRange,
-							ProtocolTypeCode: 			&curProtocolType,
+						ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+							IpBlock:          &allCIDR,
+							PortRange:        &allPortRange,
+							ProtocolTypeCode: &curProtocolType,
 						}
-			
+
 						ruleParameterList = append(ruleParameterList, &ruleParameter)
-			
+
 						// Create Inbound Security Rule
-						inboundReq := vserver.AddAccessControlGroupInboundRuleRequest {
-							RegionCode: 				&securityHandler.RegionInfo.Region,
-							AccessControlGroupNo: 		&sgNo,
-							VpcNo: 						&vpcNo,
+						inboundReq := vserver.AddAccessControlGroupInboundRuleRequest{
+							RegionCode:                 &securityHandler.RegionInfo.Region,
+							AccessControlGroupNo:       &sgNo,
+							VpcNo:                      &vpcNo,
 							AccessControlGroupRuleList: ruleParameterList,
 						}
-			
+
 						callLogStart := call.Start()
 						sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
 						if err != nil {
@@ -580,13 +584,13 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 							return irs.SecurityInfo{}, err
 						}
 						LoggingInfo(callLogInfo, callLogStart)
-			
+
 						if *sgInboundRule.TotalRows < 1 {
 							return irs.SecurityInfo{}, errors.New("Failed to Add New S/G Inbound Rule!!")
 						} else {
 							cblogger.Infof("Succeeded in Adding New [%s] Inbound Rule!!", curProtocolType)
 
-							time.Sleep(time.Second * 5)  // Caution!!
+							time.Sleep(time.Second * 5) // Caution!!
 						}
 					}
 				} else {
@@ -594,39 +598,39 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 				}
 			} else {
 				var portRange string
-			
+
 				if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-					portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+					portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 				} else if strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort)	// string				
+					portRange = strings.ToLower(curRule.FromPort) // string
 				} else if !strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort) + "-"+ strings.ToLower(curRule.ToPort) // string				
+					portRange = strings.ToLower(curRule.FromPort) + "-" + strings.ToLower(curRule.ToPort) // string
 				}
-	
+
 				if strings.EqualFold(curRule.FromPort, "-1") || strings.EqualFold(curRule.ToPort, "-1") {
 					if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-						portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+						portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 					} else {
 						portRange = "1-65535" // All Range
 					}
 				}
-	
+
 				var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
-				ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-					IpBlock: 					&curRule.CIDR,
-					PortRange:					&portRange,
-					ProtocolTypeCode: 			&protocolType,
-				}	
+				ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+					IpBlock:          &curRule.CIDR,
+					PortRange:        &portRange,
+					ProtocolTypeCode: &protocolType,
+				}
 				ruleParameterList = append(ruleParameterList, &ruleParameter)
-	
+
 				// Create Inbound Security Rule
-				inboundReq := vserver.AddAccessControlGroupInboundRuleRequest {
-					RegionCode: 				&securityHandler.RegionInfo.Region,
-					AccessControlGroupNo: 		&sgNo,
-					VpcNo: 						&vpcNo,
+				inboundReq := vserver.AddAccessControlGroupInboundRuleRequest{
+					RegionCode:                 &securityHandler.RegionInfo.Region,
+					AccessControlGroupNo:       &sgNo,
+					VpcNo:                      &vpcNo,
 					AccessControlGroupRuleList: ruleParameterList,
 				}
-	
+
 				callLogStart := call.Start()
 				sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
 				if err != nil {
@@ -636,49 +640,49 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 					return irs.SecurityInfo{}, err
 				}
 				LoggingInfo(callLogInfo, callLogStart)
-	
+
 				if *sgInboundRule.TotalRows < 1 {
 					return irs.SecurityInfo{}, errors.New("Failed to Add New S/G Inbound Rule!!")
 				} else {
-					cblogger.Infof("Succeeded in Adding New [%s] Inbound Rule!!", protocolType)					
+					cblogger.Infof("Succeeded in Adding New [%s] Inbound Rule!!", protocolType)
 				}
 			}
 		}
 
 		if strings.EqualFold(ruleDirection, "outbound") {
-			protocolType := strings.ToUpper(curRule.IPProtocol) // Caution : Valid values : [TCP, UDP, ICMP] 
+			protocolType := strings.ToUpper(curRule.IPProtocol) // Caution : Valid values : [TCP, UDP, ICMP]
 
 			if strings.EqualFold(protocolType, "ALL") {
 				if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
-					allProtocolTypeCode := []string {"TCP", "UDP", "ICMP"}
+					allProtocolTypeCode := []string{"TCP", "UDP", "ICMP"}
 					var allPortRange string // All Range
 					allCIDR := "0.0.0.0/0"
 
 					for _, curProtocolType := range allProtocolTypeCode {
 						if strings.EqualFold(curProtocolType, "ICMP") {
-							allPortRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+							allPortRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 						} else {
 							allPortRange = "1-65535" // All Range
 						}
 
 						var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
-		
-						ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-							IpBlock: 					&allCIDR,
-							PortRange:					&allPortRange,
-							ProtocolTypeCode: 			&curProtocolType,
+
+						ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+							IpBlock:          &allCIDR,
+							PortRange:        &allPortRange,
+							ProtocolTypeCode: &curProtocolType,
 						}
-			
+
 						ruleParameterList = append(ruleParameterList, &ruleParameter)
-			
+
 						// Create Inbound Security Rule
-						outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest {
-							RegionCode: 				&securityHandler.RegionInfo.Region,
-							AccessControlGroupNo: 		&sgNo,
-							VpcNo: 						&vpcNo,
+						outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest{
+							RegionCode:                 &securityHandler.RegionInfo.Region,
+							AccessControlGroupNo:       &sgNo,
+							VpcNo:                      &vpcNo,
 							AccessControlGroupRuleList: ruleParameterList,
 						}
-			
+
 						callLogStart := call.Start()
 						sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
 						if err != nil {
@@ -688,13 +692,13 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 							return irs.SecurityInfo{}, err
 						}
 						LoggingInfo(callLogInfo, callLogStart)
-			
+
 						if *sgOutboundRule.TotalRows < 1 {
 							return irs.SecurityInfo{}, errors.New("Failed to Add New S/G Outbound Rule!!")
 						} else {
 							cblogger.Infof("Succeeded in Adding New [%s] Outbound Rule!!", curProtocolType)
 
-							time.Sleep(time.Second * 5)  // Caution!!
+							time.Sleep(time.Second * 5) // Caution!!
 						}
 					}
 				} else {
@@ -702,39 +706,39 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 				}
 			} else {
 				var portRange string
-			
+
 				if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-					portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+					portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 				} else if strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort)	// string				
+					portRange = strings.ToLower(curRule.FromPort) // string
 				} else if !strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort) + "-"+ strings.ToLower(curRule.ToPort) // string				
+					portRange = strings.ToLower(curRule.FromPort) + "-" + strings.ToLower(curRule.ToPort) // string
 				}
 
 				if strings.EqualFold(curRule.FromPort, "-1") || strings.EqualFold(curRule.ToPort, "-1") {
 					if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-						portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+						portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 					} else {
 						portRange = "1-65535" // All Range
 					}
 				}
 
-				var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter	
-				ruleParameter := vserver.AddAccessControlGroupRuleParameter {
-					IpBlock: 					&curRule.CIDR,
-					PortRange:					&portRange,
-					ProtocolTypeCode: 			&protocolType,
-				}	
+				var ruleParameterList []*vserver.AddAccessControlGroupRuleParameter
+				ruleParameter := vserver.AddAccessControlGroupRuleParameter{
+					IpBlock:          &curRule.CIDR,
+					PortRange:        &portRange,
+					ProtocolTypeCode: &protocolType,
+				}
 				ruleParameterList = append(ruleParameterList, &ruleParameter)
-	
+
 				// Create Inbound Security Rule
-				outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest {
-					RegionCode: 				&securityHandler.RegionInfo.Region,
-					AccessControlGroupNo: 		&sgNo,
-					VpcNo: 						&vpcNo,
+				outboundReq := vserver.AddAccessControlGroupOutboundRuleRequest{
+					RegionCode:                 &securityHandler.RegionInfo.Region,
+					AccessControlGroupNo:       &sgNo,
+					VpcNo:                      &vpcNo,
 					AccessControlGroupRuleList: ruleParameterList,
 				}
-	
+
 				callLogStart := call.Start()
 				sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
 				if err != nil {
@@ -744,7 +748,7 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 					return irs.SecurityInfo{}, err
 				}
 				LoggingInfo(callLogInfo, callLogStart)
-	
+
 				if *sgOutboundRule.TotalRows < 1 {
 					return irs.SecurityInfo{}, errors.New("Failed to Add New S/G Outbound Rule!!")
 				} else {
@@ -820,33 +824,33 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 
 			if strings.EqualFold(protocolType, "ALL") {
 				if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
-					allProtocolTypeCode := []string {"TCP", "UDP", "ICMP"}
+					allProtocolTypeCode := []string{"TCP", "UDP", "ICMP"}
 					var allPortRange string
 					allCIDR := "0.0.0.0/0"
 
 					for _, curProtocolType := range allProtocolTypeCode {
 						if strings.EqualFold(curProtocolType, "ICMP") {
-							allPortRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+							allPortRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 						} else {
 							allPortRange = "1-65535" // All Range
 						}
 
 						var ruleParameterList []*vserver.RemoveAccessControlGroupRuleParameter
-						ruleParameter := vserver.RemoveAccessControlGroupRuleParameter {
-							IpBlock: 					&allCIDR,
-							PortRange:					&allPortRange,
-							ProtocolTypeCode: 			&curProtocolType,
-						}			
+						ruleParameter := vserver.RemoveAccessControlGroupRuleParameter{
+							IpBlock:          &allCIDR,
+							PortRange:        &allPortRange,
+							ProtocolTypeCode: &curProtocolType,
+						}
 						ruleParameterList = append(ruleParameterList, &ruleParameter)
-			
+
 						// Create Inbound Security Rule
-						inboundReq := vserver.RemoveAccessControlGroupInboundRuleRequest {
-							RegionCode: 				&securityHandler.RegionInfo.Region,
-							AccessControlGroupNo: 		&sgNo,
-							VpcNo: 						&vpcNo,
+						inboundReq := vserver.RemoveAccessControlGroupInboundRuleRequest{
+							RegionCode:                 &securityHandler.RegionInfo.Region,
+							AccessControlGroupNo:       &sgNo,
+							VpcNo:                      &vpcNo,
 							AccessControlGroupRuleList: ruleParameterList,
 						}
-			
+
 						callLogStart := call.Start()
 						sgInboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupInboundRule(&inboundReq)
 						if err != nil {
@@ -856,49 +860,49 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 							return false, err
 						}
 						LoggingInfo(callLogInfo, callLogStart)
-			
+
 						cblogger.Infof("Succeeded in Removing the [%s] Inbound Rule!!", curProtocolType)
 
-						time.Sleep(time.Second * 5)  // Caution!!
+						time.Sleep(time.Second * 5) // Caution!!
 					}
 				} else {
 					return false, errors.New("To Specify 'All Traffic Allow Rule', Specify '-1' as FromPort/ToPort!!")
 				}
 			} else {
 				var portRange string
-			
+
 				if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-					portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+					portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 				} else if strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort)	// string				
+					portRange = strings.ToLower(curRule.FromPort) // string
 				} else if !strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort) + "-"+ strings.ToLower(curRule.ToPort) // string				
+					portRange = strings.ToLower(curRule.FromPort) + "-" + strings.ToLower(curRule.ToPort) // string
 				}
 
 				if strings.EqualFold(curRule.FromPort, "-1") || strings.EqualFold(curRule.ToPort, "-1") {
 					if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-						portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+						portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 					} else {
 						portRange = "1-65535" // All Range
 					}
 				}
-	
+
 				var ruleParameterList []*vserver.RemoveAccessControlGroupRuleParameter
-				ruleParameter := vserver.RemoveAccessControlGroupRuleParameter {
-					IpBlock: 					&curRule.CIDR,
-					PortRange:					&portRange,
-					ProtocolTypeCode: 			&protocolType,
-				}	
+				ruleParameter := vserver.RemoveAccessControlGroupRuleParameter{
+					IpBlock:          &curRule.CIDR,
+					PortRange:        &portRange,
+					ProtocolTypeCode: &protocolType,
+				}
 				ruleParameterList = append(ruleParameterList, &ruleParameter)
-	
+
 				// Create Inbound Security Rule
-				inboundReq := vserver.RemoveAccessControlGroupInboundRuleRequest {
-					RegionCode: 				&securityHandler.RegionInfo.Region,
-					AccessControlGroupNo: 		&sgNo,
-					VpcNo: 						&vpcNo,
+				inboundReq := vserver.RemoveAccessControlGroupInboundRuleRequest{
+					RegionCode:                 &securityHandler.RegionInfo.Region,
+					AccessControlGroupNo:       &sgNo,
+					VpcNo:                      &vpcNo,
 					AccessControlGroupRuleList: ruleParameterList,
 				}
-	
+
 				callLogStart := call.Start()
 				sgInboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupInboundRule(&inboundReq)
 				if err != nil {
@@ -908,43 +912,43 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 					return false, err
 				}
 				LoggingInfo(callLogInfo, callLogStart)
-	
+
 				cblogger.Infof("Succeeded in Removing the [%s] Inbound Rule!!", protocolType)
 			}
 		}
 
 		if strings.EqualFold(ruleDirection, "outbound") {
-			protocolType := strings.ToUpper(curRule.IPProtocol) // Caution : Valid values : [TCP, UDP, ICMP] 
+			protocolType := strings.ToUpper(curRule.IPProtocol) // Caution : Valid values : [TCP, UDP, ICMP]
 
 			if strings.EqualFold(protocolType, "ALL") {
 				if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
-					allProtocolTypeCode := []string {"TCP", "UDP", "ICMP"}
+					allProtocolTypeCode := []string{"TCP", "UDP", "ICMP"}
 					var allPortRange string // All Range
 					allCIDR := "0.0.0.0/0"
 
 					for _, curProtocolType := range allProtocolTypeCode {
 						if strings.EqualFold(curProtocolType, "ICMP") {
-							allPortRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+							allPortRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 						} else {
 							allPortRange = "1-65535" // All Range
 						}
 
-						var ruleParameterList []*vserver.RemoveAccessControlGroupRuleParameter		
-						ruleParameter := vserver.RemoveAccessControlGroupRuleParameter {
-							IpBlock: 					&allCIDR,
-							PortRange:					&allPortRange,
-							ProtocolTypeCode: 			&curProtocolType,
-						}			
+						var ruleParameterList []*vserver.RemoveAccessControlGroupRuleParameter
+						ruleParameter := vserver.RemoveAccessControlGroupRuleParameter{
+							IpBlock:          &allCIDR,
+							PortRange:        &allPortRange,
+							ProtocolTypeCode: &curProtocolType,
+						}
 						ruleParameterList = append(ruleParameterList, &ruleParameter)
-			
+
 						// Create Inbound Security Rule
-						outboundReq := vserver.RemoveAccessControlGroupOutboundRuleRequest {
-							RegionCode: 				&securityHandler.RegionInfo.Region,
-							AccessControlGroupNo: 		&sgNo,
-							VpcNo: 						&vpcNo,
+						outboundReq := vserver.RemoveAccessControlGroupOutboundRuleRequest{
+							RegionCode:                 &securityHandler.RegionInfo.Region,
+							AccessControlGroupNo:       &sgNo,
+							VpcNo:                      &vpcNo,
 							AccessControlGroupRuleList: ruleParameterList,
 						}
-			
+
 						callLogStart := call.Start()
 						sgOutboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupOutboundRule(&outboundReq)
 						if err != nil {
@@ -954,49 +958,49 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 							return false, err
 						}
 						LoggingInfo(callLogInfo, callLogStart)
-			
+
 						cblogger.Infof("Succeeded in Removing the [%s] Outbound Rule!!", curProtocolType)
 
-						time.Sleep(time.Second * 5)  // Caution!!
+						time.Sleep(time.Second * 5) // Caution!!
 					}
 				} else {
 					return false, errors.New("To Specify 'All Traffic Allow Rule', Specify '-1' as FromPort/ToPort!!")
 				}
 			} else {
 				var portRange string
-			
+
 				if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-					portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+					portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 				} else if strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort)	// string				
+					portRange = strings.ToLower(curRule.FromPort) // string
 				} else if !strings.EqualFold(curRule.FromPort, curRule.ToPort) {
-					portRange = strings.ToLower(curRule.FromPort) + "-"+ strings.ToLower(curRule.ToPort) // string				
+					portRange = strings.ToLower(curRule.FromPort) + "-" + strings.ToLower(curRule.ToPort) // string
 				}
-	
+
 				if strings.EqualFold(curRule.FromPort, "-1") || strings.EqualFold(curRule.ToPort, "-1") {
 					if strings.EqualFold(curRule.IPProtocol, "ICMP") {
-						portRange = ""		// string. In case protocolTypeCode is 'ICMP', Do Not input Value
+						portRange = "" // string. In case protocolTypeCode is 'ICMP', Do Not input Value
 					} else {
 						portRange = "1-65535" // All Range
 					}
 				}
 
-				var ruleParameterList []*vserver.RemoveAccessControlGroupRuleParameter	
-				ruleParameter := vserver.RemoveAccessControlGroupRuleParameter {
-					IpBlock: 					&curRule.CIDR,
-					PortRange:					&portRange,
-					ProtocolTypeCode: 			&protocolType,
-				}	
+				var ruleParameterList []*vserver.RemoveAccessControlGroupRuleParameter
+				ruleParameter := vserver.RemoveAccessControlGroupRuleParameter{
+					IpBlock:          &curRule.CIDR,
+					PortRange:        &portRange,
+					ProtocolTypeCode: &protocolType,
+				}
 				ruleParameterList = append(ruleParameterList, &ruleParameter)
-	
+
 				// Create Inbound Security Rule
-				outboundReq := vserver.RemoveAccessControlGroupOutboundRuleRequest {
-					RegionCode: 				&securityHandler.RegionInfo.Region,
-					AccessControlGroupNo: 		&sgNo,
-					VpcNo: 						&vpcNo,
+				outboundReq := vserver.RemoveAccessControlGroupOutboundRuleRequest{
+					RegionCode:                 &securityHandler.RegionInfo.Region,
+					AccessControlGroupNo:       &sgNo,
+					VpcNo:                      &vpcNo,
 					AccessControlGroupRuleList: ruleParameterList,
 				}
-	
+
 				callLogStart := call.Start()
 				sgOutboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupOutboundRule(&outboundReq)
 				if err != nil {
@@ -1006,7 +1010,7 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 					return false, err
 				}
 				LoggingInfo(callLogInfo, callLogStart)
-	
+
 				cblogger.Infof("Succeeded in Removing the [%s] Outbound Rule!!", protocolType)
 			}
 		}
@@ -1024,21 +1028,21 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 	return true, nil
 }
 
-func (securityHandler *NcpVpcSecurityHandler) OpenOutboundAllProtocol(sgIID irs.IID) (error) {
+func (securityHandler *NcpVpcSecurityHandler) OpenOutboundAllProtocol(sgIID irs.IID) error {
 	cblogger.Info("NCP VPC cloud driver: called OpenOutboundAllProtocol()!")
-	
-	InitLog() // Caution!!
-    callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, sgIID.SystemId, "OpenOutboundAllProtocol()")
 
-	reqRules := []irs.SecurityRuleInfo {
-			{
-				Direction: 		"outbound",
-				IPProtocol:  	"ALL",
-				FromPort: 		"-1",
-				ToPort: 		"-1",
-				CIDR: 			"0.0.0.0/0",		
-			},
-		}	
+	InitLog() // Caution!!
+	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, sgIID.SystemId, "OpenOutboundAllProtocol()")
+
+	reqRules := []irs.SecurityRuleInfo{
+		{
+			Direction:  "outbound",
+			IPProtocol: "ALL",
+			FromPort:   "-1",
+			ToPort:     "-1",
+			CIDR:       "0.0.0.0/0",
+		},
+	}
 	_, err := securityHandler.AddRules(sgIID, &reqRules)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Add Outbound Protocol Opening Rule. : [%v]", err)
@@ -1060,10 +1064,10 @@ func (securityHandler *NcpVpcSecurityHandler) mappingSecurityInfo(ncpVpcSG vserv
 	}
 
 	securityInfo := irs.SecurityInfo{
-		IId: 			irs.IID{NameId: ncloud.StringValue(ncpVpcSG.AccessControlGroupName), SystemId: ncloud.StringValue(ncpVpcSG.AccessControlGroupNo)},
-		VpcIID: 		irs.IID{SystemId: ncloud.StringValue(ncpVpcSG.VpcNo)},
-		SecurityRules: 	&sgRuleList,
-		KeyValueList:   irs.StructToKeyValueList(ncpVpcSG),
+		IId:           irs.IID{NameId: ncloud.StringValue(ncpVpcSG.AccessControlGroupName), SystemId: ncloud.StringValue(ncpVpcSG.AccessControlGroupNo)},
+		VpcIID:        irs.IID{SystemId: ncloud.StringValue(ncpVpcSG.VpcNo)},
+		SecurityRules: &sgRuleList,
+		KeyValueList:  irs.StructToKeyValueList(ncpVpcSG),
 	}
 	return securityInfo, nil
 }
@@ -1072,9 +1076,9 @@ func (securityHandler *NcpVpcSecurityHandler) mappingSecurityInfo(ncpVpcSG vserv
 func (securityHandler *NcpVpcSecurityHandler) ExtractSecurityRuleInfo(ncpVpcSGId string) ([]irs.SecurityRuleInfo, error) {
 	var securityRuleList []irs.SecurityRuleInfo
 
-	sgRuleReq := vserver.GetAccessControlGroupRuleListRequest {
-		RegionCode: 			&securityHandler.RegionInfo.Region,
-		AccessControlGroupNo: 	ncloud.String(ncpVpcSGId),
+	sgRuleReq := vserver.GetAccessControlGroupRuleListRequest{
+		RegionCode:           &securityHandler.RegionInfo.Region,
+		AccessControlGroupNo: ncloud.String(ncpVpcSGId),
 	}
 	ruleListResult, err := securityHandler.VMClient.V2Api.GetAccessControlGroupRuleList(&sgRuleReq)
 	if err != nil {
@@ -1087,20 +1091,20 @@ func (securityHandler *NcpVpcSecurityHandler) ExtractSecurityRuleInfo(ncpVpcSGId
 	}
 
 	for _, curRule := range ruleListResult.AccessControlGroupRuleList {
-		curRuleInfo := irs.SecurityRuleInfo {
+		curRuleInfo := irs.SecurityRuleInfo{
 			IPProtocol: ncloud.StringValue(curRule.ProtocolType.CodeName),
-			Direction: 	strings.ToLower(ncloud.StringValue(curRule.AccessControlGroupRuleType.CodeName)),			
-			CIDR: 		ncloud.StringValue(curRule.IpBlock),
+			Direction:  strings.ToLower(ncloud.StringValue(curRule.AccessControlGroupRuleType.CodeName)),
+			CIDR:       ncloud.StringValue(curRule.IpBlock),
 		}
 
 		if strings.EqualFold(curRuleInfo.IPProtocol, "icmp") {
-			curRuleInfo.FromPort = "-1"		// string
-			curRuleInfo.ToPort = "-1"		// string
+			curRuleInfo.FromPort = "-1" // string
+			curRuleInfo.ToPort = "-1"   // string
 		} else if strings.Contains(ncloud.StringValue(curRule.PortRange), "-") {
 			portNo := strings.Split(ncloud.StringValue(curRule.PortRange), "-")
 
-			curRuleInfo.FromPort = portNo[0]		// string
-			curRuleInfo.ToPort = portNo[1]	// string
+			curRuleInfo.FromPort = portNo[0] // string
+			curRuleInfo.ToPort = portNo[1]   // string
 		} else {
 			curRuleInfo.FromPort = ncloud.StringValue(curRule.PortRange)
 			curRuleInfo.ToPort = ncloud.StringValue(curRule.PortRange)
@@ -1114,11 +1118,11 @@ func (securityHandler *NcpVpcSecurityHandler) ExtractSecurityRuleInfo(ncpVpcSGId
 func (securityHandler *NcpVpcSecurityHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("NCP VPC cloud driver: called securityHandler ListIID()!!")
 	InitLog()
-    callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "ListIID()", "ListIID()")
+	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "ListIID()", "ListIID()")
 
 	sgReq := vserver.GetAccessControlGroupListRequest{
-		RegionCode: 				&securityHandler.RegionInfo.Region,
-		AccessControlGroupNoList: 	nil,
+		RegionCode:               &securityHandler.RegionInfo.Region,
+		AccessControlGroupNoList: nil,
 	}
 
 	// Search NCP VPC AccessControlGroup list
@@ -1136,11 +1140,11 @@ func (securityHandler *NcpVpcSecurityHandler) ListIID() ([]*irs.IID, error) {
 	if len(sgList.AccessControlGroupList) < 1 {
 		cblogger.Debug("### S/G does Not Exist!!")
 	} else {
-		for _, sg := range sgList.AccessControlGroupList{
+		for _, sg := range sgList.AccessControlGroupList {
 			var iid irs.IID
 			iid.NameId = ncloud.StringValue(sg.AccessControlGroupName)
 			iid.SystemId = ncloud.StringValue(sg.AccessControlGroupNo)
-	
+
 			iidList = append(iidList, &iid)
 		}
 	}
