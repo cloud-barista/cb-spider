@@ -13,28 +13,30 @@ package nlbinfomanager
 import (
 	"fmt"
 	"strings"
+
 	"github.com/sirupsen/logrus"
 
-	idrv 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	infostore 	"github.com/cloud-barista/cb-spider/info-store"	
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 
-	cblog 		"github.com/cloud-barista/cb-log"
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 const KEY_COLUMN_NAME = "nlb_id"
 
 type NlbInfo struct {
-	NlbID   			string          	`gorm:"primaryKey"`
-	ProviderName      	string               // ex) "KT"
-	KeyValueInfoList  	infostore.KVList 	`gorm:"type:text"`
+	NlbID            string           `gorm:"primaryKey"`
+	ProviderName     string           // ex) "KT"
+	KeyValueInfoList infostore.KVList `gorm:"type:text"`
 }
 
 var cblogger *logrus.Logger
+
 func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
 	db, err := infostore.Open()
 	if err != nil {
-		panic("failed to connect database")
+		panic(fmt.Sprintf("failed to connect database: %v", err))
 	}
 	db.AutoMigrate(&NlbInfo{})
 	infostore.Close(db)
