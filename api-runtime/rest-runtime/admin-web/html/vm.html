@@ -754,7 +754,7 @@ THE SOFTWARE.
         margin-right: 5px;
     }
 
-    #dataDiskSelect, #securityGroupSelect {
+    #dataDiskSelect {
         border: 1px solid #767676;
         padding: 2px 5px;
         flex: 2;
@@ -765,7 +765,183 @@ THE SOFTWARE.
         max-height: 80px;
     }
 
-    #dataDiskSelect p, #securityGroupSelect p {
+    /* Custom dropdown for Data Disks */
+    .dd-custom-select {
+        position: relative;
+        flex: 2;
+    }
+
+    .dd-selected-display {
+        background-color: #f3f3fd;
+        border: 1px solid #767676;
+        padding: 2px 8px 2px 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 22px;
+    }
+
+    .dd-selected-display:hover {
+        border-color: #555;
+    }
+
+    .dd-selected-display span:first-child {
+        font-size: 14px;
+        text-align: left;
+        flex: 1;
+    }
+
+    .dd-dropdown-arrow {
+        font-size: 12px;
+        font-weight: bold;
+        color: #666;
+        margin-left: 5px;
+    }
+
+    .dd-dropdown-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #767676;
+        border-top: none;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 0;
+        margin: 0;
+    }
+
+    .dd-dropdown-list * {
+        box-sizing: border-box;
+    }
+
+    .dd-dropdown-list.open {
+        display: block;
+    }
+
+    .dd-dropdown-item {
+        padding: 3px;
+        margin: 0;
+        cursor: pointer;
+        display: block;
+        line-height: 20px;
+    }
+
+    .dd-dropdown-item:hover {
+        background-color: #f0f0f0;
+    }
+
+    .dd-dropdown-item input[type="checkbox"] {
+        margin: 0;
+        padding: 0;
+        vertical-align: middle;
+        width: 13px;
+        height: 13px;
+        display: inline-block;
+    }
+
+    .dd-dropdown-item label {
+        cursor: pointer;
+        margin: 0;
+        padding-left: 5px;
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    /* Custom dropdown for Security Groups */
+    .sg-custom-select {
+        position: relative;
+        flex: 2;
+    }
+
+    .sg-selected-display {
+        background-color: #f3f3fd;
+        border: 1px solid #767676;
+        padding: 2px 8px 2px 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 22px;
+    }
+
+    .sg-selected-display:hover {
+        border-color: #555;
+    }
+
+    .sg-selected-display span:first-child {
+        font-size: 14px;
+        text-align: left;
+        flex: 1;
+    }
+
+    .sg-dropdown-arrow {
+        font-size: 12px;
+        font-weight: bold;
+        color: #666;
+        margin-left: 5px;
+    }
+
+    .sg-dropdown-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #767676;
+        border-top: none;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 0;
+        margin: 0;
+    }
+
+    .sg-dropdown-list * {
+        box-sizing: border-box;
+    }
+
+    .sg-dropdown-list.open {
+        display: block;
+    }
+
+    .sg-dropdown-item {
+        padding: 3px;
+        margin: 0;
+        cursor: pointer;
+        display: block;
+        line-height: 20px;
+    }
+
+    .sg-dropdown-item:hover {
+        background-color: #f0f0f0;
+    }
+
+    .sg-dropdown-item input[type="checkbox"] {
+        margin: 0;
+        padding: 0;
+        vertical-align: middle;
+        width: 13px;
+        height: 13px;
+        display: inline-block;
+    }
+
+    .sg-dropdown-item label {
+        cursor: pointer;
+        margin: 0;
+        padding-left: 5px;
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    #dataDiskSelect p, .sg-custom-select p {
         margin: 2px 0;
         font-size: 12px;
     }
@@ -1402,7 +1578,13 @@ THE SOFTWARE.
                 <div class="form-group-container">
                     <div class="form-group">
                         <label for="securityGroupSelect">Security Groups:</label>
-                        <div id="securityGroupSelect" name="securityGroupSelect"></div>
+                        <div class="sg-custom-select" id="securityGroupSelectWrapper">
+                            <div class="sg-selected-display" id="sgSelectedDisplay" onclick="toggleSGDropdown()">
+                                <span id="sgSelectedText">Please select a VPC first.</span>
+                                <span class="sg-dropdown-arrow">v</span>
+                            </div>
+                            <div class="sg-dropdown-list" id="sgDropdownList"></div>
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -1463,7 +1645,13 @@ THE SOFTWARE.
                     
                     <div class="form-group">
                         <label for="dataDiskSelect">Data Disk Names:</label>
-                        <div id="dataDiskSelect" name="dataDiskSelect"></div>
+                        <div class="dd-custom-select" id="dataDiskSelectWrapper">
+                            <div class="dd-selected-display" id="ddSelectedDisplay" onclick="toggleDDDropdown()">
+                                <span id="ddSelectedText">No zone selected</span>
+                                <span class="dd-dropdown-arrow">v</span>
+                            </div>
+                            <div class="dd-dropdown-list" id="ddDropdownList"></div>
+                        </div>
                     </div>
                 </div>              
                                 
@@ -1822,16 +2010,16 @@ THE SOFTWARE.
                     <thead>
                         <tr id="recent-table-header">
                             <th style="width: 30px;">#</th>
-                            <th id="recent-csp-header" style="width: 60px; display: none;">CSP</th>
-                            <th id="recent-region-header" style="width: 80px; display: none;">Region</th>
-                            <th id="recent-zone-header" style="width: 80px; display: none;">Zone</th>
-                            <th style="width: 140px; text-align: center;">Image Name</th>
-                            <th style="width: 130px; text-align: center;">Spec Name</th>
-                            <th style="width: 65px;">OS Arch</th>
-                            <th style="width: 70px;">CPU</th>
-                            <th style="width: 65px;">GPU</th>
-                            <th style="width: 70px;">Price/Hr</th>
-                            <th style="width: 65px;">Avg Time</th>
+                            <th id="recent-csp-header" onclick="sortRecentTable('csp')" style="cursor: pointer; user-select: none; width: 60px; display: none;" title="Click to sort">CSP</th>
+                            <th id="recent-region-header" onclick="sortRecentTable('region')" style="cursor: pointer; user-select: none; width: 80px; display: none;" title="Click to sort">Region</th>
+                            <th id="recent-zone-header" onclick="sortRecentTable('zone')" style="cursor: pointer; user-select: none; width: 80px; display: none;" title="Click to sort">Zone</th>
+                            <th onclick="sortRecentTable('image_name')" style="cursor: pointer; user-select: none; width: 140px; text-align: center;" title="Click to sort">Image Name</th>
+                            <th onclick="sortRecentTable('spec_name')" style="cursor: pointer; user-select: none; width: 130px; text-align: center;" title="Click to sort">Spec Name</th>
+                            <th onclick="sortRecentTable('os_arch')" style="cursor: pointer; user-select: none; width: 65px;" title="Click to sort">OS Arch</th>
+                            <th onclick="sortRecentTable('cpu')" style="cursor: pointer; user-select: none; width: 70px;" title="Click to sort">CPU</th>
+                            <th onclick="sortRecentTable('gpu')" style="cursor: pointer; user-select: none; width: 65px;" title="Click to sort">GPU</th>
+                            <th onclick="sortRecentTable('price')" style="cursor: pointer; user-select: none; width: 70px;" title="Click to sort">Price/Hr</th>
+                            <th onclick="sortRecentTable('avg_time')" style="cursor: pointer; user-select: none; width: 65px;" title="Click to sort">Avg Time</th>
                             <th onclick="sortRecentTable('count')" style="cursor: pointer; user-select: none; width: 45px;" title="Click to sort">Count</th>
                             <th onclick="sortRecentTable('last_created')" style="cursor: pointer; user-select: none; width: 120px;" title="Click to sort">Last Created</th>
                             <th style="width: 80px;">
@@ -1870,9 +2058,9 @@ THE SOFTWARE.
                     <thead>
                         <tr id="favorite-table-header">
                             <th style="width: 30px;">#</th>
-                            <th id="favorite-csp-header" style="width: 60px; display: none;">CSP</th>
-                            <th id="favorite-region-header" style="width: 80px; display: none;">Region</th>
-                            <th id="favorite-zone-header" style="width: 80px; display: none;">Zone</th>
+                            <th id="favorite-csp-header" onclick="sortFavoriteTable('csp')" style="cursor: pointer; user-select: none; width: 60px; display: none;" title="Click to sort">CSP</th>
+                            <th id="favorite-region-header" onclick="sortFavoriteTable('region')" style="cursor: pointer; user-select: none; width: 80px; display: none;" title="Click to sort">Region</th>
+                            <th id="favorite-zone-header" onclick="sortFavoriteTable('zone')" style="cursor: pointer; user-select: none; width: 80px; display: none;" title="Click to sort">Zone</th>
                             <th onclick="sortFavoriteTable('image_name')" style="cursor: pointer; user-select: none; width: 140px; text-align: center;" title="Click to sort">Image Name</th>
                             <th onclick="sortFavoriteTable('spec_name')" style="cursor: pointer; user-select: none; width: 130px; text-align: center;" title="Click to sort">Spec Name</th>
                             <th onclick="sortFavoriteTable('os_arch')" style="cursor: pointer; user-select: none; width: 65px;" title="Click to sort">OS Arch</th>
@@ -2207,7 +2395,7 @@ THE SOFTWARE.
         }
 
         // Validate that at least one security group is selected
-        const selectedSecurityGroups = document.querySelectorAll('#securityGroupSelect input[type="checkbox"]:checked');
+        const selectedSecurityGroups = document.querySelectorAll('.sg-checkbox:checked');
         if (selectedSecurityGroups.length === 0) {
             alert('Please select at least one Security Group.');
             return;
@@ -2227,10 +2415,10 @@ THE SOFTWARE.
                     VMSpecName: document.getElementById('vmSpecName').value,
                     VPCName: document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0],
                     SubnetName: document.getElementById('subnetSelect').value,
-                    SecurityGroupNames: Array.from(document.querySelectorAll('#securityGroupSelect input[type="checkbox"]:checked')).map(checkbox => checkbox.value),
+                    SecurityGroupNames: Array.from(document.querySelectorAll('.sg-checkbox:checked')).map(checkbox => checkbox.value),
                     RootDiskType: document.getElementById('rootDiskType').value,
                     RootDiskSize: document.getElementById('rootDiskSize').value || undefined,  
-                    DataDiskNames: Array.from(document.querySelectorAll('#dataDiskSelect input[type="checkbox"]:checked')).map(checkbox => checkbox.value),    
+                    DataDiskNames: Array.from(document.querySelectorAll('.dd-checkbox:checked')).map(checkbox => checkbox.value),    
                     KeyPairName: document.getElementById('keypairSelect').value,
                     VMUserId: document.getElementById('vmUserId').value,
                     VMUserPasswd: document.getElementById('vmUserPasswd').value,
@@ -2731,9 +2919,23 @@ THE SOFTWARE.
                 option.value = subnet.IId.NameId;
                 option.textContent = `${subnet.IId.NameId} (${subnet.IPv4_CIDR})`;
                 
+                // Determine the actual zone name
+                let actualZone = subnet.Zone;
+                
+                // For CSPs like KT where subnet.Zone is a UUID, check KeyValueList for PortalZoneID
+                // Only override if subnet.Zone looks like a UUID and PortalZoneID exists
+                if (subnet.Zone && subnet.Zone.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                    if (subnet.KeyValueList) {
+                        const portalZoneKV = subnet.KeyValueList.find(kv => kv.Key === 'PortalZoneID');
+                        if (portalZoneKV && portalZoneKV.Value) {
+                            actualZone = portalZoneKV.Value;
+                        }
+                    }
+                }
+                
                 // Set zone as data attribute
-                if (subnet.Zone) {
-                    option.setAttribute('data-zone', subnet.Zone);
+                if (actualZone) {
+                    option.setAttribute('data-zone', actualZone);
                 }
                 
                 subnetSelect.appendChild(option);
@@ -2742,13 +2944,8 @@ THE SOFTWARE.
             // Explicitly select first subnet
             subnetSelect.selectedIndex = 0;
             
-            // Update zone display for first subnet
+            // Update zone display for first subnet (this will also call loadDataDisks internally)
             updateSelectedSubnetZone();
-            
-            // Load data disks for first subnet's zone
-            if (selectedSubnets[0].Zone) {
-                loadDataDisks(selectedSubnets[0].Zone);
-            }
         } else {
             subnetSelect.innerHTML = '<option>No subnets available for this VPC.</option>';
             if (subnetZoneInput) {
@@ -2776,17 +2973,19 @@ THE SOFTWARE.
             const zone = selectedOption.getAttribute('data-zone') || selectedOption.dataset.zone;
             
             if (zone) {
-                // Fetch zone details to get DisplayName
-                fetchZoneDisplayName(zone).then(displayName => {
-                    if (displayName) {
-                        subnetZoneInput.value = `${zone} (${displayName})`;
+                // Fetch actual zone Name (converts UUID to zone name for KT, etc.)
+                fetchZoneDisplayName(zone).then(actualZoneName => {
+                    if (actualZoneName) {
+                        subnetZoneInput.value = actualZoneName;
+                        loadDataDisks(actualZoneName);
                     } else {
                         subnetZoneInput.value = zone;
+                        loadDataDisks(zone);
                     }
                 }).catch(() => {
                     subnetZoneInput.value = zone;
+                    loadDataDisks(zone);
                 });
-                loadDataDisks(zone);
             } else {
                 subnetZoneInput.value = '';
             }
@@ -2795,24 +2994,65 @@ THE SOFTWARE.
         }
     }
 
+    // Cache for zone mapping (UUID -> Zone Name)
+    let zoneMapping = {};
+    let zoneMappingPromise = null;
+
+    // Load zone mapping once and cache it
+    async function loadZoneMapping() {
+        if (zoneMappingPromise) {
+            return zoneMappingPromise;
+        }
+        
+        zoneMappingPromise = (async () => {
+            try {
+                const regionId = '{{.Region}}';
+                const connConfig = document.getElementById('connConfig').value;
+                
+                const response = await fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`);
+                const data = await response.json();
+                
+                if (data && data.ZoneList) {
+                    // Build mapping: if subnet.Zone contains UUID, we need to find how to map it
+                    // For now, assume only one zone in the list for KT, so we map directly
+                    data.ZoneList.forEach(zone => {
+                        // Map zone name to itself
+                        zoneMapping[zone.Name] = zone.Name;
+                        
+                        // Check KeyValueList for SystemId or other identifiers
+                        if (zone.KeyValueList) {
+                            zone.KeyValueList.forEach(kv => {
+                                if (kv.Key.toLowerCase().includes('id') || kv.Key.toLowerCase().includes('uuid')) {
+                                    zoneMapping[kv.Value] = zone.Name;
+                                }
+                            });
+                        }
+                    });
+                }
+                return zoneMapping;
+            } catch (error) {
+                console.error('Error loading zone mapping:', error);
+                return {};
+            }
+        })();
+        
+        return zoneMappingPromise;
+    }
+
     async function fetchZoneDisplayName(zoneName) {
         try {
-            const regionId = '{{.Region}}';
-            const connConfig = document.getElementById('connConfig').value;
+            // Load zone mapping if not already loaded
+            await loadZoneMapping();
             
-            const response = await fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`);
-            const data = await response.json();
-            
-            if (data && data.ZoneList) {
-                const zoneInfo = data.ZoneList.find(z => z.Name === zoneName);
-                if (zoneInfo && zoneInfo.DisplayName) {
-                    return zoneInfo.DisplayName;
-                }
+            // Check if we have a mapping for this zone
+            if (zoneMapping[zoneName]) {
+                return zoneMapping[zoneName];
             }
-            return null;
+            
+            return zoneName;
         } catch (error) {
             console.error('Error fetching zone display name:', error);
-            return null;
+            return zoneName;
         }
     }
 
@@ -2853,12 +3093,13 @@ THE SOFTWARE.
 
     function loadSecurityGroups() {
         const connConfig = document.getElementById('connConfig').value;
-        const securityGroupSelect = document.getElementById('securityGroupSelect');
+        const sgDropdownList = document.getElementById('sgDropdownList');
+        const sgSelectedText = document.getElementById('sgSelectedText');
         const vpcName = document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0];
         const url = `/spider/securitygroup/vpc/${vpcName}?ConnectionName=${connConfig}`
         
-        if (!securityGroupSelect) {
-            console.error('Security Group select element not found');
+        if (!sgDropdownList) {
+            console.error('Security Group dropdown element not found');
             return;
         }
 
@@ -2870,37 +3111,70 @@ THE SOFTWARE.
         })
         .then(response => response.json())
         .then(data => {
-            securityGroupSelect.innerHTML = ''; // Clear existing options
+            sgDropdownList.innerHTML = ''; // Clear existing options
 
             if (data.securitygroup && data.securitygroup.length > 0) {
-                data.securitygroup.forEach(sg => {
-                    const checkboxWrapper = document.createElement('div');
-                    checkboxWrapper.className = 'checkbox-wrapper';
+                data.securitygroup.forEach((sg, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'sg-dropdown-item';
                     
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.value = sg.IId.NameId;
                     checkbox.id = `sg-${sg.IId.NameId}`;
-                    checkbox.name = 'securityGroupCheckbox';
+                    checkbox.className = 'sg-checkbox';
+                    // Auto-check first security group
+                    if (index === 0) {
+                        checkbox.checked = true;
+                    }
+                    checkbox.onchange = updateSGSelectedDisplay;
                     
                     const label = document.createElement('label');
                     label.htmlFor = `sg-${sg.IId.NameId}`;
                     label.textContent = sg.IId.NameId;
                     
-                    checkboxWrapper.appendChild(checkbox);
-                    checkboxWrapper.appendChild(label);
-                    securityGroupSelect.appendChild(checkboxWrapper);
+                    item.appendChild(checkbox);
+                    item.appendChild(label);
+                    sgDropdownList.appendChild(item);
                 });
+                
+                // Update display with initially selected item
+                updateSGSelectedDisplay();
             } else {
-                const noSGMessage = document.createElement('p');
-                noSGMessage.textContent = 'No security groups available for this VPC.';
-                securityGroupSelect.appendChild(noSGMessage);
+                sgSelectedText.textContent = 'No security groups available for this VPC';
             }
         })
         .catch(error => {
             alert('Error loading security groups: ' + error.message);
         });
     }
+
+    function toggleSGDropdown() {
+        const dropdown = document.getElementById('sgDropdownList');
+        dropdown.classList.toggle('open');
+    }
+
+    function updateSGSelectedDisplay() {
+        const checkboxes = document.querySelectorAll('.sg-checkbox:checked');
+        const sgSelectedText = document.getElementById('sgSelectedText');
+        
+        if (checkboxes.length === 0) {
+            sgSelectedText.textContent = 'Select security groups';
+        } else if (checkboxes.length === 1) {
+            sgSelectedText.textContent = checkboxes[0].value;
+        } else {
+            sgSelectedText.textContent = `${checkboxes[0].value} (+${checkboxes.length - 1} more)`;
+        }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const wrapper = document.getElementById('securityGroupSelectWrapper');
+        const dropdown = document.getElementById('sgDropdownList');
+        if (wrapper && dropdown && !wrapper.contains(event.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
 
     function showProvisioningInfoOverlay(vmInfo) {
         const overlay = document.getElementById('provisioningInfoOverlay');
@@ -3175,6 +3449,13 @@ THE SOFTWARE.
 
     function loadDataDisks(zone) {
         const connConfig = document.getElementById('connConfig').value;
+        const ddDropdownList = document.getElementById('ddDropdownList');
+        const ddSelectedText = document.getElementById('ddSelectedText');
+
+        if (!ddDropdownList) {
+            console.error('Data Disk dropdown element not found');
+            return;
+        }
 
         fetch(`/spider/disk?ConnectionName=${connConfig}`, {
             method: 'GET',
@@ -3184,42 +3465,67 @@ THE SOFTWARE.
         })
         .then(response => response.json())
         .then(data => {
-            const diskSelect = document.getElementById('dataDiskSelect');
-            diskSelect.innerHTML = '';
+            ddDropdownList.innerHTML = '';
             
             const filteredDisks = data.disk.filter(disk => disk.Zone === zone && disk.Status === "Available");
             
             if (filteredDisks.length > 0){
                 filteredDisks.forEach(disk => {
-                    if (disk.Zone === zone && disk.Status === "Available"){
-                        const checkboxWrapper = document.createElement('div');
-                        checkboxWrapper.className = 'checkbox-wrapper';
-
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.name = 'disks';
-                        checkbox.value = disk.IId.NameId;
-                        checkbox.id = `disk-${disk.IId.NameId}`;
-
-                        const label = document.createElement('label');
-                        label.htmlFor = `disk-${disk.IId.NameId}`;
-                        label.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
-
-                        checkboxWrapper.appendChild(checkbox);
-                        checkboxWrapper.appendChild(label);
-
-                        diskSelect.appendChild(checkboxWrapper);
-                    }
+                    const item = document.createElement('div');
+                    item.className = 'dd-dropdown-item';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = disk.IId.NameId;
+                    checkbox.id = `disk-${disk.IId.NameId}`;
+                    checkbox.className = 'dd-checkbox';
+                    checkbox.onchange = updateDDSelectedDisplay;
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = `disk-${disk.IId.NameId}`;
+                    label.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
+                    
+                    item.appendChild(checkbox);
+                    item.appendChild(label);
+                    ddDropdownList.appendChild(item);
                 });
+                
+                updateDDSelectedDisplay();
             } else {
-                const noDiskMessage = document.createElement('p');
-                noDiskMessage.textContent = 'No disks available in the same zone.';
-                diskSelect.appendChild(noDiskMessage);
+                ddSelectedText.textContent = 'No disks available in the same zone';
             }
         }).catch(error =>{
             alert("Error loading data disks: " + error.message);
         });
     }
+
+    function toggleDDDropdown() {
+        const dropdown = document.getElementById('ddDropdownList');
+        dropdown.classList.toggle('open');
+    }
+
+    function updateDDSelectedDisplay() {
+        const checkboxes = document.querySelectorAll('.dd-checkbox:checked');
+        const ddSelectedText = document.getElementById('ddSelectedText');
+        
+        if (checkboxes.length === 0) {
+            ddSelectedText.textContent = 'Select data disks';
+        } else if (checkboxes.length === 1) {
+            ddSelectedText.textContent = checkboxes[0].nextElementSibling.textContent;
+        } else {
+            const firstName = checkboxes[0].nextElementSibling.textContent.split(' ')[0];
+            ddSelectedText.textContent = `${firstName} (+${checkboxes.length - 1} more)`;
+        }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const wrapper = document.getElementById('dataDiskSelectWrapper');
+        const dropdown = document.getElementById('ddDropdownList');
+        if (wrapper && dropdown && !wrapper.contains(event.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
 
     document.getElementById('subnetSelect').addEventListener('change', function() {
         const selectedZone = this.options[this.selectedIndex].dataset.zone;
@@ -3520,6 +3826,13 @@ THE SOFTWARE.
         const overlay = document.getElementById('image-selection-overlay');
         overlay.style.display = 'flex';
         document.addEventListener('keydown', handleImageSelectionOverlayEsc);
+        
+        // Set Image Name filter from Add New VM form if it has a value
+        const currentImageName = document.getElementById('imageName');
+        const imageFilterName = document.getElementById('image-filter-name');
+        if (currentImageName && currentImageName.value && imageFilterName) {
+            imageFilterName.value = currentImageName.value.trim();
+        }
         
         // Get current connection info and set filters
         getConnectionInfo().then(info => {
@@ -4397,6 +4710,13 @@ THE SOFTWARE.
         const overlay = document.getElementById('spec-selection-overlay');
         overlay.style.display = 'flex';
         document.addEventListener('keydown', handleSpecSelectionOverlayEsc);
+        
+        // Set Spec Name filter from Add New VM form if it has a value
+        const currentSpecName = document.getElementById('vmSpecName');
+        const specFilterName = document.getElementById('spec-filter-name');
+        if (currentSpecName && currentSpecName.value && specFilterName) {
+            specFilterName.value = currentSpecName.value.trim();
+        }
         
         // Display selected OS Arch if available
         const osArchDisplay = document.getElementById('spec-os-arch-display');
@@ -6194,83 +6514,78 @@ THE SOFTWARE.
             }
             
             const newData = [];
-            for (let i = 0; i < recentList.length; i++) {
-                const record = recentList[i];
-                
-                let osArch = '-';
-                let osPlatform = '-';
-                let osDistribution = '-';
-                let cpuInfo = '-';
-                let gpuInfo = '-';
-                let priceDisplay = '$-';
-                
-                // Only fetch MC-Insight data in non-All mode (single connection)
-                if (!isAllMode) {
-                    // Fetch image and spec info from MC-Insight
-                    const imageInfo = await fetchImageInfoForRecent(connInfo, record.Zone, record.ImageName);
-                    const specInfo = await fetchSpecInfoForRecent(connInfo, record.Zone, record.SpecName);
+            
+            // Fetch MC-Insight data in parallel for better performance
+            if (!isAllMode) {
+                const fetchPromises = recentList.map(async (record) => {
+                    // Use DB stored data for all fields including price
+                    let osArch = record.OSArch || '-';
+                    let osPlatform = record.OsPlatform || '-';
+                    let osDistribution = record.OsDistribution || '-';
+                    let cpuInfo = record.CPUInfo || '-';
+                    let gpuInfo = record.GPUInfo || '-';
+                    let priceDisplay = record.PriceInfo || '$-';
                     
-                    // Extract OS information separately
-                    osArch = (imageInfo?.os_architecture && imageInfo.os_architecture !== 'NA' && imageInfo.os_architecture !== '-') ? imageInfo.os_architecture : '-';
-                    osPlatform = (imageInfo?.os_platform && imageInfo.os_platform !== 'na' && imageInfo.os_platform !== 'NA' && imageInfo.os_platform !== '-') ? imageInfo.os_platform : '-';
-                    osDistribution = (imageInfo?.os_distribution && imageInfo.os_distribution !== 'NA' && imageInfo.os_distribution !== '-') ? imageInfo.os_distribution : '-';
-                    
-                    // Format CPU/Memory info
-                    if (specInfo) {
-                        const hasCPU = specInfo.vcpu_count && specInfo.vcpu_count !== -1;
-                        const hasMemory = specInfo.mem_size_mib && specInfo.mem_size_mib !== -1;
-                        const cpuValue = hasCPU ? specInfo.vcpu_count : '-';
-                        const memValue = hasMemory ? Math.round(specInfo.mem_size_mib / 1024) : '-';
-                        cpuInfo = `${cpuValue}/${memValue} GiB`;
-                    }
-                    
-                    // Format GPU info
-                    if (specInfo) {
-                        const hasGPU = specInfo.gpu_count && specInfo.gpu_count > 0;
-                        const hasGPUMem = specInfo.gpu_mem_size_gb && specInfo.gpu_mem_size_gb !== -1;
-                        const hasGPUModel = specInfo.gpu_model && specInfo.gpu_model !== 'NA' && specInfo.gpu_model !== '-';
-                        
-                        if (hasGPU || hasGPUMem) {
-                            const gpuValue = hasGPU ? specInfo.gpu_count : '-';
-                            const gpuMemValue = hasGPUMem ? specInfo.gpu_mem_size_gb : '-';
-                            gpuInfo = `${gpuValue}/${gpuMemValue} GB`;
-                        } else if (hasGPUModel) {
-                            gpuInfo = specInfo.gpu_model;
-                        }
-                    }
-                    
-                    // Format price info
-                    if (specInfo?.price_per_hour && specInfo.price_per_hour > 0) {
-                        const priceValue = parseFloat(specInfo.price_per_hour);
-                        if (!isNaN(priceValue)) {
-                            priceDisplay = `$${priceValue.toFixed(4)}`;
-                        }
-                    }
-                }
+                    return { record, osArch, osPlatform, osDistribution, cpuInfo, gpuInfo, priceDisplay };
+                });
                 
-                // Check if favorited
-                const isFavorite = await checkIfFavorite(record.CSP, record.Region, record.Zone, record.ImageName, record.SpecName);
+                const results = await Promise.all(fetchPromises);
                 
-                const itemData = {
-                    ...record,
-                    osArch,
-                    osPlatform,
-                    osDistribution,
-                    cpuInfo,
-                    gpuInfo,
-                    priceDisplay,
-                    isFavorite
-                };
-                
-                // Check if this item already exists in All mode
-                const key = `${record.CSP}|${record.Region}|${record.Zone}|${record.ImageName}|${record.SpecName}`;
-                if (isAllMode && existingDataMap.has(key)) {
-                    // Use existing data with metadata
-                    newData.push(existingDataMap.get(key));
-                    existingDataMap.delete(key); // Remove from map to avoid duplicates
-                } else {
-                    // Add new data
+                // Process results
+                for (const { record, osArch, osPlatform, osDistribution, cpuInfo, gpuInfo, priceDisplay } of results) {
+                    // Check if favorited
+                    const isFavorite = await checkIfFavorite(record.CSP, record.Region, record.Zone, record.ImageName, record.SpecName);
+                    
+                    const itemData = {
+                        ...record,
+                        osArch,
+                        osPlatform,
+                        osDistribution,
+                        cpuInfo,
+                        gpuInfo,
+                        priceDisplay,
+                        isFavorite
+                    };
+                    
                     newData.push(itemData);
+                }
+            } else {
+                // In All mode, just process without MC-Insight data
+                for (let i = 0; i < recentList.length; i++) {
+                    const record = recentList[i];
+                    
+                    // Use DB stored data
+                    const osArch = record.OSArch || '-';
+                    const osPlatform = record.OsPlatform || '-';
+                    const osDistribution = record.OsDistribution || '-';
+                    const cpuInfo = record.CPUInfo || '-';
+                    const gpuInfo = record.GPUInfo || '-';
+                    const priceDisplay = record.PriceInfo || '$-';
+                    
+                    // Check if favorited
+                    const isFavorite = await checkIfFavorite(record.CSP, record.Region, record.Zone, record.ImageName, record.SpecName);
+                    
+                    const itemData = {
+                        ...record,
+                        osArch,
+                        osPlatform,
+                        osDistribution,
+                        cpuInfo,
+                        gpuInfo,
+                        priceDisplay,
+                        isFavorite
+                    };
+                    
+                    // Check if this item already exists in All mode
+                    const key = `${record.CSP}|${record.Region}|${record.Zone}|${record.ImageName}|${record.SpecName}`;
+                    if (existingDataMap.has(key)) {
+                        // Use existing data with metadata
+                        newData.push(existingDataMap.get(key));
+                        existingDataMap.delete(key); // Remove from map to avoid duplicates
+                    } else {
+                        // Add new data
+                        newData.push(itemData);
+                    }
                 }
             }
             
@@ -6364,8 +6679,8 @@ THE SOFTWARE.
             }
             
             rowHTML += `
-                <td style="text-align: center;">${record.ImageName}</td>
-                <td style="text-align: center;">${record.SpecName}</td>
+                <td style="text-align: center; color: #0066cc;">${record.ImageName}</td>
+                <td style="text-align: center; color: #0066cc;">${record.SpecName}</td>
                 <td>${record.osArch}</td>
                 <td>${record.cpuInfo}</td>
                 <td>${record.gpuInfo}</td>
@@ -6374,8 +6689,8 @@ THE SOFTWARE.
                 <td>${record.CreationCount}</td>
                 <td>${formatDateTime(record.LastCreatedAt)}</td>
                 <td style="text-align: center;">
-                    <button class="select-btn" style="font-size: 18px; padding: 2px 6px; color: ${starColor}; ${starOpacity}" ${starDisabled} ${starOnclick}>${starIcon}</button>
-                    <button class="select-btn" style="font-size: 16px; padding: 2px 6px; color: #dc3545; margin-left: 2px;" onclick="deleteRecentRecord(${i})" title="Delete">✕</button>
+                    <button class="select-btn" style="font-size: 14px; padding: 1px 4px; color: ${starColor}; ${starOpacity}" ${starDisabled} ${starOnclick}>${starIcon}</button>
+                    <button class="select-btn" style="font-size: 14px; padding: 1px 4px; color: #dc3545; margin-left: 2px;" onclick="deleteRecentRecord(${i})" title="Delete">✕</button>
                 </td>
             `;
             
@@ -6411,21 +6726,17 @@ THE SOFTWARE.
             // Use MC-Insight API for other CSPs
             const params = new URLSearchParams({
                 csp: connInfo.csp.toLowerCase(),
-                image_id: imageName,  // Send image_id as a separate parameter instead of inside filters
+                image_id: imageName,
                 page: '0',
                 limit: '1'
             });
             
-            // Add region and zone to filters if available
-            const filters = {};
-            if (connInfo.region) filters.region = connInfo.region;
-            if (zone) filters.zone = zone;
-            
-            if (Object.keys(filters).length > 0) {
-                params.append('filters', JSON.stringify(filters));
-            }
+            // Add region and zone as individual parameters
+            if (connInfo.region) params.append('region', connInfo.region);
+            if (zone) params.append('zone', zone);
             
             const apiUrl = `${MC_INSIGHT_API_BASE}/vm-image?${params}`;
+            console.log(`[Recent-Image] Fetching: ${apiUrl}`);
             let response = await fetch(apiUrl);
             if (!response.ok) {
                 // Retry with alternative CSP names for NCP, NHN, KT
@@ -6554,23 +6865,19 @@ THE SOFTWARE.
             // Use MC-Insight API for other CSPs
             const params = new URLSearchParams({
                 csp: connInfo.csp.toLowerCase(),
-                name: specName,  // Send name as a separate parameter instead of inside filters
+                name: specName,
                 page: '0',
                 limit: '1'
             });
             
-            // Add region and zone to filters if available
-            const filters = {};
-            if (connInfo.region) filters.region = connInfo.region;
-            if (zone) filters.zone = zone;
-            
-            if (Object.keys(filters).length > 0) {
-                params.append('filters', JSON.stringify(filters));
-            }
+            // Add region and zone as individual parameters
+            if (connInfo.region) params.append('region', connInfo.region);
+            if (zone) params.append('zone', zone);
             
             let actualCsp = connInfo.csp.toLowerCase(); // Track which CSP name actually worked
             
             const apiUrl = `${MC_INSIGHT_API_BASE}/vm-spec?${params}`;
+            console.log(`[Recent-Spec] Fetching: ${apiUrl}`);
             let response = await fetch(apiUrl);
             if (!response.ok) {
                 // Retry with alternative CSP names for NCP, NHN, KT
@@ -6637,8 +6944,8 @@ THE SOFTWARE.
                 try {
                     const priceParams = new URLSearchParams({
                         csp: connInfo.csp.toLowerCase(), // Always start with original CSP name (e.g., ncp)
-                        product_id: specName,  // Use product_id instead of name for spec filtering
-                        limit: '1000'  // Increase limit in case filtering is not exact
+                        name: specName,  // Use name parameter for spec name filtering (partial match in API)
+                        limit: '50'  // Get up to 50 results to find exact match
                     });
                     if (connInfo.region) priceParams.append('region', connInfo.region);
                     if (zone) priceParams.append('zone', zone);
@@ -6664,7 +6971,6 @@ THE SOFTWARE.
                         }
                         
                         if (altCsp) {
-                            console.log(`${connInfo.csp} price failed or no results, trying ${altCsp}...`);
                             priceParams.set('csp', altCsp);
                             const altPriceUrl = `${MC_INSIGHT_API_BASE}/price-info?${priceParams}`;
                             priceResponse = await fetch(altPriceUrl);
@@ -6674,20 +6980,29 @@ THE SOFTWARE.
                         }
                     }
                     
+                    // Find exact match by name (strict match required)
                     if (priceData && priceData.items && priceData.items.length > 0) {
-                        // Find exact match by name field
-                        let priceItem = priceData.items.find(item => item.name === specName);
+                        const exactMatch = priceData.items.find(item => item.name === specName);
                         
-                        if (!priceItem) {
-                            console.warn(`[Recent-Price] No exact match by name for ${specName}, using first item`);
-                            priceItem = priceData.items[0];
+                        if (exactMatch) {
+                            // Only set price if exact match found
+                            specData.price_per_hour = exactMatch.price;
+                            specData.price_currency = exactMatch.currency;
+                        } else {
+                            // No exact match found, leave as NA (null)
+                            specData.price_per_hour = null;
+                            specData.price_currency = null;
                         }
-                        
-                        specData.price_per_hour = priceItem.price;
-                        specData.price_currency = priceItem.currency;
+                    } else {
+                        // No results returned, leave as NA (null)
+                        specData.price_per_hour = null;
+                        specData.price_currency = null;
                     }
                 } catch (priceError) {
-                    console.warn('[Recent-Spec] Failed to fetch price:', priceError);
+                    console.error('[Recent-Price] Failed to fetch price:', priceError);
+                    // On error, leave as NA (null)
+                    specData.price_per_hour = null;
+                    specData.price_currency = null;
                 }
             }
             
@@ -6695,6 +7010,72 @@ THE SOFTWARE.
         } catch (error) {
             console.error('Error fetching spec info:', error);
             return null;
+        }
+    }
+    
+    // Fetch price info only from MC-Insight
+    async function fetchPriceInfoForRecent(connInfo, zone, specName) {
+        try {
+            // Use Spider API for OpenStack and Mock (no price info available)
+            if (connInfo.csp.toUpperCase() === 'OPENSTACK' || connInfo.csp.toUpperCase() === 'MOCK' || connInfo.csp.toUpperCase() === 'CLOUDTWIN') {
+                return { price_per_hour: null };
+            }
+            
+            // Use MC-Insight API for other CSPs
+            const priceParams = new URLSearchParams({
+                csp: connInfo.csp.toLowerCase(),
+                name: specName,
+                limit: '50'
+            });
+            if (connInfo.region) priceParams.append('region', connInfo.region);
+            if (zone) priceParams.append('zone', zone);
+            
+            const priceUrl = `${MC_INSIGHT_API_BASE}/price-info?${priceParams}`;
+            let priceResponse = await fetch(priceUrl);
+            let priceData = null;
+            
+            if (priceResponse.ok) {
+                priceData = await priceResponse.json();
+            }
+            
+            // Retry with alternative CSP names if failed or no results
+            if (!priceResponse.ok || !priceData || !priceData.items || priceData.items.length === 0) {
+                const cspLower = connInfo.csp.toLowerCase();
+                let altCsp = null;
+                if (cspLower === 'ncp') {
+                    altCsp = 'ncpvpc';
+                } else if (cspLower === 'nhn') {
+                    altCsp = 'nhncloud';
+                } else if (cspLower === 'kt') {
+                    altCsp = 'ktvpc';
+                }
+                
+                if (altCsp) {
+                    priceParams.set('csp', altCsp);
+                    const altPriceUrl = `${MC_INSIGHT_API_BASE}/price-info?${priceParams}`;
+                    priceResponse = await fetch(altPriceUrl);
+                    if (priceResponse.ok) {
+                        priceData = await priceResponse.json();
+                    }
+                }
+            }
+            
+            // Find exact match by name (strict match required)
+            if (priceData && priceData.items && priceData.items.length > 0) {
+                const exactMatch = priceData.items.find(item => item.name === specName);
+                
+                if (exactMatch) {
+                    return {
+                        price_per_hour: exactMatch.price,
+                        price_currency: exactMatch.currency
+                    };
+                }
+            }
+            
+            return { price_per_hour: null };
+        } catch (error) {
+            console.error('[Recent-Price] Failed to fetch price:', error);
+            return { price_per_hour: null };
         }
     }
     
@@ -6717,12 +7098,53 @@ THE SOFTWARE.
             } else if (field === 'last_created') {
                 aVal = new Date(a.LastCreatedAt).getTime();
                 bVal = new Date(b.LastCreatedAt).getTime();
+            } else if (field === 'csp') {
+                aVal = (a.CSP || '').toLowerCase();
+                bVal = (b.CSP || '').toLowerCase();
+            } else if (field === 'region') {
+                aVal = (a.Region || '').toLowerCase();
+                bVal = (b.Region || '').toLowerCase();
+            } else if (field === 'zone') {
+                aVal = (a.Zone || '').toLowerCase();
+                bVal = (b.Zone || '').toLowerCase();
+            } else if (field === 'image_name') {
+                aVal = (a.ImageName || '').toLowerCase();
+                bVal = (b.ImageName || '').toLowerCase();
+            } else if (field === 'spec_name') {
+                aVal = (a.SpecName || '').toLowerCase();
+                bVal = (b.SpecName || '').toLowerCase();
+            } else if (field === 'os_arch') {
+                aVal = (a.osArch || '').toLowerCase();
+                bVal = (b.osArch || '').toLowerCase();
+            } else if (field === 'cpu') {
+                aVal = (a.cpuInfo || '').toLowerCase();
+                bVal = (b.cpuInfo || '').toLowerCase();
+            } else if (field === 'gpu') {
+                aVal = (a.gpuInfo || '').toLowerCase();
+                bVal = (b.gpuInfo || '').toLowerCase();
+            } else if (field === 'price') {
+                // Extract numeric value from price string (e.g., "$0.6470" -> 0.6470)
+                aVal = parseFloat((a.PriceInfo || '0').replace(/[^0-9.]/g, '')) || 0;
+                bVal = parseFloat((b.PriceInfo || '0').replace(/[^0-9.]/g, '')) || 0;
+            } else if (field === 'avg_time') {
+                aVal = a.AvgCreationTime || 0;
+                bVal = b.AvgCreationTime || 0;
             }
             
-            if (recentSortOrder === 'asc') {
-                return aVal - bVal;
+            // Handle numeric sorting
+            if (field === 'count' || field === 'last_created' || field === 'price' || field === 'avg_time') {
+                if (recentSortOrder === 'asc') {
+                    return aVal - bVal;
+                } else {
+                    return bVal - aVal;
+                }
             } else {
-                return bVal - aVal;
+                // String sorting
+                if (recentSortOrder === 'asc') {
+                    return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                } else {
+                    return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
+                }
             }
         });
         
@@ -7028,6 +7450,12 @@ THE SOFTWARE.
                     Zone: record.Zone,
                     ImageName: record.ImageName,
                     SpecName: record.SpecName,
+                    OSArch: record.OSArch,
+                    OsPlatform: record.OsPlatform,
+                    OsDistribution: record.OsDistribution,
+                    CPUInfo: record.CPUInfo,
+                    GPUInfo: record.GPUInfo,
+                    PriceInfo: record.PriceInfo,
                     AvgCreationTime: record.AvgCreationTime,
                     CreationCount: record.CreationCount,
                     LastCreatedAt: record.LastCreatedAt
@@ -7047,6 +7475,12 @@ THE SOFTWARE.
                     Zone: record.Zone,
                     ImageName: record.ImageName,
                     SpecName: record.SpecName,
+                    OSArch: record.OSArch,
+                    OsPlatform: record.OsPlatform,
+                    OsDistribution: record.OsDistribution,
+                    CPUInfo: record.CPUInfo,
+                    GPUInfo: record.GPUInfo,
+                    PriceInfo: record.PriceInfo,
                     AvgCreationTime: record.AvgCreationTime,
                     CreationCount: record.CreationCount,
                     LastCreatedAt: record.LastCreatedAt
@@ -7214,16 +7648,39 @@ THE SOFTWARE.
                 gpuBox.title = gpuText;
                 specInfoDisplay.appendChild(gpuBox);
                 
-                // Box 3: Price
+                // Box 3: Price - Fetch latest price from MC-Insight
                 const priceBox = document.createElement('span');
                 priceBox.className = 'spec-info-box';
-                priceBox.textContent = selectedRecord.priceDisplay;
-                priceBox.title = selectedRecord.priceDisplay;
+                priceBox.textContent = 'Loading...';
+                priceBox.title = 'Fetching latest price';
                 specInfoDisplay.appendChild(priceBox);
                 
                 // Show the form group and display
                 document.getElementById('specInfoFormGroup').style.display = '';
                 specInfoDisplay.classList.add('active');
+                
+                // Fetch latest price asynchronously
+                (async () => {
+                    try {
+                        const connInfo = await getConnectionInfo();
+                        const priceInfo = await fetchPriceInfoForRecent(connInfo, selectedRecord.Zone, specName);
+                        
+                        let priceText = '$-';
+                        if (priceInfo?.price_per_hour && priceInfo.price_per_hour > 0) {
+                            const priceValue = parseFloat(priceInfo.price_per_hour);
+                            if (!isNaN(priceValue)) {
+                                priceText = `$${priceValue.toFixed(4)}/H`;
+                            }
+                        }
+                        
+                        priceBox.textContent = priceText;
+                        priceBox.title = priceText;
+                    } catch (error) {
+                        console.error('Failed to fetch latest price:', error);
+                        priceBox.textContent = selectedRecord.priceDisplay || '$-';
+                        priceBox.title = 'Failed to fetch latest price';
+                    }
+                })();
             }
         }
         
@@ -7452,15 +7909,15 @@ THE SOFTWARE.
             }
             
             rowHTML += `
-                <td style="text-align: center;">${record.ImageName}</td>
-                <td style="text-align: center;">${record.SpecName}</td>
+                <td style="text-align: center; color: #0066cc;">${record.ImageName}</td>
+                <td style="text-align: center; color: #0066cc;">${record.SpecName}</td>
                 <td>${record.osArch}</td>
                 <td>${record.cpuInfo}</td>
                 <td>${record.gpuInfo}</td>
                 <td>${record.priceDisplay}</td>
                 <td>${formatDateTime(record.CreatedAt)}</td>
                 <td style="text-align: center;">
-                    <button class="select-btn" style="font-size: 16px; padding: 2px 6px; color: #dc3545;" onclick="deleteFavorite(${i})" title="Delete">✕</button>
+                    <button class="select-btn" style="font-size: 14px; padding: 1px 4px; color: #dc3545;" onclick="deleteFavorite(${i})" title="Delete">✕</button>
                 </td>
             `;
             
@@ -7486,6 +7943,18 @@ THE SOFTWARE.
             let aVal, bVal;
             
             switch(field) {
+                case 'csp':
+                    aVal = (a.CSP || '').toLowerCase();
+                    bVal = (b.CSP || '').toLowerCase();
+                    break;
+                case 'region':
+                    aVal = (a.Region || '').toLowerCase();
+                    bVal = (b.Region || '').toLowerCase();
+                    break;
+                case 'zone':
+                    aVal = (a.Zone || '').toLowerCase();
+                    bVal = (b.Zone || '').toLowerCase();
+                    break;
                 case 'image_name':
                     aVal = a.ImageName.toLowerCase();
                     bVal = b.ImageName.toLowerCase();
@@ -7618,16 +8087,39 @@ THE SOFTWARE.
                 gpuBox.title = gpuText;
                 specInfoDisplay.appendChild(gpuBox);
                 
-                // Box 3: Price
+                // Box 3: Price - Fetch latest price from MC-Insight
                 const priceBox = document.createElement('span');
                 priceBox.className = 'spec-info-box';
-                priceBox.textContent = selectedRecord.priceDisplay;
-                priceBox.title = selectedRecord.priceDisplay;
+                priceBox.textContent = 'Loading...';
+                priceBox.title = 'Fetching latest price';
                 specInfoDisplay.appendChild(priceBox);
                 
                 // Show the form group and display
                 document.getElementById('specInfoFormGroup').style.display = '';
                 specInfoDisplay.classList.add('active');
+                
+                // Fetch latest price asynchronously
+                (async () => {
+                    try {
+                        const connInfo = await getConnectionInfo();
+                        const priceInfo = await fetchPriceInfoForRecent(connInfo, selectedRecord.Zone, specName);
+                        
+                        let priceText = '$-';
+                        if (priceInfo?.price_per_hour && priceInfo.price_per_hour > 0) {
+                            const priceValue = parseFloat(priceInfo.price_per_hour);
+                            if (!isNaN(priceValue)) {
+                                priceText = `$${priceValue.toFixed(4)}/H`;
+                            }
+                        }
+                        
+                        priceBox.textContent = priceText;
+                        priceBox.title = priceText;
+                    } catch (error) {
+                        console.error('Failed to fetch latest price:', error);
+                        priceBox.textContent = selectedRecord.priceDisplay || '$-';
+                        priceBox.title = 'Failed to fetch latest price';
+                    }
+                })();
             }
         }
         

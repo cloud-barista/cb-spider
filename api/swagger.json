@@ -11116,6 +11116,30 @@
         "spider.VMRecentInfo": {
             "type": "object",
             "properties": {
+                "CPUInfo": {
+                    "description": "CPU info (e.g., \"8/16 GiB\")",
+                    "type": "string"
+                },
+                "GPUInfo": {
+                    "description": "GPU info (e.g., \"2/16 GB\" or GPU model)",
+                    "type": "string"
+                },
+                "OSArch": {
+                    "description": "OS Architecture (e.g., x86_64, arm64)",
+                    "type": "string"
+                },
+                "OsDistribution": {
+                    "description": "OS Distribution (e.g., Ubuntu, CentOS)",
+                    "type": "string"
+                },
+                "OsPlatform": {
+                    "description": "OS Platform (e.g., Linux, Windows)",
+                    "type": "string"
+                },
+                "PriceInfo": {
+                    "description": "Price info (e.g., \"$0.0116\")",
+                    "type": "string"
+                },
                 "avgCreationTime": {
                     "description": "Average VM creation time in seconds",
                     "type": "number",

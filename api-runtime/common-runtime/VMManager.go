@@ -9,8 +9,12 @@
 package commonruntime
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -47,6 +51,12 @@ type VMRecentInfo struct {
 	Zone            string  `gorm:"primaryKey"`
 	ImageName       string  `gorm:"primaryKey"`
 	SpecName        string  `gorm:"primaryKey"`
+	OSArch          string  `gorm:"column:os_arch" json:"OSArch"`                 // OS Architecture (e.g., x86_64, arm64)
+	OsPlatform      string  `gorm:"column:os_platform" json:"OsPlatform"`         // OS Platform (e.g., Linux, Windows)
+	OsDistribution  string  `gorm:"column:os_distribution" json:"OsDistribution"` // OS Distribution (e.g., Ubuntu, CentOS)
+	CPUInfo         string  `gorm:"column:cpu_info" json:"CPUInfo"`               // CPU info (e.g., "8/16 GiB")
+	GPUInfo         string  `gorm:"column:gpu_info" json:"GPUInfo"`               // GPU info (e.g., "2/16 GB" or GPU model)
+	PriceInfo       string  `gorm:"column:price_info" json:"PriceInfo"`           // Price info (e.g., "$0.0116")
 	AvgCreationTime float64 // Average VM creation time in seconds
 	CreationCount   int64   // Number of successful VM creations
 	LastCreatedAt   string  // Last creation timestamp (RFC3339 format)
@@ -74,6 +84,142 @@ type VMFavoriteInfo struct {
 
 func (VMFavoriteInfo) TableName() string {
 	return "vm_favorite_infos"
+}
+
+//====================================================================
+
+// MC-Insight API response structure for price info
+type mcInsightPriceItem struct {
+	Name             string  `json:"name"`
+	Price            float64 `json:"price"`
+	Currency         string  `json:"currency"`
+	Unit             string  `json:"unit"`
+	PriceDescription string  `json:"price_description"`
+}
+
+type mcInsightPriceResponse struct {
+	Items []mcInsightPriceItem `json:"items"`
+}
+
+// fetchPriceFromMCInsight fetches price info from MC-Insight API
+// Returns formatted price string like "0.0116/USD" or empty string if not found
+func fetchPriceFromMCInsight(csp, region, zone, specName string) string {
+	// Get MC-Insight API token from environment
+	apiToken := os.Getenv("MC_INSIGHT_API_TOKEN")
+	if apiToken == "" {
+		cblog.Info("[MC-Insight] API token not set, skipping price fetch")
+		return ""
+	}
+
+	// Build API URL
+	baseURL := "http://mc-insight.cloud-barista.org:8000/api/v1"
+	params := url.Values{}
+	params.Set("csp", strings.ToLower(csp))
+	params.Set("name", specName)
+	params.Set("limit", "50")
+
+	if region != "" {
+		params.Set("region", region)
+	}
+	if zone != "" {
+		params.Set("zone", zone)
+	}
+
+	apiURL := fmt.Sprintf("%s/price-info/?%s", baseURL, params.Encode())
+	cblog.Info("[MC-Insight] Fetching price: ", apiURL)
+
+	// Create HTTP request
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		cblog.Error("[MC-Insight] Failed to create request: ", err)
+		return ""
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiToken))
+
+	// Make HTTP request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		cblog.Error("[MC-Insight] Failed to fetch: ", err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		cblog.Info(fmt.Sprintf("[MC-Insight] API returned status %d, trying alternative CSP names", resp.StatusCode))
+		// Try alternative CSP names
+		altCsp := ""
+		cspLower := strings.ToLower(csp)
+		if cspLower == "ncp" {
+			altCsp = "ncpvpc"
+		} else if cspLower == "nhn" {
+			altCsp = "nhncloud"
+		} else if cspLower == "kt" {
+			altCsp = "ktvpc"
+		}
+
+		if altCsp != "" {
+			params.Set("csp", altCsp)
+			apiURL = fmt.Sprintf("%s/price-info/?%s", baseURL, params.Encode())
+			cblog.Info("[MC-Insight] Retrying with alt CSP: ", apiURL)
+			req, err = http.NewRequest("GET", apiURL, nil)
+			if err != nil {
+				cblog.Error("[MC-Insight] Failed to create alt request: ", err)
+				return ""
+			}
+			req.Header.Set("Accept", "application/json")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiToken))
+			resp, err = client.Do(req)
+			if err != nil {
+				cblog.Error("[MC-Insight] Failed to fetch with alt CSP: ", err)
+				return ""
+			}
+			defer resp.Body.Close()
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			cblog.Warn(fmt.Sprintf("[MC-Insight] Final status: %d", resp.StatusCode))
+			return ""
+		}
+	}
+
+	// Parse response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		cblog.Error("[MC-Insight] Failed to read response: ", err)
+		return ""
+	}
+
+	cblog.Info(fmt.Sprintf("[MC-Insight] Response body (first 500 chars): %s", string(body[:min(500, len(body))])))
+
+	var priceData mcInsightPriceResponse
+	if err := json.Unmarshal(body, &priceData); err != nil {
+		cblog.Error("[MC-Insight] Failed to parse response: ", err)
+		return ""
+	}
+
+	cblog.Info(fmt.Sprintf("[MC-Insight] Found %d price items", len(priceData.Items)))
+
+	// Find exact match by name
+	for _, item := range priceData.Items {
+		cblog.Info(fmt.Sprintf("[MC-Insight] Checking item: %s (price: %.4f %s)", item.Name, item.Price, item.Currency))
+		if item.Name == specName {
+			priceStr := fmt.Sprintf("$%.4f", item.Price)
+			cblog.Info(fmt.Sprintf("[MC-Insight] Exact match found! Returning: %s", priceStr))
+			return priceStr
+		}
+	}
+
+	cblog.Warn(fmt.Sprintf("[MC-Insight] No exact match for spec: %s", specName))
+	return ""
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 //====================================================================
@@ -757,13 +903,90 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 	elapsedSeconds := call.ElapsedSeconds(start)
 	go func() {
 		// Run in background to avoid blocking
-		err := InsertOrUpdateVMRecent(
+		// Fetch image and spec info for VM recent record
+		osArch := "-"
+		osPlatform := "-"
+		osDistribution := "-"
+		cpuInfo := "-"
+		gpuInfo := "-"
+		priceInfo := "-"
+
+		// Get Image Info
+		imageHandler, err := cldConn.CreateImageHandler()
+		if err == nil {
+			imageInfo, err := imageHandler.GetImage(reqInfoForDriver.ImageIID)
+			if err == nil {
+				if imageInfo.OSArchitecture != "" && imageInfo.OSArchitecture != "NA" {
+					osArch = string(imageInfo.OSArchitecture)
+				}
+				if imageInfo.OSPlatform != "" && imageInfo.OSPlatform != "NA" {
+					osPlatform = string(imageInfo.OSPlatform)
+				}
+				if imageInfo.OSDistribution != "" && imageInfo.OSDistribution != "NA" {
+					osDistribution = imageInfo.OSDistribution
+				}
+			}
+		}
+
+		// Get Spec Info
+		specHandler, err := cldConn.CreateVMSpecHandler()
+		if err == nil {
+			specInfo, err := specHandler.GetVMSpec(reqInfoForDriver.VMSpecName)
+			if err == nil {
+				// Format CPU/Memory info
+				hasCPU := specInfo.VCpu.Count != "" && specInfo.VCpu.Count != "-1"
+				hasMemory := specInfo.MemSizeMiB != "" && specInfo.MemSizeMiB != "-1"
+
+				cpuValue := "-"
+				if hasCPU {
+					cpuValue = specInfo.VCpu.Count
+				}
+
+				memValue := "-"
+				if hasMemory {
+					memValue = specInfo.MemSizeMiB
+				}
+				cpuInfo = cpuValue + "/" + memValue + " MiB"
+
+				// Format GPU info
+				if len(specInfo.Gpu) > 0 {
+					hasGPU := specInfo.Gpu[0].Count != "" && specInfo.Gpu[0].Count != "-1"
+					hasGPUMem := specInfo.Gpu[0].MemSizeGB != "" && specInfo.Gpu[0].MemSizeGB != "-1"
+					hasGPUModel := specInfo.Gpu[0].Model != "" && specInfo.Gpu[0].Model != "NA" && specInfo.Gpu[0].Model != "-1"
+
+					if hasGPU || hasGPUMem {
+						gpuValue := "-"
+						if hasGPU {
+							gpuValue = specInfo.Gpu[0].Count
+						}
+						gpuMemValue := "-"
+						if hasGPUMem {
+							gpuMemValue = specInfo.Gpu[0].MemSizeGB
+						}
+						gpuInfo = gpuValue + "/" + gpuMemValue + " GB"
+					} else if hasGPUModel {
+						gpuInfo = specInfo.Gpu[0].Model
+					}
+				}
+			}
+		}
+
+		// Get Price Info from MC-Insight API
+		priceInfo = fetchPriceFromMCInsight(providerName, regionName, zoneName, reqInfo.VMSpecName)
+
+		err = InsertOrUpdateVMRecent(
 			providerName,
 			regionName,
 			zoneName,
-			reqInfoForDriver.ImageIID.NameId,
-			reqInfoForDriver.VMSpecName,
+			reqInfo.ImageIID.NameId,
+			reqInfo.VMSpecName,
 			elapsedSeconds,
+			osArch,
+			osPlatform,
+			osDistribution,
+			cpuInfo,
+			gpuInfo,
+			priceInfo,
 		)
 		if err != nil {
 			cblog.Error("Failed to record VM creation in Recent table: ", err)
@@ -2226,7 +2449,7 @@ func CountVMsByConnection(connectionName string) (int64, error) {
 //====================================================================
 
 // InsertOrUpdateVMRecent inserts or updates VM creation record in Recent table
-func InsertOrUpdateVMRecent(csp, region, zone, imageName, specName string, elapsedTimeSec float64) error {
+func InsertOrUpdateVMRecent(csp, region, zone, imageName, specName string, elapsedTimeSec float64, osArch, osPlatform, osDistribution, cpuInfo, gpuInfo, priceInfo string) error {
 	cblog.Info("call InsertOrUpdateVMRecent()")
 
 	db, err := infostore.Open()
@@ -2258,6 +2481,12 @@ func InsertOrUpdateVMRecent(csp, region, zone, imageName, specName string, elaps
 			AvgCreationTime: elapsedTimeSec,
 			CreationCount:   1,
 			LastCreatedAt:   now,
+			OSArch:          osArch,
+			OsPlatform:      osPlatform,
+			OsDistribution:  osDistribution,
+			CPUInfo:         cpuInfo,
+			GPUInfo:         gpuInfo,
+			PriceInfo:       priceInfo,
 		}
 		if err := db.Create(&newRecord).Error; err != nil {
 			cblog.Error(err)
@@ -2272,6 +2501,12 @@ func InsertOrUpdateVMRecent(csp, region, zone, imageName, specName string, elaps
 			"avg_creation_time": newAvg,
 			"creation_count":    newCount,
 			"last_created_at":   now,
+			"os_arch":           osArch,
+			"os_platform":       osPlatform,
+			"os_distribution":   osDistribution,
+			"cpu_info":          cpuInfo,
+			"gpu_info":          gpuInfo,
+			"price_info":        priceInfo,
 		}
 
 		if err := db.Model(&existing).Updates(updates).Error; err != nil {
