@@ -380,7 +380,7 @@ func ProxyMcInsightVMPrice(c echo.Context) error {
 
 	// Build query parameters
 	params := url.Values{}
-	queryParams := []string{"csp", "region", "zone", "instance_type", "vcpu_count", "mem_size_mib", "os_type", "pricing_type", "skip", "limit"}
+	queryParams := []string{"csp", "region", "zone", "name", "product_id", "instance_type", "vcpu_count", "mem_size_mib", "os_type", "pricing_type", "skip", "limit"}
 
 	for _, param := range queryParams {
 		if value := c.QueryParam(param); value != "" {
