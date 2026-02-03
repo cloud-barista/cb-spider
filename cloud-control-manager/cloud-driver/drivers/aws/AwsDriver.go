@@ -132,7 +132,7 @@ func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.
 		if sess == nil {
 			return nil, fmt.Errorf("failed to create counting session")
 		}
-		cblog.Infof("Using counting session for AWS API calls")
+		// cblog.Infof("Using counting session for AWS API calls")
 		return sess, nil
 	} else {
 		sess, err := session.NewSession(awsConfig)
@@ -140,7 +140,7 @@ func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.
 			cblog.Error("Could not create AWS session", err)
 			return nil, err
 		}
-		cblog.Infof("Using regular session for AWS API calls")
+		// cblog.Infof("Using regular session for AWS API calls")
 		return sess, nil
 	}
 }
