@@ -29,7 +29,7 @@ FROM ubuntu:22.04 AS prod
 
 RUN apt update
 
-RUN apt install -y ca-certificates
+RUN apt install -y ca-certificates curl
 
 # use bash
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
