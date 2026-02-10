@@ -27,9 +27,10 @@ RUN GOOS=linux go build -tags cb-spider -o cb-spider -v
 
 FROM ubuntu:22.04 AS prod
 
-RUN apt update
-
-RUN apt install -y ca-certificates curl
+# Note: Combine update and install in a single RUN to avoid stale package list from cached layers.
+# --no-install-recommends: Skip unnecessary recommended packages to reduce image size.
+# rm -rf /var/lib/apt/lists/*: Clean up apt cache (does not affect installed packages).
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 # use bash
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
