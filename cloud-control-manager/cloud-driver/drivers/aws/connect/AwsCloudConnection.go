@@ -199,7 +199,7 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 	if cloudConn.AutoScalingClient == nil {
 		cblogger.Info("cloudConn.AutoScalingClient is nil")
 	}
-	handler := ars.AwsClusterHandler{Region: cloudConn.Region, Client: cloudConn.EKSClient, EC2Client: cloudConn.VNetworkClient, Iam: cloudConn.IamClient, StsClient: cloudConn.StsClient, AutoScaling: cloudConn.AutoScalingClient, TagHandler: &tagHandler}
+	handler := ars.AwsClusterHandler{CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region, Client: cloudConn.EKSClient, EC2Client: cloudConn.VNetworkClient, Iam: cloudConn.IamClient, StsClient: cloudConn.StsClient, AutoScaling: cloudConn.AutoScalingClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
 

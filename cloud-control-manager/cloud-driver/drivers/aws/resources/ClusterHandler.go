@@ -24,13 +24,14 @@ import (
 )
 
 type AwsClusterHandler struct {
-	Region      idrv.RegionInfo
-	Client      *eks.EKS
-	EC2Client   *ec2.EC2
-	Iam         *iam.IAM
-	StsClient   *sts.STS
-	AutoScaling *autoscaling.AutoScaling
-	TagHandler  *AwsTagHandler // 2024-07-18 TagHandler add
+	CredentialInfo idrv.CredentialInfo
+	Region         idrv.RegionInfo
+	Client         *eks.EKS
+	EC2Client      *ec2.EC2
+	Iam            *iam.IAM
+	StsClient      *sts.STS
+	AutoScaling    *autoscaling.AutoScaling
+	TagHandler     *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 const (
@@ -59,10 +60,28 @@ const (
 	httpPutResponseHopLimitIs2 = 2
 )
 
+// AMIInfo holds AMI metadata for EKS AMI Type mapping
+type AMIInfo struct {
+	ImageId         string
+	Name            string
+	Description     string
+	Architecture    string // "x86_64" or "arm64"
+	PlatformDetails string // "Linux/UNIX", "Windows", etc.
+	OSType          string // "amazon-linux-2", "amazon-linux-2023", "bottlerocket", "windows"
+}
+
 // getServerAddress returns the Spider server address from SERVER_ADDRESS env variable
 func getServerAddress() string {
 	hostEnv := os.Getenv("SERVER_ADDRESS")
 	if hostEnv == "" {
+		return "localhost:1024"
+	}
+
+	// Replace 0.0.0.0 with localhost (0.0.0.0 is for server binding, not client connection)
+	if strings.HasPrefix(hostEnv, "0.0.0.0:") {
+		return "localhost" + strings.TrimPrefix(hostEnv, "0.0.0.0")
+	}
+	if hostEnv == "0.0.0.0" {
 		return "localhost:1024"
 	}
 
@@ -80,12 +99,218 @@ func getServerAddress() string {
 	return hostEnv
 }
 
+// getSpiderAuthUsername returns the Spider authentication username from SPIDER_AUTH_USERNAME env variable
+func getSpiderAuthUsername() string {
+	username := os.Getenv("SPIDER_AUTH_USERNAME")
+	if username == "" {
+		return "default"
+	}
+	return username
+}
+
+// getSpiderAuthPassword returns the Spider authentication password from SPIDER_AUTH_PASSWORD env variable
+func getSpiderAuthPassword() string {
+	password := os.Getenv("SPIDER_AUTH_PASSWORD")
+	if password == "" {
+		return "$2a$10$4PKzCuJ6fPYsbCF.HR//ieLjaCzBAdwORchx62F2JRXQsuR3d9T0q" // default bcrypt hash
+	}
+	return password
+}
+
 //------ Cluster Management
 
 /*
 	AWS Cluster는 Role이 필수임.
 	우선, roleName=spider-eks-role로 설정, 생성 시 Role의 ARN을 조회하여 사용
 */
+
+//------ AMI Analysis Helper Functions
+
+// analyzeAMI analyzes received AMI ID and extracts metadata
+func (h *AwsClusterHandler) analyzeAMI(amiID string) (*AMIInfo, error) {
+	// Skip if empty (use default)
+	if amiID == "" {
+		cblogger.Info("No AMI specified, will use default")
+		return nil, nil
+	}
+
+	cblogger.Infof("Analyzing received AMI: %s", amiID)
+
+	input := &ec2.DescribeImagesInput{
+		ImageIds: []*string{aws.String(amiID)},
+	}
+
+	result, err := h.EC2Client.DescribeImages(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe AMI %s: %w", amiID, err)
+	}
+
+	if len(result.Images) == 0 {
+		return nil, fmt.Errorf("AMI %s not found", amiID)
+	}
+
+	image := result.Images[0]
+
+	amiInfo := &AMIInfo{
+		ImageId:         aws.StringValue(image.ImageId),
+		Name:            aws.StringValue(image.Name),
+		Description:     aws.StringValue(image.Description),
+		Architecture:    aws.StringValue(image.Architecture),
+		PlatformDetails: aws.StringValue(image.PlatformDetails),
+	}
+
+	// Detect OS type from name/description
+	amiInfo.OSType = amiInfo.detectOSType()
+
+	cblogger.Infof("AMI Analysis: arch=%s, platform=%s, osType=%s",
+		amiInfo.Architecture, amiInfo.PlatformDetails, amiInfo.OSType)
+
+	return amiInfo, nil
+}
+
+// detectOSType detects OS type from AMI name and description
+func (info *AMIInfo) detectOSType() string {
+	combined := strings.ToLower(info.Name + " " + info.Description)
+
+	// Priority order matters!
+
+	// 1. Windows (highest priority - check platform)
+	if strings.Contains(strings.ToLower(info.PlatformDetails), "windows") {
+		return "windows"
+	}
+
+	// 2. Bottlerocket
+	if strings.Contains(combined, "bottlerocket") {
+		return "bottlerocket"
+	}
+
+	// 3. Amazon Linux 2023
+	if strings.Contains(combined, "2023") || strings.Contains(combined, "al2023") {
+		return "amazon-linux-2023"
+	}
+
+	// 4. Amazon Linux 2 (default)
+	if strings.Contains(combined, "amzn") ||
+		strings.Contains(combined, "amazon linux") ||
+		strings.Contains(combined, "al2") {
+		return "amazon-linux-2"
+	}
+
+	// 5. Others (Ubuntu, etc.)
+	if strings.Contains(combined, "ubuntu") {
+		return "ubuntu"
+	}
+
+	// Default: assume Amazon Linux 2
+	return "amazon-linux-2"
+}
+
+// isGPUInstanceType checks if instance type requires GPU support
+func (h *AwsClusterHandler) isGPUInstanceType(instanceType string) bool {
+	gpuPrefixes := []string{"p2.", "p3.", "p4.", "p5.", "g3.", "g4.", "g5."}
+
+	for _, prefix := range gpuPrefixes {
+		if strings.HasPrefix(instanceType, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// mapToEKSAMIType maps AMI info to EKS AMI Type
+func (h *AwsClusterHandler) mapToEKSAMIType(amiInfo *AMIInfo, instanceType string) string {
+	// Default: AL2023 x86_64 (K8s 1.30+ compatible)
+	if amiInfo == nil {
+		cblogger.Info("No AMI info, using default: AL2023_x86_64_STANDARD")
+		return "AL2023_x86_64_STANDARD"
+	}
+
+	osType := amiInfo.OSType
+	isARM := amiInfo.Architecture == "arm64"
+	isGPU := h.isGPUInstanceType(instanceType)
+
+	cblogger.Infof("Mapping: osType=%s, arch=%s, gpu=%v", osType, amiInfo.Architecture, isGPU)
+
+	// Priority 1: Windows
+	if osType == "windows" {
+		return h.selectWindowsAMIType(amiInfo.Name)
+	}
+
+	// Priority 2: Bottlerocket
+	if osType == "bottlerocket" {
+		if isGPU && isARM {
+			cblogger.Info("Mapped to: BOTTLEROCKET_ARM_64_NVIDIA")
+			return "BOTTLEROCKET_ARM_64_NVIDIA"
+		}
+		if isGPU {
+			cblogger.Info("Mapped to: BOTTLEROCKET_x86_64_NVIDIA")
+			return "BOTTLEROCKET_x86_64_NVIDIA"
+		}
+		if isARM {
+			cblogger.Info("Mapped to: BOTTLEROCKET_ARM_64")
+			return "BOTTLEROCKET_ARM_64"
+		}
+		cblogger.Info("Mapped to: BOTTLEROCKET_x86_64")
+		return "BOTTLEROCKET_x86_64"
+	}
+
+	// Priority 3: Amazon Linux 2023
+	if osType == "amazon-linux-2023" {
+		if isARM {
+			cblogger.Info("Mapped to: AL2023_ARM_64_STANDARD")
+			return "AL2023_ARM_64_STANDARD"
+		}
+		cblogger.Info("Mapped to: AL2023_x86_64_STANDARD")
+		return "AL2023_x86_64_STANDARD"
+	}
+
+	// Priority 4: GPU instances (use Bottlerocket for GPU - AL2023 has no GPU variant yet)
+	if isGPU {
+		if isARM {
+			cblogger.Info("Mapped to: BOTTLEROCKET_ARM_64_NVIDIA (GPU + ARM64)")
+			return "BOTTLEROCKET_ARM_64_NVIDIA"
+		}
+		cblogger.Info("Mapped to: BOTTLEROCKET_x86_64_NVIDIA (GPU)")
+		return "BOTTLEROCKET_x86_64_NVIDIA"
+	}
+
+	// Priority 5: ARM64 (use AL2023 for K8s 1.30+ compatibility)
+	if isARM {
+		cblogger.Info("Mapped to: AL2023_ARM_64_STANDARD")
+		return "AL2023_ARM_64_STANDARD"
+	}
+
+	// Priority 6: Default x86_64 (use AL2023 for K8s 1.30+ compatibility)
+	cblogger.Info("Mapped to: AL2023_x86_64_STANDARD (default)")
+	return "AL2023_x86_64_STANDARD"
+}
+
+// selectWindowsAMIType selects Windows AMI type based on version and edition
+func (h *AwsClusterHandler) selectWindowsAMIType(amiName string) string {
+	nameLower := strings.ToLower(amiName)
+
+	// Detect Windows Server version and edition
+	is2022 := strings.Contains(nameLower, "2022")
+	isCore := strings.Contains(nameLower, "core")
+
+	if is2022 {
+		if isCore {
+			cblogger.Info("Mapped to: WINDOWS_CORE_2022_x86_64")
+			return "WINDOWS_CORE_2022_x86_64"
+		}
+		cblogger.Info("Mapped to: WINDOWS_FULL_2022_x86_64")
+		return "WINDOWS_FULL_2022_x86_64"
+	}
+
+	// Default to 2019
+	if isCore {
+		cblogger.Info("Mapped to: WINDOWS_CORE_2019_x86_64")
+		return "WINDOWS_CORE_2019_x86_64"
+	}
+	cblogger.Info("Mapped to: WINDOWS_FULL_2019_x86_64")
+	return "WINDOWS_FULL_2019_x86_64"
+}
 
 // ------ Cluster Management
 func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
@@ -580,6 +805,17 @@ func (ClusterHandler *AwsClusterHandler) getDynamicKubeConfig(clusterDesc *eks.D
 	// Get Spider server address from environment variable
 	serverAddr := getServerAddress()
 
+	// Get Spider authentication credentials from environment variables
+	authUsername := getSpiderAuthUsername()
+	authPassword := getSpiderAuthPassword()
+
+	// Get ConnectionName from CredentialInfo
+	connectionName := ClusterHandler.CredentialInfo.ConnectionName
+	if connectionName == "" {
+		// Fallback: use provider-region format if ConnectionName is not set
+		connectionName = "aws-" + ClusterHandler.Region.Region
+	}
+
 	// Generate kubeconfig content with exec-based dynamic token using cluster NameId instead of SystemId
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 kind: Config
@@ -602,9 +838,11 @@ users:
       interactiveMode: Never
       command: curl
       args:
+      - -u
+      - %s:%s
       - -s
-      - "http://%s/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
-`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name, serverAddr)
+      - "http://%s/spider/cluster/%s/token?ConnectionName=%s"
+`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name, authUsername, authPassword, serverAddr, *cluster.Name, connectionName)
 
 	return kubeconfigContent
 }
@@ -791,12 +1029,50 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		nodeSecurityGroupList = append(nodeSecurityGroupList, &securityGroup.SystemId)
 	}
 
+	// ============================================================
+	// AMI Analysis & EKS AMI Type Mapping
+	// ============================================================
+
+	// Received from Tumblebug (CspImageName from PostgreSQL)
+	receivedImageName := nodeGroupReqInfo.ImageIID.SystemId
+	cblogger.Infof("Received ImageName from Tumblebug: '%s'", receivedImageName)
+
+	var amiType string
+
+	if receivedImageName == "" {
+		// No AMI specified, use default (K8s 1.30+ compatible)
+		cblogger.Info("No ImageName provided, using default: AL2023_x86_64_STANDARD")
+		amiType = "AL2023_x86_64_STANDARD"
+	} else {
+		// Step 1: Analyze received AMI
+		cblogger.Infof("Analyzing AMI: %s", receivedImageName)
+		amiInfo, err := ClusterHandler.analyzeAMI(receivedImageName)
+		if err != nil {
+			cblogger.Warnf("Failed to analyze AMI %s: %v. Using default (K8s 1.30+ compatible).", receivedImageName, err)
+			amiType = "AL2023_x86_64_STANDARD"
+		} else {
+			// Step 2: Map to EKS AMI Type
+			instanceType := nodeGroupReqInfo.VMSpecName
+			if instanceType == "" {
+				instanceType = "t3.medium" // default
+			}
+
+			amiType = ClusterHandler.mapToEKSAMIType(amiInfo, instanceType)
+			cblogger.Infof("Final EKS AMI Type: %s", amiType)
+		}
+	}
+
+	cblogger.Infof("Creating NodeGroup with AmiType: %s", amiType)
+
+	// ============================================================
+
 	tags := map[string]string{}
 	tags["key"] = NODEGROUP_TAG
 	tags["value"] = nodeGroupReqInfo.IId.NameId
 
 	input := &eks.CreateNodegroupInput{
-		//AmiType: "", // Valid Values: AL2_x86_64 | AL2_x86_64_GPU | AL2_ARM_64 | CUSTOM | BOTTLEROCKET_ARM_64 | BOTTLEROCKET_x86_64, Required: No
+		// Set mapped AMI type - AWS EKS automatically uses the latest EKS-optimized AMI for this type
+		AmiType: aws.String(amiType),
 		//CapacityType: aws.String("ON_DEMAND"),//Valid Values: ON_DEMAND | SPOT, Required: No
 
 		//ClusterName:   aws.String("cb-eks-cluster"),              //uri, required
