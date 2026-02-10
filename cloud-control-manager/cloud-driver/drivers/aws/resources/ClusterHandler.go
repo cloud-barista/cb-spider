@@ -24,14 +24,13 @@ import (
 )
 
 type AwsClusterHandler struct {
-	CredentialInfo idrv.CredentialInfo
-	Region         idrv.RegionInfo
-	Client         *eks.EKS
-	EC2Client      *ec2.EC2
-	Iam            *iam.IAM
-	StsClient      *sts.STS
-	AutoScaling    *autoscaling.AutoScaling
-	TagHandler     *AwsTagHandler // 2024-07-18 TagHandler add
+	Region      idrv.RegionInfo
+	Client      *eks.EKS
+	EC2Client   *ec2.EC2
+	Iam         *iam.IAM
+	StsClient   *sts.STS
+	AutoScaling *autoscaling.AutoScaling
+	TagHandler  *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 const (
@@ -77,14 +76,6 @@ func getServerAddress() string {
 		return "localhost:1024"
 	}
 
-	// Replace 0.0.0.0 with localhost (0.0.0.0 is for server binding, not client connection)
-	if strings.HasPrefix(hostEnv, "0.0.0.0:") {
-		return "localhost" + strings.TrimPrefix(hostEnv, "0.0.0.0")
-	}
-	if hostEnv == "0.0.0.0" {
-		return "localhost:1024"
-	}
-
 	// "1.2.3.4" or "localhost"
 	if !strings.Contains(hostEnv, ":") {
 		return hostEnv + ":1024"
@@ -97,24 +88,6 @@ func getServerAddress() string {
 
 	// "1.2.3.4:31024" or "localhost:31024"
 	return hostEnv
-}
-
-// getSpiderAuthUsername returns the Spider authentication username from SPIDER_AUTH_USERNAME env variable
-func getSpiderAuthUsername() string {
-	username := os.Getenv("SPIDER_AUTH_USERNAME")
-	if username == "" {
-		return "default"
-	}
-	return username
-}
-
-// getSpiderAuthPassword returns the Spider authentication password from SPIDER_AUTH_PASSWORD env variable
-func getSpiderAuthPassword() string {
-	password := os.Getenv("SPIDER_AUTH_PASSWORD")
-	if password == "" {
-		return "$2a$10$4PKzCuJ6fPYsbCF.HR//ieLjaCzBAdwORchx62F2JRXQsuR3d9T0q" // default bcrypt hash
-	}
-	return password
 }
 
 //------ Cluster Management
@@ -805,17 +778,6 @@ func (ClusterHandler *AwsClusterHandler) getDynamicKubeConfig(clusterDesc *eks.D
 	// Get Spider server address from environment variable
 	serverAddr := getServerAddress()
 
-	// Get Spider authentication credentials from environment variables
-	authUsername := getSpiderAuthUsername()
-	authPassword := getSpiderAuthPassword()
-
-	// Get ConnectionName from CredentialInfo
-	connectionName := ClusterHandler.CredentialInfo.ConnectionName
-	if connectionName == "" {
-		// Fallback: use provider-region format if ConnectionName is not set
-		connectionName = "aws-" + ClusterHandler.Region.Region
-	}
-
 	// Generate kubeconfig content with exec-based dynamic token using cluster NameId instead of SystemId
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 kind: Config
@@ -838,11 +800,9 @@ users:
       interactiveMode: Never
       command: curl
       args:
-      - -u
-      - %s:%s
       - -s
-      - "http://%s/spider/cluster/%s/token?ConnectionName=%s"
-`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name, authUsername, authPassword, serverAddr, *cluster.Name, connectionName)
+      - "http://%s/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
+`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name, serverAddr)
 
 	return kubeconfigContent
 }
