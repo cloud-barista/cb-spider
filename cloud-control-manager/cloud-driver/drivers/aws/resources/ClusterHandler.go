@@ -66,6 +66,7 @@ type AMIInfo struct {
 	Description     string
 	Architecture    string // "x86_64" or "arm64"
 	PlatformDetails string // "Linux/UNIX", "Windows", etc.
+	OwnerId         string // AWS account ID that owns the AMI
 	OSType          string // "amazon-linux-2", "amazon-linux-2023", "bottlerocket", "windows"
 }
 
@@ -159,6 +160,7 @@ func (h *AwsClusterHandler) analyzeAMI(amiID string) (*AMIInfo, error) {
 		Description:     aws.StringValue(image.Description),
 		Architecture:    aws.StringValue(image.Architecture),
 		PlatformDetails: aws.StringValue(image.PlatformDetails),
+		OwnerId:         aws.StringValue(image.OwnerId),
 	}
 
 	// Detect OS type from name/description
@@ -205,6 +207,34 @@ func (info *AMIInfo) detectOSType() string {
 
 	// Default: assume Amazon Linux 2
 	return "amazon-linux-2"
+}
+
+// isPublicAMI checks if the AMI is from a well-known public AMI provider
+// Returns true for AWS official and major distribution AMIs that can be auto-mapped
+func (info *AMIInfo) isPublicAMI() bool {
+	// Well-known public AMI owner IDs
+	// - 602401143452: AWS EKS team
+	// - amazon: Amazon official
+	// - 099720109477: Canonical (Ubuntu)
+	// - 136693071363: Debian
+	// - 125523088429: Fedora
+	// - 013907871322: SUSE
+	publicOwners := []string{
+		"602401143452", // AWS EKS
+		"amazon",       // Amazon
+		"099720109477", // Canonical (Ubuntu)
+		"136693071363", // Debian
+		"125523088429", // Fedora
+		"013907871322", // SUSE
+	}
+
+	for _, owner := range publicOwners {
+		if info.OwnerId == owner {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isGPUInstanceType checks if instance type requires GPU support
@@ -1043,6 +1073,17 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 				receivedImageName, err, getAvailableAMITypesMessage())
 		}
 
+		// Check if it's a public AMI (not user's custom AMI)
+		if !amiInfo.isPublicAMI() {
+			return irs.NodeGroupInfo{}, fmt.Errorf(
+				"custom AMI '%s' (Owner: %s) is not supported. Only public AMIs from AWS/Canonical/Debian can be auto-mapped to AMI Types. Custom AMIs require Launch Template (not yet implemented).\n\n%s",
+				receivedImageName, amiInfo.OwnerId, getAvailableAMITypesMessage())
+		}
+
+		// Public AMI detected - will be auto-mapped
+		cblogger.Infof("✓ Public AMI detected: %s (Owner: %s, OS: %s)",
+			receivedImageName, amiInfo.OwnerId, amiInfo.OSType)
+
 		// Step 2: Map to EKS AMI Type
 		instanceType := nodeGroupReqInfo.VMSpecName
 		if instanceType == "" {
@@ -1050,6 +1091,10 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		}
 
 		amiType = ClusterHandler.mapToEKSAMIType(amiInfo, instanceType)
+
+		// Important warning: original AMI will NOT be used
+		cblogger.Warnf("⚠️  AMI auto-mapping: Original AMI '%s' will NOT be used. AWS will select the latest EKS-optimized AMI for type '%s'",
+			receivedImageName, amiType)
 		cblogger.Infof("Final EKS AMI Type: %s", amiType)
 	}
 
