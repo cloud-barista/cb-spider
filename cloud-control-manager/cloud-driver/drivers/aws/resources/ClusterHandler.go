@@ -90,6 +90,35 @@ func getServerAddress() string {
 	return hostEnv
 }
 
+// getAvailableAMITypesMessage returns all available AMI types with compatibility notes.
+// Uses hardcoded list due to AWS SDK v1.39.4 (2021) lacking recent AMI type constants.
+// TODO: After upgrading to AWS SDK v1.50+, replace with eks.AMITypes_Values()
+func getAvailableAMITypesMessage() string {
+	// Hardcoded list based on AWS EKS documentation (as of 2024)
+	// Excludes deprecated AL2 types (K8s ≤1.32 only) and CUSTOM type
+	allTypes := []string{
+		"AL2023_x86_64_STANDARD",
+		"AL2023_ARM_64_STANDARD",
+		"BOTTLEROCKET_ARM_64",
+		"BOTTLEROCKET_x86_64",
+		"BOTTLEROCKET_ARM_64_NVIDIA",
+		"BOTTLEROCKET_x86_64_NVIDIA",
+		"WINDOWS_CORE_2019_x86_64",
+		"WINDOWS_FULL_2019_x86_64",
+		"WINDOWS_CORE_2022_x86_64",
+		"WINDOWS_FULL_2022_x86_64",
+	}
+
+	msg := "Available EKS AMI Types:\n- " + strings.Join(allTypes, "\n- ")
+	msg += "\n\n⚠️  Important Notes:"
+	msg += "\n- AL2023 types require Kubernetes ≥ 1.30"
+	msg += "\n- Bottlerocket types support all Kubernetes versions"
+	msg += "\n- For Windows workloads, use WINDOWS_* types"
+	msg += "\n\nRefer to AWS EKS documentation for detailed compatibility."
+
+	return msg
+}
+
 //------ Cluster Management
 
 /*
@@ -1008,18 +1037,20 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		cblogger.Infof("Analyzing AMI: %s", receivedImageName)
 		amiInfo, err := ClusterHandler.analyzeAMI(receivedImageName)
 		if err != nil {
-			cblogger.Warnf("Failed to analyze AMI %s: %v. Using default (K8s 1.30+ compatible).", receivedImageName, err)
-			amiType = "AL2023_x86_64_STANDARD"
-		} else {
-			// Step 2: Map to EKS AMI Type
-			instanceType := nodeGroupReqInfo.VMSpecName
-			if instanceType == "" {
-				instanceType = "t3.medium" // default
-			}
-
-			amiType = ClusterHandler.mapToEKSAMIType(amiInfo, instanceType)
-			cblogger.Infof("Final EKS AMI Type: %s", amiType)
+			// Return error with available AMI types list
+			return irs.NodeGroupInfo{}, fmt.Errorf(
+				"failed to analyze AMI '%s': %w\n\n%s",
+				receivedImageName, err, getAvailableAMITypesMessage())
 		}
+
+		// Step 2: Map to EKS AMI Type
+		instanceType := nodeGroupReqInfo.VMSpecName
+		if instanceType == "" {
+			instanceType = "t3.medium" // default
+		}
+
+		amiType = ClusterHandler.mapToEKSAMIType(amiInfo, instanceType)
+		cblogger.Infof("Final EKS AMI Type: %s", amiType)
 	}
 
 	cblogger.Infof("Creating NodeGroup with AmiType: %s", amiType)
