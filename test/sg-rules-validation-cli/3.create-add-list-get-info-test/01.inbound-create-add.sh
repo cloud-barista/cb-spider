@@ -16,7 +16,7 @@ source ../common/setup.env $1
 source setup.env $1
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -44,7 +44,7 @@ fi
 
 echo "============== before AddRules: '${SG_NAME}' --- inbound:TCP/22/22"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -71,7 +71,7 @@ fi
 
 echo "============== before AddRules: '${SG_NAME}' --- inbound:UDP/1/65535"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -97,7 +97,7 @@ fi
 
 echo "============== before AddRules: '${SG_NAME}' --- inbound:ICMP/-1/-1"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

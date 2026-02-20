@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 
 echo "============== before delete VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc delete --cname "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vpc delete -c "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
 echo "============== after delete VPC/Subnet: '${VPC_NAME}'"
 
 echo -e "\n\n"

@@ -17,7 +17,7 @@ SG_NAME=${SG_NAME}-$2
 
 echo "============== before RemoveRules: '${SG_NAME}' --- inbound:TCP/22/22"
 #### @todo Change this command with spctl
-curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -39,7 +39,7 @@ echo -e "\n\n"
 
 echo "============== before RemoveRules: '${SG_NAME}' --- inbound:UDP/1/65535"
 #### @todo Change this command with spctl
-curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -61,7 +61,7 @@ echo -e "\n\n"
 
 echo "============== before RemoveRules: '${SG_NAME}' --- inbound:ICMP/-1/-1"
 #### @todo Change this command with spctl
-curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

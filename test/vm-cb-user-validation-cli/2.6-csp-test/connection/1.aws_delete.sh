@@ -1,4 +1,7 @@
 #!/bin/bash
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 echo "####################################################################"
 echo "## Cloud Connection Config Info Deletion"
@@ -9,7 +12,7 @@ configs=("aws-config01:aws-ohio")
 
 for config in "${configs[@]}"; do
     IFS=":" read -r ConfigName RegionName <<< "$config"
-    curl -X DELETE http://$RESTSERVER:1024/spider/connectionconfig/"$ConfigName" \
+    curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/connectionconfig/"$ConfigName" \
         -H 'Content-Type: application/json'
 done
 
@@ -27,7 +30,7 @@ regions=("aws-ohio:us-east-2:us-east-2a"
 
 for region in "${regions[@]}"; do
     IFS=":" read -r RegionName Region Zone <<< "$region"
-    curl -X DELETE http://$RESTSERVER:1024/spider/region/"$RegionName" \
+    curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/region/"$RegionName" \
         -H 'Content-Type: application/json'
 done
 
@@ -36,7 +39,7 @@ echo "## Cloud Credential Info Deletion"
 echo "####################################################################"
 
 # Cloud Credential Info Deletion
-curl -X DELETE http://$RESTSERVER:1024/spider/credential/aws-credential01 \
+curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/credential/aws-credential01 \
     -H 'Content-Type: application/json'
 
 echo "####################################################################"
@@ -44,6 +47,6 @@ echo "## Cloud Driver Info Deletion"
 echo "####################################################################"
 
 # Cloud Driver Info Deletion
-curl -X DELETE http://$RESTSERVER:1024/spider/driver/aws-driver01 \
+curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/driver/aws-driver01 \
     -H 'Content-Type: application/json'
 

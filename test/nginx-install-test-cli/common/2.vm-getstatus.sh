@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 
 echo "============== before get VM Status: '${VM_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vm getstatus --cname "${CONN_CONFIG}" -n "${VM_NAME}" 
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm-status get -c "${CONN_CONFIG}" -n "${VM_NAME}" 
 
 echo "============== after get VM Status: '${VM_NAME}'"
 

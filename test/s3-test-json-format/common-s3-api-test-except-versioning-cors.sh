@@ -1,4 +1,7 @@
 #!/bin/bash
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 # CB-Spider S3 API Test Script - JSON Format (Except Versioning and CORS)
 # For NHN Cloud Object Storage - Versioning and CORS are not supported
@@ -54,7 +57,7 @@ log_warning() {
 
 # Check if the test bucket exists (returns 0 if exists)
 bucket_exists() {
-    code=$(curl -s -H 'Accept: application/json' -o /dev/null -w '%{http_code}' -H 'Accept: application/json' -I "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME")
+    code=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -o /dev/null -w '%{http_code}' -H 'Accept: application/json' -I "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME")
     [[ "$code" == "200" ]]
 }
 
@@ -64,7 +67,7 @@ cleanup_multipart_uploads() {
     
     # Get list of all multipart uploads in JSON format
     local uploads_response
-    uploads_response=$(curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET?uploads&ConnectionName=$CONNECTION_NAME" 2>/dev/null)
+    uploads_response=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET?uploads&ConnectionName=$CONNECTION_NAME" 2>/dev/null)
     
     # Parse JSON and extract upload IDs and keys
     if [[ -n "$uploads_response" ]] && command -v jq >/dev/null 2>&1; then
@@ -72,7 +75,7 @@ cleanup_multipart_uploads() {
         echo "$uploads_response" | jq -r '.Upload[]? | "\(.Key) \(.UploadId)"' 2>/dev/null | while read -r key upload_id; do
             if [[ -n "$key" && -n "$upload_id" ]]; then
                 log_info "Aborting multipart upload: $key (ID: $upload_id)"
-                curl -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?uploadId=$upload_id&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+                curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?uploadId=$upload_id&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
             fi
         done
     else
@@ -91,7 +94,7 @@ cleanup_multipart_uploads() {
                     
                     if [[ -n "$key" && -n "$upload_id" ]]; then
                         log_info "Aborting multipart upload: $key (ID: $upload_id)"
-                        curl -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?uploadId=$upload_id&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+                        curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?uploadId=$upload_id&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
                     fi
                 done
             fi
@@ -108,7 +111,7 @@ wait_for_bucket_deletion() {
     
     while [[ $wait_time -lt $max_wait ]]; do
         local check_response
-        check_response=$(curl -s -H 'Accept: application/json' -w '%{http_code}' -o /dev/null -I "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME")
+        check_response=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -o /dev/null -I "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME")
         
         if [[ "$check_response" == "404" ]]; then
             log_info "Bucket successfully deleted after ${wait_time}s"
@@ -128,7 +131,7 @@ cleanup_all_objects() {
     
     # Get list of all objects in JSON format
     local objects_response
-    objects_response=$(curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME" 2>/dev/null)
+    objects_response=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME" 2>/dev/null)
     
     # Parse JSON and extract object keys
     if [[ -n "$objects_response" ]] && command -v jq >/dev/null 2>&1; then
@@ -136,7 +139,7 @@ cleanup_all_objects() {
         echo "$objects_response" | jq -r '.Contents[]?.Key' 2>/dev/null | while read -r key; do
             if [[ -n "$key" ]]; then
                 log_info "Deleting object: $key"
-                curl -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+                curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
             fi
         done
     else
@@ -145,7 +148,7 @@ cleanup_all_objects() {
             echo "$objects_response" | grep -o '"Key":"[^"]*"' | sed 's/"Key":"//;s/"//' | while read -r key; do
                 if [[ -n "$key" ]]; then
                     log_info "Deleting object: $key"
-                    curl -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+                    curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET/$key?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
                 fi
             done
         fi
@@ -200,7 +203,7 @@ cleanup() {
     
     # Force delete bucket (will empty it first) only if it exists
     if bucket_exists; then
-        curl -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
+        curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X DELETE "$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1
     else
         log_info "Bucket $TEST_BUCKET already removed, skipping force delete in cleanup"
     fi
@@ -315,12 +318,12 @@ main() {
     log_info "=== 1. BUCKET MANAGEMENT TESTS ==="
     
     run_test "list_buckets" \
-        "curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL?ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL?ConnectionName=$CONNECTION_NAME'" \
         "Owner" \
         "List all buckets (JSON format)"
     
     run_test "create_bucket" \
-        "curl -s -H 'Accept: application/json' -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
         "200" \
         "Create test bucket"
     
@@ -328,17 +331,17 @@ main() {
     sleep 2
     
     run_test "get_bucket_info" \
-        "curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
         "Name" \
         "Get bucket information (JSON format)"
     
     run_test "head_bucket" \
-        "curl -s -H 'Accept: application/json' -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
         "200" \
         "Check bucket exists"
     
     run_test "get_bucket_location" \
-        "curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?location&ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?location&ConnectionName=$CONNECTION_NAME'" \
         "LocationConstraint" \
         "Get bucket location (JSON format)"
     
@@ -346,14 +349,14 @@ main() {
     # Create a separate bucket for deletion test
     DELETE_BUCKET="${TEST_BUCKET}-delete-test"
     log_info "Creating separate bucket for deletion test: $DELETE_BUCKET"
-    DELETE_CREATE_RESPONSE=$(curl -s -H 'Accept: application/json' -w '%{http_code}' -X PUT "$SPIDER_URL/$DELETE_BUCKET?ConnectionName=$CONNECTION_NAME")
+    DELETE_CREATE_RESPONSE=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X PUT "$SPIDER_URL/$DELETE_BUCKET?ConnectionName=$CONNECTION_NAME")
     DELETE_CREATE_CODE=$(echo "$DELETE_CREATE_RESPONSE" | tail -c 4)
     
     if [[ "$DELETE_CREATE_CODE" == "200" || "$DELETE_CREATE_CODE" == "201" ]]; then
         sleep 2  # Wait for bucket to be ready
         
         run_test "delete_bucket" \
-            "curl -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$DELETE_BUCKET?ConnectionName=$CONNECTION_NAME'" \
+            "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$DELETE_BUCKET?ConnectionName=$CONNECTION_NAME'" \
             "204" \
             "Delete bucket"
     else
@@ -367,32 +370,32 @@ main() {
     log_info "=== 2. OBJECT MANAGEMENT TESTS ==="
     
     run_test "upload_object_file" \
-        "curl -s -H 'Accept: application/json' -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME' --data-binary '@$TEMP_DIR/$TEST_OBJECT'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X PUT '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME' --data-binary '@$TEMP_DIR/$TEST_OBJECT'" \
         "200" \
         "Upload object from file"
     
     run_test "upload_object_form" \
-        "curl -s -H 'Accept: application/json' -w '%{http_code}' -X POST '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME' -F 'key=form-upload.txt' -F 'file=@$TEMP_DIR/$TEST_OBJECT'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X POST '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME' -F 'key=form-upload.txt' -F 'file=@$TEMP_DIR/$TEST_OBJECT'" \
         "200" \
         "Upload object via form"
     
     run_test "download_object" \
-        "curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME' -o '$TEMP_DIR/downloaded-file.txt' && cat '$TEMP_DIR/downloaded-file.txt'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME' -o '$TEMP_DIR/downloaded-file.txt' && cat '$TEMP_DIR/downloaded-file.txt'" \
         "$TEST_CONTENT" \
         "Download object"
     
     run_test "head_object" \
-        "curl -s -H 'Accept: application/json' -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -I '$SPIDER_URL/$TEST_BUCKET/$TEST_OBJECT?ConnectionName=$CONNECTION_NAME'" \
         "200" \
         "Get object info"
     
     run_test "delete_object" \
-        "curl -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET/form-upload.txt?ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET/form-upload.txt?ConnectionName=$CONNECTION_NAME'" \
         "204" \
         "Delete single object"
     
     run_test "delete_multiple_objects" \
-        "curl -s -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET?delete&ConnectionName=$CONNECTION_NAME' -d '{\"Delete\":{\"Objects\":[{\"Key\":\"$TEST_OBJECT\"}]}}'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET?delete&ConnectionName=$CONNECTION_NAME' -d '{\"Delete\":{\"Objects\":[{\"Key\":\"$TEST_OBJECT\"}]}}'" \
         "Deleted" \
         "Delete multiple objects (JSON request/response)"
     
@@ -402,19 +405,19 @@ main() {
     log_info "=== 3. MULTIPART UPLOAD TESTS ==="
     
     # Upload a new object for multipart tests
-    curl -s -H 'Accept: application/json' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-test.txt?ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" >/dev/null
+    curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-test.txt?ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" >/dev/null
     
     run_test "initiate_multipart" \
-        "UPLOAD_ID=\$(curl -s -H 'Accept: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME' | jq -r '.UploadId // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME' | grep -o '\"UploadId\":\"[^\"]*\"' | sed 's/.*\"UploadId\":\"\([^\"]*\)\".*/\1/'); echo \"UploadId: \$UPLOAD_ID\"" \
+        "UPLOAD_ID=\$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME' | jq -r '.UploadId // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME' | grep -o '\"UploadId\":\"[^\"]*\"' | sed 's/.*\"UploadId\":\"\([^\"]*\)\".*/\1/'); echo \"UploadId: \$UPLOAD_ID\"" \
         "UploadId:" \
         "Initiate multipart upload (JSON response)"
     
     # Get upload ID for subsequent tests (JSON format)
-    UPLOAD_ID=$(curl -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME" | jq -r '.UploadId // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '"UploadId":"[^"]*"' | sed 's/.*"UploadId":"\([^"]*\)".*/\1/')
+    UPLOAD_ID=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME" | jq -r '.UploadId // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '"UploadId":"[^"]*"' | sed 's/.*"UploadId":"\([^"]*\)".*/\1/')
     
     if [[ -n "$UPLOAD_ID" ]]; then
         # Upload part and capture the actual ETag
-        PART_RESPONSE=$(curl -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?partNumber=1&uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
+        PART_RESPONSE=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?partNumber=1&uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
         ACTUAL_ETAG=$(echo "$PART_RESPONSE" | grep -i "etag:" | cut -d':' -f2 | tr -d ' \r\n')
         HTTP_CODE=$(echo "$PART_RESPONSE" | tail -1)
         
@@ -424,12 +427,12 @@ main() {
             "Upload part"
         
         run_test "list_parts" \
-            "curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploadId=$UPLOAD_ID&list-type=parts&ConnectionName=$CONNECTION_NAME'" \
+            "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploadId=$UPLOAD_ID&list-type=parts&ConnectionName=$CONNECTION_NAME'" \
             "Part" \
             "List parts (JSON response)"
         
         run_test "abort_multipart" \
-            "curl -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME'" \
+            "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME'" \
             "204" \
             "Abort multipart upload"
     else
@@ -439,21 +442,21 @@ main() {
     fi
     
     # Test complete multipart (separate upload)
-    NEW_UPLOAD_ID=$(curl -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | jq -r '.UploadId // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '"UploadId":"[^"]*"' | sed 's/.*"UploadId":"\([^"]*\)".*/\1/')
+    NEW_UPLOAD_ID=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | jq -r '.UploadId // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '"UploadId":"[^"]*"' | sed 's/.*"UploadId":"\([^"]*\)".*/\1/')
     if [[ -n "$NEW_UPLOAD_ID" ]]; then
         # Upload part and get real ETag
-        PART_UPLOAD_RESPONSE=$(curl -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?partNumber=1&uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
+        PART_UPLOAD_RESPONSE=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?partNumber=1&uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
         REAL_ETAG=$(echo "$PART_UPLOAD_RESPONSE" | grep -i "etag:" | cut -d':' -f2 | tr -d ' \r\n"' | tr -d '"')
         
         if [[ -n "$REAL_ETAG" ]]; then
             run_test "complete_multipart" \
-                "curl -s -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME' -d '{\"Parts\":[{\"PartNumber\":1,\"ETag\":\"$REAL_ETAG\"}]}'" \
+                "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME' -d '{\"Parts\":[{\"PartNumber\":1,\"ETag\":\"$REAL_ETAG\"}]}'" \
                 "ETag" \
                 "Complete multipart upload (JSON request/response)"
         else
             # Try with a mock ETag if real one fails
             run_test "complete_multipart" \
-                "curl -s -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME' -d '{\"Parts\":[{\"PartNumber\":1,\"ETag\":\"test-etag\"}]}'" \
+                "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST '$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME' -d '{\"Parts\":[{\"PartNumber\":1,\"ETag\":\"test-etag\"}]}'" \
                 "Error" \
                 "Complete multipart upload (JSON format, expected to fail with mock ETag)"
         fi
@@ -465,7 +468,7 @@ main() {
     fi
     
     run_test "list_multipart_uploads" \
-        "curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?uploads&ConnectionName=$CONNECTION_NAME'" \
+        "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?uploads&ConnectionName=$CONNECTION_NAME'" \
         "Upload" \
         "List multipart uploads (JSON response)"
     
@@ -499,16 +502,16 @@ main() {
     log_info "=== 6. CB-SPIDER SPECIAL FEATURES ==="
     
     # Upload a test file for presigned URL tests
-    curl -s -X PUT "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/$TEST_OBJECT" >/dev/null
+    curl -u $API_USERNAME:$API_PASSWORD -s -X PUT "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/$TEST_OBJECT" >/dev/null
     
     # Test presigned download URL generation
     run_test "generate_presigned_download" \
-        "PRESIGNED_DOWNLOAD_URL=\$(curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME' | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '\"URL\":\"[^\"]*\"' | sed 's/.*\"URL\":\"\([^\"]*\)\".*/\1/'); echo \"Generated URL: \${PRESIGNED_DOWNLOAD_URL:0:50}...\"" \
+        "PRESIGNED_DOWNLOAD_URL=\$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME' | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '\"URL\":\"[^\"]*\"' | sed 's/.*\"URL\":\"\([^\"]*\)\".*/\1/'); echo \"Generated URL: \${PRESIGNED_DOWNLOAD_URL:0:50}...\"" \
         "Generated URL:" \
         "Generate presigned download URL (JSON response)"
     
     # Extract presigned download URL for actual test (JSON format)
-    PRESIGNED_DOWNLOAD_URL=$(curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME" | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '"URL":"[^"]*"' | sed 's/.*"URL":"\([^"]*\)".*/\1/')
+    PRESIGNED_DOWNLOAD_URL=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME" | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '"URL":"[^"]*"' | sed 's/.*"URL":"\([^"]*\)".*/\1/')
     
     if [[ -n "$PRESIGNED_DOWNLOAD_URL" ]]; then
         run_test "test_presigned_download" \
@@ -525,12 +528,12 @@ main() {
     
     # Test presigned upload URL generation
     run_test "generate_presigned_upload" \
-        "PRESIGNED_UPLOAD_URL=\$(curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME' | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '\"URL\":\"[^\"]*\"' | sed 's/.*\"URL\":\"\([^\"]*\)\".*/\1/'); echo \"Generated URL: \${PRESIGNED_UPLOAD_URL:0:50}...\"" \
+        "PRESIGNED_UPLOAD_URL=\$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME' | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '\"URL\":\"[^\"]*\"' | sed 's/.*\"URL\":\"\([^\"]*\)\".*/\1/'); echo \"Generated URL: \${PRESIGNED_UPLOAD_URL:0:50}...\"" \
         "Generated URL:" \
         "Generate presigned upload URL (JSON response)"
     
     # Extract presigned upload URL for actual test (JSON format)
-    PRESIGNED_UPLOAD_URL=$(curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME" | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '"URL":"[^"]*"' | sed 's/.*"URL":"\([^"]*\)".*/\1/')
+    PRESIGNED_UPLOAD_URL=$(curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME" | jq -r '.URL // .PresignedURL // empty' 2>/dev/null || curl -s -H 'Accept: application/json' -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '"URL":"[^"]*"' | sed 's/.*"URL":"\([^"]*\)".*/\1/')
     
     if [[ -n "$PRESIGNED_UPLOAD_URL" ]]; then
         run_test "test_presigned_upload" \
@@ -551,7 +554,7 @@ main() {
         cleanup_all_objects
         cleanup_multipart_uploads
         run_test "force_empty_bucket" \
-            "curl -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?empty=true&ConnectionName=$CONNECTION_NAME'" \
+            "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?empty=true&ConnectionName=$CONNECTION_NAME'" \
             "204" \
             "Force empty bucket"
     else
@@ -565,7 +568,7 @@ main() {
         cleanup_all_objects
         cleanup_multipart_uploads
         run_test "force_delete_bucket" \
-            "curl -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME'" \
+            "curl -u $API_USERNAME:$API_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME'" \
             "204" \
             "Force delete bucket"
     else
@@ -595,7 +598,7 @@ main() {
 
 # Check if spider server is running
 check_server() {
-    if ! curl -s "$SPIDER_URL?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1; then
+    if ! curl -u $API_USERNAME:$API_PASSWORD -s "$SPIDER_URL?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1; then
         log_error "CB-Spider server is not running at $SPIDER_URL or connection $CONNECTION_NAME is not valid"
         log_info "Please start the server with: ./bin/start.sh"
         log_info "And ensure connection '$CONNECTION_NAME' exists"

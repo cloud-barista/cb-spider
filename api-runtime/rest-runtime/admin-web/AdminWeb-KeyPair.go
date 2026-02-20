@@ -86,10 +86,14 @@ func KeyPairManagement(c echo.Context) error {
 		ConnectionConfig string
 		RegionName       string
 		KeyPairs         []*cres.KeyPairInfo
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		KeyPairs:         keyPairs,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/keypair.html")

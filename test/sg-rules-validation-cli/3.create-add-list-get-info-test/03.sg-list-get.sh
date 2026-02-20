@@ -16,10 +16,10 @@ source ../common/setup.env $1
 source setup.env $1
 
 echo "============== before list SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" security list 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup list -c "${CONN_CONFIG}" 2> /dev/null
 echo "============== after list SecurityGroup: '${SG_NAME}'"
 
 echo "============== before get SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" security get -n "${SG_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup get -c "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
 echo "============== after get SecurityGroup: '${SG_NAME}'"
 

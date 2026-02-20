@@ -1,3 +1,6 @@
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 echo "####################################################################"
 echo "## NLB Test Scripts for CB-Spider - 2022.06."
@@ -21,7 +24,7 @@ TIMEOUT=$8
 THRESHOLD=$9
 
 echo "#####---------- CreateNLB ----------####"
-curl -sX POST http://localhost:1024/spider/nlb -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/nlb -H 'Content-Type: application/json' -d \
 	'{
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": {

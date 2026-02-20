@@ -16,7 +16,7 @@ VM_NAME=${VM_NAME}-$2-$3
 
 echo "============== before get VM: '${VM_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vm get --cname "${CONN_CONFIG}" -n "${VM_NAME}" 
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm get -c "${CONN_CONFIG}" -n "${VM_NAME}" 
 
 echo "============== after get VM: '${VM_NAME}'"
 

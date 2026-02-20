@@ -46,6 +46,8 @@ type DashboardData struct {
 	ResourceCounts     map[string][]ResourceCounts
 	Regions            map[string]string
 	ShowEmpty          bool
+	APIUsername        string
+	APIPassword        string
 }
 
 // Filter out empty connections
@@ -87,7 +89,7 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 
 	for _, resource := range resources {
 		url := fmt.Sprintf("%s/count%s/%s", baseURL, resource, config.ConfigName)
-		resp, err := http.Get(url)
+		resp, err := httpGetWithAuth(url)
 		if err != nil {
 			errorChan <- fmt.Errorf("error fetching %s count for %s: %v", resource, config.ConfigName, err)
 			return
@@ -217,6 +219,8 @@ func Dashboard(c echo.Context) error {
 		ResourceCounts: resourceCounts,
 		Regions:        regionMap,
 		ShowEmpty:      showEmpty,
+		APIUsername:    os.Getenv("API_USERNAME"),
+		APIPassword:    os.Getenv("API_PASSWORD"),
 	}
 
 	c.Response().WriteHeader(http.StatusOK)

@@ -68,7 +68,7 @@ type ResourceUsage struct {
 // Function to fetch System Information
 func fetchSystemInfo() (SystemInfo, error) {
 	url := "http://localhost:1024/spider/sysstats/system"
-	resp, err := http.Get(url)
+	resp, err := httpGetWithAuth(url)
 	if err != nil {
 		return SystemInfo{}, fmt.Errorf("error fetching System Info: %v", err)
 	}
@@ -89,7 +89,7 @@ func fetchSystemInfo() (SystemInfo, error) {
 // Function to fetch Resource Usage
 func fetchResourceUsage() (ResourceUsage, error) {
 	url := "http://localhost:1024/spider/sysstats/usage"
-	resp, err := http.Get(url)
+	resp, err := httpGetWithAuth(url)
 	if err != nil {
 		return ResourceUsage{}, fmt.Errorf("error fetching Resource Usage: %v", err)
 	}
@@ -140,12 +140,16 @@ func SystemStatsInfoPage(c echo.Context) error {
 		SystemCoreKeys  []string
 		ProcessCoreKeys []string
 		ShortStartTime  string
+		APIUsername     string
+		APIPassword     string
 	}{
 		SystemInfo:      sysStats,
 		ResourceUsage:   resourceUsage,
 		SystemCoreKeys:  systemCoreKeys,
 		ProcessCoreKeys: processCoreKeys,
 		ShortStartTime:  cr.StartTime,
+		APIUsername:     os.Getenv("API_USERNAME"),
+		APIPassword:     os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/system-stats.html")

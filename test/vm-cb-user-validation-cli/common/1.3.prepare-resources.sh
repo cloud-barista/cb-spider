@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before create VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl  vpc create -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD"  vpc create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

@@ -86,10 +86,14 @@ func MyImageManagement(c echo.Context) error {
 		ConnectionConfig string
 		RegionName       string
 		MyImages         []*cres.MyImageInfo
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		MyImages:         myImages,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/myimage.html")

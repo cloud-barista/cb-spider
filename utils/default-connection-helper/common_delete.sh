@@ -1,4 +1,7 @@
 #!/bin/bash
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 # Check if RESTSERVER is set, otherwise default to localhost
 if [[ -z "$RESTSERVER" ]]; then
@@ -17,7 +20,7 @@ delete_connection_configs_and_regions() {
   echo "####################################################################"
 
   # Fetch region-zone list used to build config/region names
-  REGIONZONE_JSON=$(curl -s -X GET \
+  REGIONZONE_JSON=$(curl -u $API_USERNAME:$API_PASSWORD -s -X GET \
     "http://$RESTSERVER:1024/spider/preconfig/regionzone?CredentialName=$CREDENTIAL_NAME&DriverName=$DRIVER_NAME" \
     -H 'accept: application/json')
 
@@ -28,11 +31,11 @@ delete_connection_configs_and_regions() {
   else
     echo "$REGIONZONE_JSON" | jq -r '.regionzone[] | select(.ZoneList != null) | .Name as $region | .ZoneList[] | "'"$PREFIX"'.\($region).\(.Name)"' | while read -r REGION_ID; do
       echo "Deleting connection config: $REGION_ID"
-      curl -s -X DELETE "http://$RESTSERVER:1024/spider/connectionconfig/$REGION_ID" \
+      curl -u $API_USERNAME:$API_PASSWORD -s -X DELETE "http://$RESTSERVER:1024/spider/connectionconfig/$REGION_ID" \
         -H 'Content-Type: application/json' > /dev/null
 
       echo "Deleting region: $REGION_ID"
-      curl -s -X DELETE "http://$RESTSERVER:1024/spider/region/$REGION_ID" \
+      curl -u $API_USERNAME:$API_PASSWORD -s -X DELETE "http://$RESTSERVER:1024/spider/region/$REGION_ID" \
         -H 'Content-Type: application/json' > /dev/null
     done
   fi
@@ -46,7 +49,7 @@ delete_credential() {
   echo "## Cloud Credential Deletion"
   echo "####################################################################"
 
-  curl -s -X DELETE "http://$RESTSERVER:1024/spider/credential/$CREDENTIAL_NAME" \
+  curl -u $API_USERNAME:$API_PASSWORD -s -X DELETE "http://$RESTSERVER:1024/spider/credential/$CREDENTIAL_NAME" \
     -H 'Content-Type: application/json' > /dev/null
   echo "Deleted credential: $CREDENTIAL_NAME"
 }
@@ -59,7 +62,7 @@ delete_driver() {
   echo "## Cloud Driver Deletion"
   echo "####################################################################"
 
-  curl -s -X DELETE "http://$RESTSERVER:1024/spider/driver/$DRIVER_NAME" \
+  curl -u $API_USERNAME:$API_PASSWORD -s -X DELETE "http://$RESTSERVER:1024/spider/driver/$DRIVER_NAME" \
     -H 'Content-Type: application/json' > /dev/null
   echo "Deleted driver: $DRIVER_NAME"
 }

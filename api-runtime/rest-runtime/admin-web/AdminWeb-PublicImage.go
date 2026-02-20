@@ -66,11 +66,15 @@ func VMImage(c echo.Context) error {
 	json.Unmarshal(resBody, &info)
 
 	data := struct {
-		ConnConfig string
-		Images     []*cres.ImageInfo
+		ConnConfig  string
+		Images      []*cres.ImageInfo
+		APIUsername string
+		APIPassword string
 	}{
-		ConnConfig: connConfig,
-		Images:     info.ResultList,
+		ConnConfig:  connConfig,
+		Images:      info.ResultList,
+		APIUsername: os.Getenv("API_USERNAME"),
+		APIPassword: os.Getenv("API_PASSWORD"),
 	}
 
 	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vm-image.html")

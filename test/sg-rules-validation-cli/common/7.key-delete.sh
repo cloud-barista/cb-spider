@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/sg-rules-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete KeyPair: '${KEYPAIR_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair delete --cname "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair delete -c "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
 echo "============== after delete KeyPair: '${KEYPAIR_NAME}'"
 
 echo -e "\n\n"

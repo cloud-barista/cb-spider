@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/functional-test-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

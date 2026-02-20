@@ -159,7 +159,7 @@ func makeDriverTRListHTML(bgcolor string, height string, fontSize string, infoLi
 }
 
 func fetchDriverInfos() ([]*dim.CloudDriverInfo, error) {
-	resp, err := http.Get("http://localhost:1024/spider/driver")
+	resp, err := httpGetWithAuth("http://localhost:1024/spider/driver")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching drivers: %v", err)
 	}
@@ -195,11 +195,15 @@ func DriverManagement(c echo.Context) error {
 	}
 
 	data := struct {
-		Drivers   map[string][]*dim.CloudDriverInfo
-		Providers []string
+		Drivers     map[string][]*dim.CloudDriverInfo
+		Providers   []string
+		APIUsername string
+		APIPassword string
 	}{
-		Drivers:   driverMap,
-		Providers: providers,
+		Drivers:     driverMap,
+		Providers:   providers,
+		APIUsername: os.Getenv("API_USERNAME"),
+		APIPassword: os.Getenv("API_PASSWORD"),
 	}
 
 	// Define template path

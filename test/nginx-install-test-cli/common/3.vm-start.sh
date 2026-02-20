@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 
 echo "============== before start VM: '${VM_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vm start -i json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm start -d \
     "{
       \"ConnectionName\":\"${CONN_CONFIG}\",
       \"ReqInfo\": {

@@ -7,7 +7,7 @@ echo "####################################################################"
 echo ""
 
 echo "#####---------- CreateVPC ----------####"
-curl -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": { 
@@ -23,7 +23,7 @@ fi
 
 
 echo "#####---------- CreateSG ----------####"
-curl -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": { 
@@ -37,17 +37,19 @@ if [ "$SLEEP" ]; then
         sleep $SLEEP
 fi
 
-CLIPATH=$CBSPIDER_ROOT/interface
+CLIPATH=$CBSPIDER_ROOT/cli
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
 KEYPAIR_NAME=$1-keypair-01
 
 echo "#####---------- CreateKey ----------####"
-curl -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/keypair -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": { "Name": "'${KEYPAIR_NAME}'" } 
 	}' |json_pp
 
-ret=`$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
+ret=`$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair create -d \
     '{
 		"ConnectionName":"'${CONN_CONFIG}'",
 		"ReqInfo": {
@@ -73,7 +75,7 @@ fi
 
 
 echo "#####---------- StartVM:vm-01 ----------####"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": { 
@@ -92,7 +94,7 @@ if [ "$SLEEP" ]; then
 fi
 
 echo "#####---------- StartVM:vm-02 ----------####"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

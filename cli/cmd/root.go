@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/TylerBrock/colorjson"
@@ -34,13 +35,30 @@ var rootCmd = &cobra.Command{
 }
 
 var serverURL string
+var apiUsername string
+var apiPassword string
 
 func Execute() {
 	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "localhost:1024", "Spider server URL")
+	rootCmd.PersistentFlags().StringVarP(&apiUsername, "username", "u", "", "API username (default: $API_USERNAME)")
+	rootCmd.PersistentFlags().StringVarP(&apiPassword, "password", "p", "", "API password (default: $API_PASSWORD)")
 	rootCmd.Flags().BoolP("version", "v", false, "Print the version information")
 
 	loadSwagger()
 	cobra.CheckErr(rootCmd.Execute())
+}
+
+// getCredentials returns username and password from flags or environment variables.
+func getCredentials() (string, string) {
+	user := apiUsername
+	pass := apiPassword
+	if user == "" {
+		user = os.Getenv("API_USERNAME")
+	}
+	if pass == "" {
+		pass = os.Getenv("API_PASSWORD")
+	}
+	return user, pass
 }
 
 var swaggerDefinitions map[string]interface{}

@@ -16,7 +16,7 @@ VPC_NAME=${VPC_NAME}-$2
 
 echo "============== before get VPC/Subnet: '${VPC_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc get --cname "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vpc get -c "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
 
 echo "============== after get VPC/Subnet: '${VPC_NAME}'"
 

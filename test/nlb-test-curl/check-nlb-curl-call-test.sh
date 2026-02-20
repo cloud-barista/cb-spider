@@ -1,4 +1,7 @@
 #!/bin/bash
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 if [ "$1" = "" ]; then
         echo
@@ -18,7 +21,7 @@ fi
 
 source $1/setup.env
 
-nlbinfo=`curl -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
+nlbinfo=`curl -u $API_USERNAME:$API_PASSWORD -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
 	'{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp`

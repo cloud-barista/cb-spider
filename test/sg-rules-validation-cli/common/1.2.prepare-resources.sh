@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/sg-rules-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before create VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vpc create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -33,7 +33,7 @@ echo "============== after create VPC/Subnet: '${VPC_NAME}'"
 echo -e "\n\n"
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -54,7 +54,7 @@ echo "============== after create SecurityGroup: '${SG_NAME}'"
 echo -e "\n\n"
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
-ret=`$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
+ret=`$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

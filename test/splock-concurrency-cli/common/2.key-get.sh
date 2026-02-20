@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 KEYPAIR_NAME=${KEYPAIR_NAME}-$2
 
 echo "============== before get KeyPair: '${KEYPAIR_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair get --cname "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair get -c "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
 echo "============== after get KeyPair: '${KEYPAIR_NAME}'"
 
 echo -e "\n\n"

@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete KeyPair: '${KEYPAIR_NAME}'"
-$CLIPATH/spctl  keypair delete -n "${KEYPAIR_NAME}" -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD"  keypair delete -n "${KEYPAIR_NAME}" -d \
     "{
       \"ConnectionName\":\"${CONN_CONFIG}\"
     }"

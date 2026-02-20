@@ -13,6 +13,7 @@ import (
 	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -66,6 +67,8 @@ var adminWebEnabled bool
 // @schemes http
 
 // @securityDefinitions.basic BasicAuth
+
+// @Security BasicAuth
 
 func init() {
 	cblog = cblogger.GetLogger("CLOUD-BARISTA")
@@ -590,6 +593,9 @@ func getRoutes() []route {
 			{"GET", "/adminweb/", aw.MainPage},
 			{"GET", "/adminweb/left_menu", aw.LeftMenu},
 			{"GET", "/adminweb/body_frame", aw.BodyFrame},
+			{"GET", "/adminweb/authinfo", aw.AuthInfo},
+			{"POST", "/adminweb/login", aw.Login},
+			{"GET", "/adminweb/logout", aw.Logout},
 
 			{"GET", "/adminweb/dashboard", aw.Dashboard},
 
@@ -764,31 +770,61 @@ func ApiServer(routes []route) {
 
 	// SkipAuthPaths defines paths to skip authentication
 	SkipAuthPaths := map[string]bool{
-		"/spider/version":     true,
-		"/spider/healthcheck": true,
-		"/spider/health":      true,
-		"/spider/ping":        true,
-		"/spider/readyz":      true,
+		"/spider/endpointinfo": true,
+		"/spider/version":      true,
+		"/spider/healthcheck":  true,
+		"/spider/health":       true,
+		"/spider/ping":         true,
+		"/spider/readyz":       true,
 	}
 
-	if API_USERNAME != "" && API_PASSWORD != "" {
-		cblog.Info("**** Rest Auth Enabled ****")
-		e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
-			Skipper: func(c echo.Context) bool {
-				return SkipAuthPaths[c.Path()]
-			},
-			Validator: func(username, password string, c echo.Context) (bool, error) {
-				// Be careful to use constant time comparison to prevent timing attacks
-				if subtle.ConstantTimeCompare([]byte(username), []byte(API_USERNAME)) == 1 &&
-					subtle.ConstantTimeCompare([]byte(password), []byte(API_PASSWORD)) == 1 {
-					return true, nil
-				}
-				return false, nil
-			},
-		}))
-	} else {
-		cblog.Info("**** Rest Auth Disabled ****")
+	// Validate API credentials
+	if API_USERNAME == "" || API_PASSWORD == "" {
+		log.Fatal("[AUTH ERROR] API_USERNAME and API_PASSWORD must both be set in setup.env. Server cannot start without authentication.")
 	}
+
+	cblog.Info("**** Rest Auth Enabled ****")
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			reqPath := c.Request().URL.Path
+			// Skip auth for specific paths
+			if SkipAuthPaths[reqPath] {
+				return next(c)
+			}
+			if strings.HasPrefix(reqPath, "/spider/adminweb") {
+				return next(c)
+			}
+			if strings.HasPrefix(reqPath, "/spider/api") {
+				return next(c)
+			}
+			// Check Basic Auth header
+			auth := c.Request().Header.Get(echo.HeaderAuthorization)
+			if auth == "" {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+			}
+			const prefix = "Basic "
+			if !strings.HasPrefix(auth, prefix) {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+			}
+			decoded, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+			if err != nil {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+			}
+			parts := strings.SplitN(string(decoded), ":", 2)
+			if len(parts) != 2 {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+			}
+			// Be careful to use constant time comparison to prevent timing attacks
+			if subtle.ConstantTimeCompare([]byte(parts[0]), []byte(API_USERNAME)) == 1 &&
+				subtle.ConstantTimeCompare([]byte(parts[1]), []byte(API_PASSWORD)) == 1 {
+				return next(c)
+			}
+			return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		}
+	})
+
+	// AdminWeb session-based auth middleware (protects adminweb pages after BasicAuth skip)
+	e.Use(aw.AdminWebSessionMiddleware)
 
 	for _, route := range routes {
 		spiderPath := "/spider" + route.path

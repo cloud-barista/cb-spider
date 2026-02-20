@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 echo "============== before create VPC: '${VPC_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vpc create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

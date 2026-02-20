@@ -310,6 +310,17 @@
         .addons-column {
             width: 6%;
         }
+        .addon-count {
+            display: block;
+            font-weight: bold;
+            font-size: 11px;
+            color: #555;
+            margin-bottom: 2px;
+        }
+        .addon-none {
+            font-size: 11px;
+            color: #999;
+        }
         .network-info-column {
             width: 6%;
         }
@@ -669,10 +680,14 @@
                 
                 <td class="addons-column center-align">
                     {{if $cluster.Status}}
-                        {{range $addon := $cluster.Addons.KeyValueList}}
-                            {{$addon.Key}}: {{$addon.Value}}<br>
+                        {{if $cluster.Addons.KeyValueList}}
+                            <span class="addon-count">{{len $cluster.Addons.KeyValueList}} items</span>
+                            <a class="view-details-link" href="javascript:void(0);" onclick="showAddonsOverlay(this)">View Details</a>
+                            <script type="application/json" class="addons-data">
+                            [{{range $i, $addon := $cluster.Addons.KeyValueList}}{"key":"{{$addon.Key}}","value":"{{$addon.Value}}"}{{if lt (add $i 1) (len $cluster.Addons.KeyValueList)}},{{end}}{{end}}]
+                            </script>
                         {{else}}
-                            Spider: Not available currently.
+                            <span class="addon-none">Not available</span>
                         {{end}}
                     {{end}}
                 </td>
@@ -979,6 +994,35 @@
     </div>
 
     <script>
+        // Basic Auth credentials from server
+        const API_USERNAME = '{{.APIUsername}}';
+        const API_PASSWORD = '{{.APIPassword}}';
+        
+        // Helper function to create fetch options with Basic Auth if credentials are set
+        function createFetchOptions(options = {}) {
+            const fetchOptions = { ...options };
+            
+            // Add Basic Auth header if credentials are provided
+            if (API_USERNAME && API_PASSWORD) {
+                const credentials = btoa(API_USERNAME + ':' + API_PASSWORD);
+                fetchOptions.headers = {
+                    ...fetchOptions.headers,
+                    'Authorization': 'Basic ' + credentials
+                };
+            }
+            
+            return fetchOptions;
+        }
+        
+        // Override fetch to automatically include Basic Auth
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            // Only add auth headers for Spider API calls (not for external URLs)
+            if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+                options = createFetchOptions(options);
+            }
+            return originalFetch(url, options);
+        };
 
         function searchKeyword() {
             let input, filter, table, tr, td, i;
@@ -1649,6 +1693,18 @@
         }
 
 
+        function showAddonsOverlay(linkElement) {
+            const td = linkElement.closest('td');
+            const jsonScript = td.querySelector('script.addons-data');
+            if (!jsonScript) return;
+            try {
+                const addons = JSON.parse(jsonScript.textContent);
+                showClusterDetailsOverlay('Addons', {addons: addons});
+            } catch(e) {
+                alert('Failed to parse addons data.');
+            }
+        }
+
         function showClusterDetailsOverlay(title, data) {
             const overlay = document.getElementById('cluster-details-overlay');
             const overlayContent = document.getElementById('cluster-details-overlay-content');
@@ -1681,6 +1737,43 @@
                 const securityGroupsRow = document.createElement('tr');
                 securityGroupsRow.innerHTML = `<th>Security Groups</th><td>${data.securityGroups.join(', ')}</td>`;
                 detailsTable.appendChild(securityGroupsRow);
+            } else if (title === 'Addons') {
+                // Parse addon KeyValueList and group by AddonName
+                const addons = data.addons || [];
+                const addonGroups = {};
+                let currentAddon = null;
+
+                for (const kv of addons) {
+                    if (kv.key === 'AddonName') {
+                        currentAddon = kv.value;
+                        if (!addonGroups[currentAddon]) {
+                            addonGroups[currentAddon] = [];
+                        }
+                    } else if (currentAddon) {
+                        addonGroups[currentAddon].push({key: kv.key, value: kv.value});
+                    }
+                }
+
+                const addonNames = Object.keys(addonGroups);
+                if (addonNames.length > 0) {
+                    for (const addonName of addonNames) {
+                        const nameRow = document.createElement('tr');
+                        nameRow.innerHTML = `<th colspan="2" style="background-color:#e8f4fd; text-align:left; padding:8px 12px; font-size:13px;">📦 ${addonName}</th>`;
+                        detailsTable.appendChild(nameRow);
+                        for (const prop of addonGroups[addonName]) {
+                            const propRow = document.createElement('tr');
+                            propRow.innerHTML = `<th style="width:35%; padding-left:24px;">${prop.key}</th><td style="word-break:break-all;">${prop.value}</td>`;
+                            detailsTable.appendChild(propRow);
+                        }
+                    }
+                } else {
+                    // Flat key-value list (no AddonName grouping)
+                    for (const kv of addons) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `<th style="width:35%;">${kv.key}</th><td style="word-break:break-all;">${kv.value}</td>`;
+                        detailsTable.appendChild(row);
+                    }
+                }
             } else if (title === 'Access Info') {
                 const endpointRow = document.createElement('tr');
                 endpointRow.innerHTML = `<th>Endpoint</th><td>${data.endpoint}</td>`;

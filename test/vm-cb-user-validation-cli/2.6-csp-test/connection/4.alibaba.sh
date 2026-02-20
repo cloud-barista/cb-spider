@@ -1,4 +1,7 @@
 #!/bin/bash
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 echo "####################################################################"
 echo "## Cloud Driver Info"
@@ -19,7 +22,7 @@ if [[ -z "$alibaba_client_id" || -z "$alibaba_client_secret" ]]; then
 fi
 
 # Cloud Driver Info
-curl -X POST http://$RESTSERVER:1024/spider/driver \
+curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/driver \
     -H 'Content-Type: application/json' \
     -d '{
         "DriverName":"alibaba-driver01",
@@ -32,7 +35,7 @@ echo "## Cloud Credential Info"
 echo "####################################################################"
 
 # Cloud Credential Info
-curl -X POST http://$RESTSERVER:1024/spider/credential \
+curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/credential \
     -H 'Content-Type: application/json' \
     -d '{
         "CredentialName":"alibaba-credential01",
@@ -57,7 +60,7 @@ regions=("alibaba-beijing:cn-beijing:cn-beijing-f"
 
 for region in "${regions[@]}"; do
     IFS=":" read -r RegionName Region Zone <<< "$region"
-    curl -X POST http://$RESTSERVER:1024/spider/region \
+    curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/region \
         -H 'Content-Type: application/json' \
         -d '{
             "RegionName": "'$RegionName'",
@@ -78,7 +81,7 @@ configs=("alibaba-beijing-config:alibaba-beijing")
 
 for config in "${configs[@]}"; do
     IFS=":" read -r ConfigName RegionName <<< "$config"
-    curl -X POST http://$RESTSERVER:1024/spider/connectionconfig \
+    curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/connectionconfig \
         -H 'Content-Type: application/json' \
         -d '{
             "ConfigName": "'$ConfigName'",

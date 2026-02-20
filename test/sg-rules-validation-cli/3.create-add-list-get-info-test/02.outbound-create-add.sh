@@ -17,7 +17,7 @@ source setup.env $1
 
 echo "============== before AddRules: '${SG_NAME}' --- outbound:TCP/22/22"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -45,7 +45,7 @@ echo -e "\n\n"
 
 echo "============== before AddRules: '${SG_NAME}' --- outbound:UDP/1/65535"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -71,7 +71,7 @@ fi
 
 echo "============== before AddRules: '${SG_NAME}' --- outbound:ICMP/-1/-1"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

@@ -17,6 +17,14 @@ import (
 
 func VMMointoring(c echo.Context) error {
 
+	data := struct {
+		APIUsername string
+		APIPassword string
+	}{
+		APIUsername: os.Getenv("API_USERNAME"),
+		APIPassword: os.Getenv("API_PASSWORD"),
+	}
+
 	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vm-mon.html")
 	tmpl, err := template.New("vm-mon.html").Funcs(template.FuncMap{
 		"inc": func(i int) int {
@@ -28,7 +36,7 @@ func VMMointoring(c echo.Context) error {
 	}
 
 	var result strings.Builder
-	err = tmpl.Execute(&result, nil)
+	err = tmpl.Execute(&result, data)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -37,6 +45,14 @@ func VMMointoring(c echo.Context) error {
 }
 
 func SpiderletVMMointoring(c echo.Context) error {
+
+	data := struct {
+		APIUsername string
+		APIPassword string
+	}{
+		APIUsername: os.Getenv("API_USERNAME"),
+		APIPassword: os.Getenv("API_PASSWORD"),
+	}
 
 	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/spiderlet-vm-mon.html")
 	tmpl, err := template.New("spiderlet-vm-mon.html").Funcs(template.FuncMap{
@@ -49,7 +65,7 @@ func SpiderletVMMointoring(c echo.Context) error {
 	}
 
 	var result strings.Builder
-	err = tmpl.Execute(&result, nil)
+	err = tmpl.Execute(&result, data)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

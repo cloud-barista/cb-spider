@@ -26,7 +26,7 @@ type RegionMetaInfo struct {
 }
 
 func fetchRegionInfos() (map[string][]RegionInfo, error) {
-	resp, err := http.Get("http://localhost:1024/spider/region")
+	resp, err := httpGetWithAuth("http://localhost:1024/spider/region")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching regions: %v", err)
 	}
@@ -46,7 +46,7 @@ func fetchRegionInfos() (map[string][]RegionInfo, error) {
 }
 
 func fetchRegionMetaInfo(provider string) ([]string, error) {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:1024/spider/cloudos/metainfo/%s", provider))
+	resp, err := httpGetWithAuth(fmt.Sprintf("http://localhost:1024/spider/cloudos/metainfo/%s", provider))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching region meta info for provider %s: %v", provider, err)
 	}
@@ -72,11 +72,15 @@ func RegionManagement(c echo.Context) error {
 	}
 
 	data := struct {
-		Regions   map[string][]RegionInfo
-		Providers []string
+		Regions     map[string][]RegionInfo
+		Providers   []string
+		APIUsername string
+		APIPassword string
 	}{
-		Regions:   regions,
-		Providers: providers,
+		Regions:     regions,
+		Providers:   providers,
+		APIUsername: os.Getenv("API_USERNAME"),
+		APIPassword: os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/region.html")

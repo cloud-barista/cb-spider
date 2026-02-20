@@ -19,10 +19,9 @@ SUBNET_CIDR=`echo $SUBNET_CIDR | sed 's/0\./'$3'\./g'`
 
 echo "============== before add Subnet: '${VPC_NAME}' : '${SUBNET_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc add-subnet -i json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" subnet add --VPCName "${VPC_NAME}" -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
-      "VPCName": "'${VPC_NAME}'",
       "ReqInfo": {
         "Name": "'${SUBNET_NAME}'",
         "IPv4_CIDR": "'${SUBNET_CIDR}'"

@@ -58,11 +58,15 @@ func VMSpec(c echo.Context) error {
 	json.Unmarshal(resBody, &info)
 
 	data := struct {
-		ConnConfig string
-		VMSpecs    []*cres.VMSpecInfo
+		ConnConfig  string
+		VMSpecs     []*cres.VMSpecInfo
+		APIUsername string
+		APIPassword string
 	}{
-		ConnConfig: connConfig,
-		VMSpecs:    info.ResultList,
+		ConnConfig:  connConfig,
+		VMSpecs:     info.ResultList,
+		APIUsername: os.Getenv("API_USERNAME"),
+		APIPassword: os.Getenv("API_PASSWORD"),
 	}
 
 	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vm-spec.html")

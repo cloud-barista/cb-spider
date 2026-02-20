@@ -82,11 +82,15 @@ func FileSystemManagement(c echo.Context) error {
 		RegionName       string
 		FileSystems      []FileSystemInfo
 		ErrorMessage     string
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		FileSystems:      fileSystems,
 		ErrorMessage:     errorMessage,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/filesystem.html")
@@ -111,6 +115,7 @@ func fetchFileSystems(connConfig string) ([]FileSystemInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	setBasicAuthIfConfigured(req)
 
 	// Add ConnectionName as query parameter
 	q := req.URL.Query()

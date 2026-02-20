@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 
 echo "============== before suspend VM: '${VM_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" vm suspend -n "${VM_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm control -n "${VM_NAME}" --action suspend -d '{"ConnectionName":"'"${CONN_CONFIG}"'"}' 2> /dev/null
 echo "============== after suspend VM: '${VM_NAME}'"
 
 echo -e "\n\n"

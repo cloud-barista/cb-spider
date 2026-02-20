@@ -52,6 +52,7 @@ func fetchAllVMStatuses(connConfig string) (map[string]string, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	setBasicAuthIfConfigured(req)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -123,7 +124,7 @@ func VMManagement(c echo.Context) error {
 	if err := json.Unmarshal(resBody, &regionInfo); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse region info: " + err.Error()})
 	}
-	
+
 	// Extract Region field from KeyValueInfoList
 	region := ""
 	if kvList, ok := regionInfo["KeyValueInfoList"].([]interface{}); ok {
@@ -160,12 +161,16 @@ func VMManagement(c echo.Context) error {
 		Region           string
 		VMs              []*cres.VMInfo
 		VMStatusMap      VMStatusMap
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		Region:           region,
 		VMs:              vms,
 		VMStatusMap:      statusMap,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vm.html")
