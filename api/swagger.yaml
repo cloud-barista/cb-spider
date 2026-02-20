@@ -202,9 +202,11 @@ definitions:
         type: string
       avgCreationTime:
         description: Average VM creation time in seconds
+        format: float64
         type: number
       creationCount:
         description: Number of successful VM creations
+        format: int64
         type: integer
       csp:
         type: string
@@ -1489,6 +1491,17 @@ definitions:
       Resuming: from suspended to running
       Suspending: from running to suspended
       Terminating: from running, suspended to terminated
+    x-enum-descriptions:
+    - from launch to running
+    - ""
+    - from running to suspended
+    - ""
+    - from suspended to running
+    - from running to running
+    - from running, suspended to terminated
+    - ""
+    - VM does not exist
+    - ""
     x-enum-varnames:
     - Creating
     - Running

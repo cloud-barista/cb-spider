@@ -11145,11 +11145,13 @@ const docTemplate = `{
                 },
                 "avgCreationTime": {
                     "description": "Average VM creation time in seconds",
-                    "type": "number"
+                    "type": "number",
+                    "format": "float64"
                 },
                 "creationCount": {
                     "description": "Number of successful VM creations",
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "csp": {
                     "type": "string"
@@ -12941,6 +12943,18 @@ const docTemplate = `{
                 "Suspending": "from running to suspended",
                 "Terminating": "from running, suspended to terminated"
             },
+            "x-enum-descriptions": [
+                "from launch to running",
+                "",
+                "from running to suspended",
+                "",
+                "from suspended to running",
+                "from running to running",
+                "from running, suspended to terminated",
+                "",
+                "VM does not exist",
+                ""
+            ],
             "x-enum-varnames": [
                 "Creating",
                 "Running",
