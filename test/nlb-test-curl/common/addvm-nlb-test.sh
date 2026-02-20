@@ -1,3 +1,6 @@
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 echo "####################################################################"
 echo "## NLB Test Scripts for CB-Spider - 2022.06."
@@ -14,7 +17,7 @@ KEYPAIR_NAME=$1-keypair-01
 
 echo 
 echo "#####---------- StartVM:vm-03 ----------####"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -33,7 +36,7 @@ if [ "$SLEEP" ]; then
 fi
 
 echo "#####---------- StartVM:vm-04 ----------####"
-curl -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -57,7 +60,7 @@ fi
 #################################################
 
 echo "#####---------- AddVMs ----------####"
-curl -sX POST http://localhost:1024/spider/nlb/spider-nlb-01/vms -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/nlb/spider-nlb-01/vms -H 'Content-Type: application/json' -d \
 	'{
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": {
@@ -71,7 +74,7 @@ fi
 
 
 echo "#####---------- GetNLB ----------####"
-curl -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'"
 	}' |json_pp

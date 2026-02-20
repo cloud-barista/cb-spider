@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/functional-test-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before get status VM: '${VM_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" vm getstatus -n "${VM_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm-status get -c "${CONN_CONFIG}" -n "${VM_NAME}" 2> /dev/null
 echo "============== after get status VM: '${VM_NAME}'"
 
 echo -e "\n\n"

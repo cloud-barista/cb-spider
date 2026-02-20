@@ -518,6 +518,36 @@
     </div>
 
 <script>
+    // Basic Auth credentials from server
+    const API_USERNAME = '{{.APIUsername}}';
+    const API_PASSWORD = '{{.APIPassword}}';
+    
+    // Helper function to create fetch options with Basic Auth if credentials are set
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        
+        // Add Basic Auth header if credentials are provided
+        if (API_USERNAME && API_PASSWORD) {
+            const credentials = btoa(API_USERNAME + ':' + API_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        
+        return fetchOptions;
+    }
+    
+    // Override fetch to automatically include Basic Auth
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // Only add auth headers for Spider API calls (not for external URLs)
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
 const connConfig = "{{.ConnectionConfig}}";
 
 function showProgressBar() {
@@ -1843,6 +1873,10 @@ function uploadWithProgress(url, file, filename, onProgress) {
         xhr.addEventListener('timeout', () => reject(new Error('Request timeout')));
 
         xhr.open('POST', url, true);
+        // Add Basic Auth header if credentials are configured
+        if (API_USERNAME && API_PASSWORD) {
+            xhr.setRequestHeader('Authorization', 'Basic ' + btoa(API_USERNAME + ':' + API_PASSWORD));
+        }
         xhr.timeout = 600000;
         xhr.send(formData);
     });

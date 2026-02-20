@@ -66,12 +66,16 @@ func PriceInfoRequest(c echo.Context) error {
 		RegionList        []string
 		ProductFamilyList []string
 		LoggingResult     template.JS
+		APIUsername       string
+		APIPassword       string
 	}
 
 	data := PageData{
 		ConnectionName: connConfig,
 		// RegionList:        regionNameList,
 		ProductFamilyList: productFamilyList(),
+		APIUsername:       os.Getenv("API_USERNAME"),
+		APIPassword:       os.Getenv("API_PASSWORD"),
 	}
 
 	// Parse the HTML template

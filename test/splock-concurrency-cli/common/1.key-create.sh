@@ -16,7 +16,7 @@ KEYPAIR_NAME=${KEYPAIR_NAME}-$2
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

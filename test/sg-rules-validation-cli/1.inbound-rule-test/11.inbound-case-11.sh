@@ -17,7 +17,7 @@ source setup.env $1
 
 echo "============== before AddRules: '${SG_NAME}' --- inbound:TCP/22/22, inbound:TCP/1000/1000, inbound:UDP/1/65535, inbound:ICMP/-1/-1"
 #### @todo Change this command with spctl
-curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

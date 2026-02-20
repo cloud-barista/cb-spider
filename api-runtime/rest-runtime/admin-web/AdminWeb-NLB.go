@@ -96,6 +96,8 @@ func NLBManagement(c echo.Context) error {
 		Region           string
 		Zone             string
 		NLBs             []*cres.NLBInfo
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		ProviderName:     providerName,
@@ -103,6 +105,8 @@ func NLBManagement(c echo.Context) error {
 		Region:           region,
 		Zone:             zone,
 		NLBs:             nlbs,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/nlb.html")

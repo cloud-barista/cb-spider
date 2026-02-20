@@ -65,6 +65,25 @@ func getClaudeAPIKey() (string, error) {
 	return string(bytes.TrimSpace(keyBytes)), nil
 }
 
+// setBasicAuthIfConfigured sets Basic Auth header on the request if API_USERNAME and API_PASSWORD are configured.
+func setBasicAuthIfConfigured(req *http.Request) {
+	username := os.Getenv("API_USERNAME")
+	password := os.Getenv("API_PASSWORD")
+	if username != "" && password != "" {
+		req.SetBasicAuth(username, password)
+	}
+}
+
+// httpGetWithAuth performs an HTTP GET request with optional Basic Auth.
+func httpGetWithAuth(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	setBasicAuthIfConfigured(req)
+	return http.DefaultClient.Do(req)
+}
+
 func makeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
 	strSelect := `<select name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
@@ -90,7 +109,7 @@ func getResourceList_JsonByte(resourceName string) ([]byte, error) {
 	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + resourceName
 
 	// get object list
-	res, err := http.Get(url)
+	res, err := httpGetWithAuth(url)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +136,7 @@ func getResourceList_with_Connection_JsonByte(connConfig string, resourceName st
 		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	setBasicAuthIfConfigured(request)
 
 	client := http.Client{}
 	resp, err := client.Do(request)
@@ -147,6 +167,7 @@ func getAllResourceList_with_Connection_JsonByte(connConfig string, resourceName
 		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	setBasicAuthIfConfigured(request)
 
 	client := http.Client{}
 	resp, err := client.Do(request)
@@ -167,7 +188,7 @@ func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
 	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + resourceName + "/" + name
 
 	// get object list
-	res, err := http.Get(url)
+	res, err := httpGetWithAuth(url)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +211,7 @@ func getPriceInfoJsonString(connConfig string, resourceName string, productFamil
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+	setBasicAuthIfConfigured(request)
 
 	client := &http.Client{}
 	resp, err := client.Do(request)
@@ -357,7 +379,7 @@ func genLoggingResult2(response string) string {
 
 // Fetch regions and map them to RegionName -> "Region / Zone"
 func fetchRegions() (map[string]string, error) {
-	resp, err := http.Get("http://localhost:1024/spider/region")
+	resp, err := httpGetWithAuth("http://localhost:1024/spider/region")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching regions: %v", err)
 	}

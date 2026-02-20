@@ -1,3 +1,6 @@
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 echo "####################################################################"
 echo "## NLB Test Scripts for CB-Spider - 2022.06."
@@ -8,7 +11,7 @@ echo "####################################################################"
 echo ""
 
 echo "#####---------- ChangeListener ----------####"
-curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/listener -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/listener -H 'Content-Type: application/json' -d \
 	'{
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": {
@@ -18,7 +21,7 @@ curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/listener -H 'Content
 	}' | json_pp
 
 echo "#####---------- ChangeVMGroup ----------####"
-curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/vmgroup -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/vmgroup -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -28,7 +31,7 @@ curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/vmgroup -H 'Content-
         }' | json_pp
 
 echo "#####---------- ChangeHealthChecker ----------####"
-curl -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/healthchecker -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX PUT http://localhost:1024/spider/nlb/spider-nlb-01/healthchecker -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -46,7 +49,7 @@ if [ "$SLEEP" ]; then
 fi
 
 echo "#####---------- GetNLB ----------####"
-curl -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'"
 	}' |json_pp

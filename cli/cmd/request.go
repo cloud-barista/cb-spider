@@ -75,6 +75,12 @@ func executeRequest(path, method string, operation map[string]interface{}, cmd *
 		return fmt.Errorf("error creating HTTP request: %v", err)
 	}
 
+	// Set Basic Auth credentials
+	user, pass := getCredentials()
+	if user != "" && pass != "" {
+		req.SetBasicAuth(user, pass)
+	}
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

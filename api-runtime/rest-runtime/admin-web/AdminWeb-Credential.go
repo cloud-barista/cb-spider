@@ -39,7 +39,7 @@ type CredentialMetaInfo struct {
 }
 
 func fetchCredentials() (map[string][]CredentialInfo, error) {
-	resp, err := http.Get("http://localhost:1024/spider/credential")
+	resp, err := httpGetWithAuth("http://localhost:1024/spider/credential")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching credentials: %v", err)
 	}
@@ -59,7 +59,7 @@ func fetchCredentials() (map[string][]CredentialInfo, error) {
 }
 
 func fetchCredentialMetaInfo(provider string) ([]string, error) {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:1024/spider/cloudos/metainfo/%s", provider))
+	resp, err := httpGetWithAuth(fmt.Sprintf("http://localhost:1024/spider/cloudos/metainfo/%s", provider))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching credential meta info for provider %s: %v", provider, err)
 	}
@@ -87,9 +87,13 @@ func CredentialManagement(c echo.Context) error {
 	data := struct {
 		Credentials map[string][]CredentialInfo
 		Providers   []string
+		APIUsername string
+		APIPassword string
 	}{
 		Credentials: credentials,
 		Providers:   providers,
+		APIUsername: os.Getenv("API_USERNAME"),
+		APIPassword: os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/credential.html")

@@ -1,4 +1,7 @@
 #!/bin/bash
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 echo "####################################################################"
 echo "## Cloud Driver Info"
@@ -19,7 +22,7 @@ if [[ -z "$tencent_secret_id" || -z "$tencent_secret_key" ]]; then
 fi
 
 # Cloud Driver Info
-curl -X POST http://$RESTSERVER:1024/spider/driver \
+curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/driver \
     -H 'Content-Type: application/json' \
     -d '{
         "DriverName":"tencent-driver01",
@@ -32,7 +35,7 @@ echo "## Cloud Credential Info"
 echo "####################################################################"
 
 # Cloud Credential Info
-curl -X POST http://$RESTSERVER:1024/spider/credential \
+curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/credential \
     -H 'Content-Type: application/json' \
     -d '{
         "CredentialName":"tencent-credential01",
@@ -56,7 +59,7 @@ regions=("tencent-guangzhou-3:ap-guangzhou:ap-guangzhou-6"
 
 for region in "${regions[@]}"; do
     IFS=":" read -r RegionName Region Zone <<< "$region"
-    curl -X POST http://$RESTSERVER:1024/spider/region \
+    curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/region \
         -H 'Content-Type: application/json' \
         -d '{
             "RegionName": "'$RegionName'",
@@ -77,7 +80,7 @@ configs=("tencent-beijing3-config:tencent-beijing-3")
 
 for config in "${configs[@]}"; do
     IFS=":" read -r ConfigName RegionName <<< "$config"
-    curl -X POST http://$RESTSERVER:1024/spider/connectionconfig \
+    curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/connectionconfig \
         -H 'Content-Type: application/json' \
         -d '{
             "ConfigName": "'$ConfigName'",

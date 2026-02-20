@@ -54,13 +54,13 @@
             position: absolute;
             background-color: #000;
             color: #fff;
-            font-size: 14px;
-            min-width: 150px;
+            font-size: 13px;
+            min-width: 80px;
             box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
             z-index: 1000;
             top: 100%;
             left: -2cm;
-            padding: 10px;
+            padding: 8px 10px;
             border-radius: 8px;
         }
         .dropdown-content a {
@@ -208,7 +208,9 @@
             height: 100%;
             background: rgba(0,0,0,0.5);
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
+            padding-top: 15vh;
+            box-sizing: border-box;
             z-index: 2000;
         }
         .about-content {
@@ -299,21 +301,63 @@
             background: #e8e8e8;
             border-color: #ccc;
         }
-        .about-progress-container {
-            margin-top: 8px;
-            width: 100%;
-            height: 4px;
-            background: #e8e8e8;
-            border-radius: 2px;
-            overflow: hidden;
+        .about-login-form {
+            margin-top: 20px;
             opacity: 0;
             transition: opacity 0.3s ease-in;
+            color: #0645AD;
         }
-        .about-progress-bar {
-            height: 100%;
-            width: 0;
-            background: linear-gradient(90deg, #A8CEFF 0%, #D4EBFF 100%);
-            border-radius: 2px;
+        .about-login-form .login-input {
+            display: block;
+            width: 75%;
+            margin: 6px auto;
+            padding: 7px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #0645AD;
+            outline: none;
+            box-sizing: border-box;
+        }
+        .about-login-form .login-input::placeholder {
+            color: #7a9fd4;
+        }
+        .about-login-form .login-input:focus {
+            border-color: #c8a84e;
+            box-shadow: 0 0 0 2px rgba(200,168,78,0.18);
+        }
+        .about-login-form .login-btn {
+            margin-top: 10px;
+            padding: 7px 30px;
+            background: #c8a84e;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .about-login-form .login-btn:hover {
+            background: #b89740;
+        }
+        .about-login-form .login-btn:disabled {
+            background: #ddd0a8;
+            cursor: not-allowed;
+        }
+        .about-login-form .login-error {
+            color: #e74c3c;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            50% { transform: translateX(8px); }
+            75% { transform: translateX(-4px); }
+        }
+        .about-login-form.shake {
+            animation: shake 0.4s ease-in-out;
         }
     </style>
 
@@ -463,18 +507,20 @@
                         <div class="dropdown-content">
                             <a href="https://github.com/cloud-barista/cb-spider/wiki" target="_blank">Guide</a>
                             <a href="http://localhost:1024/spider/api" target="_blank">API Docs</a>
-                            <a href="https://github.com/cloud-barista/cb-spider" target="_blank">Github</a>
-                            <a href="#" onclick="showAboutOverlay(); return false;">About</a>
                             <div class="dropdown-divider"></div>
                             <a href="#" onclick="window.open('/spider/adminweb/sysstats', 'SysStatsWindow', 'width=740,height=1400,left=' + (screen.width - 740)); return false;">SysStats</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="#" onclick="showAboutOverlay(); return false;">About</a>
                         </div>
                     </div>
-                    <!--<div class="dropdown">
-                        <span>login</span>
-                        <div class="dropdown-content">
-                            <p>WIP</p>
-                        </div>
-                    </div>-->
+                    <div id="authArea" style="display: none; align-items: center; margin-left: 10px;">
+                        <div class="separator"></div>
+                        <a href="#" onclick="doLogout(); return false;" title="Logout" style="display: flex; align-items: center; gap: 4px; font-size: 13px; color: #333; text-decoration: none; cursor: pointer;" onmouseover="this.style.color='#cc0000'" onmouseout="this.style.color='#333'">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span id="authUsernameText"></span>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        </a>
+                    </div>
                 </div>
             </div>
             <div class="body-frame">
@@ -498,16 +544,21 @@
             <div class="copyright">
                 <p>© Cloud-Barista Community</p>
             </div>
-            <button class="about-close-btn" onclick="hideAboutOverlay(true)">Close</button>
-            <div class="about-progress-container">
-                <div class="about-progress-bar"></div>
+            <div class="about-login-form" id="aboutLoginForm">
+                <div class="login-error" id="loginError" style="display:none;">Invalid username or password</div>
+                <input type="text" id="loginUsername" placeholder="Username" class="login-input" autocomplete="username" value="admin" style="opacity:0; transition: opacity 0.3s ease-in;" onkeydown="if(event.key==='Enter') document.getElementById('loginPassword').focus();">
+                <input type="password" id="loginPassword" placeholder="Password" class="login-input" autocomplete="current-password" style="opacity:0; transition: opacity 0.3s ease-in;" onkeydown="if(event.key==='Enter') doOverlayLogin();">
+                <button class="login-btn" id="loginBtn" onclick="doOverlayLogin()" style="opacity:0; transition: opacity 0.3s ease-in;">Login</button>
             </div>
+            <button class="about-close-btn" onclick="hideAboutOverlay(true)">Close</button>
         </div>
     </div>
 
     <script>
+        var _loginMode = false;
+
         function typeWriter(element, text, speed, callback) {
-            let i = 0;
+            var i = 0;
             element.textContent = '';
             function type() {
                 if (i < text.length) {
@@ -520,96 +571,73 @@
             }
             type();
         }
-        
-        function runAnimation(autoClose) {
-            const taglineElement = document.querySelector('.tagline');
-            const versionElement = document.getElementById('spiderVersion');
-            const copyrightElement = document.querySelector('.copyright');
-            const closeBtn = document.querySelector('.about-close-btn');
-            const progressContainer = document.querySelector('.about-progress-container');
-            const progressBar = document.querySelector('.about-progress-bar');
-            
-            // Reset opacity
+
+        function runAnimation(mode) {
+            // mode: 'login', 'autoclose', 'view'
+            var taglineElement = document.querySelector('.tagline');
+            var versionElement = document.getElementById('spiderVersion');
+            var copyrightElement = document.querySelector('.copyright');
+            var closeBtn = document.querySelector('.about-close-btn');
+            var loginForm = document.getElementById('aboutLoginForm');
+
+            // Reset
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('loginUsername').value = 'admin';
+            document.getElementById('loginPassword').value = '';
             taglineElement.style.opacity = '0';
-            versionElement.style.opacity = '0';
-            copyrightElement.style.opacity = '0';
-            closeBtn.style.opacity = '0';
-            progressContainer.style.opacity = '0';
-            progressBar.style.width = '0';
-            
-            // Show tagline before starting typewriter
-            taglineElement.style.opacity = '1';
-            
-            // If autoClose, start progress bar immediately
-            if (autoClose) {
-                progressContainer.style.opacity = '1';
-                // Use setTimeout to ensure transition applies after opacity is set
-                setTimeout(function() {
-                    progressBar.style.transition = 'width 4.5s linear';
-                    progressBar.style.width = '100%';
-                }, 50);
+
+            // Show everything except tagline immediately
+            fetch('/spider/version')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    versionElement.textContent = data.Version || 'CB-Spider';
+                })
+                .catch(function() {
+                    versionElement.textContent = 'CB-Spider';
+                });
+
+            versionElement.style.opacity = '1';
+            copyrightElement.style.opacity = '1';
+
+            if (mode === 'login') {
+                loginForm.style.display = 'block';
+                loginForm.style.opacity = '1';
+                document.getElementById('loginUsername').style.opacity = '1';
+                document.getElementById('loginPassword').style.opacity = '1';
+                document.getElementById('loginBtn').style.opacity = '1';
+                closeBtn.style.display = 'none';
+            } else {
+                loginForm.style.display = 'none';
+                closeBtn.style.display = 'inline-block';
+                closeBtn.style.opacity = '1';
             }
-            
-            // Step 1: Type tagline character by character
+
+            // Only tagline has typewriter animation
+            taglineElement.style.opacity = '1';
             typeWriter(taglineElement, '"One-Code, Multi-Cloud"', 50, function() {
-                // Step 2: Show version after tagline completes
-                setTimeout(function() {
-                    // Fetch and show version
-                    fetch('/spider/version')
-                        .then(response => response.json())
-                        .then(data => {
-                            versionElement.textContent = data.Version || 'CB-Spider';
-                            versionElement.style.opacity = '1';
-                            
-                            // Step 3: Show copyright after version
-                            setTimeout(function() {
-                                copyrightElement.style.opacity = '1';
-                                
-                                // Step 4: Show close button (progress bar already shown for autoClose)
-                                setTimeout(function() {
-                                    if (!autoClose) {
-                                        // Show close button
-                                        closeBtn.style.opacity = '1';
-                                    }
-                                }, 600);
-                            }, 400);
-                        })
-                        .catch(error => {
-                            console.error('Error fetching version:', error);
-                            versionElement.textContent = 'CB-Spider';
-                            versionElement.style.opacity = '1';
-                            
-                            setTimeout(function() {
-                                copyrightElement.style.opacity = '1';
-                                
-                                setTimeout(function() {
-                                    if (!autoClose) {
-                                        closeBtn.style.opacity = '1';
-                                    }
-                                }, 600);
-                            }, 400);
-                        });
-                }, 400);
+                if (mode === 'login') {
+                    document.getElementById('loginPassword').focus();
+                }
             });
         }
-        
-        function showAboutOverlay(autoClose) {
+
+        function showAboutOverlay(mode) {
+            _loginMode = (mode === 'login');
             document.getElementById('aboutOverlay').style.display = 'flex';
-            runAnimation(autoClose || false);
+            runAnimation(mode || 'view');
         }
-        
+
         function restartAnimation() {
-            runAnimation(false);
+            runAnimation(_loginMode ? 'login' : 'view');
         }
-        
+
         function hideAboutOverlay(withAnimation) {
-            const overlay = document.getElementById('aboutOverlay');
-            const content = document.querySelector('.about-content');
-            
+            _loginMode = false;
+            var overlay = document.getElementById('aboutOverlay');
+            var content = document.querySelector('.about-content');
+
             if (withAnimation) {
-                // Add fly-away animation
                 content.classList.add('fly-away');
-                // Wait for animation to complete before hiding
                 setTimeout(function() {
                     overlay.style.display = 'none';
                     content.classList.remove('fly-away');
@@ -618,39 +646,117 @@
                 overlay.style.display = 'none';
             }
         }
-        
-        // Close overlay when clicking outside
+
+        // Close overlay when clicking outside (not in login mode)
         document.addEventListener('click', function(event) {
-            const overlay = document.getElementById('aboutOverlay');
-            if (event.target === overlay) {
+            var overlay = document.getElementById('aboutOverlay');
+            if (event.target === overlay && !_loginMode) {
                 hideAboutOverlay(true);
             }
         });
-        
-        // Close overlay when pressing ESC key
+
+        // Close overlay when pressing ESC key (not in login mode)
         document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape' || event.keyCode === 27) {
-                const overlay = document.getElementById('aboutOverlay');
+            if ((event.key === 'Escape' || event.keyCode === 27) && !_loginMode) {
+                var overlay = document.getElementById('aboutOverlay');
                 if (overlay.style.display === 'flex') {
                     hideAboutOverlay(true);
                 }
             }
         });
-        
-        // Show About overlay on page load and auto-close after 3 seconds
-        // Skip if coming from Home menu click
-        window.addEventListener('load', function() {
-            const skipAbout = sessionStorage.getItem('skipAbout');
-            if (skipAbout) {
-                // Clear the flag for next visit
-                sessionStorage.removeItem('skipAbout');
-            } else {
-                // Show About overlay only if not coming from Home menu
-                showAboutOverlay(true);
-                setTimeout(function() {
-                    hideAboutOverlay(true);
-                }, 4500);
+
+        // Login form handler
+        function doOverlayLogin() {
+            var username = document.getElementById('loginUsername').value.trim();
+            var password = document.getElementById('loginPassword').value;
+            var loginBtn = document.getElementById('loginBtn');
+            var loginError = document.getElementById('loginError');
+            var loginForm = document.getElementById('aboutLoginForm');
+
+            if (!username || !password) {
+                loginError.textContent = 'Please enter username and password.';
+                loginError.style.display = 'block';
+                loginForm.classList.remove('shake');
+                void loginForm.offsetWidth;
+                loginForm.classList.add('shake');
+                return;
             }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            loginError.style.display = 'none';
+
+            fetch('/spider/adminweb/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    return { status: response.status, data: data };
+                });
+            })
+            .then(function(result) {
+                if (result.data.success) {
+                    document.getElementById('authArea').style.display = 'flex';
+                    document.getElementById('authUsernameText').textContent = result.data.username || username;
+                    hideAboutOverlay(true);
+                } else {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Login';
+                    loginError.textContent = result.data.message || 'Invalid username or password.';
+                    loginError.style.display = 'block';
+                    loginForm.classList.remove('shake');
+                    void loginForm.offsetWidth;
+                    loginForm.classList.add('shake');
+                }
+            })
+            .catch(function() {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+                loginError.textContent = 'Connection error. Please try again.';
+                loginError.style.display = 'block';
+            });
+        }
+
+        function doLogout() {
+            sessionStorage.removeItem('skipAbout');
+            window.location.href = '/spider/adminweb/logout';
+        }
+
+        // On page load: check auth status via server-side session
+        window.addEventListener('load', function() {
+            fetch('/spider/adminweb/authinfo')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.authEnabled) {
+                        if (data.loggedIn) {
+                            // Server session is valid - skip overlay entirely
+                            sessionStorage.removeItem('skipAbout');
+                            document.getElementById('authArea').style.display = 'flex';
+                            document.getElementById('authUsernameText').textContent = data.username;
+                        } else {
+                            // No valid server session - show login
+                            showAboutOverlay('login');
+                        }
+                    } else {
+                        var skipAbout = sessionStorage.getItem('skipAbout');
+                        if (skipAbout) {
+                            sessionStorage.removeItem('skipAbout');
+                        } else {
+                            showAboutOverlay('autoclose');
+                            setTimeout(function() {
+                                hideAboutOverlay(true);
+                            }, 4500);
+                        }
+                    }
+                })
+                .catch(function() {
+                    showAboutOverlay('autoclose');
+                    setTimeout(function() {
+                        hideAboutOverlay(true);
+                    }, 4500);
+                });
         });
     </script>
 </body>

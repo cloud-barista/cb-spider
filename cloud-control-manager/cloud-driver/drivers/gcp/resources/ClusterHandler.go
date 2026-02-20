@@ -1454,6 +1454,10 @@ func getDynamicKubeConfig(cluster *container.Cluster) string {
 	// Get Spider server address from environment variable
 	serverAddr := getServerAddress()
 
+	// Get Spider API credentials from environment variables
+	apiUsername := os.Getenv("API_USERNAME")
+	apiPassword := os.Getenv("API_PASSWORD")
+
 	// Generate kubeconfig content with exec-based dynamic token
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 kind: Config
@@ -1477,8 +1481,10 @@ users:
       command: curl
       args:
       - -s
+      - -u
+      - "%s:%s"
       - "http://%s/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
-`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate, configName, configName, configName, configName, serverAddr)
+`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate, configName, configName, configName, configName, apiUsername, apiPassword, serverAddr)
 
 	return kubeconfigContent
 }

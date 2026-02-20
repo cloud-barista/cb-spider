@@ -72,10 +72,14 @@ func ClusterManagement(c echo.Context) error {
 		ConnectionConfig string
 		RegionName       string
 		Clusters         []*cres.ClusterInfo
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		Clusters:         clusters,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/cluster.html")

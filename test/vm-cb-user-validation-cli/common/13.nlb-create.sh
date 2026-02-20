@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 VM_NAME=${VM_NAME}-1
 
-$CLIPATH/spctl nlb create -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" nlb create -d \
     "{
         \"ConnectionName\":\"${CONN_CONFIG}\",
         \"ReqInfo\": {

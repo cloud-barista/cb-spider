@@ -1,3 +1,6 @@
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 echo "####################################################################"
 echo "## NLB Test Scripts for CB-Spider - 2022.06."
@@ -14,7 +17,7 @@ if [ "$1" = "" ]; then
 fi
 
 echo "#####---------- GetNLBOwnerVPC ----------####"
-curl -sX GET http://localhost:1024/spider/getnlbowner -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX GET http://localhost:1024/spider/getnlbowner -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

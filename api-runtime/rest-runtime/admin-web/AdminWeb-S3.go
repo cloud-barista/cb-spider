@@ -76,11 +76,15 @@ func S3Management(c echo.Context) error {
 		RegionName       string
 		Buckets          []S3BucketInfo
 		ErrorMessage     string
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		Buckets:          buckets,
 		ErrorMessage:     errorMessage,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/s3.html")
@@ -105,6 +109,7 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	setBasicAuthIfConfigured(req)
 
 	// Add ConnectionName as query parameter
 	q := req.URL.Query()
@@ -211,6 +216,7 @@ func fetchVersioningStatus(connConfig, bucketName string) string {
 	if err != nil {
 		return "Error"
 	}
+	setBasicAuthIfConfigured(req)
 
 	q := req.URL.Query()
 	q.Add("ConnectionName", connConfig)
@@ -253,6 +259,7 @@ func fetchCORSStatus(connConfig, bucketName string) string {
 	if err != nil {
 		return "Not configured"
 	}
+	setBasicAuthIfConfigured(req)
 
 	q := req.URL.Query()
 	q.Add("ConnectionName", connConfig)

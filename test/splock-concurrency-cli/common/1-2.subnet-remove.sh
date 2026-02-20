@@ -19,7 +19,7 @@ SUBNET_CIDR=`echo $SUBNET_CIDR | sed 's/0\./'$3'\./g'`
 
 echo "============== before remove Subnet: '${VPC_NAME}' : '${SUBNET_NAME}'"
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc remove-subnet --vname ${VPC_NAME} --sname ${SUBNET_NAME} --cname "${CONN_CONFIG}"
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" subnet remove --VPCName ${VPC_NAME} --SubnetName ${SUBNET_NAME} -d '{"ConnectionName":"'"${CONN_CONFIG}"'"}'
 
 echo "============== after remove Subnet: '${VPC_NAME}' : '${SUBNET_NAME}'"
 

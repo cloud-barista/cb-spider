@@ -17,7 +17,7 @@ source setup.env $1
 
 echo "============== before RemoveRules: '${SG_NAME}' --- inbound:ALL/-1/-1"
 #### @todo Change this command with spctl
-curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

@@ -891,6 +891,36 @@
 
 </body>
 <script>
+    // Basic Auth credentials from server
+    const API_USERNAME = '{{.APIUsername}}';
+    const API_PASSWORD = '{{.APIPassword}}';
+    
+    // Helper function to create fetch options with Basic Auth if credentials are set
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        
+        // Add Basic Auth header if credentials are provided
+        if (API_USERNAME && API_PASSWORD) {
+            const credentials = btoa(API_USERNAME + ':' + API_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        
+        return fetchOptions;
+    }
+    
+    // Override fetch to automatically include Basic Auth
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // Only add auth headers for Spider API calls (not for external URLs)
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
     let currentProvider = '';
 
     function showError(message, title) {

@@ -16,7 +16,7 @@ VM_NAME=${VM_NAME}-$2
 
 echo "============== before start VM: '${VM_NAME}'"
 
-$CLIPATH/spctl  vm start -d \
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD"  vm start -d \
     "{
       \"ConnectionName\":\"${CONN_CONFIG}\",
       \"ReqInfo\": {

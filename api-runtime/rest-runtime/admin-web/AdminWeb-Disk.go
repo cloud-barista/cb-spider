@@ -99,6 +99,8 @@ func DiskManagement(c echo.Context) error {
 		Zone             string
 		Disks            []*cres.DiskInfo
 		VMs              []*cres.VMInfo
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
@@ -106,6 +108,8 @@ func DiskManagement(c echo.Context) error {
 		Zone:             zone,
 		Disks:            disks,
 		VMs:              vms,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/disk.html")

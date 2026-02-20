@@ -13,19 +13,19 @@ SETUP_PATH=$CBSPIDER_ROOT/test/splock-concurrency-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete KeyPair: '${KEYPAIR_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair delete --cname "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair delete -c "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
 echo "============== after delete KeyPair: '${KEYPAIR_NAME}'"
 
 echo -e "\n\n"
 
 echo "============== before delete SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf security delete --cname "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup delete -c "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
 echo "============== after delete SecurityGroup: '${SG_NAME}'"
 
 echo -e "\n\n"
 
 echo "============== before delete VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc delete --cname "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vpc delete -c "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
 echo "============== after delete VPC/Subnet: '${VPC_NAME}'"
 
 echo -e "\n\n"

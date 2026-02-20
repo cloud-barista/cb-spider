@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
-ret=`$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair create -i json -o json -d \
+ret=`$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

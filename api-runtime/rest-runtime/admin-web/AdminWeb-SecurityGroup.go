@@ -100,12 +100,16 @@ func SecurityGroupManagement(c echo.Context) error {
 		Region           string
 		Zone             string
 		SecurityGroups   []*cres.SecurityInfo
+		APIUsername      string
+		APIPassword      string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		Region:           region,
 		Zone:             zone,
 		SecurityGroups:   sgs,
+		APIUsername:      os.Getenv("API_USERNAME"),
+		APIPassword:      os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/security-group.html")

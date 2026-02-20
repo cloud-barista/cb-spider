@@ -1,4 +1,7 @@
 #!/bin/bash
+API_USERNAME=${API_USERNAME:-admin}
+API_PASSWORD=$API_PASSWORD
+
 
 # Check if RESTSERVER is set, otherwise default to localhost
 if [[ -z "$RESTSERVER" ]]; then
@@ -16,7 +19,7 @@ register_driver() {
   echo "## Cloud Driver Registration"
   echo "####################################################################"
 
-  curl -s -X POST http://$RESTSERVER:1024/spider/driver \
+  curl -u $API_USERNAME:$API_PASSWORD -s -X POST http://$RESTSERVER:1024/spider/driver \
     -H 'Content-Type: application/json' \
     -d '{
     "DriverName":"'"$DRIVER_NAME"'",
@@ -35,7 +38,7 @@ register_credential() {
   echo "## Cloud Credential Registration"
   echo "####################################################################"
 
-  curl -s -X POST http://$RESTSERVER:1024/spider/credential \
+  curl -u $API_USERNAME:$API_PASSWORD -s -X POST http://$RESTSERVER:1024/spider/credential \
     -H 'Content-Type: application/json' \
     -d '{
     "CredentialName":"'"$CREDENTIAL_NAME"'",
@@ -55,7 +58,7 @@ register_regions_and_configs() {
   echo "## Cloud Region & Connection Config Registration (Parallel)"
   echo "####################################################################"
 
-  REGIONZONE_JSON=$(curl -s -X GET \
+  REGIONZONE_JSON=$(curl -u $API_USERNAME:$API_PASSWORD -s -X GET \
     "http://$RESTSERVER:1024/spider/preconfig/regionzone?CredentialName=$CREDENTIAL_NAME&DriverName=$DRIVER_NAME" \
     -H 'accept: application/json')
 
@@ -75,7 +78,7 @@ register_regions_and_configs() {
     REGION_ID="$PREFIX.${REGION}.${ZONE}"
     echo "[START] $REGION_ID"
 
-    curl -s -X POST http://$RESTSERVER:1024/spider/region \
+    curl -u $API_USERNAME:$API_PASSWORD -s -X POST http://$RESTSERVER:1024/spider/region \
       -H 'Content-Type: application/json' \
       -d '{
         "RegionName": "'"$REGION_ID"'",
@@ -86,7 +89,7 @@ register_regions_and_configs() {
         ]
       }' > /dev/null 2>&1
 
-    curl -s -X POST http://$RESTSERVER:1024/spider/connectionconfig \
+    curl -u $API_USERNAME:$API_PASSWORD -s -X POST http://$RESTSERVER:1024/spider/connectionconfig \
       -H 'Content-Type: application/json' \
       -d '{
         "ConfigName": "'"$REGION_ID"'",

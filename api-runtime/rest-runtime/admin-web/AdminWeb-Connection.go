@@ -595,7 +595,7 @@ type Drivers struct {
 }
 
 func fetchConnectionConfigs() (map[string][]ConnectionConfig, error) {
-	resp, err := http.Get("http://localhost:1024/spider/connectionconfig")
+	resp, err := httpGetWithAuth("http://localhost:1024/spider/connectionconfig")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching connection configurations: %v", err)
 	}
@@ -615,7 +615,7 @@ func fetchConnectionConfigs() (map[string][]ConnectionConfig, error) {
 }
 
 func fetchProviders() ([]string, error) {
-	resp, err := http.Get("http://localhost:1024/spider/cloudos")
+	resp, err := httpGetWithAuth("http://localhost:1024/spider/cloudos")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching providers: %v", err)
 	}
@@ -630,7 +630,7 @@ func fetchProviders() ([]string, error) {
 }
 
 func fetchDrivers() (map[string]string, error) {
-	resp, err := http.Get("http://localhost:1024/spider/driver")
+	resp, err := httpGetWithAuth("http://localhost:1024/spider/driver")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching drivers: %v", err)
 	}
@@ -675,11 +675,15 @@ func ConnectionManagement(c echo.Context) error {
 		Providers         []string
 		Regions           map[string]string
 		Drivers           map[string]string
+		APIUsername       string
+		APIPassword       string
 	}{
 		ConnectionConfigs: connectionConfigs,
 		Providers:         providers,
 		Regions:           regions,
 		Drivers:           drivers,
+		APIUsername:       os.Getenv("API_USERNAME"),
+		APIPassword:       os.Getenv("API_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/connection.html")
