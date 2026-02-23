@@ -26,7 +26,7 @@ import (
 type SecurityGroupRegisterRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
-		VPCName string `json:"VPCName" validate:"required" example:"vpc-01"`
+		VPCName string `json:"VPCName" example:"vpc-01"` // Optional: some CSPs (e.g., Azure, Tencent, NHN) don't bind SG to VPC
 		Name    string `json:"Name" validate:"required" example:"sg-01"`
 		CSPId   string `json:"CSPId" validate:"required" example:"csp-sg-1234"`
 	} `json:"ReqInfo" validate:"required"`

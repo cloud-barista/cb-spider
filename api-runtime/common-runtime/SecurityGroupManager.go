@@ -180,10 +180,13 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 		return nil, err
 	}
 
-	vpcUserID, err = EmptyCheckAndTrim("vpcUserID", vpcUserID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	// VPCName is optional: some CSPs (e.g., Azure, Tencent, NHN) don't bind SecurityGroup to a specific VPC.
+	if vpcUserID != "" {
+		vpcUserID, err = EmptyCheckAndTrim("vpcUserID", vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	emptyPermissionList := []string{}
@@ -208,37 +211,41 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 		return nil, err
 	}
 
-	vpcSPLock.Lock(connectionName, vpcUserID)
-	defer vpcSPLock.Unlock(connectionName, vpcUserID)
+	if vpcUserID != "" {
+		vpcSPLock.Lock(connectionName, vpcUserID)
+		defer vpcSPLock.Unlock(connectionName, vpcUserID)
+	}
 	sgSPLock.Lock(connectionName, userIID.NameId)
 	defer sgSPLock.Unlock(connectionName, userIID.NameId)
 
-	// (0) check VPC existence(VPC UserID)
-	var bool_ret bool
-	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		// check permission to vpcName
-		var iidInfoList []*VPCIIDInfo
-		err = getAuthIIDInfoList(connectionName, &iidInfoList)
-		if err != nil {
+	// (0) check VPC existence(VPC UserID) - skip if vpcUserID is empty
+	if vpcUserID != "" {
+		var bool_ret bool
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			// check permission to vpcName
+			var iidInfoList []*VPCIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			bool_ret, err = isNameIdExists(&iidInfoList, vpcUserID)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else {
+			bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		}
+		if !bool_ret {
+			err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
 			cblog.Error(err)
 			return nil, err
 		}
-		bool_ret, err = isNameIdExists(&iidInfoList, vpcUserID)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-	} else {
-		bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-	}
-	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
-		cblog.Error(err)
-		return nil, err
 	}
 
 	// (1) check existence(UserID)
@@ -293,22 +300,24 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 	// set up SecurityGroup User IID for return info
 	getInfo.IId = userIID
 
-	// set up VPC UserIID for return info
-	var iidInfo VPCIIDInfo
-	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = infostore.Get(&iidInfo, NAME_ID_COLUMN, vpcUserID)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+	// set up VPC UserIID for return info - skip if vpcUserID is empty
+	if vpcUserID != "" {
+		var iidInfo VPCIIDInfo
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = infostore.Get(&iidInfo, NAME_ID_COLUMN, vpcUserID)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else {
+			err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
-	} else {
-		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
+		getInfo.VpcIID = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 	}
-	getInfo.VpcIID = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
 	return &getInfo, nil
 }

@@ -1803,20 +1803,25 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 			var iidInfoList []*KeyIIDInfo
 			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
 			if err != nil {
-				cblog.Error(err)
-				return err
+				cblog.Info(err)
+				// KeyPair may not be registered in Spider (e.g., GCP manages SSH keys via instance metadata, not as independent resources).
+				// Skip the error so VM registration can proceed. KeyPair NameId will remain empty.
+			} else {
+				castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmInfo.KeyPairIId.SystemId)
+				if err != nil {
+					cblog.Info(err)
+					// KeyPair exists in CSP but not registered in Spider (e.g., after container rebuild or for CSPs like GCP).
+					// Skip the error so VM registration can proceed. KeyPair NameId will remain empty.
+				} else {
+					iidInfo = *castedIIDInfo.(*KeyIIDInfo)
+				}
 			}
-			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmInfo.KeyPairIId.SystemId)
-			if err != nil {
-				cblog.Error(err)
-				return err
-			}
-			iidInfo = *castedIIDInfo.(*KeyIIDInfo)
 		} else {
 			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.KeyPairIId.SystemId)
 			if err != nil {
-				cblog.Error(err)
-				return err
+				cblog.Info(err)
+				// KeyPair exists in CSP but not registered in Spider (e.g., after container rebuild or for CSPs like GCP).
+				// Skip the error so VM registration can proceed. KeyPair NameId will remain empty.
 			}
 		}
 		vmInfo.KeyPairIId.NameId = iidInfo.NameId
