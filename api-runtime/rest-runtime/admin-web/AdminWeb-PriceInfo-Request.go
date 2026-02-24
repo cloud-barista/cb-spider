@@ -74,8 +74,8 @@ func PriceInfoRequest(c echo.Context) error {
 		ConnectionName: connConfig,
 		// RegionList:        regionNameList,
 		ProductFamilyList: productFamilyList(),
-		APIUsername:       os.Getenv("API_USERNAME"),
-		APIPassword:       os.Getenv("API_PASSWORD"),
+		APIUsername:       os.Getenv("SPIDER_USERNAME"),
+		APIPassword:       os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	// Parse the HTML template

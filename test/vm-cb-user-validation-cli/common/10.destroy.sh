@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 if [ "$1" = "nhn" ]; then
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/regsubnet/SPIDER-VM-SSH-Test-subnet-01 \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE http://localhost:1024/spider/regsubnet/SPIDER-VM-SSH-Test-subnet-01 \
   -H 'Content-Type: application/json' \
   -d '{
         "ConnectionName": "'${CONN_CONFIG}'",
@@ -22,7 +22,7 @@ curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/regs
         }
       }' | json_pp
 
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/regvpc/SPIDER-VM-SSH-Test-vpc-01 \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE http://localhost:1024/spider/regvpc/SPIDER-VM-SSH-Test-vpc-01 \
   -H 'Content-Type: application/json' \
   -d '{
         "ConnectionName": "'${CONN_CONFIG}'"
@@ -40,7 +40,7 @@ CONN=$(cat <<EOF
 EOF
 )
 
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE "$URL" \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE "$URL" \
   -H 'Content-Type: application/json' \
   -d "$CONN" \
   | json_pp

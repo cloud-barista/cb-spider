@@ -1,6 +1,6 @@
 #!/bin/bash
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 
 if [ "$1" = "" ]; then
@@ -21,7 +21,7 @@ fi
 
 source $1/setup.env
 
-vminfo=`curl -u $API_USERNAME:$API_PASSWORD -sX GET http://localhost:1024/spider/vm/$2 -H 'Content-Type: application/json' -d \
+vminfo=`curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX GET http://localhost:1024/spider/vm/$2 -H 'Content-Type: application/json' -d \
 	'{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp`

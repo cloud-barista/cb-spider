@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 echo "============== before create VPC/Subnet: '${VPC_NAME}'"
 if [ "$1" = "nhn" ]; then
-curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/regvpc \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/regvpc \
   -H 'Content-Type: application/json' \
   -d '{
         "ConnectionName": "'${CONN_CONFIG}'",
@@ -24,7 +24,7 @@ curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/regvpc
         }
       }' | json_pp
 
-curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/regsubnet \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/regsubnet \
   -H 'Content-Type: application/json' \
   -d '{
         "ConnectionName": "'${CONN_CONFIG}'",
@@ -36,7 +36,7 @@ curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/regsub
       }' | json_pp
 
 else
-    $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD"  vpc create -d \
+    $CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD"  vpc create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -57,7 +57,7 @@ echo "============== after create VPC/Subnet: '${VPC_NAME}'"
 echo -e "\n\n"
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD"  securitygroup create -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD"  securitygroup create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -78,7 +78,7 @@ echo "============== after create SecurityGroup: '${SG_NAME}'"
 echo -e "\n\n"
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
-ret=`$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD"  keypair create  -d \
+ret=`$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD"  keypair create  -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

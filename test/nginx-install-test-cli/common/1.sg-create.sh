@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/nginx-install-test-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup create -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" securitygroup create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

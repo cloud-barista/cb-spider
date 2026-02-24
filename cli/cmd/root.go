@@ -40,8 +40,8 @@ var apiPassword string
 
 func Execute() {
 	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "localhost:1024", "Spider server URL")
-	rootCmd.PersistentFlags().StringVarP(&apiUsername, "username", "u", "", "API username (default: $API_USERNAME)")
-	rootCmd.PersistentFlags().StringVarP(&apiPassword, "password", "p", "", "API password (default: $API_PASSWORD)")
+	rootCmd.PersistentFlags().StringVarP(&apiUsername, "username", "u", "", "API username (default: $SPIDER_USERNAME)")
+	rootCmd.PersistentFlags().StringVarP(&apiPassword, "password", "p", "", "API password (default: $SPIDER_PASSWORD)")
 	rootCmd.Flags().BoolP("version", "v", false, "Print the version information")
 
 	loadSwagger()
@@ -53,10 +53,10 @@ func getCredentials() (string, string) {
 	user := apiUsername
 	pass := apiPassword
 	if user == "" {
-		user = os.Getenv("API_USERNAME")
+		user = os.Getenv("SPIDER_USERNAME")
 	}
 	if pass == "" {
-		pass = os.Getenv("API_PASSWORD")
+		pass = os.Getenv("SPIDER_PASSWORD")
 	}
 	return user, pass
 }

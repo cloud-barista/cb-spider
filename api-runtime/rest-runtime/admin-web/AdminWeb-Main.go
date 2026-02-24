@@ -110,7 +110,7 @@ func AdminWebSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// Skip if auth is not enabled
-		if os.Getenv("API_USERNAME") == "" || os.Getenv("API_PASSWORD") == "" {
+		if os.Getenv("SPIDER_USERNAME") == "" || os.Getenv("SPIDER_PASSWORD") == "" {
 			return next(c)
 		}
 
@@ -190,8 +190,8 @@ func BodyFrame(c echo.Context) error {
 
 // AuthInfo returns authentication status and username
 func AuthInfo(c echo.Context) error {
-	apiUsername := os.Getenv("API_USERNAME")
-	apiPassword := os.Getenv("API_PASSWORD")
+	apiUsername := os.Getenv("SPIDER_USERNAME")
+	apiPassword := os.Getenv("SPIDER_PASSWORD")
 	authEnabled := apiUsername != "" && apiPassword != ""
 
 	loggedIn := false
@@ -227,8 +227,8 @@ func Login(c echo.Context) error {
 		})
 	}
 
-	apiUsername := os.Getenv("API_USERNAME")
-	apiPassword := os.Getenv("API_PASSWORD")
+	apiUsername := os.Getenv("SPIDER_USERNAME")
+	apiPassword := os.Getenv("SPIDER_PASSWORD")
 
 	if subtle.ConstantTimeCompare([]byte(req.Username), []byte(apiUsername)) == 1 &&
 		subtle.ConstantTimeCompare([]byte(req.Password), []byte(apiPassword)) == 1 {

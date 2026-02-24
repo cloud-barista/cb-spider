@@ -838,8 +838,8 @@ func (ClusterHandler *AwsClusterHandler) getDynamicKubeConfig(clusterDesc *eks.D
 	serverAddr := getServerAddress()
 
 	// Get Spider API credentials from environment variables
-	apiUsername := os.Getenv("API_USERNAME")
-	apiPassword := os.Getenv("API_PASSWORD")
+	apiUsername := os.Getenv("SPIDER_USERNAME")
+	apiPassword := os.Getenv("SPIDER_PASSWORD")
 
 	// Generate kubeconfig content with exec-based dynamic token using cluster NameId instead of SystemId
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1

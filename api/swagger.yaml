@@ -3003,12 +3003,13 @@ definitions:
             example: sg-01
             type: string
           VPCName:
+            description: 'Optional: some CSPs (e.g., Azure, Tencent, NHN) don''t bind
+              SG to VPC'
             example: vpc-01
             type: string
         required:
         - CSPId
         - Name
-        - VPCName
         type: object
     required:
     - ConnectionName

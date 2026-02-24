@@ -202,8 +202,8 @@ func DriverManagement(c echo.Context) error {
 	}{
 		Drivers:     driverMap,
 		Providers:   providers,
-		APIUsername: os.Getenv("API_USERNAME"),
-		APIPassword: os.Getenv("API_PASSWORD"),
+		APIUsername: os.Getenv("SPIDER_USERNAME"),
+		APIPassword: os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	// Define template path

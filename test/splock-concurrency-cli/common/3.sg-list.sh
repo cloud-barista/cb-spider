@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 
 echo "============== before list SecurityGroup"
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup list -c "${CONN_CONFIG}" 2> /dev/null
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" securitygroup list -c "${CONN_CONFIG}" 2> /dev/null
 
 echo "============== after list SecurityGroup"
 

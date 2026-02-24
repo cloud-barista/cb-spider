@@ -1,6 +1,6 @@
 #!/bin/bash
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 
 echo "####################################################################"
@@ -22,7 +22,7 @@ if [[ -z "$openstack_identity_endpoint" || -z "$openstack_username" || -z "$open
 fi
 
 # Cloud Driver Info
-curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/driver \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/driver \
     -H 'Content-Type: application/json' \
     -d '{
         "DriverName":"openstack-driver01",
@@ -35,7 +35,7 @@ echo "## Cloud Credential Info"
 echo "####################################################################"
 
 # Cloud Credential Info
-curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/credential \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/credential \
     -H 'Content-Type: application/json' \
     -d '{
         "CredentialName":"openstack-credential01", 
@@ -54,7 +54,7 @@ echo "## Cloud Region Info"
 echo "####################################################################"
 
 # Cloud Region Info
-curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/region \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/region \
     -H 'Content-Type: application/json' \
     -d '{
         "RegionName":"openstack-region01",
@@ -69,7 +69,7 @@ echo "## Cloud Connection Config Info"
 echo "####################################################################"
 
 # Cloud Connection Config Info
-curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/connectionconfig \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/connectionconfig \
     -H 'Content-Type: application/json' \
     -d '{
         "ConfigName":"openstack-config01",
