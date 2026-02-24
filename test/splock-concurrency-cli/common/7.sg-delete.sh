@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 SG_NAME=${SG_NAME}-$2
 
 echo "============== before delete SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup delete -c "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" securitygroup delete -c "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
 echo "============== after delete SecurityGroup: '${SG_NAME}'"
 
 echo -e "\n\n"

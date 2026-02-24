@@ -65,10 +65,10 @@ func getClaudeAPIKey() (string, error) {
 	return string(bytes.TrimSpace(keyBytes)), nil
 }
 
-// setBasicAuthIfConfigured sets Basic Auth header on the request if API_USERNAME and API_PASSWORD are configured.
+// setBasicAuthIfConfigured sets Basic Auth header on the request if SPIDER_USERNAME and SPIDER_PASSWORD are configured.
 func setBasicAuthIfConfigured(req *http.Request) {
-	username := os.Getenv("API_USERNAME")
-	password := os.Getenv("API_PASSWORD")
+	username := os.Getenv("SPIDER_USERNAME")
+	password := os.Getenv("SPIDER_PASSWORD")
 	if username != "" && password != "" {
 		req.SetBasicAuth(username, password)
 	}

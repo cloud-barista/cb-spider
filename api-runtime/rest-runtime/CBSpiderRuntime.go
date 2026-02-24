@@ -765,8 +765,8 @@ func ApiServer(routes []route) {
 		MaxAge:     31, // days
 	})
 
-	API_USERNAME := os.Getenv("API_USERNAME")
-	API_PASSWORD := os.Getenv("API_PASSWORD")
+	SPIDER_USERNAME := os.Getenv("SPIDER_USERNAME")
+	SPIDER_PASSWORD := os.Getenv("SPIDER_PASSWORD")
 
 	// SkipAuthPaths defines paths to skip authentication
 	SkipAuthPaths := map[string]bool{
@@ -779,8 +779,8 @@ func ApiServer(routes []route) {
 	}
 
 	// Validate API credentials
-	if API_USERNAME == "" || API_PASSWORD == "" {
-		log.Fatal("[AUTH ERROR] API_USERNAME and API_PASSWORD must both be set in setup.env. Server cannot start without authentication.")
+	if SPIDER_USERNAME == "" || SPIDER_PASSWORD == "" {
+		log.Fatal("[AUTH ERROR] SPIDER_USERNAME and SPIDER_PASSWORD must both be set in setup.env. Server cannot start without authentication.")
 	}
 
 	cblog.Info("**** Rest Auth Enabled ****")
@@ -815,8 +815,8 @@ func ApiServer(routes []route) {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
 			}
 			// Be careful to use constant time comparison to prevent timing attacks
-			if subtle.ConstantTimeCompare([]byte(parts[0]), []byte(API_USERNAME)) == 1 &&
-				subtle.ConstantTimeCompare([]byte(parts[1]), []byte(API_PASSWORD)) == 1 {
+			if subtle.ConstantTimeCompare([]byte(parts[0]), []byte(SPIDER_USERNAME)) == 1 &&
+				subtle.ConstantTimeCompare([]byte(parts[1]), []byte(SPIDER_PASSWORD)) == 1 {
 				return next(c)
 			}
 			return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})

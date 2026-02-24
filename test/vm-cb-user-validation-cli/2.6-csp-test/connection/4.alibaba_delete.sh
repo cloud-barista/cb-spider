@@ -1,6 +1,6 @@
 #!/bin/bash
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 
 echo "####################################################################"
@@ -12,7 +12,7 @@ configs=("alibaba-beijing-config:alibaba-beijing")
 
 for config in "${configs[@]}"; do
     IFS=":" read -r ConfigName RegionName <<< "$config"
-    curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/connectionconfig/"$ConfigName" \
+    curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/connectionconfig/"$ConfigName" \
         -H 'Content-Type: application/json'
 done
 
@@ -30,7 +30,7 @@ regions=("alibaba-beijing:cn-beijing:cn-beijing-f"
 
 for region in "${regions[@]}"; do
     IFS=":" read -r RegionName Region Zone <<< "$region"
-    curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/region/"$RegionName" \
+    curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/region/"$RegionName" \
         -H 'Content-Type: application/json'
 done
 
@@ -39,7 +39,7 @@ echo "## Cloud Credential Info Deletion"
 echo "####################################################################"
 
 # Cloud Credential Info Deletion
-curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/credential/alibaba-credential01 \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/credential/alibaba-credential01 \
     -H 'Content-Type: application/json'
 
 echo "####################################################################"
@@ -47,6 +47,6 @@ echo "## Cloud Driver Info Deletion"
 echo "####################################################################"
 
 # Cloud Driver Info Deletion
-curl -u $API_USERNAME:$API_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/driver/alibaba-driver01 \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X DELETE http://$RESTSERVER:1024/spider/driver/alibaba-driver01 \
     -H 'Content-Type: application/json'
 

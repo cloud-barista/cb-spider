@@ -169,8 +169,8 @@ func PriceInfoTableList(c echo.Context) error {
 		CachedFileName: cachedFileName,
 		TotalItems:     len(data.PriceList),
 		SimpleMode:     currentSimpleMode,
-		APIUsername:    os.Getenv("API_USERNAME"),
-		APIPassword:    os.Getenv("API_PASSWORD"),
+		APIUsername:    os.Getenv("SPIDER_USERNAME"),
+		APIPassword:    os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	// Debug logging

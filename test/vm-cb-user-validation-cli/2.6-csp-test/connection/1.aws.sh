@@ -1,5 +1,5 @@
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 echo "####################################################################"
 echo "## Cloud Driver Info"
@@ -20,7 +20,7 @@ if [[ -z "$aws_access_key_id" || -z "$aws_secret_access_key" ]]; then
 fi
 
 # Cloud Driver Info
-curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/driver \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/driver \
     -H 'Content-Type: application/json' \
     -d '{
         "DriverName": "aws-driver01",
@@ -33,7 +33,7 @@ echo "## Cloud Credential Info"
 echo "####################################################################"
 
 # Cloud Credential Info
-curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/credential \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/credential \
     -H 'Content-Type: application/json' \
     -d '{
         "CredentialName": "aws-credential01",
@@ -58,7 +58,7 @@ regions=("aws-ohio:us-east-2:us-east-2a"
 
 for region in "${regions[@]}"; do
     IFS=":" read -r RegionName Region Zone <<< "$region"
-    curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/region \
+    curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/region \
         -H 'Content-Type: application/json' \
         -d '{
             "RegionName": "'$RegionName'",
@@ -79,7 +79,7 @@ configs=("aws-config01:aws-ohio")
 
 for config in "${configs[@]}"; do
     IFS=":" read -r ConfigName RegionName <<< "$config"
-    curl -u $API_USERNAME:$API_PASSWORD -X POST http://$RESTSERVER:1024/spider/connectionconfig \
+    curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -X POST http://$RESTSERVER:1024/spider/connectionconfig \
         -H 'Content-Type: application/json' \
         -d '{
             "ConfigName": "'$ConfigName'",

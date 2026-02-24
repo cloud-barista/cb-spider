@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 
 echo "============== before list VM"
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm list -c "${CONN_CONFIG}" 
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" vm list -c "${CONN_CONFIG}" 
 
 echo "============== after list VM"
 

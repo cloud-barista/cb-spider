@@ -1,5 +1,5 @@
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 
 echo "####################################################################"
@@ -24,7 +24,7 @@ TIMEOUT=$8
 THRESHOLD=$9
 
 echo "#####---------- CreateNLB ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/nlb -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/nlb -H 'Content-Type: application/json' -d \
 	'{
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": {

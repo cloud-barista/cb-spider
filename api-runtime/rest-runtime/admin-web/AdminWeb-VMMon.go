@@ -21,8 +21,8 @@ func VMMointoring(c echo.Context) error {
 		APIUsername string
 		APIPassword string
 	}{
-		APIUsername: os.Getenv("API_USERNAME"),
-		APIPassword: os.Getenv("API_PASSWORD"),
+		APIUsername: os.Getenv("SPIDER_USERNAME"),
+		APIPassword: os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vm-mon.html")
@@ -50,8 +50,8 @@ func SpiderletVMMointoring(c echo.Context) error {
 		APIUsername string
 		APIPassword string
 	}{
-		APIUsername: os.Getenv("API_USERNAME"),
-		APIPassword: os.Getenv("API_PASSWORD"),
+		APIUsername: os.Getenv("SPIDER_USERNAME"),
+		APIPassword: os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/spiderlet-vm-mon.html")

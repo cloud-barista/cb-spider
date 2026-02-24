@@ -16,7 +16,7 @@ VPC_NAME=${VPC_NAME}-$2
 SG_NAME=${SG_NAME}-$2
 
 echo "============== before create SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup create -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" securitygroup create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

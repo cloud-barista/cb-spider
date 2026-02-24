@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
-ret=`$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair create -d \
+ret=`$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" keypair create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

@@ -23,7 +23,7 @@ fi
 
 echo "============== before remove Subnet: '${VPC_NAME}' : '${SUBNET_NAME}'"
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" subnet remove --VPCName ${VPC_NAME} --SubnetName ${SUBNET_NAME} -d '{"ConnectionName":"'"${CONN_CONFIG}"'"}'
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" subnet remove --VPCName ${VPC_NAME} --SubnetName ${SUBNET_NAME} -d '{"ConnectionName":"'"${CONN_CONFIG}"'"}'
 
 echo "============== after remove Subnet: '${VPC_NAME}' : '${SUBNET_NAME}'"
 

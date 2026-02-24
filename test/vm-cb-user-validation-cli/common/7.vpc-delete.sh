@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD"  vpc delete -n "${VPC_NAME}" -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD"  vpc delete -n "${VPC_NAME}" -d \
     "{
       \"ConnectionName\":\"${CONN_CONFIG}\"
     }"

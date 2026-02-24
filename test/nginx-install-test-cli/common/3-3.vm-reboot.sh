@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 
 echo "============== before reboot VM: '${VM_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm control -n "${VM_NAME}" --action reboot -d '{"ConnectionName":"'"${CONN_CONFIG}"'"}' 2> /dev/null
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" vm control -n "${VM_NAME}" --action reboot -d '{"ConnectionName":"'"${CONN_CONFIG}"'"}' 2> /dev/null
 echo "============== after reboot VM: '${VM_NAME}'"
 
 echo -e "\n\n"

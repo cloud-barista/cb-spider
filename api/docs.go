@@ -15084,8 +15084,7 @@ const docTemplate = `{
                     "type": "object",
                     "required": [
                         "CSPId",
-                        "Name",
-                        "VPCName"
+                        "Name"
                     ],
                     "properties": {
                         "CSPId": {
@@ -15097,6 +15096,7 @@ const docTemplate = `{
                             "example": "sg-01"
                         },
                         "VPCName": {
+                            "description": "Optional: some CSPs (e.g., Azure, Tencent, NHN) don't bind SG to VPC",
                             "type": "string",
                             "example": "vpc-01"
                         }

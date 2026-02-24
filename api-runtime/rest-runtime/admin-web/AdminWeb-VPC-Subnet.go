@@ -105,8 +105,8 @@ func VPCSubnetManagement(c echo.Context) error {
 		Region:           region,
 		Zone:             zone,
 		VPCs:             vpcs,
-		APIUsername:      os.Getenv("API_USERNAME"),
-		APIPassword:      os.Getenv("API_PASSWORD"),
+		APIUsername:      os.Getenv("SPIDER_USERNAME"),
+		APIPassword:      os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vpc-subnet.html")

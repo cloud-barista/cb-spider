@@ -8,7 +8,7 @@ echo -e "\n============ STEP-1: CREATE CONNECT CONFIG (AWS:OHIO)"
 source ./setup.env
 
 # for Cloud Driver Info
-time $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" driver register -d \
+time $CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" driver register -d \
     '{
       "DriverName":"aws-driver01",
       "ProviderName":"AWS",
@@ -16,7 +16,7 @@ time $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" driver register -d \
     }'
 
  # for Cloud Credential Info
-time $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" credential register -d \
+time $CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" credential register -d \
     '{
       "CredentialName":"aws-credential01", 
       "ProviderName":"AWS",
@@ -27,7 +27,7 @@ time $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" credential register -d
     }'
 
  # for Cloud Region Info
-time $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" region register -d \
+time $CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" region register -d \
     '{
       "RegionName":"aws-ohio",
       "ProviderName":"AWS",
@@ -38,7 +38,7 @@ time $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" region register -d \
     }'
 
  # for Cloud Connection Config Info
-time $CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" connection create -d \
+time $CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" connection create -d \
     '{
       "ConfigName":"aws-ohio-config",
       "ProviderName":"AWS",

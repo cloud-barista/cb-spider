@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/splock-concurrency-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before vm list"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm list -c "${CONN_CONFIG}" 2> /dev/null
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" vm list -c "${CONN_CONFIG}" 2> /dev/null
 echo "============== after vm list"
 
 echo -e "\n\n"

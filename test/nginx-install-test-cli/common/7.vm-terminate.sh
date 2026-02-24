@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 
 echo "============== before terminate VM: '${VM_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm terminate -c "${CONN_CONFIG}" -n "${VM_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" vm terminate -c "${CONN_CONFIG}" -n "${VM_NAME}" 2> /dev/null
 echo "============== after terminate VM: '${VM_NAME}'"
 
 echo -e "\n\n"

@@ -16,7 +16,7 @@ KEYPAIR_NAME=${KEYPAIR_NAME}-$2
 
 echo "============== before create KeyPair: '${KEYPAIR_NAME}'"
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" keypair create -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" keypair create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

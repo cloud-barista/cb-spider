@@ -1,5 +1,5 @@
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 
 echo "####################################################################"
@@ -17,7 +17,7 @@ KEYPAIR_NAME=$1-keypair-01
 
 echo 
 echo "#####---------- StartVM:vm-03 ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -36,7 +36,7 @@ if [ "$SLEEP" ]; then
 fi
 
 echo "#####---------- StartVM:vm-04 ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/vm -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {
@@ -60,7 +60,7 @@ fi
 #################################################
 
 echo "#####---------- AddVMs ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX POST http://localhost:1024/spider/nlb/spider-nlb-01/vms -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/nlb/spider-nlb-01/vms -H 'Content-Type: application/json' -d \
 	'{
 		"ConnectionName": "'${CONN_CONFIG}'", 
 		"ReqInfo": {
@@ -74,7 +74,7 @@ fi
 
 
 echo "#####---------- GetNLB ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX GET http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'"
 	}' |json_pp

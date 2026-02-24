@@ -23,7 +23,7 @@ fi
 
 echo "============== before add Subnet: '${VPC_NAME}' : '${SUBNET_NAME}'"
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" subnet add --VPCName "${VPC_NAME}" -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" subnet add --VPCName "${VPC_NAME}" -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {

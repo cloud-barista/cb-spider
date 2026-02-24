@@ -219,8 +219,8 @@ func Dashboard(c echo.Context) error {
 		ResourceCounts: resourceCounts,
 		Regions:        regionMap,
 		ShowEmpty:      showEmpty,
-		APIUsername:    os.Getenv("API_USERNAME"),
-		APIPassword:    os.Getenv("API_PASSWORD"),
+		APIUsername:    os.Getenv("SPIDER_USERNAME"),
+		APIPassword:    os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	c.Response().WriteHeader(http.StatusOK)

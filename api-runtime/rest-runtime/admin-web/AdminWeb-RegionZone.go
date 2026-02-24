@@ -118,8 +118,8 @@ func RegionZone(c echo.Context) error {
 		LoggingUrl:    template.JS(genLoggingGETURL2(connConfig, "regionzone")),
 		RegionInfo:    regionInfos,
 		LoggingResult: template.JS(genLoggingResult2(string(resBody[:len(resBody)-1]))),
-		APIUsername:   os.Getenv("API_USERNAME"),
-		APIPassword:   os.Getenv("API_PASSWORD"),
+		APIUsername:   os.Getenv("SPIDER_USERNAME"),
+		APIPassword:   os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	// Parse the HTML template

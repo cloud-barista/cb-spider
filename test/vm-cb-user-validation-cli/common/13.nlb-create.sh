@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 VM_NAME=${VM_NAME}-1
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" nlb create -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" nlb create -d \
     "{
         \"ConnectionName\":\"${CONN_CONFIG}\",
         \"ReqInfo\": {

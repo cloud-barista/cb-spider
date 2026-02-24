@@ -519,16 +519,16 @@
 
 <script>
     // Basic Auth credentials from server
-    const API_USERNAME = '{{.APIUsername}}';
-    const API_PASSWORD = '{{.APIPassword}}';
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
     
     // Helper function to create fetch options with Basic Auth if credentials are set
     function createFetchOptions(options = {}) {
         const fetchOptions = { ...options };
         
         // Add Basic Auth header if credentials are provided
-        if (API_USERNAME && API_PASSWORD) {
-            const credentials = btoa(API_USERNAME + ':' + API_PASSWORD);
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
             fetchOptions.headers = {
                 ...fetchOptions.headers,
                 'Authorization': 'Basic ' + credentials
@@ -1874,8 +1874,8 @@ function uploadWithProgress(url, file, filename, onProgress) {
 
         xhr.open('POST', url, true);
         // Add Basic Auth header if credentials are configured
-        if (API_USERNAME && API_PASSWORD) {
-            xhr.setRequestHeader('Authorization', 'Basic ' + btoa(API_USERNAME + ':' + API_PASSWORD));
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            xhr.setRequestHeader('Authorization', 'Basic ' + btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD));
         }
         xhr.timeout = 600000;
         xhr.send(formData);

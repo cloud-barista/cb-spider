@@ -47,6 +47,7 @@ const (
 
 	UbuntuCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-ubuntu"
 	CentosCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-centos"
+	RockyCloudInitFilePath  string = "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-rocky"
 	WinCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-ktcloud/cloud-init-windows"
 
 	DefaultVMUsagePlanType   string = "hourly" // KT Cloud Rate Type (default : hourly)
@@ -2012,7 +2013,7 @@ func (vmHandler *KtCloudVMHandler) createLinuxInitUserData(imageIID irs.IID, key
 	// cblogger.Infof("\n# initFilePath : [%s]", initFilePath)
 
 	var initFilePath string
-	initFilePath = os.Getenv("CBSPIDER_ROOT") + UbuntuCloudInitFilePath
+	initFilePath = os.Getenv("CBSPIDER_ROOT") + RockyCloudInitFilePath
 	cblogger.Infof("\n# initFilePath : [%s]", initFilePath)
 
 	openFile, err := os.Open(initFilePath)

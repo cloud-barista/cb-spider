@@ -16,7 +16,7 @@ SG_NAME=${SG_NAME}-$2
 
 
 echo "============== before get SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" securitygroup get -c "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" securitygroup get -c "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
 echo "============== after get SecurityGroup: '${SG_NAME}'"
 
 

@@ -1,5 +1,5 @@
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 
 echo "####################################################################"
@@ -17,7 +17,7 @@ if [ "$1" = "" ]; then
 fi
 
 echo "#####---------- GetNLBOwnerVPC ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX GET http://localhost:1024/spider/getnlbowner -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX GET http://localhost:1024/spider/getnlbowner -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'",
                 "ReqInfo": {

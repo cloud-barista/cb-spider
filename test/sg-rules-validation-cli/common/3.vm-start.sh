@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 VM_NAME=${VM_NAME}-1
 echo "============== before start VM: '${VM_NAME}'"
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vm start -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" vm start -d \
     "{
       \"ConnectionName\":\"${CONN_CONFIG}\",
       \"ReqInfo\": {

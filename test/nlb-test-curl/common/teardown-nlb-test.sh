@@ -1,5 +1,5 @@
-API_USERNAME=${API_USERNAME:-admin}
-API_PASSWORD=$API_PASSWORD
+SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
+SPIDER_PASSWORD=$SPIDER_PASSWORD
 
 
 echo "####################################################################"
@@ -11,7 +11,7 @@ echo ""
 
 
 echo "#####---------- TerminateVM:vm-01 ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp
@@ -21,7 +21,7 @@ if [ "$SLEEP" ]; then
 fi
 
 echo "#####---------- TerminateVM:vm-02 ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/vm/vm-02 -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE http://localhost:1024/spider/vm/vm-02 -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp
@@ -35,7 +35,7 @@ echo "#####---------- DeleteKey ----------####"
 
 KEYPAIR_NAME=$1-keypair-01
 
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/keypair/$KEYPAIR_NAME -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE http://localhost:1024/spider/keypair/$KEYPAIR_NAME -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp
@@ -48,7 +48,7 @@ fi
 
 
 echo "#####---------- DeleteSG ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/securitygroup/sg-01 -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE http://localhost:1024/spider/securitygroup/sg-01 -H 'Content-Type: application/json' -d \
         '{
                 "ConnectionName": "'${CONN_CONFIG}'"
         }' |json_pp
@@ -60,7 +60,7 @@ fi
 
 
 echo "#####---------- DeleteVPC ----------####"
-curl -u $API_USERNAME:$API_PASSWORD -sX DELETE http://localhost:1024/spider/vpc/vpc-01 -H 'Content-Type: application/json' -d \
+curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX DELETE http://localhost:1024/spider/vpc/vpc-01 -H 'Content-Type: application/json' -d \
 	'{ 
 		"ConnectionName": "'${CONN_CONFIG}'"
 	}' |json_pp

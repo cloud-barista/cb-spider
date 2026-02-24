@@ -15,7 +15,7 @@ source $SETUP_PATH/setup.env $1
 
 echo "============== before get VPC/Subnet: '${VPC_NAME}'"
 
-$CLIPATH/spctl -u "$API_USERNAME" -p "$API_PASSWORD" vpc get -c "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD" vpc get -c "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
 
 echo "============== after get VPC/Subnet: '${VPC_NAME}'"
 
