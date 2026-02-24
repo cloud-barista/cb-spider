@@ -27,7 +27,6 @@ import (
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 
-	o2 "golang.org/x/oauth2"
 	goo "golang.org/x/oauth2/google"
 
 	filestore "cloud.google.com/go/filestore/apiv1"
@@ -182,11 +181,11 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 		countingClient := profile.NewCountingClient()
 		// Use the OAuth2 transport with the custom client to ensure authentication.
 		client = &http.Client{
-			Transport: profile.NewOauth2Transport(countingClient.Transport, conf.TokenSource(o2.NoContext)),
+			Transport: profile.NewOauth2Transport(countingClient.Transport, conf.TokenSource(context.Background())),
 		}
 	} else {
 		// Use the default client if CALL_COUNT is not set.
-		client = conf.Client(o2.NoContext)
+		client = conf.Client(context.Background())
 	}
 
 	vmClient, err := compute.New(client)
@@ -223,11 +222,13 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 		return nil, nil, err
 	}
 
-	client := conf.Client(o2.NoContext)
-
-	containerClient, err := container.New(client)
-
 	ctx := context.Background()
+	client := conf.Client(ctx)
+
+	containerClient, err := container.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return ctx, containerClient, nil
 }
@@ -259,7 +260,7 @@ func getBillingCatalogClient(credential idrv.CredentialInfo) (context.Context, *
 		return nil, nil, err
 	}
 
-	client := conf.Client(o2.NoContext)
+	client := conf.Client(context.Background())
 
 	billingCatalogClient, err := cloudbilling.New(client)
 	if err != nil {
@@ -299,9 +300,8 @@ func getCostEstimationClient(credential idrv.CredentialInfo) (context.Context, *
 		return nil, nil, err
 	}
 
-	client := conf.Client(o2.NoContext)
-
 	ctx := context.Background()
+	client := conf.Client(ctx)
 
 	costEstimationClient, err := cbb.NewService(ctx, option.WithHTTPClient(client))
 
