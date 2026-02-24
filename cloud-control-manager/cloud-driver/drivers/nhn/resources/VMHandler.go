@@ -815,7 +815,7 @@ func (vmHandler *NhnCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	start := call.Start()
 	listOpts := servers.ListOpts{
-		Limit: 100,
+		Limit: 1000, // Note) Per-page limit for AllPages() pagination; NHN Cloud default is 1000
 	}
 	allPages, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
 	if err != nil {
@@ -1321,7 +1321,7 @@ func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
 	var iidList []*irs.IID
 
 	listOpts := servers.ListOpts{
-		Limit: 100,
+		Limit: 1000, // Note) Per-page limit for AllPages() pagination; NHN Cloud default is 1000
 	}
 	allPages, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
 	if err != nil {
