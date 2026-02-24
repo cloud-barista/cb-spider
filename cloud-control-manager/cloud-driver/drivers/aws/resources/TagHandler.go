@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/davecgh/go-spew/spew"
 
 	//"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -121,9 +120,7 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Info(result)
-	}
+	cblogger.Debug(result)
 
 	return tag, nil
 }
@@ -401,9 +398,7 @@ func (tagHandler *AwsTagHandler) GetClusterTags(resIID irs.IID, key ...string) (
 		return nil, fmt.Errorf("failed to describe EKS cluster: %w", err)
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	var retTagList []irs.KeyValue
 	if len(key) > 0 { // If the key value exists
@@ -496,9 +491,7 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 			},
 		},
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.SystemId, "DescribeTags()")
 	start := call.Start()
@@ -512,9 +505,7 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	var retTagList []irs.KeyValue
 	for _, tag := range result.Tags {
@@ -580,9 +571,7 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 		},
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.SystemId, "DescribeTags()")
 	start := call.Start()
@@ -596,11 +585,9 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Info("---------------------")
-		cblogger.Info(result)
-		cblogger.Info("---------------------")
-	}
+	cblogger.Debug("---------------------")
+	cblogger.Debug(result)
+	cblogger.Debug("---------------------")
 
 	if len(result.Tags) == 0 {
 		msg := "tag with key " + key + " not found"
@@ -684,9 +671,7 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 		},
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.SystemId, "DeleteTags()")
 	start := call.Start()
@@ -700,9 +685,7 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Info(result)
-	}
+	cblogger.Debug(result)
 
 	return true, nil
 }
@@ -748,9 +731,6 @@ func (tagHandler *AwsTagHandler) RemoveClusterTag(resIID irs.IID, tagKey string)
 func (tagHandler *AwsTagHandler) ExtractTagKeyValue(tagInfos []*irs.TagInfo, keyword string) []*irs.TagInfo {
 	var matchingTagInfos []*irs.TagInfo
 	cblogger.Debugf("tagInfos count : [%d] / keyword : [%s]", len(tagInfos), keyword)
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(tagInfos)
-	}
 
 	/*
 		// All tags
@@ -844,13 +824,6 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 
 	// Function to process tags and add them to tagInfoMap
 	processTags := func(result *ec2.DescribeTagsOutput) {
-		if cblogger.Level.String() == "debug" {
-			//cblogger.Debug(result)
-			//cblogger.Debug("=================================")
-			//spew.Dump(result)
-			//cblogger.Debug("=================================")
-		}
-
 		for _, tag := range result.Tags {
 			resID := aws.StringValue(tag.ResourceId)
 
@@ -889,9 +862,7 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 			}),
 		}
 
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(keyInput)
-		}
+		cblogger.Debug(keyInput)
 
 		hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, keyword, "FindTag(key):DescribeTags()")
 		start := call.Start()
@@ -913,9 +884,7 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 			}),
 		}
 
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(valueInput)
-		}
+		cblogger.Debug(valueInput)
 
 		hiscallInfo2 := GetCallLogScheme(tagHandler.Region, call.TAG, keyword, "FindTag(value):DescribeTags()")
 		start2 := call.Start()
