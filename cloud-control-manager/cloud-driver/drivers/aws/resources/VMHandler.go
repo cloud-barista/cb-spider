@@ -99,9 +99,6 @@ func (vmHandler *AwsVMHandler) GetAmiDiskInfo(ImageSystemId string) (int64, erro
 // https://ap-northeast-2.console.aws.amazon.com/ec2/v2/home?region=ap-northeast-2#KeyPairs:sort=keyName
 func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Debug(vmReqInfo)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(vmReqInfo)
-	}
 
 	// amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
 	amiImage, errImgInfo := DescribeImageById(vmHandler.Client, &vmReqInfo.ImageIID, nil)
@@ -642,18 +639,14 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 
 	result, err := vmHandler.Client.StartInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 	awsErr, ok := err.(awserr.Error)
 
 	if ok && awsErr.Code() == "DryRunOperation" {
 		// Let's now set dry run to be false. This will allow us to start the instances
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StartInstances(input)
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(result)
-		}
+		cblogger.Debug(result)
 		if err != nil {
 			cblogger.Error(err)
 			callLogInfo.ErrorMSG = err.Error()
@@ -713,9 +706,7 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	if ok && awsErr.Code() == "DryRunOperation" {
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StopInstances(input)
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(result)
-		}
+		cblogger.Debug(result)
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
@@ -783,9 +774,7 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 		cblogger.Info("Requested reboot after releasing DryRun permission.")
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.RebootInstances(input)
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(result)
-		}
+		cblogger.Debug(result)
 		cblogger.Info("result value : ", result)
 		cblogger.Info("err value : ", err)
 		if err != nil {
@@ -836,9 +825,7 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 	result, err := vmHandler.Client.TerminateInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -878,9 +865,7 @@ func (vmHandler *AwsVMHandler) GetPasswordData(vmIID irs.IID) (string, error) {
 	result, err := vmHandler.Client.GetPasswordData(input)
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -1095,9 +1080,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		//awsImageInfo.OwnerId //
 		//awsImageInfo.ImageOwnerAlias
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
-	}
+	cblogger.Debug(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
 	// instance.ImageId
 	// describeImage -> is-public
 
