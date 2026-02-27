@@ -91,35 +91,6 @@ func getServerAddress() string {
 	return hostEnv
 }
 
-// getAvailableAMITypesMessage returns all available AMI types with compatibility notes.
-// Uses hardcoded list due to AWS SDK v1.39.4 (2021) lacking recent AMI type constants.
-// TODO: After upgrading to AWS SDK v1.50+, replace with eks.AMITypes_Values()
-func getAvailableAMITypesMessage() string {
-	// Hardcoded list based on AWS EKS documentation (as of 2024)
-	// Excludes deprecated AL2 types (K8s ≤1.32 only) and CUSTOM type
-	allTypes := []string{
-		"AL2023_x86_64_STANDARD",
-		"AL2023_ARM_64_STANDARD",
-		"BOTTLEROCKET_ARM_64",
-		"BOTTLEROCKET_x86_64",
-		"BOTTLEROCKET_ARM_64_NVIDIA",
-		"BOTTLEROCKET_x86_64_NVIDIA",
-		"WINDOWS_CORE_2019_x86_64",
-		"WINDOWS_FULL_2019_x86_64",
-		"WINDOWS_CORE_2022_x86_64",
-		"WINDOWS_FULL_2022_x86_64",
-	}
-
-	msg := "Available EKS AMI Types:\n- " + strings.Join(allTypes, "\n- ")
-	msg += "\n\n⚠️  Important Notes:"
-	msg += "\n- AL2023 types require Kubernetes ≥ 1.30"
-	msg += "\n- Bottlerocket types support all Kubernetes versions"
-	msg += "\n- For Windows workloads, use WINDOWS_* types"
-	msg += "\n\nRefer to AWS EKS documentation for detailed compatibility."
-
-	return msg
-}
-
 //------ Cluster Management
 
 /*
@@ -128,6 +99,48 @@ func getAvailableAMITypesMessage() string {
 */
 
 //------ AMI Analysis Helper Functions
+
+// eksAMITypes is the single source of truth for supported EKS AMI Type strings.
+// Hardcoded due to AWS SDK v1.39.4 (2021) lacking recent AMI type constants.
+// TODO: After upgrading to AWS SDK v1.50+, replace with eks.AMITypes_Values()
+// Excludes deprecated AL2 types (K8s ≤1.32 only) and CUSTOM type.
+var eksAMITypes = []string{
+	"AL2023_x86_64_STANDARD",
+	"AL2023_ARM_64_STANDARD",
+	"BOTTLEROCKET_ARM_64",
+	"BOTTLEROCKET_x86_64",
+	"BOTTLEROCKET_ARM_64_NVIDIA",
+	"BOTTLEROCKET_x86_64_NVIDIA",
+	"WINDOWS_CORE_2019_x86_64",
+	"WINDOWS_FULL_2019_x86_64",
+	"WINDOWS_CORE_2022_x86_64",
+	"WINDOWS_FULL_2022_x86_64",
+}
+
+// isValidEKSAMIType reports whether s is a known EKS AMI Type string.
+// EKS AMI Types are predefined constants (e.g. AL2023_x86_64_STANDARD) and must
+// NOT be confused with EC2 AMI IDs (ami-xxxxxxxxxxxxxxxxx).
+// When a caller passes an EKS AMI Type directly, we skip the analyzeAMI step and
+// forward the value to AWS EKS as-is.
+func isValidEKSAMIType(s string) bool {
+	for _, t := range eksAMITypes {
+		if t == s {
+			return true
+		}
+	}
+	return false
+}
+
+// getAvailableAMITypesMessage returns a human-readable list of supported EKS AMI Types.
+func getAvailableAMITypesMessage() string {
+	msg := "Available EKS AMI Types:\n- " + strings.Join(eksAMITypes, "\n- ")
+	msg += "\n\n⚠️  Important Notes:"
+	msg += "\n- AL2023 types require Kubernetes ≥ 1.30"
+	msg += "\n- Bottlerocket types support all Kubernetes versions"
+	msg += "\n- For Windows workloads, use WINDOWS_* types"
+	msg += "\n\nRefer to AWS EKS documentation for detailed compatibility."
+	return msg
+}
 
 // analyzeAMI analyzes received AMI ID and extracts metadata
 func (h *AwsClusterHandler) analyzeAMI(amiID string) (*AMIInfo, error) {
@@ -1068,7 +1081,13 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		// No AMI specified, use default (K8s 1.30+ compatible)
 		cblogger.Info("No ImageName provided, using default: AL2023_x86_64_STANDARD")
 		amiType = "AL2023_x86_64_STANDARD"
+	} else if isValidEKSAMIType(receivedImageName) {
+		// EKS AMI Type string passed directly (e.g. AL2023_x86_64_STANDARD).
+		// Use it as-is — no EC2 DescribeImages call needed.
+		cblogger.Infof("EKS AMI Type directly specified: %s", receivedImageName)
+		amiType = receivedImageName
 	} else {
+		// Treat as EC2 AMI ID: analyze and auto-map to EKS AMI Type.
 		// Step 1: Analyze received AMI
 		cblogger.Infof("Analyzing AMI: %s", receivedImageName)
 		amiInfo, err := ClusterHandler.analyzeAMI(receivedImageName)
