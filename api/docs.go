@@ -1017,6 +1017,15 @@ const docTemplate = `{
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "enum": [
+                            "native"
+                        ],
+                        "type": "string",
+                        "description": "Kubeconfig type: 'native' for CSP native plugin (aws-iam-authenticator, gke-gcloud-auth-plugin), default is CB-Spider credential-based",
+                        "name": "KubeconfigType",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1126,6 +1135,15 @@ const docTemplate = `{
                         "name": "Name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "enum": [
+                            "native"
+                        ],
+                        "type": "string",
+                        "description": "Kubeconfig type: 'native' for CSP native plugin (aws-iam-authenticator, gke-gcloud-auth-plugin), default is CB-Spider credential-based",
+                        "name": "KubeconfigType",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -11145,13 +11163,11 @@ const docTemplate = `{
                 },
                 "avgCreationTime": {
                     "description": "Average VM creation time in seconds",
-                    "type": "number",
-                    "format": "float64"
+                    "type": "number"
                 },
                 "creationCount": {
                     "description": "Number of successful VM creations",
-                    "type": "integer",
-                    "format": "int64"
+                    "type": "integer"
                 },
                 "csp": {
                     "type": "string"
@@ -12943,18 +12959,6 @@ const docTemplate = `{
                 "Suspending": "from running to suspended",
                 "Terminating": "from running, suspended to terminated"
             },
-            "x-enum-descriptions": [
-                "from launch to running",
-                "",
-                "from running to suspended",
-                "",
-                "from suspended to running",
-                "from running to running",
-                "from running, suspended to terminated",
-                "",
-                "VM does not exist",
-                ""
-            ],
             "x-enum-varnames": [
                 "Creating",
                 "Running",

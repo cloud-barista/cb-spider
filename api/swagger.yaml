@@ -202,11 +202,9 @@ definitions:
         type: string
       avgCreationTime:
         description: Average VM creation time in seconds
-        format: float64
         type: number
       creationCount:
         description: Number of successful VM creations
-        format: int64
         type: integer
       csp:
         type: string
@@ -1491,17 +1489,6 @@ definitions:
       Resuming: from suspended to running
       Suspending: from running to suspended
       Terminating: from running, suspended to terminated
-    x-enum-descriptions:
-    - from launch to running
-    - ""
-    - from running to suspended
-    - ""
-    - from suspended to running
-    - from running to running
-    - from running, suspended to terminated
-    - ""
-    - VM does not exist
-    - ""
     x-enum-varnames:
     - Creating
     - Running
@@ -4172,6 +4159,13 @@ paths:
         name: ConnectionName
         required: true
         type: string
+      - description: 'Kubeconfig type: ''native'' for CSP native plugin (aws-iam-authenticator,
+          gke-gcloud-auth-plugin), default is CB-Spider credential-based'
+        enum:
+        - native
+        in: query
+        name: KubeconfigType
+        type: string
       produces:
       - application/json
       responses:
@@ -4294,6 +4288,13 @@ paths:
         in: path
         name: Name
         required: true
+        type: string
+      - description: 'Kubeconfig type: ''native'' for CSP native plugin (aws-iam-authenticator,
+          gke-gcloud-auth-plugin), default is CB-Spider credential-based'
+        enum:
+        - native
+        in: query
+        name: KubeconfigType
         type: string
       produces:
       - application/json

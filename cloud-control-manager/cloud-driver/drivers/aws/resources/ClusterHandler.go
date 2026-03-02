@@ -843,6 +843,8 @@ users:
 }
 
 // getDynamicKubeConfig generates kubeconfig with exec-based dynamic token
+// Credentials are read from ~/.cb-spider/.spider-credential file at kubectl execution time
+// The credentials file should contain: SPIDER_USERNAME=<username> and SPIDER_PASSWORD=<password>
 func (ClusterHandler *AwsClusterHandler) getDynamicKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
 
 	cluster := clusterDesc.Cluster
@@ -850,11 +852,8 @@ func (ClusterHandler *AwsClusterHandler) getDynamicKubeConfig(clusterDesc *eks.D
 	// Get Spider server address from environment variable
 	serverAddr := getServerAddress()
 
-	// Get Spider API credentials from environment variables
-	apiUsername := os.Getenv("SPIDER_USERNAME")
-	apiPassword := os.Getenv("SPIDER_PASSWORD")
-
-	// Generate kubeconfig content with exec-based dynamic token using cluster NameId instead of SystemId
+	// Generate kubeconfig content with exec-based dynamic token
+	// Credentials are sourced from ~/.cb-spider/.spider-credential at runtime (not embedded in kubeconfig)
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
@@ -874,13 +873,11 @@ users:
     exec:
       apiVersion: client.authentication.k8s.io/v1
       interactiveMode: Never
-      command: curl
+      command: sh
       args:
-      - -s
-      - -u
-      - "%s:%s"
-      - "http://%s/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
-`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name, apiUsername, apiPassword, serverAddr)
+      - -c
+      - ". ~/.cb-spider/.spider-credential && curl -s -u \"$SPIDER_USERNAME:$SPIDER_PASSWORD\" \"http://%s/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER\""
+`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name, serverAddr)
 
 	return kubeconfigContent
 }

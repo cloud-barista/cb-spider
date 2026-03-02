@@ -673,7 +673,8 @@
                     {{if $cluster.Status}}
                         <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Access Info', {
                             endpoint: '{{$cluster.AccessInfo.Endpoint}}',
-                            kubeconfig: `{{$cluster.AccessInfo.Kubeconfig}}`
+                            kubeconfig: `{{$cluster.AccessInfo.Kubeconfig}}`,
+                            clusterName: '{{$cluster.IId.NameId}}'
                         })">View Details</a>
                     {{end}}
                 </td>
@@ -1781,13 +1782,22 @@
 
                 const kubeconfigRow = document.createElement('tr');
                 kubeconfigRow.innerHTML = `
-                    <th>Kubeconfig (YAML)</th>
+                    <th>Kubeconfig (YAML)
+                        <div style="margin-top:8px;">
+                            <select id="kubeconfigTypeSelect" onchange="switchKubeconfigType(this, '${data.clusterName}')" style="font-size:11px; padding:2px 4px; border-radius:3px; border:1px solid #aaa;">
+                                <option value="default" selected>Spider Default</option>
+                                <option value="native">CSP Native</option>
+                            </select>
+                        </div>
+                    </th>
                     <td>
-                        <div style="max-height: 200px; overflow: auto; padding: 5px; border: 1px solid #ccc;">
+                        <div id="kubeconfigContent" style="max-height: 200px; overflow: auto; padding: 5px; border: 1px solid #ccc;">
                             <pre class="kubeconfig-yaml" style="white-space: pre-wrap; word-wrap: break-word;">${data.kubeconfig}</pre>
                         </div>
                         <button class="copy-icon-btn" onclick="copyKubeconfigToClipboard(this)">📋</button>
+                        <span id="kubeconfigLoading" style="display:none; color:#666; font-size:11px; margin-left:8px;">Loading...</span>
                     </td>`;
+                kubeconfigRow.querySelector('#kubeconfigTypeSelect').dataset.defaultKubeconfig = data.kubeconfig;
                 detailsTable.appendChild(kubeconfigRow);
             }
 
@@ -2006,8 +2016,46 @@
             overlay.style.display = 'none';
         }
 
+        function switchKubeconfigType(selectEl, clusterName) {
+            const kubeconfigType = selectEl.value;
+            const kubeconfigContent = document.getElementById('kubeconfigContent');
+            const loadingSpan = document.getElementById('kubeconfigLoading');
+
+            if (kubeconfigType === 'default') {
+                // Restore default Spider kubeconfig
+                const defaultKubeconfig = selectEl.dataset.defaultKubeconfig;
+                kubeconfigContent.innerHTML = `<pre class="kubeconfig-yaml" style="white-space: pre-wrap; word-wrap: break-word;">${defaultKubeconfig}</pre>`;
+                return;
+            }
+
+            // Fetch CSP Native kubeconfig via API
+            loadingSpan.style.display = 'inline';
+            const connConfig = "{{.ConnectionConfig}}";
+            fetchWithProgress(`/spider/cluster/${clusterName}?ConnectionName=${connConfig}&KubeconfigType=native`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.message || 'Failed to fetch'); });
+                }
+                return response.json();
+            })
+            .then(clusterInfo => {
+                loadingSpan.style.display = 'none';
+                const nativeKubeconfig = clusterInfo.AccessInfo?.Kubeconfig || 'Native kubeconfig not available for this CSP.';
+                kubeconfigContent.innerHTML = `<pre class="kubeconfig-yaml" style="white-space: pre-wrap; word-wrap: break-word;">${nativeKubeconfig}</pre>`;
+            })
+            .catch(error => {
+                loadingSpan.style.display = 'none';
+                kubeconfigContent.innerHTML = `<pre class="kubeconfig-yaml" style="white-space: pre-wrap; word-wrap: break-word; color:red;">Error: ${error.message}</pre>`;
+            });
+        }
+
         function copyKubeconfigToClipboard(button) {
-            let kubeconfigText = button.previousElementSibling.textContent; // Grab the kubeconfig value
+            // Find the kubeconfig pre element within the kubeconfigContent div
+            const kubeconfigDiv = button.closest('td').querySelector('#kubeconfigContent');
+            let kubeconfigText = kubeconfigDiv ? kubeconfigDiv.textContent : button.previousElementSibling.textContent;
             
             // Remove leading/trailing whitespace and normalize line breaks
             kubeconfigText = kubeconfigText.trim();
