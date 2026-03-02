@@ -227,6 +227,7 @@ type ClusterListResponse struct {
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list Clusters for"
+// @Param KubeconfigType query string false "Kubeconfig type: 'native' for CSP native plugin (aws-iam-authenticator, gke-gcloud-auth-plugin), default is CB-Spider credential-based" Enums(native)
 // @Success 200 {object} ClusterListResponse "List of Clusters"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -246,8 +247,10 @@ func ListCluster(c echo.Context) error {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 
+	kubeconfigType := c.QueryParam("KubeconfigType") // "native" or "" (default: spider credential-based)
+
 	// Call common-runtime API
-	result, err := cmrt.ListCluster(req.ConnectionName, CLUSTER)
+	result, err := cmrt.ListCluster(req.ConnectionName, CLUSTER, kubeconfigType)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -319,6 +322,7 @@ func ListAllClusterInfo(c echo.Context) error { return listAllResourceInfo(c, cr
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a Cluster for"
 // @Param Name path string true "The name of the Cluster to retrieve"
+// @Param KubeconfigType query string false "Kubeconfig type: 'native' for CSP native plugin (aws-iam-authenticator, gke-gcloud-auth-plugin), default is CB-Spider credential-based" Enums(native)
 // @Success 200 {object} cres.ClusterInfo "Details of the Cluster"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -339,9 +343,10 @@ func GetCluster(c echo.Context) error {
 	}
 
 	clusterName := c.Param("Name")
+	kubeconfigType := c.QueryParam("KubeconfigType") // "native" or "" (default: spider credential-based)
 
 	// Call common-runtime API
-	result, err := cmrt.GetCluster(req.ConnectionName, CLUSTER, clusterName)
+	result, err := cmrt.GetCluster(req.ConnectionName, CLUSTER, clusterName, kubeconfigType)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

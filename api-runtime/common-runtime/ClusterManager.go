@@ -901,7 +901,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 // (1) get IID:list
 // (2) get ClusterInfo:list
 // (3) set userIID, and ...
-func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, error) {
+func ListCluster(connectionName string, rsType string, kubeconfigType string) ([]*cres.ClusterInfo, error) {
 	cblog.Info("call ListCluster()")
 
 	// check empty and trim user inputs
@@ -984,6 +984,16 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 			}
 		}
 
+		// Convert to CSP native kubeconfig if requested
+		if kubeconfigType == "native" && info.AccessInfo.Kubeconfig != "" {
+			nativeKubeconfig, err := convertToNativeKubeConfig(connectionName, &info)
+			if err != nil {
+				cblog.Warn("Failed to convert to native kubeconfig, using default: " + err.Error())
+			} else if nativeKubeconfig != "" {
+				info.AccessInfo.Kubeconfig = nativeKubeconfig
+			}
+		}
+
 		// set used Resources's userIID
 		err = setResourcesNameId(connectionName, &info)
 		if err != nil {
@@ -1000,7 +1010,7 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 // (1) get IID(NameId)
 // (2) get resource(SystemId)
 // (3) set ResourceInfo(IID.NameId)
-func GetCluster(connectionName string, rsType string, clusterName string) (*cres.ClusterInfo, error) {
+func GetCluster(connectionName string, rsType string, clusterName string, kubeconfigType string) (*cres.ClusterInfo, error) {
 	cblog.Info("call GetCluster()")
 
 	// check empty and trim user inputs
@@ -1083,6 +1093,16 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 		}
 		if strings.Contains(info.AccessInfo.Kubeconfig, "CLUSTER_NAME_PLACEHOLDER") {
 			info.AccessInfo.Kubeconfig = strings.ReplaceAll(info.AccessInfo.Kubeconfig, "CLUSTER_NAME_PLACEHOLDER", clusterName)
+		}
+	}
+
+	// Convert to CSP native kubeconfig if requested
+	if kubeconfigType == "native" && info.AccessInfo.Kubeconfig != "" {
+		nativeKubeconfig, err := convertToNativeKubeConfig(connectionName, &info)
+		if err != nil {
+			cblog.Warn("Failed to convert to native kubeconfig, using default: " + err.Error())
+		} else if nativeKubeconfig != "" {
+			info.AccessInfo.Kubeconfig = nativeKubeconfig
 		}
 	}
 
@@ -2006,4 +2026,116 @@ func CountClustersByConnection(connectionName string) (int64, error) {
 	}
 
 	return count, nil
+}
+
+// convertToNativeKubeConfig generates CSP native kubeconfig for AWS and GCP.
+// AWS: uses aws-iam-authenticator exec plugin
+// GCP: uses gke-gcloud-auth-plugin exec plugin
+// For other CSPs, returns empty string (no conversion needed, they already use static kubeconfig).
+func convertToNativeKubeConfig(connectionName string, info *cres.ClusterInfo) (string, error) {
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get provider name: %w", err)
+	}
+
+	providerName = strings.ToUpper(providerName)
+
+	switch providerName {
+	case "AWS":
+		return generateAWSNativeKubeConfig(info), nil
+	case "GCP":
+		return generateGCPNativeKubeConfig(info), nil
+	default:
+		// Other CSPs already use static kubeconfig, no conversion needed
+		return "", nil
+	}
+}
+
+// generateAWSNativeKubeConfig generates kubeconfig using aws-iam-authenticator exec plugin
+func generateAWSNativeKubeConfig(info *cres.ClusterInfo) string {
+	// Extract cluster name from IId
+	clusterName := info.IId.NameId
+	if info.IId.SystemId != "" {
+		clusterName = info.IId.SystemId
+	}
+
+	// Parse CA data and endpoint from existing kubeconfig or AccessInfo
+	endpoint := info.AccessInfo.Endpoint
+	caData := extractCADataFromKubeconfig(info.AccessInfo.Kubeconfig)
+
+	return fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: %s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: aws-iam-user
+  name: %s
+current-context: %s
+users:
+- name: aws-iam-user
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      interactiveMode: Never
+      command: aws-iam-authenticator
+      args:
+      - token
+      - -i
+      - %s
+`, endpoint, caData, clusterName, clusterName, clusterName, clusterName, clusterName)
+}
+
+// generateGCPNativeKubeConfig generates kubeconfig using gke-gcloud-auth-plugin exec plugin
+func generateGCPNativeKubeConfig(info *cres.ClusterInfo) string {
+	// Extract cluster name from IId
+	clusterName := info.IId.NameId
+
+	// Parse CA data and endpoint from existing kubeconfig or AccessInfo
+	endpoint := info.AccessInfo.Endpoint
+	caData := extractCADataFromKubeconfig(info.AccessInfo.Kubeconfig)
+
+	// Ensure endpoint has https:// prefix
+	if !strings.HasPrefix(endpoint, "https://") {
+		endpoint = "https://" + endpoint
+	}
+
+	return fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: %s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: gcp-gke-user
+  name: %s
+current-context: %s
+users:
+- name: gcp-gke-user
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: gke-gcloud-auth-plugin
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#install_plugin
+      provideClusterInfo: true
+`, endpoint, caData, clusterName, clusterName, clusterName, clusterName)
+}
+
+// extractCADataFromKubeconfig extracts certificate-authority-data from kubeconfig string
+func extractCADataFromKubeconfig(kubeconfig string) string {
+	for _, line := range strings.Split(kubeconfig, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "certificate-authority-data:") {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, "certificate-authority-data:"))
+		}
+	}
+	return ""
 }
