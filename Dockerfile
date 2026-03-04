@@ -22,11 +22,11 @@ WORKDIR /go/src/github.com/cloud-barista/cb-spider
 
 WORKDIR api-runtime
 
-RUN VERSION=$$(git describe --tags --abbrev=8 2>/dev/null | sed 's/-g.*//' || echo "unknown") && \
-    COMMIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
-    BUILD_TIME=$$(date) && \
+RUN VERSION=$(git describe --tags --abbrev=8 2>/dev/null | sed 's/-g.*//' || echo "unknown") && \
+    COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
+    BUILD_TIME=$(date) && \
     GOOS=linux go build -tags cb-spider \
-    -ldflags="-X 'main.Version=$${VERSION}' -X 'main.CommitSHA=$${COMMIT_SHA}' -X 'main.BuildTime=$${BUILD_TIME}'" \
+    -ldflags="-X 'main.Version=${VERSION}' -X 'main.CommitSHA=${COMMIT_SHA}' -X 'main.BuildTime=${BUILD_TIME}'" \
     -o cb-spider -v
 
 #############################################################
