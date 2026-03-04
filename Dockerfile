@@ -6,6 +6,9 @@ FROM golang:1.25.0 AS builder
 
 ENV GO111MODULE=on
 
+# Install git for version information
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
 #RUN apk update && apk add --no-cache bash
 #RUN apt update
 
@@ -19,7 +22,12 @@ WORKDIR /go/src/github.com/cloud-barista/cb-spider
 
 WORKDIR api-runtime
 
-RUN GOOS=linux go build -tags cb-spider -o cb-spider -v
+RUN VERSION=$(git describe --tags --abbrev=8 2>/dev/null | sed 's/-g.*//' || echo "unknown") && \
+    COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
+    BUILD_TIME=$(date) && \
+    GOOS=linux go build -tags cb-spider \
+    -ldflags="-X 'main.Version=${VERSION}' -X 'main.CommitSHA=${COMMIT_SHA}' -X 'main.BuildTime=${BUILD_TIME}'" \
+    -o cb-spider -v
 
 #############################################################
 ## Stage 2 - Application Setup
