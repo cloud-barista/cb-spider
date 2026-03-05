@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	restruntime "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime"
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 	"github.com/spf13/cobra"
 )
 
@@ -53,6 +55,12 @@ func NewRootCmd() *cobra.Command {
 			}
 
 			restruntime.SetVersionInfo(Version)
+
+			// Start Meta DB Backup Scheduler
+			backupCfg := infostore.LoadBackupConfig()
+			backupCtx, backupCancel := context.WithCancel(context.Background())
+			defer backupCancel()
+			infostore.StartBackupScheduler(backupCtx, backupCfg)
 
 			// WaitGroup to manage both servers
 			wg := new(sync.WaitGroup)

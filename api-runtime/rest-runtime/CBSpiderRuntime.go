@@ -772,6 +772,7 @@ func ApiServer(routes []route) {
 	SkipAuthPaths := map[string]bool{
 		"/spider/endpointinfo": true,
 		"/spider/version":      true,
+		"/spider/ver":          true,
 		"/spider/healthcheck":  true,
 		"/spider/health":       true,
 		"/spider/ping":         true,
