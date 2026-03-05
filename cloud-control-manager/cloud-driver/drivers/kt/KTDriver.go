@@ -12,6 +12,8 @@
 package kt
 
 import (
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/sirupsen/logrus"
 	// "github.com/davecgh/go-spew/spew"
 
@@ -37,6 +39,10 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("CB-SPIDER")
+	// Set zerolog's package-level logger to Warn level to suppress redundant info/debug
+	// messages from the ktcloudvpc-sdk-go SDK (e.g. initClientOpts, Get URL, Get Subnet URL).
+	// This only affects the zerolog global logger used by the SDK, not other loggers.
+	zlog.Logger = zlog.Logger.Level(zerolog.WarnLevel)
 }
 
 func (KTCloudVpcDriver) GetDriverVersion() string {
