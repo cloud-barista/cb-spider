@@ -410,7 +410,6 @@ func (vpcHandler *KTVpcVPCHandler) createSubnet(subnetReqInfo *irs.SubnetInfo) (
 	// spew.Dump(createOpts)
 	// cblogger.Info("\n")
 
-	cblogger.Info("\n### Adding New Subnet Now!!")
 	start := call.Start()
 	result, err := subnets.Create(vpcHandler.NetworkClient, createOpts).ExtractCreate()
 	if err != nil {
