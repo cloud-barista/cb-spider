@@ -18,14 +18,13 @@ ADD . /go/src/github.com/cloud-barista/cb-spider
 
 WORKDIR /go/src/github.com/cloud-barista/cb-spider
 
-#RUN ./build_all_driver_lib.sh
-
+# Note: Docker image provides static mode only (dynamic mode available in binary releases)
 WORKDIR api-runtime
 
 RUN VERSION=$(git describe --tags --abbrev=8 2>/dev/null | sed 's/-g.*//' || echo "unknown") && \
     COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
     BUILD_TIME=$(date) && \
-    GOOS=linux go build -tags cb-spider \
+    CGO_ENABLED=0 GOOS=linux go build -tags cb-spider \
     -ldflags="-X 'main.Version=${VERSION}' -X 'main.CommitSHA=${COMMIT_SHA}' -X 'main.BuildTime=${BUILD_TIME}'" \
     -o cb-spider -v
 
@@ -45,8 +44,7 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
 WORKDIR /root/go/src/github.com/cloud-barista/cb-spider
 
-COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/ /root/go/src/github.com/cloud-barista/cb-spider/cloud-driver-libs/
-
+# Note: cloud-driver-libs not needed for static mode
 COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/conf/ /root/go/src/github.com/cloud-barista/cb-spider/conf/
 
 COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/
@@ -57,10 +55,9 @@ COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-
 
 COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api/ /root/go/src/github.com/cloud-barista/cb-spider/api/
 
-#COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/setup.env /root/go/src/github.com/cloud-barista/cb-spider/
-#RUN /bin/bash -c "source /root/go/src/github.com/cloud-barista/cb-spider/setup.env"
 ENV CBSPIDER_ROOT=/root/go/src/github.com/cloud-barista/cb-spider
 ENV CBLOG_ROOT=/root/go/src/github.com/cloud-barista/cb-spider
+# Static mode only (dynamic mode available in binary releases)
 ENV PLUGIN_SW=OFF
 
 ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider" ]
