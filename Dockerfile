@@ -2,17 +2,17 @@
 ## Stage 1 - Go Build
 ##############################################################
 
-FROM golang:1.25.0 AS builder
+# Note: --platform=$BUILDPLATFORM runs the builder natively on the host (e.g., amd64),
+# avoiding slow QEMU emulation. Cross-compilation is handled via TARGETOS/TARGETARCH.
+FROM --platform=$BUILDPLATFORM golang:1.25.0 AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 ENV GO111MODULE=on
 
 # Install git for version information
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
-
-#RUN apk update && apk add --no-cache bash
-#RUN apt update
-
-#RUN apk add gcc
 
 ADD . /go/src/github.com/cloud-barista/cb-spider
 
@@ -24,7 +24,7 @@ WORKDIR api-runtime
 RUN VERSION=$(git describe --tags --abbrev=8 2>/dev/null | sed 's/-g.*//' || echo "unknown") && \
     COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
     BUILD_TIME=$(date) && \
-    CGO_ENABLED=0 GOOS=linux go build -tags cb-spider \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -tags cb-spider \
     -ldflags="-X 'main.Version=${VERSION}' -X 'main.CommitSHA=${COMMIT_SHA}' -X 'main.BuildTime=${BUILD_TIME}'" \
     -o cb-spider -v
 
