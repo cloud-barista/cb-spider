@@ -16,6 +16,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	// Use pure Go SQLite driver (no CGO required)
+	_ "github.com/glebarez/go-sqlite"
 )
 
 const BACKUP_FILE_PREFIX = "cb-spider_backup_"
@@ -37,7 +40,7 @@ func BackupMetaDB(backupDir string) (string, error) {
 	backupFilePath := filepath.Join(backupDir, backupFileName)
 
 	// Open a direct connection to the source DB for VACUUM INTO
-	srcDB, err := sql.Open("sqlite3", DB_FILE_PATH+"?_busy_timeout=60000")
+	srcDB, err := sql.Open("sqlite", DB_FILE_PATH+"?_busy_timeout=60000")
 	if err != nil {
 		return "", fmt.Errorf("failed to open source DB for backup: %w", err)
 	}

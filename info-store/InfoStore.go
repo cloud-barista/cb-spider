@@ -15,7 +15,8 @@ import (
 	"fmt"
 	"os"
 
-	"gorm.io/driver/sqlite"
+	// Use pure Go SQLite driver (no CGO required)
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
