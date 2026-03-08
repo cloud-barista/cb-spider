@@ -5,7 +5,7 @@ BUILD_TIME := $(shell date)
 export CGO_CFLAGS := -Wno-deprecated-declarations
 
 default: swag
-	@printf '\t[CB-Spider] building ./bin/cb-spider (static mode, no CGO)...\n'
+	@printf '\t[CB-Spider] building ./bin/cb-spider (static mode)...\n'
 	@go mod download
 	@go mod tidy
 	@CGO_ENABLED=0 go build -tags cb-spider -ldflags="-X 'main.Version=$(VERSION)' \
@@ -14,7 +14,7 @@ default: swag
 			-o bin/cb-spider ./api-runtime
 
 dyna plugin plug dynamic: swag
-	@printf '\t[CB-Spider] building ./bin/cb-spider-dyna (dynamic mode, requires CGO for go plugin)...\n'
+	@printf '\t[CB-Spider] building ./bin/cb-spider-dyna (dynamic mode)...\n'
 	@go mod download
 	@go mod tidy
 	@CGO_ENABLED=1 go build -tags dyna -ldflags="-X 'main.Version=$(VERSION)' \
