@@ -473,6 +473,7 @@ func getRoutes() []route {
 		{"GET", "/cluster", ListCluster},
 		{"GET", "/cluster/:Name", GetCluster},
 		{"DELETE", "/cluster/:Name", DeleteCluster},
+		{"DELETE", "/cluster/:Name/finalize", FinalizeDeleteCluster},
 		{"GET", "/cluster/:Name/token", GetClusterToken},
 		//-- for NodeGroup
 		{"POST", "/cluster/:Name/nodegroup", AddNodeGroup},

@@ -21,6 +21,7 @@ const (
 	ClusterInactive ClusterStatus = "Inactive"
 	ClusterUpdating ClusterStatus = "Updating"
 	ClusterDeleting ClusterStatus = "Deleting"
+	ClusterNotFound ClusterStatus = "NotFound"
 )
 
 type NodeGroupStatus string
