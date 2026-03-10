@@ -450,9 +450,15 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	if err1 != nil {
 		e, ok := err1.(*googleapi.Error)
 
-		// Setting 'OnHostMaintenance' to 'TERMINATE' prevents live migration
+		// Certain VM types (GPU VMs, storage-optimized VMs, etc.) do not support live migration
+		// and require 'OnHostMaintenance' to be set to 'TERMINATE'.
+		// Detect scheduling-related 400 errors using generalized keywords:
+		//   - "onhostmaintenance": GCP API field name, present in scheduling constraint errors
+		//   - "not support live migration": present in GPU accelerator VM errors
+		// If matched, retry VM creation with OnHostMaintenance set to TERMINATE.
 		errorLower := strings.ToLower(err1.Error())
-		liveMigrationNotSupport := strings.Contains(errorLower, strings.ToLower("must be set to TERMINATE")) || strings.Contains(errorLower, strings.ToLower("not support live migration"))
+		liveMigrationNotSupport := strings.Contains(errorLower, "onhostmaintenance") ||
+			strings.Contains(errorLower, "not support live migration")
 		if ok && e.Code == http.StatusBadRequest && liveMigrationNotSupport {
 			cblogger.Info("vm creating with Scheduling struct to set live migration to TERMINATE")
 			instance.Scheduling = &compute.Scheduling{
