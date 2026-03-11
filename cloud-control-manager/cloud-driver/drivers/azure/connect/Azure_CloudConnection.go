@@ -277,3 +277,13 @@ func (cloudConn *AzureCloudConnection) CreateTagHandler() (irs.TagHandler, error
 	return &tagHandler, nil
 	// return nil, errors.New("Azure Driver: not implemented")
 }
+
+func (cloudConn *AzureCloudConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateQuotaHandler()!")
+	quotaHandler := azrs.AzureQuotaHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &quotaHandler, nil
+}

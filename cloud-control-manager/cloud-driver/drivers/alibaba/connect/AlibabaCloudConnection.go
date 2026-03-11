@@ -188,3 +188,9 @@ func (cloudConn *AlibabaCloudConnection) CreateTagHandler() (irs.TagHandler, err
 	handler := alirs.AlibabaTagHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.Cs2015Client, cloudConn.VpcClient, cloudConn.NLBClient, cloudConn.NasClient}
 	return &handler, nil
 }
+
+func (cloudConn *AlibabaCloudConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreateQuotaHandler()!")
+	quotaHandler := alirs.AlibabaQuotaHandler{Region: cloudConn.Region, Client: cloudConn.VMClient}
+	return &quotaHandler, nil
+}

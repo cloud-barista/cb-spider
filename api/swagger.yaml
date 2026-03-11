@@ -202,11 +202,9 @@ definitions:
         type: string
       avgCreationTime:
         description: Average VM creation time in seconds
-        format: float64
         type: number
       creationCount:
         description: Number of successful VM creations
-        format: int64
         type: integer
       csp:
         type: string
@@ -1176,6 +1174,48 @@ definitions:
     - DisplayName
     - Name
     type: object
+  spider.ResourceQuota:
+    properties:
+      Available:
+        description: |-
+          Available is the headroom (Limit - Used).
+          "NA" when either Limit or Used is "NA".
+        example: "488"
+        type: string
+      Description:
+        description: Description is a human-readable explanation of the quota item.
+        example: Maximum number of running VM instances
+        type: string
+      Limit:
+        description: |-
+          Limit is the maximum number (or size) allowed by the CSP quota.
+          "NA" when the CSP does not expose this value via API.
+        example: "500"
+        type: string
+      ResourceType:
+        description: |-
+          ResourceType is a canonical name for the resource category,
+          e.g. "VM", "vCPU", "VPC", "Subnet", "SecurityGroup", …
+        example: VM
+        type: string
+      Unit:
+        description: Unit describes the dimension being counted, e.g. "count", "vCPU",
+          "GB".
+        example: count
+        type: string
+      Used:
+        description: |-
+          Used is the amount currently consumed.
+          "NA" when the CSP does not expose this value via API.
+        example: "12"
+        type: string
+    required:
+    - Available
+    - Limit
+    - ResourceType
+    - Unit
+    - Used
+    type: object
   spider.SecurityInfo:
     properties:
       IId:
@@ -1491,17 +1531,6 @@ definitions:
       Resuming: from suspended to running
       Suspending: from running to suspended
       Terminating: from running, suspended to terminated
-    x-enum-descriptions:
-    - from launch to running
-    - ""
-    - from running to suspended
-    - ""
-    - from suspended to running
-    - from running to running
-    - from running, suspended to terminated
-    - ""
-    - VM does not exist
-    - ""
     x-enum-varnames:
     - Creating
     - Running
@@ -2306,6 +2335,9 @@ definitions:
       priceInfoHandler:
         description: 'support: true, do not support: false'
         type: boolean
+      quotaHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
       regionZoneHandler:
         description: Metadata Handler
         type: boolean
@@ -2844,6 +2876,32 @@ definitions:
         type: array
     required:
     - productfamily
+    type: object
+  spider.QuotaResponse:
+    properties:
+      CSP:
+        description: CSP is the cloud provider name, e.g. "AWS", "Azure", "GCP", "Alibaba",
+          "IBM".
+        example: AWS
+        type: string
+      KeyValueList:
+        description: KeyValueList carries additional CSP-specific quota metadata.
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Region:
+        description: Region is the region (or location) the quotas apply to.
+        example: us-east-1
+        type: string
+      ResourceQuotas:
+        description: ResourceQuotas lists per-resource quota details.
+        items:
+          $ref: '#/definitions/spider.ResourceQuota'
+        type: array
+    required:
+    - CSP
+    - Region
+    - ResourceQuotas
     type: object
   spider.RegionZoneListResponse:
     properties:
@@ -7736,6 +7794,42 @@ paths:
       summary: List Product Families
       tags:
       - '[Cloud Metadata] VM Price Info'
+  /quota:
+    get:
+      consumes:
+      - application/json
+      description: "Retrieve resource quota limits and current usage for CSP resources
+        (VM, vCPU, VPC, Subnet, SecurityGroup, Disk, NLB, PublicIP, KeyPair, etc.).
+        \U0001F577️ Supported CSPs: AWS, Azure, GCP, Alibaba, IBM."
+      operationId: get-quota
+      parameters:
+      - description: The name of the Connection to retrieve resource quota for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource quota limits and current usage
+          schema:
+            $ref: '#/definitions/spider.QuotaResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Resource Quota
+      tags:
+      - '[Cloud Metadata] Resource Quota'
   /readyz:
     get:
       consumes:

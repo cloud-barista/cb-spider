@@ -123,3 +123,8 @@ func (cloudConn *MockConnection) CreateTagHandler() (irs.TagHandler, error) {
 	handler := mkrs.MockTagHandler{MockName: cloudConn.MockName}
 	return &handler, nil
 }
+
+// CreateQuotaHandler implements connect.CloudConnection.
+func (cloudConn *MockConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
+	panic("unimplemented")
+}

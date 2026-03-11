@@ -134,6 +134,11 @@ func (cloudConn *KtCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	return &tagHandler, nil
 }
 
+// CreateQuotaHandler implements connect.CloudConnection.
+func (cloudConn *KtCloudConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
+	return nil, fmt.Errorf("KT Classic Cloud Driver: QuotaHandler not supported")
+}
+
 func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("KT Cloud Driver: called IsConnected()!")
 	if cloudConn == nil {

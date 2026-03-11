@@ -73,6 +73,8 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	// ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.MYIMAGE
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.CLUSTER}
 
+	drvCapabilityInfo.QuotaHandler = true
+
 	drvCapabilityInfo.VPC_CIDR = false
 
 	return drvCapabilityInfo

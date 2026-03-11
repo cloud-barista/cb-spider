@@ -2351,6 +2351,7 @@ const (
 	PRICE_INFO      CapabilityType = "PriceInfo"
 	CLUSTER_HANDLER CapabilityType = "ClusterHandler"
 	TAG_HANDLER     CapabilityType = "TagHandler"
+	QUOTA_HANDLER   CapabilityType = "QuotaHandler"
 
 	ZONE_BASED_CONTROL CapabilityType = "Zone-based Control"
 )
@@ -2371,6 +2372,8 @@ func checkCapability(connectionName string, capability CapabilityType) error {
 		supported = drvCapabilityInfo.ClusterHandler
 	case TAG_HANDLER:
 		supported = drvCapabilityInfo.TagHandler
+	case QUOTA_HANDLER:
+		supported = drvCapabilityInfo.QuotaHandler
 	case ZONE_BASED_CONTROL:
 		supported = drvCapabilityInfo.ZoneBasedControl
 	default:

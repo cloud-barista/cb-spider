@@ -35,6 +35,7 @@ type DriverCapabilityInfo struct {
 	NLBHandler        bool // support: true, do not support: false
 	ClusterHandler    bool // support: true, do not support: false
 	FileSystemHandler bool // support: true, do not support: false
+	QuotaHandler      bool // support: true, do not support: false
 
 	TagHandler bool // support: true, do not support: false
 	// ex) {ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
