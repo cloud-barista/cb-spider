@@ -549,7 +549,7 @@ func ChangeNodeGroupScaling(c echo.Context) error {
 // deleteCluster godoc
 // @ID delete-cluster
 // @Summary Delete Cluster
-// @Description Delete a specified Cluster.
+// @Description Delete a specified Cluster from the CSP. <br> This API only deletes the CSP resource and does not remove Spider meta information. <br> After deletion, call **DELETE /cluster/{Name}/finalize** to clean up Spider's internal metadata once the CSP resource no longer exists.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
@@ -574,6 +574,46 @@ func DeleteCluster(c echo.Context) error {
 
 	// Call common-runtime API
 	result, err := cmrt.DeleteCluster(req.ConnectionName, CLUSTER, clusterName, c.QueryParam("force"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// finalizeDeleteCluster godoc
+// @ID finalize-delete-cluster
+// @Summary Finalize Delete Cluster
+// @Description Finalize the deletion of a Cluster by removing its Spider meta information.
+// @Description This API only succeeds when the Cluster no longer exists on the CSP.
+// @Description Use this after DeleteCluster to clean up Spider's internal metadata.
+// @Tags [Cluster Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for finalizing Cluster deletion"
+// @Param Name path string true "The name of the Cluster to finalize deletion"
+// @Success 200 {object} BooleanInfo "Result of the finalize delete operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /cluster/{Name}/finalize [delete]
+func FinalizeDeleteCluster(c echo.Context) error {
+	cblog.Info("call FinalizeDeleteCluster()")
+
+	var req ConnectionRequest
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	clusterName := c.Param("Name")
+
+	// Call common-runtime API
+	result, err := cmrt.FinalizeDeleteCluster(req.ConnectionName, CLUSTER, clusterName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

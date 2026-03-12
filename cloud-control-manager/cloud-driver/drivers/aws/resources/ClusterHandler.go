@@ -646,7 +646,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceNotFoundException:
-				cblogger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
+				cblogger.Info(eks.ErrCodeResourceNotFoundException, aerr.Error())
 			case eks.ErrCodeClientException:
 				cblogger.Error(eks.ErrCodeClientException, aerr.Error())
 			case eks.ErrCodeServerException:
