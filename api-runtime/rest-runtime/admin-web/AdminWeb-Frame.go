@@ -162,6 +162,13 @@ func Top(c echo.Context) error {
                 <a href="priceinfo/region not set" target="main_frame" id="priceinfoHref" onclick="selectMenu('priceinfoHref')">
                     <font size=2>Price</font>
                 </a>
+
+                &nbsp;
+                &nbsp;
+
+                <a href="quota/region not set" target="main_frame" id="quotaHref" onclick="selectMenu('quotaHref')">
+                    <font size=2>Quota</font>
+                </a>
             </td>
             <td width="280">
                 <!-- Display Connection Config -->

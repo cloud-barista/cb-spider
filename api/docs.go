@@ -6229,6 +6229,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/quota": {
+            "get": {
+                "description": "Retrieve resource quota limits and current usage for CSP resources (VM, vCPU, VPC, Subnet, SecurityGroup, Disk, NLB, PublicIP, KeyPair, etc.). 🕷️ Supported CSPs: AWS, Azure, GCP, Alibaba, IBM.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Resource Quota"
+                ],
+                "summary": "Get Resource Quota",
+                "operationId": "get-quota",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to retrieve resource quota for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resource quota limits and current usage",
+                        "schema": {
+                            "$ref": "#/definitions/spider.QuotaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/readyz": {
             "get": {
                 "description": "Checks the health of CB-Spider service and its dependencies via /readyz endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]",
@@ -11163,13 +11214,11 @@ const docTemplate = `{
                 },
                 "avgCreationTime": {
                     "description": "Average VM creation time in seconds",
-                    "type": "number",
-                    "format": "float64"
+                    "type": "number"
                 },
                 "creationCount": {
                     "description": "Number of successful VM creations",
-                    "type": "integer",
-                    "format": "int64"
+                    "type": "integer"
                 },
                 "csp": {
                     "type": "string"
@@ -12517,6 +12566,48 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.ResourceQuota": {
+            "type": "object",
+            "required": [
+                "Available",
+                "Limit",
+                "ResourceType",
+                "Unit",
+                "Used"
+            ],
+            "properties": {
+                "Available": {
+                    "description": "Available is the headroom (Limit - Used).\n\"NA\" when either Limit or Used is \"NA\".",
+                    "type": "string",
+                    "example": "488"
+                },
+                "Description": {
+                    "description": "Description is a human-readable explanation of the quota item.",
+                    "type": "string",
+                    "example": "Maximum number of running VM instances"
+                },
+                "Limit": {
+                    "description": "Limit is the maximum number (or size) allowed by the CSP quota.\n\"NA\" when the CSP does not expose this value via API.",
+                    "type": "string",
+                    "example": "500"
+                },
+                "ResourceType": {
+                    "description": "ResourceType is a canonical name for the resource category,\ne.g. \"VM\", \"vCPU\", \"VPC\", \"Subnet\", \"SecurityGroup\", …",
+                    "type": "string",
+                    "example": "VM"
+                },
+                "Unit": {
+                    "description": "Unit describes the dimension being counted, e.g. \"count\", \"vCPU\", \"GB\".",
+                    "type": "string",
+                    "example": "count"
+                },
+                "Used": {
+                    "description": "Used is the amount currently consumed.\n\"NA\" when the CSP does not expose this value via API.",
+                    "type": "string",
+                    "example": "12"
+                }
+            }
+        },
         "spider.SecurityInfo": {
             "type": "object",
             "required": [
@@ -12961,18 +13052,6 @@ const docTemplate = `{
                 "Suspending": "from running to suspended",
                 "Terminating": "from running, suspended to terminated"
             },
-            "x-enum-descriptions": [
-                "from launch to running",
-                "",
-                "from running to suspended",
-                "",
-                "from suspended to running",
-                "from running to running",
-                "from running, suspended to terminated",
-                "",
-                "VM does not exist",
-                ""
-            ],
             "x-enum-varnames": [
                 "Creating",
                 "Running",
@@ -14102,6 +14181,10 @@ const docTemplate = `{
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
+                "quotaHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
                 "regionZoneHandler": {
                     "description": "Metadata Handler",
                     "type": "boolean"
@@ -14871,6 +14954,40 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                }
+            }
+        },
+        "spider.QuotaResponse": {
+            "type": "object",
+            "required": [
+                "CSP",
+                "Region",
+                "ResourceQuotas"
+            ],
+            "properties": {
+                "CSP": {
+                    "description": "CSP is the cloud provider name, e.g. \"AWS\", \"Azure\", \"GCP\", \"Alibaba\", \"IBM\".",
+                    "type": "string",
+                    "example": "AWS"
+                },
+                "KeyValueList": {
+                    "description": "KeyValueList carries additional CSP-specific quota metadata.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Region": {
+                    "description": "Region is the region (or location) the quotas apply to.",
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "ResourceQuotas": {
+                    "description": "ResourceQuotas lists per-resource quota details.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.ResourceQuota"
                     }
                 }
             }

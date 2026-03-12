@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cloud Resource Quota</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        margin: 0;
+        padding: 46px 8px 0 8px; /* top: header height, left/right: match browser default body margin */
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: center;
+    }
+    td.desc {
+        text-align: left;
+        padding-left: 8px;
+    }
+
+    .column-num         { width: 4%; }
+    .column-type        { width: 18%; }
+    .column-limit       { width: 10%; }
+    .column-used        { width: 10%; }
+    .column-available   { width: 10%; }
+    .column-unit        { width: 8%; }
+    .column-desc        { width: 40%; text-align: left; }
+
+    #headerBar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        padding: 8px 10px;
+        border-bottom: 1px solid #ccc;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 1.8cm;
+    }
+
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .na-value {
+        color: #aaa;
+    }
+</style>
+<script>
+    function filterTable() {
+        var input = document.getElementById("searchInput");
+        var filter = input.value.toLowerCase();
+        var table = document.getElementById("quotaTable");
+        var trs = table.getElementsByTagName("tr");
+        for (var i = 1; i < trs.length; i++) {
+            var tds = trs[i].getElementsByTagName("td");
+            var rowText = "";
+            for (var j = 0; j < tds.length; j++) {
+                rowText += tds[j].innerText.toLowerCase();
+            }
+            trs[i].style.display = rowText.indexOf(filter) > -1 ? "" : "none";
+        }
+    }
+
+    function clearSearch() {
+        document.getElementById("searchInput").value = "";
+        filterTable();
+    }
+</script>
+</head>
+<body>
+    <div id="headerBar">
+        <div class="searchContainer">
+            <input id="searchInput" type="text" placeholder="Search..." onkeyup="filterTable()" />
+            <button id="clearSearch" onclick="clearSearch()">&#x2715;</button>
+        </div>
+    </div>
+
+    <table id="quotaTable">
+        <thead>
+            <tr>
+                <th class="column-num">#</th>
+                <th class="column-type">Resource Type</th>
+                <th class="column-limit">Limit</th>
+                <th class="column-used">Used</th>
+                <th class="column-available">Available</th>
+                <th class="column-unit">Unit</th>
+                <th class="column-desc">Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $idx, $q := .ResourceQuotas}}
+            <tr>
+                <td>{{inc $idx}}</td>
+                <td>{{$q.ResourceType}}</td>
+                <td{{if eq $q.Limit "NA"}} class="na-value"{{end}}>{{$q.Limit}}</td>
+                <td{{if eq $q.Used "NA"}} class="na-value"{{end}}>{{$q.Used}}</td>
+                <td{{if eq $q.Available "NA"}} class="na-value"{{end}}>{{$q.Available}}</td>
+                <td>{{$q.Unit}}</td>
+                <td class="desc">{{$q.Description}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+
+    {{if .KeyValueList}}
+    <br>
+    <table>
+        <thead>
+            <tr>
+                <th colspan="2">Additional Info (KeyValueList)</th>
+            </tr>
+            <tr>
+                <th style="width:30%">Key</th>
+                <th style="width:70%; text-align:left; padding-left:8px;">Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .KeyValueList}}
+            <tr>
+                <td>{{.Key}}</td>
+                <td class="desc">{{.Value}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
+
+    <script type="text/javascript">
+        {{.LoggingUrl}}
+    </script>
+    <script type="text/javascript">
+        {{.LoggingResult}}
+    </script>
+</body>
+</html>

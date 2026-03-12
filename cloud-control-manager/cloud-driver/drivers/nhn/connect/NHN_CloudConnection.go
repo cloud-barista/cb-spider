@@ -166,3 +166,8 @@ func (cloudConn *NhnCloudConnection) Close() error {
 func (cloudConn *NhnCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	return nil, errors.New("NHN Cloud Driver: not implemented")
 }
+
+// CreateQuotaHandler implements connect.CloudConnection.
+func (cloudConn *NhnCloudConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
+	return nil, errors.New("NHN Cloud Driver: QuotaHandler not supported")
+}

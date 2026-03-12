@@ -228,6 +228,10 @@ func makeSetupConnectionConfigFunc_js() string {
 			a = parent.frames["top_frame"].document.getElementById("priceinfoHref");
 			a.href = "priceinfo/" + configName
 
+			// for Quota
+			a = parent.frames["top_frame"].document.getElementById("quotaHref");
+			a.href = "quota/" + configName
+
 			// for Cluster(PMKS)
 			a = parent.frames["top_frame"].document.getElementById("clusterHref");
 			a.href = "cluster/" + configName

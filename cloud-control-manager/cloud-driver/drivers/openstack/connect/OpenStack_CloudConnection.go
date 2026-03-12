@@ -203,3 +203,9 @@ func (cloudConn *OpenStackCloudConnection) CreateFileSystemHandler() (irs.FileSy
 	}
 	return &fileSystemHandler, nil
 }
+
+// CreateQuotaHandler implements connect.CloudConnection.
+func (cloudConn *OpenStackCloudConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
+	cblogger.Info("OpenStack Driver: called CreateQuotaHandler()!")
+	return nil, errors.New("OpenStack Driver: QuotaHandler not supported")
+}
