@@ -15,8 +15,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -24,8 +22,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -77,7 +77,7 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	// ires.SUBNET: not supported (Azure: tagging to VPC)
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
 
-	drvCapabilityInfo.QuotaHandler = true
+	drvCapabilityInfo.QuotaInfoHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = true
 

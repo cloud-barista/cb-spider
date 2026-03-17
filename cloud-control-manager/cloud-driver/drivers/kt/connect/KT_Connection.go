@@ -137,7 +137,7 @@ func (cloudConn *KTCloudVpcConnection) CreateTagHandler() (irs.TagHandler, error
 	return nil, fmt.Errorf("KT Cloud VPC Driver: not implemented")
 }
 
-// CreateQuotaHandler implements connect.CloudConnection.
-func (cloudConn *KTCloudVpcConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
-	return nil, fmt.Errorf("KT Cloud VPC Driver: QuotaHandler not supported")
+// CreateQuotaInfoHandler implements connect.CloudConnection.
+func (cloudConn *KTCloudVpcConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	return nil, fmt.Errorf("KT Cloud VPC Driver: QuotaInfoHandler not supported")
 }

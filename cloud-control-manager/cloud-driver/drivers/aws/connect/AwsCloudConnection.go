@@ -25,10 +25,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/servicequotas"
 	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/servicequotas"
 	"github.com/aws/aws-sdk-go/service/sts"
 
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -72,9 +72,9 @@ type AwsCloudConnection struct {
 
 	CostExplorerClient *costexplorer.CostExplorer
 
-	CloudWatchClient     *cloudwatch.CloudWatch
-	FileSystemClient     *efs.EFS
-	ServiceQuotasClient  *servicequotas.ServiceQuotas
+	CloudWatchClient    *cloudwatch.CloudWatch
+	FileSystemClient    *efs.EFS
+	ServiceQuotasClient *servicequotas.ServiceQuotas
 }
 
 var cblogger *logrus.Logger
@@ -220,7 +220,7 @@ func (cloudConn *AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 	return &handler, nil
 }
 
-func (cloudConn *AwsCloudConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
-	handler := ars.AwsQuotaHandler{Region: cloudConn.Region, Client: cloudConn.ServiceQuotasClient, CwClient: cloudConn.CloudWatchClient}
+func (cloudConn *AwsCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	handler := ars.AwsQuotaInfoHandler{Region: cloudConn.Region, Client: cloudConn.ServiceQuotasClient, CwClient: cloudConn.CloudWatchClient}
 	return &handler, nil
 }

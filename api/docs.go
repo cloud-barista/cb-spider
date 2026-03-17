@@ -6229,9 +6229,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/quota": {
+        "/quotainfo": {
             "get": {
-                "description": "Retrieve resource quota limits and current usage for CSP resources (VM, vCPU, VPC, Subnet, SecurityGroup, Disk, NLB, PublicIP, KeyPair, etc.). 🕷️ Supported CSPs: AWS, Azure, GCP, Alibaba, IBM.",
+                "description": "Retrieve all quota limits and current usage for a given service type. No filtering is applied; all CSP-original quota items for the service type are returned. 🕷️ Supported CSPs: AWS, Azure, GCP, Alibaba.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6239,14 +6239,72 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Resource Quota"
+                    "[Cloud Metadata] Quota Info"
                 ],
-                "summary": "Get Resource Quota",
-                "operationId": "get-quota",
+                "summary": "Get Quota Info",
+                "operationId": "get-quota-info",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection to retrieve resource quota for",
+                        "description": "The name of the Connection to retrieve quota info for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The service type name (obtained from ListQuotaServiceType)",
+                        "name": "ServiceType",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Quota limits and current usage",
+                        "schema": {
+                            "$ref": "#/definitions/spider.QuotaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/quotaservicetype": {
+            "get": {
+                "description": "Retrieve the list of service type names for which quota information is available. Use a returned service type as input to the GetQuotaInfo API. 🕷️ Supported CSPs: AWS, Azure, GCP, Alibaba.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Quota Info"
+                ],
+                "summary": "List Quota Service Types",
+                "operationId": "list-quota-service-type",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to retrieve service types for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -6254,9 +6312,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Resource quota limits and current usage",
+                        "description": "List of available service type names",
                         "schema": {
-                            "$ref": "#/definitions/spider.QuotaResponse"
+                            "$ref": "#/definitions/spider.QuotaServiceTypeResponse"
                         }
                     },
                     "400": {
@@ -11214,11 +11272,13 @@ const docTemplate = `{
                 },
                 "avgCreationTime": {
                     "description": "Average VM creation time in seconds",
-                    "type": "number"
+                    "type": "number",
+                    "format": "float64"
                 },
                 "creationCount": {
                     "description": "Number of successful VM creations",
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "csp": {
                     "type": "string"
@@ -12483,6 +12543,47 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.Quota": {
+            "type": "object",
+            "required": [
+                "Available",
+                "Limit",
+                "QuotaName",
+                "Unit",
+                "Used"
+            ],
+            "properties": {
+                "Available": {
+                    "description": "Available is the remaining capacity (Limit - Used).\n\"NA\" when either Limit or Used is \"NA\".",
+                    "type": "string",
+                    "example": "488"
+                },
+                "Description": {
+                    "description": "Description is an optional human-readable explanation of the quota item,\npassed through from the CSP as-is.",
+                    "type": "string"
+                },
+                "Limit": {
+                    "description": "Limit is the maximum number (or size) allowed by the CSP quota.\n\"NA\" when the CSP does not expose this value via API.",
+                    "type": "string",
+                    "example": "500"
+                },
+                "QuotaName": {
+                    "description": "QuotaName is the CSP's original quota name or code as returned by the API.",
+                    "type": "string",
+                    "example": "vm-instances"
+                },
+                "Unit": {
+                    "description": "Unit describes the dimension being counted, e.g. \"count\", \"vCPU\", \"GB\".\n\"NA\" when the CSP does not expose this value via API.",
+                    "type": "string",
+                    "example": "count"
+                },
+                "Used": {
+                    "description": "Used is the amount currently consumed.\n\"NA\" when the CSP does not expose this value via API.",
+                    "type": "string",
+                    "example": "12"
+                }
+            }
+        },
         "spider.RSType": {
             "type": "string",
             "enum": [
@@ -12563,48 +12664,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/spider.ZoneInfo"
                     }
-                }
-            }
-        },
-        "spider.ResourceQuota": {
-            "type": "object",
-            "required": [
-                "Available",
-                "Limit",
-                "ResourceType",
-                "Unit",
-                "Used"
-            ],
-            "properties": {
-                "Available": {
-                    "description": "Available is the headroom (Limit - Used).\n\"NA\" when either Limit or Used is \"NA\".",
-                    "type": "string",
-                    "example": "488"
-                },
-                "Description": {
-                    "description": "Description is a human-readable explanation of the quota item.",
-                    "type": "string",
-                    "example": "Maximum number of running VM instances"
-                },
-                "Limit": {
-                    "description": "Limit is the maximum number (or size) allowed by the CSP quota.\n\"NA\" when the CSP does not expose this value via API.",
-                    "type": "string",
-                    "example": "500"
-                },
-                "ResourceType": {
-                    "description": "ResourceType is a canonical name for the resource category,\ne.g. \"VM\", \"vCPU\", \"VPC\", \"Subnet\", \"SecurityGroup\", …",
-                    "type": "string",
-                    "example": "VM"
-                },
-                "Unit": {
-                    "description": "Unit describes the dimension being counted, e.g. \"count\", \"vCPU\", \"GB\".",
-                    "type": "string",
-                    "example": "count"
-                },
-                "Used": {
-                    "description": "Used is the amount currently consumed.\n\"NA\" when the CSP does not expose this value via API.",
-                    "type": "string",
-                    "example": "12"
                 }
             }
         },
@@ -13052,6 +13111,18 @@ const docTemplate = `{
                 "Suspending": "from running to suspended",
                 "Terminating": "from running, suspended to terminated"
             },
+            "x-enum-descriptions": [
+                "from launch to running",
+                "",
+                "from running to suspended",
+                "",
+                "from suspended to running",
+                "from running to running",
+                "from running, suspended to terminated",
+                "",
+                "VM does not exist",
+                ""
+            ],
             "x-enum-varnames": [
                 "Creating",
                 "Running",
@@ -14181,7 +14252,7 @@ const docTemplate = `{
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
-                "quotaHandler": {
+                "quotaInfoHandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
@@ -14962,8 +15033,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "CSP",
-                "Region",
-                "ResourceQuotas"
+                "Quotas",
+                "Region"
             ],
             "properties": {
                 "CSP": {
@@ -14978,17 +15049,36 @@ const docTemplate = `{
                         "$ref": "#/definitions/spider.KeyValue"
                     }
                 },
+                "Quotas": {
+                    "description": "Quotas lists quota details per resource.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.Quota"
+                    }
+                },
                 "Region": {
                     "description": "Region is the region (or location) the quotas apply to.",
                     "type": "string",
                     "example": "us-east-1"
-                },
-                "ResourceQuotas": {
-                    "description": "ResourceQuotas lists per-resource quota details.",
+                }
+            }
+        },
+        "spider.QuotaServiceTypeResponse": {
+            "type": "object",
+            "required": [
+                "ServiceTypes"
+            ],
+            "properties": {
+                "ServiceTypes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/spider.ResourceQuota"
-                    }
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"ec2\"",
+                        "\"vpc\"",
+                        "\"ebs\"]"
+                    ]
                 }
             }
         },

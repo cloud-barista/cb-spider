@@ -124,7 +124,7 @@ func (cloudConn *MockConnection) CreateTagHandler() (irs.TagHandler, error) {
 	return &handler, nil
 }
 
-// CreateQuotaHandler implements connect.CloudConnection.
-func (cloudConn *MockConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
+// CreateQuotaInfoHandler implements connect.CloudConnection.
+func (cloudConn *MockConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
 	panic("unimplemented")
 }

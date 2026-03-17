@@ -17,6 +17,7 @@ import (
 	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/quotas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	cblog "github.com/cloud-barista/cb-log"
@@ -59,6 +60,7 @@ type AlibabaCloudConnection struct {
 	Cs2015Client  *cs2015.Client
 	Ecs2014Client *ecs2014.Client
 	BssClient     *bssopenapi.Client
+	QuotaClient   *quotas.Client
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -189,8 +191,8 @@ func (cloudConn *AlibabaCloudConnection) CreateTagHandler() (irs.TagHandler, err
 	return &handler, nil
 }
 
-func (cloudConn *AlibabaCloudConnection) CreateQuotaHandler() (irs.QuotaHandler, error) {
-	cblogger.Info("Alibaba Cloud Driver: called CreateQuotaHandler()!")
-	quotaHandler := alirs.AlibabaQuotaHandler{Region: cloudConn.Region, Client: cloudConn.VMClient}
-	return &quotaHandler, nil
+func (cloudConn *AlibabaCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreateQuotaInfoHandler()!")
+	quotaInfoHandler := alirs.AlibabaQuotaInfoHandler{Region: cloudConn.Region, QuotaClient: cloudConn.QuotaClient}
+	return &quotaInfoHandler, nil
 }

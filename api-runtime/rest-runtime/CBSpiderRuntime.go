@@ -270,9 +270,11 @@ func getRoutes() []route {
 		{"GET", "/priceinfo/vm/:RegionName", GetVMPriceInfo},  // GET with a body for backward compatibility
 		{"POST", "/priceinfo/vm/:RegionName", GetVMPriceInfo}, // POST with a body for standard
 
-		//----------Quota Handler
-		{"GET", "/quota", GetQuota},  // GET with a query param for ConnectionName
-		{"POST", "/quota", GetQuota}, // POST with a body for standard
+		//----------Quota Info Handler
+		{"GET", "/quotaservicetype", ListQuotaServiceType},  // GET list of service types
+		{"POST", "/quotaservicetype", ListQuotaServiceType}, // POST with a body for standard
+		{"GET", "/quotainfo", GetQuotaInfo},                 // GET with query params for ConnectionName & ServiceType
+		{"POST", "/quotainfo", GetQuotaInfo},                // POST with a body for standard
 
 		//----------MC-Insight Proxy Handler
 		{"GET", "/mcinsight/vm-image/filters", ProxyMcInsightVMImageFilters},
@@ -640,6 +642,8 @@ func getRoutes() []route {
 			{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
 			{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
 			{"GET", "/adminweb/quota/:ConnectConfig", aw.Quota},
+			{"GET", "/adminweb/quotaservicetype/:ConnectConfig", aw.QuotaServiceTypeList},
+			{"GET", "/adminweb/quotalist/:ServiceType/:ConnectConfig", aw.QuotaList},
 			{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
 			// download price info with JSON file
 			{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},

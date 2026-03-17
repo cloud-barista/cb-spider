@@ -75,7 +75,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.FileSystemHandler = true
-	drvCapabilityInfo.QuotaHandler = true
+	drvCapabilityInfo.QuotaInfoHandler = true
 
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER, ires.FILESYSTEM}

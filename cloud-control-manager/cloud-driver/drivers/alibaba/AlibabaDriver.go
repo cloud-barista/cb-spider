@@ -20,6 +20,7 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/quotas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
 	"time"
@@ -72,7 +73,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	// ires.CLUSTER: not supported
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE}
 
-	drvCapabilityInfo.QuotaHandler = true
+	drvCapabilityInfo.QuotaInfoHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = true
 
@@ -128,6 +129,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	QuotaClient, err := getQuotaClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := alicon.AlibabaCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
@@ -151,6 +157,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		Cs2015Client:     Cs2015Client,
 		Ecs2014Client:    Ecs2014Client,
 		BssClient:        BssClient,
+		QuotaClient:      QuotaClient,
 
 		// Connection for AnyCall
 		AnyCallClient: ECSClient,
@@ -410,4 +417,27 @@ func getNASClient(connectionInfo idrv.ConnectionInfo) (*nas.Client, error) {
 	}
 
 	return nasClient, nil
+}
+
+func getQuotaClient(connectionInfo idrv.ConnectionInfo) (*quotas.Client, error) {
+	// Region Info
+	cblog.Info("AlibabaDriver : getQuotaClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(15) * time.Second
+	config.AutoRetry = true
+	config.MaxRetryTime = 2
+
+	quotaClient, err := quotas.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
+	if err != nil {
+		cblog.Error("Could not create alibaba's quota center client", err)
+		return nil, err
+	}
+
+	return quotaClient, nil
 }
