@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cloud Quota Info</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        margin: 0;
+        padding: 46px 8px 0 8px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: center;
+    }
+    td.desc {
+        text-align: left;
+        padding-left: 8px;
+    }
+
+    .column-num         { width: 4%; }
+    .column-type        { width: 18%; }
+    .column-limit       { width: 10%; }
+    .column-used        { width: 10%; }
+    .column-available   { width: 10%; }
+    .column-unit        { width: 8%; }
+    .column-desc        { width: 40%; text-align: left; }
+
+    #headerBar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        padding: 8px 10px;
+        border-bottom: 1px solid #ccc;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 1.8cm;
+    }
+
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .na-value {
+        color: #aaa;
+    }
+
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+    }
+    th.sortable:hover {
+        background-color: #dde4ee;
+    }
+    th.sortable .sort-arrow {
+        display: inline-block;
+        font-size: 14px;
+        margin-left: 4px;
+        color: #3378cc;
+        font-weight: bold;
+        vertical-align: middle;
+    }
+    th.sortable.sort-active {
+        background-color: #e0eaf5;
+    }
+    th.sortable.sort-active .sort-arrow {
+        color: #1a5aad;
+        font-size: 15px;
+    }
+
+    #serviceTypeSelect {
+        font-size: 12px;
+        padding: 2px 6px;
+        min-width: 160px;
+    }
+    #serviceTypeSelect option.highlight {
+        color: #0050cc;
+        font-weight: bold;
+        background-color: #e8f0fe;
+    }
+
+    /* Loading spinner */
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 46px;
+        left: 0;
+        width: 100%;
+        height: calc(100% - 46px);
+        background: rgba(255,255,255,0.7);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+    }
+    .loading-overlay.active {
+        display: flex;
+    }
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #ccc;
+        border-top: 4px solid #333;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        0%   { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+        margin-left: 12px;
+        font-size: 14px;
+        color: #555;
+    }
+
+    .error-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.35);
+        z-index: 3000;
+        justify-content: center;
+        align-items: center;
+    }
+    .error-modal.active {
+        display: flex;
+    }
+    .error-modal-content {
+        width: min(680px, calc(100% - 40px));
+        max-height: 70vh;
+        background: #fff;
+        border: 1px solid #666;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        padding: 16px;
+        overflow: auto;
+    }
+    .error-modal-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #b00020;
+    }
+    .error-modal-message {
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.5;
+    }
+    .error-modal-actions {
+        margin-top: 14px;
+        text-align: right;
+    }
+    .error-modal-actions button {
+        padding: 4px 12px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+</style>
+<script>
+    var connConfig = "{{.ConnConfig}}";
+    var serverPort = "{{.ServerPort}}";
+
+    function filterTable() {
+        var input = document.getElementById("searchInput");
+        var filter = input.value.toLowerCase();
+        var table = document.getElementById("quotaTable");
+        var trs = table.getElementsByTagName("tr");
+        for (var i = 1; i < trs.length; i++) {
+            var tds = trs[i].getElementsByTagName("td");
+            var rowText = "";
+            for (var j = 0; j < tds.length; j++) {
+                rowText += tds[j].innerText.toLowerCase();
+            }
+            trs[i].style.display = rowText.indexOf(filter) > -1 ? "" : "none";
+        }
+    }
+
+    function clearSearch() {
+        document.getElementById("searchInput").value = "";
+        filterTable();
+    }
+
+    function showLoading() {
+        document.getElementById("loadingOverlay").classList.add("active");
+    }
+    function hideLoading() {
+        document.getElementById("loadingOverlay").classList.remove("active");
+    }
+
+    function showErrorModal(title, message) {
+        document.getElementById("errorModalTitle").textContent = title || "Error";
+        document.getElementById("errorModalMessage").textContent = message || "Unknown error";
+        document.getElementById("errorModal").classList.add("active");
+    }
+
+    function hideErrorModal() {
+        document.getElementById("errorModal").classList.remove("active");
+    }
+
+    function extractErrorMessage(data, fallbackText) {
+        if (!data) {
+            return fallbackText || "Unknown error";
+        }
+        if (typeof data === "string") {
+            return data;
+        }
+        if (data.message) {
+            return data.message;
+        }
+        if (data.error) {
+            return data.error;
+        }
+        try {
+            return JSON.stringify(data, null, 2);
+        } catch (e) {
+            return fallbackText || "Unknown error";
+        }
+    }
+
+    function fetchJsonOrThrow(url, defaultErrorTitle) {
+        return fetch(url).then(function(resp) {
+            return resp.text().then(function(text) {
+                var data = null;
+                if (text) {
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        data = text;
+                    }
+                }
+
+                if (!resp.ok) {
+                    throw new Error(extractErrorMessage(data, defaultErrorTitle));
+                }
+
+                if (data && typeof data === "object" && (data.message || data.error)) {
+                    throw new Error(extractErrorMessage(data, defaultErrorTitle));
+                }
+
+                return data || {};
+            });
+        });
+    }
+
+    // CSP-specific service types to highlight in blue in the dropdown.
+    var HIGHLIGHTED_SERVICE_TYPES = {
+        "AWS":     ["ec2", "eks"],
+        "AZURE":   ["Compute", "ContainerService"],
+        "GCP":     ["compute.googleapis.com", "container.googleapis.com"],
+        "ALIBABA": ["ecs", "csk"]
+    };
+
+    function loadServiceTypes() {
+        showLoading();
+        var url = "/spider/adminweb/quotaservicetype/" + encodeURIComponent(connConfig);
+        fetchJsonOrThrow(url, "Failed to load service types")
+            .then(function(data) {
+                hideLoading();
+                var select = document.getElementById("serviceTypeSelect");
+                select.innerHTML = '<option value="">-- Select Service Type --</option>';
+                var types = data.ServiceTypes || [];
+                var csp = (data.ProviderName || "").toUpperCase();
+                var highlighted = HIGHLIGHTED_SERVICE_TYPES[csp] || [];
+                for (var i = 0; i < types.length; i++) {
+                    var opt = document.createElement("option");
+                    opt.value = types[i];
+                    opt.textContent = types[i];
+                    if (highlighted.indexOf(types[i]) !== -1) {
+                        opt.className = "highlight";
+                    }
+                    select.appendChild(opt);
+                }
+                // Clear the table
+                document.getElementById("quotaBody").innerHTML = '<tr id="guideRow"><td colspan="7" style="text-align:center; color:#000; padding:10px;">Please select a Service Type above to view quota information.</td></tr>';
+                document.getElementById("kvSection").style.display = "none";
+            })
+            .catch(function(err) {
+                hideLoading();
+                showErrorModal("Failed to load service types", err.message || String(err));
+            });
+    }
+
+    function onServiceTypeChange() {
+        var serviceType = document.getElementById("serviceTypeSelect").value;
+        if (!serviceType) {
+            document.getElementById("quotaBody").innerHTML = "";
+            document.getElementById("kvSection").style.display = "none";
+            return;
+        }
+        showLoading();
+        var url = "/spider/adminweb/quotalist/" + encodeURIComponent(serviceType) + "/" + encodeURIComponent(connConfig);
+        fetchJsonOrThrow(url, "Failed to load quota info")
+            .then(function(data) {
+                hideLoading();
+                renderQuotaTable(data);
+            })
+            .catch(function(err) {
+                hideLoading();
+                document.getElementById("quotaBody").innerHTML = '<tr id="guideRow"><td colspan="7" style="text-align:center; color:#000; padding:10px;">Failed to load quota information.</td></tr>';
+                document.getElementById("kvSection").style.display = "none";
+                showErrorModal("Failed to load quota info", err.message || String(err));
+            });
+    }
+
+    function renderQuotaTable(data) {
+        resetSort();
+        var tbody = document.getElementById("quotaBody");
+        tbody.innerHTML = "";
+        var quotas = data.Quotas || [];
+        for (var i = 0; i < quotas.length; i++) {
+            var q = quotas[i];
+            var tr = document.createElement("tr");
+            tr.innerHTML =
+                '<td>' + (i + 1) + '</td>' +
+                '<td>' + esc(q.QuotaName) + '</td>' +
+                '<td' + (q.Limit === 'NA' ? ' class="na-value"' : '') + '>' + esc(q.Limit) + '</td>' +
+                '<td' + (q.Used === 'NA' ? ' class="na-value"' : '') + '>' + esc(q.Used) + '</td>' +
+                '<td' + (q.Available === 'NA' ? ' class="na-value"' : '') + '>' + esc(q.Available) + '</td>' +
+                '<td>' + esc(q.Unit) + '</td>' +
+                '<td class="desc">' + esc(q.Description || '') + '</td>';
+            tbody.appendChild(tr);
+        }
+
+        // KeyValueList
+        var kvSection = document.getElementById("kvSection");
+        var kvBody = document.getElementById("kvBody");
+        kvBody.innerHTML = "";
+        var kvList = data.KeyValueList || [];
+        if (kvList.length > 0) {
+            for (var j = 0; j < kvList.length; j++) {
+                var kvtr = document.createElement("tr");
+                kvtr.innerHTML = '<td>' + esc(kvList[j].Key) + '</td><td class="desc">' + esc(kvList[j].Value) + '</td>';
+                kvBody.appendChild(kvtr);
+            }
+            kvSection.style.display = "";
+        } else {
+            kvSection.style.display = "none";
+        }
+    }
+
+    function esc(s) {
+        if (s == null) return "";
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(s));
+        return div.innerHTML;
+    }
+
+    // ---- Sorting ----
+    var currentSortCol = -1;
+    var currentSortAsc = true;
+    var originalQuotas = []; // keep original data for re-rendering
+
+    function sortTable(colIndex) {
+        if (currentSortCol === colIndex) {
+            currentSortAsc = !currentSortAsc;
+        } else {
+            currentSortCol = colIndex;
+            currentSortAsc = (colIndex === 3) ? false : true; // Used defaults descending
+        }
+        updateSortArrows(colIndex);
+        doSort(colIndex, currentSortAsc);
+    }
+
+    function doSort(colIndex, asc) {
+        var table = document.getElementById("quotaTable");
+        var tbody = document.getElementById("quotaBody");
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+
+        rows.sort(function(a, b) {
+            var aText = a.children[colIndex].innerText.trim();
+            var bText = b.children[colIndex].innerText.trim();
+            var aIsNA = (aText === "NA" || aText === "");
+            var bIsNA = (bText === "NA" || bText === "");
+
+            // NA values always go to the bottom regardless of sort direction
+            if (aIsNA && bIsNA) return 0;
+            if (aIsNA) return 1;
+            if (bIsNA) return -1;
+
+            // Numeric columns: #(0), Limit(2), Used(3), Available(4)
+            if (colIndex === 0 || colIndex === 2 || colIndex === 3 || colIndex === 4) {
+                var aNum = parseFloat(aText.replace(/,/g, ''));
+                var bNum = parseFloat(bText.replace(/,/g, ''));
+                if (isNaN(aNum)) aNum = -Infinity;
+                if (isNaN(bNum)) bNum = -Infinity;
+                return asc ? (aNum - bNum) : (bNum - aNum);
+            }
+            // String columns
+            return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+        });
+
+        // Re-append sorted rows and re-number
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].children[0].innerText = (i + 1);
+            tbody.appendChild(rows[i]);
+        }
+    }
+
+    function updateSortArrows(activeCol) {
+        var ths = document.querySelectorAll("#quotaTable thead th.sortable");
+        ths.forEach(function(th) {
+            th.classList.remove("sort-active");
+            var arrow = th.querySelector(".sort-arrow");
+            if (arrow) arrow.textContent = "\u2195";
+        });
+        var activeTh = document.querySelector('#quotaTable thead th[data-col="' + activeCol + '"]');
+        if (activeTh) {
+            activeTh.classList.add("sort-active");
+            var arrow = activeTh.querySelector(".sort-arrow");
+            if (arrow) arrow.textContent = currentSortAsc ? "\u25B2" : "\u25BC";
+        }
+    }
+
+    function resetSort() {
+        currentSortCol = -1;
+        currentSortAsc = true;
+        var ths = document.querySelectorAll("#quotaTable thead th.sortable");
+        ths.forEach(function(th) {
+            th.classList.remove("sort-active");
+            var arrow = th.querySelector(".sort-arrow");
+            if (arrow) arrow.textContent = "\u2195";
+        });
+    }
+
+    // Load service types on page load
+    document.addEventListener("DOMContentLoaded", loadServiceTypes);
+</script>
+</head>
+<body>
+    <div id="headerBar">
+        <label style="font-size:12px;font-weight:bold;">Service Type:</label>
+        <select id="serviceTypeSelect" onchange="onServiceTypeChange()">
+            <option value="">-- Loading... --</option>
+        </select>
+        <div class="searchContainer">
+            <input id="searchInput" type="text" placeholder="Search..." onkeyup="filterTable()" />
+            <button id="clearSearch" onclick="clearSearch()">&#x2715;</button>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <span class="loading-text">Loading...</span>
+    </div>
+
+    <div id="errorModal" class="error-modal" onclick="hideErrorModal()">
+        <div class="error-modal-content" onclick="event.stopPropagation()">
+            <div id="errorModalTitle" class="error-modal-title">Error</div>
+            <div id="errorModalMessage" class="error-modal-message"></div>
+            <div class="error-modal-actions">
+                <button type="button" onclick="hideErrorModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <table id="quotaTable">
+        <thead>
+            <tr>
+                <th class="column-num">#</th>
+                <th class="column-type sortable" data-col="1" onclick="sortTable(1)">Quota Name <span class="sort-arrow">&#x2195;</span></th>
+                <th class="column-limit">Limit</th>
+                <th class="column-used sortable" data-col="3" onclick="sortTable(3)">Used <span class="sort-arrow">&#x2195;</span></th>
+                <th class="column-available">Available</th>
+                <th class="column-unit">Unit</th>
+                <th class="column-desc">Description</th>
+            </tr>
+        </thead>
+        <tbody id="quotaBody">
+            <tr id="guideRow"><td colspan="7" style="text-align:center; color:#000; padding:10px;">Please select a Service Type above to view quota information.</td></tr>
+        </tbody>
+    </table>
+
+    <div id="kvSection" style="display:none;">
+        <br>
+        <table>
+            <thead>
+                <tr>
+                    <th colspan="2">Additional Info (KeyValueList)</th>
+                </tr>
+                <tr>
+                    <th style="width:30%">Key</th>
+                    <th style="width:70%; text-align:left; padding-left:8px;">Value</th>
+                </tr>
+            </thead>
+            <tbody id="kvBody">
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

@@ -13,6 +13,7 @@ package connect
 
 import (
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -132,6 +133,11 @@ func (cloudConn *KtCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("KT Cloud Driver: called CreateTagHandler()!")
 	tagHandler := ktrs.KtCloudTagHandler{cloudConn.RegionInfo, cloudConn.Client}
 	return &tagHandler, nil
+}
+
+// CreateQuotaInfoHandler implements connect.CloudConnection.
+func (cloudConn *KtCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	return nil, fmt.Errorf("KT Classic Cloud Driver: QuotaInfoHandler not supported")
 }
 
 func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {

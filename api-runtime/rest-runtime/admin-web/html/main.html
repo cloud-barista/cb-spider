@@ -391,6 +391,10 @@
                                         <img id="price-img" src="/spider/adminweb/images/top-menu/price.png" alt="Price Icon">
                                         <span>Price</span>
                                     </a>
+                                    <a href="/spider/adminweb/quota/${configName}" target="body_frame" class="menu-item" id="quota-menu" onclick="selectMainMenu('quota')">
+                                        <img id="quota-img" src="/spider/adminweb/images/top-menu/quota.png" alt="Quota Icon">
+                                        <span>Quota</span>
+                                    </a>
                                     <a href="/spider/adminweb/vmimage/${configName}" target="body_frame" class="menu-item" id="vm-image-menu" onclick="selectMainMenu('vm-image')">
                                         <img id="vm-image-img" src="/spider/adminweb/images/top-menu/vm-image.png" alt="VM Image Icon">
                                         <span>Image</span>
@@ -429,7 +433,7 @@
 
     function selectMainMenu(selectedMenu) {
         showProgressBar();
-        const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
+        const menus = ['region-zone', 'price', 'quota', 'vm-image', 'vm-specs'];
         menus.forEach(menu => {
             const imgElement = document.getElementById(menu + '-img');
             if (imgElement) {
@@ -454,7 +458,7 @@
 
     window.addEventListener('message', function(event) {
         if (event.data.type === 'deselectMainMenu') {
-            const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
+            const menus = ['region-zone', 'price', 'quota', 'vm-image', 'vm-specs'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
                 if (imgElement) {
