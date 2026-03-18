@@ -191,3 +191,13 @@ func (cloudConn *GCPCloudConnection) CreateTagHandler() (irs.TagHandler, error) 
 
 	return &tagHandler, nil
 }
+
+func (cloudConn *GCPCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateQuotaInfoHandler()!")
+	quotaInfoHandler := gcprs.GCPQuotaInfoHandler{
+		Region:     cloudConn.Region,
+		Credential: cloudConn.Credential,
+		Ctx:        cloudConn.Ctx,
+	}
+	return &quotaInfoHandler, nil
+}

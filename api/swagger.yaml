@@ -1111,6 +1111,49 @@ definitions:
     - CSPProductInfo
     - ProductId
     type: object
+  spider.Quota:
+    properties:
+      Available:
+        description: |-
+          Available is the remaining capacity (Limit - Used).
+          "NA" when either Limit or Used is "NA".
+        example: "488"
+        type: string
+      Description:
+        description: |-
+          Description is an optional human-readable explanation of the quota item,
+          passed through from the CSP as-is.
+        type: string
+      Limit:
+        description: |-
+          Limit is the maximum number (or size) allowed by the CSP quota.
+          "NA" when the CSP does not expose this value via API.
+        example: "500"
+        type: string
+      QuotaName:
+        description: QuotaName is the CSP's original quota name or code as returned
+          by the API.
+        example: vm-instances
+        type: string
+      Unit:
+        description: |-
+          Unit describes the dimension being counted, e.g. "count", "vCPU", "GB".
+          "NA" when the CSP does not expose this value via API.
+        example: count
+        type: string
+      Used:
+        description: |-
+          Used is the amount currently consumed.
+          "NA" when the CSP does not expose this value via API.
+        example: "12"
+        type: string
+    required:
+    - Available
+    - Limit
+    - QuotaName
+    - Unit
+    - Used
+    type: object
   spider.RSType:
     enum:
     - all
@@ -2306,6 +2349,9 @@ definitions:
       priceInfoHandler:
         description: 'support: true, do not support: false'
         type: boolean
+      quotaInfoHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
       regionZoneHandler:
         description: Metadata Handler
         type: boolean
@@ -2844,6 +2890,45 @@ definitions:
         type: array
     required:
     - productfamily
+    type: object
+  spider.QuotaResponse:
+    properties:
+      CSP:
+        description: CSP is the cloud provider name, e.g. "AWS", "Azure", "GCP", "Alibaba",
+          "IBM".
+        example: AWS
+        type: string
+      KeyValueList:
+        description: KeyValueList carries additional CSP-specific quota metadata.
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Quotas:
+        description: Quotas lists quota details per resource.
+        items:
+          $ref: '#/definitions/spider.Quota'
+        type: array
+      Region:
+        description: Region is the region (or location) the quotas apply to.
+        example: us-east-1
+        type: string
+    required:
+    - CSP
+    - Quotas
+    - Region
+    type: object
+  spider.QuotaServiceTypeResponse:
+    properties:
+      ServiceTypes:
+        example:
+        - '["ec2"'
+        - '"vpc"'
+        - '"ebs"]'
+        items:
+          type: string
+        type: array
+    required:
+    - ServiceTypes
     type: object
   spider.RegionZoneListResponse:
     properties:
@@ -7736,6 +7821,83 @@ paths:
       summary: List Product Families
       tags:
       - '[Cloud Metadata] VM Price Info'
+  /quotainfo:
+    get:
+      consumes:
+      - application/json
+      description: "Retrieve all quota limits and current usage for a given service
+        type. No filtering is applied; all CSP-original quota items for the service
+        type are returned. \U0001F577️ Supported CSPs: AWS, Azure, GCP, Alibaba."
+      operationId: get-quota-info
+      parameters:
+      - description: The name of the Connection to retrieve quota info for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The service type name (obtained from ListQuotaServiceType)
+        in: query
+        name: ServiceType
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Quota limits and current usage
+          schema:
+            $ref: '#/definitions/spider.QuotaResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Quota Info
+      tags:
+      - '[Cloud Metadata] Quota Info'
+  /quotaservicetype:
+    get:
+      consumes:
+      - application/json
+      description: "Retrieve the list of service type names for which quota information
+        is available. Use a returned service type as input to the GetQuotaInfo API.
+        \U0001F577️ Supported CSPs: AWS, Azure, GCP, Alibaba."
+      operationId: list-quota-service-type
+      parameters:
+      - description: The name of the Connection to retrieve service types for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of available service type names
+          schema:
+            $ref: '#/definitions/spider.QuotaServiceTypeResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Quota Service Types
+      tags:
+      - '[Cloud Metadata] Quota Info'
   /readyz:
     get:
       consumes:

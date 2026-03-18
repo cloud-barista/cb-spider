@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/servicequotas"
 	"github.com/aws/aws-sdk-go/service/sts"
 
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -71,8 +72,9 @@ type AwsCloudConnection struct {
 
 	CostExplorerClient *costexplorer.CostExplorer
 
-	CloudWatchClient *cloudwatch.CloudWatch
-	FileSystemClient *efs.EFS
+	CloudWatchClient    *cloudwatch.CloudWatch
+	FileSystemClient    *efs.EFS
+	ServiceQuotasClient *servicequotas.ServiceQuotas
 }
 
 var cblogger *logrus.Logger
@@ -215,5 +217,10 @@ func (cloudConn *AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 
 func (cloudConn *AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	handler := ars.AwsPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.PriceInfoClient}
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	handler := ars.AwsQuotaInfoHandler{Region: cloudConn.Region, Client: cloudConn.ServiceQuotasClient, CwClient: cloudConn.CloudWatchClient}
 	return &handler, nil
 }
