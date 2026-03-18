@@ -16,8 +16,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-	_ "github.com/gophercloud/gophercloud"
-	_ "github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
+	_ "github.com/gophercloud/gophercloud/v2"
+	_ "github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
 
 	"crypto/aes"
 	"crypto/cipher"

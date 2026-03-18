@@ -2,6 +2,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -13,10 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/images"
-	"github.com/gophercloud/gophercloud/openstack/imageservice/v2/imagedata"
-	imgsvc "github.com/gophercloud/gophercloud/openstack/imageservice/v2/images"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/image/v2/imagedata"
+	imgsvc "github.com/gophercloud/gophercloud/v2/openstack/image/v2/images"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -83,9 +83,9 @@ func formatDiskSizeValue(value float64) string {
 	return strings.TrimRight(strings.TrimRight(str, "0"), ".")
 }
 
-func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *irs.ImageInfo {
+func setterImage(imageClient *gophercloud.ServiceClient, image imgsvc.Image) *irs.ImageInfo {
 	imageStatus := irs.ImageUnavailable
-	status := strings.ToLower(image.Status)
+	status := strings.ToLower(string(image.Status))
 	if status == "active" {
 		imageStatus = irs.ImageAvailable
 	}
@@ -101,7 +101,7 @@ func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *ir
 		OSPlatform:     irs.PlatformNA,
 		OSDistribution: image.Name,
 		OSDiskType:     "NA",
-		OSDiskSizeGB:   strconv.Itoa(image.MinDisk),
+		OSDiskSizeGB:   strconv.Itoa(image.MinDiskGigabytes),
 		ImageStatus:    imageStatus,
 		KeyValueList:   irs.StructToKeyValueList(image),
 	}
@@ -143,7 +143,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 
 	// Create Image
 	start := call.Start()
-	image, err := imgsvc.Create(imageHandler.ImageClient, createOpts).Extract()
+	image, err := imgsvc.Create(context.TODO(), imageHandler.ImageClient, createOpts).Extract()
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -158,7 +158,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 		LoggingError(hiscallInfo, err)
 		return irs.ImageInfo{}, err
 	}
-	result := imagedata.Upload(imageHandler.ImageClient, image.ID, bytes.NewReader(imageBytes))
+	result := imagedata.Upload(context.TODO(), imageHandler.ImageClient, image.ID, bytes.NewReader(imageBytes))
 	if result.Err != nil {
 		cblogger.Error(result.Err.Error())
 		LoggingError(hiscallInfo, err)
@@ -166,17 +166,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 	}
 
 	// 생성된 Imgae 정보 리턴
-	mappedImageInfo := images.Image{
-		ID:       image.ID,
-		Created:  image.CreatedAt.String(),
-		MinDisk:  image.MinDiskGigabytes,
-		MinRAM:   image.MinRAMMegabytes,
-		Name:     image.Name,
-		Status:   string(image.Status),
-		Updated:  image.UpdatedAt.String(),
-		Metadata: image.Properties,
-	}
-	imageInfo := setterImage(imageHandler.ImageClient, mappedImageInfo)
+	imageInfo := setterImage(imageHandler.ImageClient, *image)
 	return *imageInfo, nil
 }
 
@@ -185,7 +175,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, Image, "ListImage()")
 
 	start := call.Start()
-	imageList, err := getRawImageList(imageHandler.Client)
+	imageList, err := getRawImageList(imageHandler.ImageClient)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Image. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -207,7 +197,7 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "GetImage()")
 
 	start := call.Start()
-	image, err := getRawImage(imageIID, imageHandler.Client)
+	image, err := getRawImage(imageIID, imageHandler.ImageClient)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -224,13 +214,13 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 	start := call.Start()
-	image, err := getRawImage(imageIID, imageHandler.Client)
+	image, err := getRawImage(imageIID, imageHandler.ImageClient)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
-	err = images.Delete(imageHandler.Client, image.ID).ExtractErr()
+	err = imgsvc.Delete(context.TODO(), imageHandler.ImageClient, image.ID).ExtractErr()
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
@@ -239,30 +229,30 @@ func (imageHandler *OpenStackImageHandler) DeleteImage(imageIID irs.IID) (bool, 
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
-func getRawImage(imageIId irs.IID, computeClient *gophercloud.ServiceClient) (images.Image, error) {
+func getRawImage(imageIId irs.IID, client *gophercloud.ServiceClient) (imgsvc.Image, error) {
 	if !CheckIIDValidation(imageIId) {
-		return images.Image{}, errors.New("invalid IID")
+		return imgsvc.Image{}, errors.New("invalid IID")
 	}
 	if imageIId.SystemId == "" {
 		imageIId.SystemId = imageIId.NameId
 	}
-	image, err := images.Get(computeClient, imageIId.SystemId).Extract()
+	image, err := imgsvc.Get(context.TODO(), client, imageIId.SystemId).Extract()
 	if err != nil {
-		return images.Image{}, err
+		return imgsvc.Image{}, err
 	}
 	return *image, nil
 }
 
-func getRawImageList(computeClient *gophercloud.ServiceClient) ([]images.Image, error) {
-	pager, err := images.ListDetail(computeClient, images.ListOpts{}).AllPages()
+func getRawImageList(client *gophercloud.ServiceClient) ([]imgsvc.Image, error) {
+	pager, err := imgsvc.List(client, imgsvc.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
-	list, err := images.ExtractImages(pager)
+	list, err := imgsvc.ExtractImages(pager)
 	if err != nil {
 		return nil, err
 	}
-	var imageList []images.Image
+	var imageList []imgsvc.Image
 
 	for _, image := range list {
 		snapshotFlag, err := CheckSnapshot(image)
@@ -274,7 +264,7 @@ func getRawImageList(computeClient *gophercloud.ServiceClient) ([]images.Image, 
 		}
 	}
 	if imageList == nil {
-		emptyList := make([]images.Image, 0)
+		emptyList := make([]imgsvc.Image, 0)
 		return emptyList, nil
 	}
 	return imageList, err
@@ -283,7 +273,7 @@ func getRawImageList(computeClient *gophercloud.ServiceClient) ([]images.Image, 
 func (imageHandler *OpenStackImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(imageHandler.Client.IdentityEndpoint, call.VMIMAGE, imageIID.NameId, "CheckWindowsImage()")
 	start := call.Start()
-	image, err := getRawImage(imageIID, imageHandler.Client)
+	image, err := getRawImage(imageIID, imageHandler.ImageClient)
 	if err != nil {
 		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By Image. err = %s", err.Error()))
 		cblogger.Error(checkWindowsImageErr.Error())
@@ -291,11 +281,11 @@ func (imageHandler *OpenStackImageHandler) CheckWindowsImage(imageIID irs.IID) (
 		return false, checkWindowsImageErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	value, exist := image.Metadata["os_type"]
+	value, exist := image.Properties["os_type"]
 	if !exist {
 		return false, nil
 	}
-	if value == "windows" {
+	if strVal, ok := value.(string); ok && strVal == "windows" {
 		return true, nil
 	}
 	return false, nil

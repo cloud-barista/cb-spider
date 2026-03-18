@@ -1,18 +1,19 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	networkTags "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/attributestags"
+	networkTags "github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/attributestags"
 	"net"
 	"strconv"
 	"strings"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/secgroups"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/security/rules"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/secgroups"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/security/rules"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -36,7 +37,7 @@ type OpenStackSecurityHandler struct {
 func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.SecurityGroup) *irs.SecurityInfo {
 	var tags []irs.KeyValue
 
-	tagStrings, err := networkTags.List(securityHandler.NetworkClient, "security-groups", secGroup.ID).Extract()
+	tagStrings, err := networkTags.List(context.TODO(), securityHandler.NetworkClient, "security-groups", secGroup.ID).Extract()
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -56,7 +57,7 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 	listOpts := rules.ListOpts{
 		SecGroupID: secGroup.ID,
 	}
-	pager, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages()
+	pager, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil
 	}
@@ -105,7 +106,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	}
 
 	start := call.Start()
-	group, err := secgroups.Create(securityHandler.ComputeClient, createOpts).Extract()
+	group, err := secgroups.Create(context.TODO(), securityHandler.ComputeClient, createOpts).Extract()
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -115,7 +116,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 	defer func() {
 		if creteErr != nil {
-			secgroups.Delete(securityHandler.ComputeClient, group.ID)
+			secgroups.Delete(context.TODO(), securityHandler.ComputeClient, group.ID)
 		}
 	}()
 
@@ -145,7 +146,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	}
 	// Create SecurityGroup Rules
 	for _, createRuleOpt := range *createRuleOpts {
-		_, err := rules.Create(securityHandler.NetworkClient, createRuleOpt).Extract()
+		_, err := rules.Create(context.TODO(), securityHandler.NetworkClient, createRuleOpt).Extract()
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
@@ -195,7 +196,7 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 
 	// 보안그룹 목록 조회
 	start := call.Start()
-	pager, err := secgroups.List(securityHandler.ComputeClient).AllPages()
+	pager, err := secgroups.List(securityHandler.ComputeClient).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -253,7 +254,7 @@ func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.
 		return false, getErr
 	}
 
-	result := secgroups.Delete(securityHandler.ComputeClient, securityGroup.ID)
+	result := secgroups.Delete(context.TODO(), securityHandler.ComputeClient, securityGroup.ID)
 	if result.Err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", result.Err.Error()))
 		cblogger.Error(delErr.Error())
@@ -305,7 +306,7 @@ func (securityHandler *OpenStackSecurityHandler) AddRules(sgIID irs.IID, securit
 		return irs.SecurityInfo{}, getErr
 	}
 	for _, createRuleOpt := range *createRuleOpts {
-		_, err := rules.Create(securityHandler.NetworkClient, createRuleOpt).Extract()
+		_, err := rules.Create(context.TODO(), securityHandler.NetworkClient, createRuleOpt).Extract()
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
@@ -341,7 +342,7 @@ func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, secu
 		SecGroupID: rawseg.ID,
 	}
 
-	pager, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages()
+	pager, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -383,7 +384,7 @@ func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, secu
 		}
 	}
 	for _, deleteRuleId := range deleteRuleIds {
-		err := rules.Delete(securityHandler.NetworkClient, deleteRuleId).ExtractErr()
+		err := rules.Delete(context.TODO(), securityHandler.NetworkClient, deleteRuleId).ExtractErr()
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
@@ -570,9 +571,9 @@ func (securityHandler *OpenStackSecurityHandler) getRawSecurity(securityIID irs.
 		return nil, errors.New("invalid IID")
 	}
 	if securityIID.SystemId != "" {
-		return secgroups.Get(securityHandler.ComputeClient, securityIID.SystemId).Extract()
+		return secgroups.Get(context.TODO(), securityHandler.ComputeClient, securityIID.SystemId).Extract()
 	} else {
-		pager, err := secgroups.List(securityHandler.ComputeClient).AllPages()
+		pager, err := secgroups.List(securityHandler.ComputeClient).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -615,7 +616,7 @@ func (securityHandler *OpenStackSecurityHandler) ListIID() ([]*irs.IID, error) {
 
 	var iidList []*irs.IID
 
-	allPages, err := secgroups.List(securityHandler.ComputeClient).AllPages()
+	allPages, err := secgroups.List(securityHandler.ComputeClient).AllPages(context.TODO())
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get secgroup information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())

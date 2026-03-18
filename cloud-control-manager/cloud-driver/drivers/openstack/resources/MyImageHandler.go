@@ -8,14 +8,13 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/gophercloud/gophercloud"
-	volumes2snapshots "github.com/gophercloud/gophercloud/openstack/blockstorage/v2/snapshots"
-	volumes3snapshots "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/snapshots"
-	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/images"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2"
+	volumes2snapshots "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v2/snapshots"
+	volumes3snapshots "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
+	volumes3 "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	images "github.com/gophercloud/gophercloud/v2/openstack/image/v2/images"
 	"strings"
-	"time"
 )
 
 type OpenStackMyImageHandler struct {
@@ -23,6 +22,7 @@ type OpenStackMyImageHandler struct {
 	Region         idrv.RegionInfo
 	Ctx            context.Context
 	ComputeClient  *gophercloud.ServiceClient
+	ImageClient    *gophercloud.ServiceClient
 	VolumeClient   *gophercloud.ServiceClient
 }
 
@@ -51,7 +51,7 @@ func (myImageHandler *OpenStackMyImageHandler) SnapshotVM(snapshotReqInfo irs.My
 func (myImageHandler *OpenStackMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, "MyImage", "MyImage", "ListMyImage()")
 	start := call.Start()
-	list, err := getRawSnapshotList(myImageHandler.ComputeClient)
+	list, err := getRawSnapshotList(myImageHandler.ImageClient)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -78,7 +78,7 @@ func (myImageHandler *OpenStackMyImageHandler) ListMyImage() ([]*irs.MyImageInfo
 func (myImageHandler *OpenStackMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, "MyImage", myImageIID.NameId, "GetMyImage()")
 	start := call.Start()
-	image, err := getRawSnapshot(myImageIID, myImageHandler.ComputeClient)
+	image, err := getRawSnapshot(myImageIID, myImageHandler.ImageClient)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -99,7 +99,7 @@ func (myImageHandler *OpenStackMyImageHandler) GetMyImage(myImageIID irs.IID) (i
 func (myImageHandler *OpenStackMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, "MyImage", myImageIID.NameId, "GetMyImage()")
 	start := call.Start()
-	_, err := deleteSnapshot(myImageIID, myImageHandler.ComputeClient, myImageHandler.VolumeClient)
+	_, err := deleteSnapshot(myImageIID, myImageHandler.ImageClient, myImageHandler.ComputeClient, myImageHandler.VolumeClient)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -133,9 +133,9 @@ type ImageMetaData struct {
 }
 
 func convertImageMetaData(image images.Image) (ImageMetaData, error) {
-	if image.Metadata != nil {
+	if image.Properties != nil {
 		var meta ImageMetaData
-		bytes, err := json.Marshal(image.Metadata)
+		bytes, err := json.Marshal(image.Properties)
 		if err != nil {
 			return ImageMetaData{}, errors.New(fmt.Sprintf("Failed convert Metadata err = %s", err.Error()))
 		}
@@ -171,8 +171,8 @@ func CheckSnapshot(image images.Image) (bool, error) {
 	return false, nil
 }
 
-func getRawSnapshotList(computeClient *gophercloud.ServiceClient) ([]images.Image, error) {
-	pager, err := images.ListDetail(computeClient, images.ListOpts{}).AllPages()
+func getRawSnapshotList(imageClient *gophercloud.ServiceClient) ([]images.Image, error) {
+	pager, err := images.List(imageClient, images.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -198,12 +198,12 @@ func getRawSnapshotList(computeClient *gophercloud.ServiceClient) ([]images.Imag
 	return imageList, err
 }
 
-func getRawSnapshot(snapshotIID irs.IID, computeClient *gophercloud.ServiceClient) (images.Image, error) {
+func getRawSnapshot(snapshotIID irs.IID, imageClient *gophercloud.ServiceClient) (images.Image, error) {
 	if snapshotIID.NameId == "" && snapshotIID.SystemId == "" {
 		return images.Image{}, errors.New("invalid IID")
 	}
 	if snapshotIID.SystemId != "" {
-		image, err := images.Get(computeClient, snapshotIID.SystemId).Extract()
+		image, err := images.Get(context.TODO(), imageClient, snapshotIID.SystemId).Extract()
 		if err != nil {
 			return images.Image{}, err
 		}
@@ -215,7 +215,7 @@ func getRawSnapshot(snapshotIID irs.IID, computeClient *gophercloud.ServiceClien
 		}
 		return *image, nil
 	}
-	imageList, err := getRawSnapshotList(computeClient)
+	imageList, err := getRawSnapshotList(imageClient)
 	if err != nil {
 		return images.Image{}, err
 	}
@@ -242,7 +242,7 @@ func setterMyImageInfo(image images.Image, computeClient *gophercloud.ServiceCli
 		},
 		Status: irs.MyImageUnavailable,
 	}
-	if strings.ToLower(image.Status) == "active" {
+	if strings.ToLower(string(image.Status)) == "active" {
 		info.Status = irs.MyImageAvailable
 	}
 	meta, err := convertImageMetaData(image)
@@ -250,7 +250,7 @@ func setterMyImageInfo(image images.Image, computeClient *gophercloud.ServiceCli
 		if meta.SourceVMID == "" || meta.SourceVMName == "" {
 			vmId := meta.InstanceUuid
 			if meta.InstanceUuid != "" {
-				vm, err := servers.Get(computeClient, vmId).Extract()
+				vm, err := servers.Get(context.TODO(), computeClient, vmId).Extract()
 				if err == nil {
 					info.SourceVM = irs.IID{NameId: vm.Name, SystemId: vm.ID}
 				}
@@ -259,10 +259,7 @@ func setterMyImageInfo(image images.Image, computeClient *gophercloud.ServiceCli
 			info.SourceVM = irs.IID{NameId: meta.SourceVMName, SystemId: meta.SourceVMID}
 		}
 	}
-	createdTime, err := time.Parse("2006-01-02T15:04:05Z", image.Created)
-	if err == nil {
-		info.CreatedTime = createdTime
-	}
+	info.CreatedTime = image.CreatedAt
 
 	info.KeyValueList = irs.StructToKeyValueList(image)
 
@@ -274,8 +271,8 @@ type DataDiskInfo struct {
 	AttachDevice string
 }
 
-func deleteSnapshot(snapshotIID irs.IID, computeClient *gophercloud.ServiceClient, volumeClient *gophercloud.ServiceClient) (bool, error) {
-	snapshot, err := getRawSnapshot(snapshotIID, computeClient)
+func deleteSnapshot(snapshotIID irs.IID, imageClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient, volumeClient *gophercloud.ServiceClient) (bool, error) {
+	snapshot, err := getRawSnapshot(snapshotIID, imageClient)
 	if err != nil {
 		return false, err
 	}
@@ -290,17 +287,17 @@ func deleteSnapshot(snapshotIID irs.IID, computeClient *gophercloud.ServiceClien
 		}
 		for _, volumeSnapshot := range snapshotmeta.BlockDeviceMapping {
 			if volumeClient.Type == VolumeV3 {
-				err = volumes3snapshots.Delete(volumeClient, volumeSnapshot.SnapshotId).ExtractErr()
+				err = volumes3snapshots.Delete(context.TODO(), volumeClient, volumeSnapshot.SnapshotId).ExtractErr()
 			}
 			if volumeClient.Type == VolumeV2 {
-				err = volumes2snapshots.Delete(volumeClient, volumeSnapshot.SnapshotId).ExtractErr()
+				err = volumes2snapshots.Delete(context.TODO(), volumeClient, volumeSnapshot.SnapshotId).ExtractErr()
 			}
 		}
 	}
 	if err != nil {
 		return false, err
 	}
-	err = images.Delete(computeClient, snapshot.ID).ExtractErr()
+	err = images.Delete(context.TODO(), imageClient, snapshot.ID).ExtractErr()
 	if err != nil {
 		return false, err
 	}
@@ -313,7 +310,7 @@ func (myImageHandler *OpenStackMyImageHandler) snapshot(snapshotReqInfo irs.MyIm
 	}
 	var ownerRawVM servers.Server
 	if snapshotReqInfo.SourceVM.SystemId == "" {
-		pager, err := servers.List(myImageHandler.ComputeClient, nil).AllPages()
+		pager, err := servers.List(myImageHandler.ComputeClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return images.Image{}, err
 		}
@@ -333,7 +330,7 @@ func (myImageHandler *OpenStackMyImageHandler) snapshot(snapshotReqInfo irs.MyIm
 			return images.Image{}, errors.New("not found vm")
 		}
 	} else {
-		server, err := servers.Get(myImageHandler.ComputeClient, snapshotReqInfo.SourceVM.SystemId).Extract()
+		server, err := servers.Get(context.TODO(), myImageHandler.ComputeClient, snapshotReqInfo.SourceVM.SystemId).Extract()
 		if err != nil {
 			return images.Image{}, err
 		}
@@ -349,11 +346,11 @@ func (myImageHandler *OpenStackMyImageHandler) snapshot(snapshotReqInfo irs.MyIm
 			"source_vm_name": ownerRawVM.Name,
 		},
 	}
-	imageId, err := servers.CreateImage(myImageHandler.ComputeClient, ownerRawVM.ID, imagepOpt).ExtractImageID()
+	imageId, err := servers.CreateImage(context.TODO(), myImageHandler.ComputeClient, ownerRawVM.ID, imagepOpt).ExtractImageID()
 	if err != nil {
 		return images.Image{}, err
 	}
-	image, err := images.Get(myImageHandler.ComputeClient, imageId).Extract()
+	image, err := images.Get(context.TODO(), myImageHandler.ImageClient, imageId).Extract()
 	if err != nil {
 		return images.Image{}, err
 	}
@@ -363,14 +360,14 @@ func (myImageHandler *OpenStackMyImageHandler) snapshot(snapshotReqInfo irs.MyIm
 func (myImageHandler *OpenStackMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, call.MYIMAGE, myImageIID.NameId, "CheckWindowsImage()")
 	start := call.Start()
-	image, err := getRawSnapshot(myImageIID, myImageHandler.ComputeClient)
+	image, err := getRawSnapshot(myImageIID, myImageHandler.ImageClient)
 	if err != nil {
 		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = %s", err.Error()))
 		cblogger.Error(checkWindowsImageErr.Error())
 		LoggingError(hiscallInfo, checkWindowsImageErr)
 		return false, checkWindowsImageErr
 	}
-	value, exist := image.Metadata["os_type"]
+	value, exist := image.Properties["os_type"]
 	if !exist {
 		LoggingInfo(hiscallInfo, start)
 		return false, nil
@@ -390,7 +387,7 @@ func (myImageHandler *OpenStackMyImageHandler) ListIID() ([]*irs.IID, error) {
 
 	var iidList []*irs.IID
 
-	list, err := getRawSnapshotList(myImageHandler.ComputeClient)
+	list, err := getRawSnapshotList(myImageHandler.ImageClient)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
 		cblogger.Error(getErr.Error())

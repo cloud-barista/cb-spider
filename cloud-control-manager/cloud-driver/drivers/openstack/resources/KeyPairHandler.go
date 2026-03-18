@@ -1,11 +1,12 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/keypairs"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -71,7 +72,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyP
 		PublicKey: "",
 	}
 	// 3. Create KeyPair
-	keyPair, err := keypairs.Create(keyPairHandler.Client, create0pts).Extract()
+	keyPair, err := keypairs.Create(context.TODO(), keyPairHandler.Client, create0pts).Extract()
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -89,7 +90,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, er
 	start := call.Start()
 	// 0. Get List Resource
 	var listOptsBuilder keypairs.ListOptsBuilder
-	pager, err := keypairs.List(keyPairHandler.Client, listOptsBuilder).AllPages()
+	pager, err := keypairs.List(keyPairHandler.Client, listOptsBuilder).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -165,7 +166,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, 
 	start := call.Start()
 	// 2. Delete Resource
 	var delOptsBuilder keypairs.DeleteOptsBuilder
-	err = keypairs.Delete(keyPairHandler.Client, keyIID.NameId, delOptsBuilder).ExtractErr()
+	err = keypairs.Delete(context.TODO(), keyPairHandler.Client, keyIID.NameId, delOptsBuilder).ExtractErr()
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
@@ -187,7 +188,7 @@ func CheckExistKey(client *gophercloud.ServiceClient, keyIID irs.IID) (bool, err
 	}
 
 	var listOptsBuilder keypairs.ListOptsBuilder
-	pager, err := keypairs.List(client, listOptsBuilder).AllPages()
+	pager, err := keypairs.List(client, listOptsBuilder).AllPages(context.TODO())
 	if err != nil {
 		return false, err
 	}
@@ -220,7 +221,7 @@ func GetRawKey(client *gophercloud.ServiceClient, keyIID irs.IID) (keypairs.KeyP
 	}
 
 	var getOptsBuilder keypairs.GetOptsBuilder
-	keyPair, err := keypairs.Get(client, keyName, getOptsBuilder).Extract()
+	keyPair, err := keypairs.Get(context.TODO(), client, keyName, getOptsBuilder).Extract()
 	if err != nil {
 		return keypairs.KeyPair{}, err
 	}
@@ -235,7 +236,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListIID() ([]*irs.IID, error) {
 
 	var iidList []*irs.IID
 
-	allPages, err := keypairs.List(keyPairHandler.Client, keypairs.ListOpts{}).AllPages()
+	allPages, err := keypairs.List(keyPairHandler.Client, keypairs.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get keypairs information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())

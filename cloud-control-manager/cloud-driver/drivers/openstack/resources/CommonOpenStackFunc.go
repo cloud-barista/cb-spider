@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -9,13 +10,13 @@ import (
 	"time"
 
 	cblog "github.com/cloud-barista/cb-log"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/secgroups"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/external"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/ports"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/secgroups"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/external"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/networks"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/ports"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/subnets"
 	"github.com/sirupsen/logrus"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -66,7 +67,7 @@ func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (strin
 		ListOptsBuilder: networks.ListOpts{},
 		External:        &iTrue,
 	}
-	page, err := networks.List(client, listOpts).AllPages()
+	page, err := networks.List(client, listOpts).AllPages(context.TODO())
 	if err != nil {
 		cblogger.Error("Failed to get vpc list, err=%s", err)
 		return "", err
@@ -93,7 +94,7 @@ func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (strin
 }
 
 func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (flavors.Flavor, error) {
-	pages, err := flavors.ListDetail(client, nil).AllPages()
+	pages, err := flavors.ListDetail(client, nil).AllPages(context.TODO())
 	if err != nil {
 		return flavors.Flavor{}, err
 	}
@@ -107,7 +108,7 @@ func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (flav
 }
 
 func GetSecurityByName(networkClient *gophercloud.ServiceClient, securityName string) (*secgroups.SecurityGroup, error) {
-	pages, err := secgroups.List(networkClient).AllPages()
+	pages, err := secgroups.List(networkClient).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func GetSecurityByName(networkClient *gophercloud.ServiceClient, securityName st
 }
 
 func GetNetworkByName(networkClient *gophercloud.ServiceClient, networkName string) (*networks.Network, error) {
-	pages, err := networks.List(networkClient, networks.ListOpts{Name: networkName}).AllPages()
+	pages, err := networks.List(networkClient, networks.ListOpts{Name: networkName}).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func GetNetworkByName(networkClient *gophercloud.ServiceClient, networkName stri
 }
 
 func GetSubnetByID(networkClient *gophercloud.ServiceClient, subnetId string) (*subnets.Subnet, error) {
-	subnet, err := subnets.Get(networkClient, subnetId).Extract()
+	subnet, err := subnets.Get(context.TODO(), networkClient, subnetId).Extract()
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +152,7 @@ func GetSubnetByID(networkClient *gophercloud.ServiceClient, subnetId string) (*
 }
 
 func GetPortByDeviceID(networkClient *gophercloud.ServiceClient, deviceID string) (*ports.Port, error) {
-	pages, err := ports.List(networkClient, ports.ListOpts{}).AllPages()
+	pages, err := ports.List(networkClient, ports.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}

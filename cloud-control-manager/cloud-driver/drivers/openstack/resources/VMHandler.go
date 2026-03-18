@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -27,16 +28,13 @@ import (
 	"time"
 
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
-	"github.com/gophercloud/gophercloud"
-	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/bootfromvolume"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/floatingips"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	layer3floatingips "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"github.com/gophercloud/gophercloud/v2"
+	volumes3 "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/keypairs"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	layer3floatingips "github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/subnets"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -70,7 +68,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		return irs.VMInfo{}, createErr
 	}
 	// 가상서버 이름 중복 체크
-	pager, err := servers.List(vmHandler.ComputeClient, servers.ListOpts{Name: vmReqInfo.IId.NameId}).AllPages()
+	pager, err := servers.List(vmHandler.ComputeClient, servers.ListOpts{Name: vmReqInfo.IId.NameId}).AllPages(context.TODO())
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get vm with name %s", vmReqInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
@@ -136,7 +134,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	}
 	fixedIPSubnet := irs.IID{}
 	for _, rawsubnetId := range rawVpc.Subnets {
-		subnet, err := subnets.Get(vmHandler.NetworkClient, rawsubnetId).Extract()
+		subnet, err := subnets.Get(context.TODO(), vmHandler.NetworkClient, rawsubnetId).Extract()
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to startVM err %s", err))
 			cblogger.Error(createErr.Error())
@@ -269,7 +267,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	curRetryCnt := 0
 	maxRetryCnt := 240
 	for {
-		serverResult, err = servers.Get(vmHandler.ComputeClient, server.ID).Extract()
+		serverResult, err = servers.Get(context.TODO(), vmHandler.ComputeClient, server.ID).Extract()
 		if err != nil {
 			createErr = errors.New(fmt.Sprintf("Failed to startVM err = failed to get vmInfo, err : %s", err))
 			cblogger.Error(createErr.Error())
@@ -310,7 +308,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 	} else {
-		serverResult, err = servers.Get(vmHandler.ComputeClient, server.ID).Extract()
+		serverResult, err = servers.Get(context.TODO(), vmHandler.ComputeClient, server.ID).Extract()
 		if err != nil {
 			createErr = errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
 			cblogger.Error(createErr.Error())
@@ -361,7 +359,7 @@ func (vmHandler *OpenStackVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, err
 		return irs.Failed, err
 	}*/
 	start := call.Start()
-	err := startstop.Stop(vmHandler.ComputeClient, vmIID.SystemId).Err
+	err := servers.Stop(context.TODO(), vmHandler.ComputeClient, vmIID.SystemId).Err
 	if err != nil {
 		suspendErr := errors.New(fmt.Sprintf("Failed to Suspend VM. err = %s", err))
 		cblogger.Error(suspendErr.Error())
@@ -384,7 +382,7 @@ func (vmHandler *OpenStackVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, erro
 		return irs.Failed, err
 	}*/
 	start := call.Start()
-	err := startstop.Start(vmHandler.ComputeClient, vmIID.SystemId).Err
+	err := servers.Start(context.TODO(), vmHandler.ComputeClient, vmIID.SystemId).Err
 	if err != nil {
 		resumeErr := errors.New(fmt.Sprintf("Failed to Resume VM. err = %s", err))
 		cblogger.Error(resumeErr.Error())
@@ -411,7 +409,7 @@ func (vmHandler *OpenStackVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, erro
 		Type: servers.SoftReboot,
 	}
 
-	err := servers.Reboot(vmHandler.ComputeClient, vmIID.SystemId, rebootOpts).ExtractErr()
+	err := servers.Reboot(context.TODO(), vmHandler.ComputeClient, vmIID.SystemId, rebootOpts).ExtractErr()
 	if err != nil {
 		rebootErr := errors.New(fmt.Sprintf("Failed to Reboot VM. err = %s", err))
 		cblogger.Error(rebootErr.Error())
@@ -456,7 +454,7 @@ func (vmHandler *OpenStackVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error)
 	hiscallInfo := GetCallLogScheme(vmHandler.ComputeClient.IdentityEndpoint, call.VM, VM, "ListVMStatus()")
 
 	start := call.Start()
-	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages()
+	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -494,7 +492,7 @@ func (vmHandler *OpenStackVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, e
 	hiscallInfo := GetCallLogScheme(vmHandler.ComputeClient.IdentityEndpoint, call.VM, vmIID.NameId, "GetVMStatus()")
 
 	start := call.Start()
-	serverResult, err := servers.Get(vmHandler.ComputeClient, vmIID.SystemId).Extract()
+	serverResult, err := servers.Get(context.TODO(), vmHandler.ComputeClient, vmIID.SystemId).Extract()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -513,7 +511,7 @@ func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	// 가상서버 목록 조회
 	start := call.Start()
-	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages()
+	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -573,7 +571,7 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, s
 	createOpts := layer3floatingips.CreateOpts{
 		FloatingNetworkID: externVPCID,
 	}
-	publicIP, err := layer3floatingips.Create(vmHandler.NetworkClient, createOpts).Extract()
+	publicIP, err := layer3floatingips.Create(context.TODO(), vmHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 
 		return false, "", err
@@ -583,12 +581,13 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, s
 	maxRetryCnt := 120
 
 	for {
-		associateOpts := floatingips.AssociateOpts{
-			FloatingIP: publicIP.FloatingIP,
-		}
-		err = floatingips.AssociateInstance(vmHandler.ComputeClient, serverID, associateOpts).ExtractErr()
-		if err == nil {
-			break
+		port, err := GetPortByDeviceID(vmHandler.NetworkClient, serverID)
+		if err == nil && port != nil {
+			portID := port.ID
+			_, err = layer3floatingips.Update(context.TODO(), vmHandler.NetworkClient, publicIP.ID, layer3floatingips.UpdateOpts{PortID: &portID}).Extract()
+			if err == nil {
+				break
+			}
 		}
 
 		time.Sleep(1 * time.Second)
@@ -753,7 +752,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	// VM Flavor 정보 설정
 	flavorId, ok := server.Flavor["id"].(string)
 	if ok {
-		flavor, _ := flavors.Get(vmHandler.ComputeClient, flavorId).Extract()
+		flavor, _ := flavors.Get(context.TODO(), vmHandler.ComputeClient, flavorId).Extract()
 		if flavor != nil {
 			vmInfo.VMSpecName = flavor.Name
 			if vmInfo.RootDiskSize == "" {
@@ -889,12 +888,12 @@ func (vmHandler *OpenStackVMHandler) availableFixedIP(subnetIId irs.IID) (string
 	if subnetIId.SystemId == "" {
 		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = invalid subnetIId"))
 	}
-	subnet, err := subnets.Get(vmHandler.NetworkClient, subnetIId.SystemId).Extract()
+	subnet, err := subnets.Get(context.TODO(), vmHandler.NetworkClient, subnetIId.SystemId).Extract()
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = %s", err))
 	}
 
-	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages()
+	pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages(context.TODO())
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = %s", err))
 	}
@@ -949,7 +948,7 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID, publicIP string) e
 
 	if server.PublicIP != "" {
 		// VM에 연결된 PublicIP 삭제
-		pager, err := layer3floatingips.List(vmHandler.NetworkClient, layer3floatingips.ListOpts{}).AllPages()
+		pager, err := layer3floatingips.List(vmHandler.NetworkClient, layer3floatingips.ListOpts{}).AllPages(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -968,7 +967,7 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID, publicIP string) e
 		}
 		// Public IP 삭제
 		if publicIPId != "" {
-			err := layer3floatingips.Delete(vmHandler.NetworkClient, publicIPId).ExtractErr()
+			err := layer3floatingips.Delete(context.TODO(), vmHandler.NetworkClient, publicIPId).ExtractErr()
 			if err != nil {
 				return err
 			}
@@ -976,7 +975,7 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID, publicIP string) e
 	}
 
 	//VM 삭제
-	err = servers.Delete(vmHandler.ComputeClient, server.IId.SystemId).ExtractErr()
+	err = servers.Delete(context.TODO(), vmHandler.ComputeClient, server.IId.SystemId).ExtractErr()
 	if err != nil {
 		return err
 	}
@@ -987,7 +986,7 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID, publicIP string) e
 		listopts := servers.ListOpts{
 			Name: server.IId.NameId,
 		}
-		pager, err := servers.List(vmHandler.ComputeClient, listopts).AllPages()
+		pager, err := servers.List(vmHandler.ComputeClient, listopts).AllPages(context.TODO())
 		if err != nil {
 			curRetryCnt++
 			time.Sleep(1 * time.Second)
@@ -1016,7 +1015,7 @@ func (vmHandler *OpenStackVMHandler) getRawVM(vmIId irs.IID) (*servers.Server, e
 		return nil, errors.New("invalid IID")
 	}
 	if vmIId.SystemId == "" {
-		pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages()
+		pager, err := servers.List(vmHandler.ComputeClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -1031,7 +1030,7 @@ func (vmHandler *OpenStackVMHandler) getRawVM(vmIId irs.IID) (*servers.Server, e
 		}
 		return nil, errors.New("not found vm")
 	} else {
-		return servers.Get(vmHandler.ComputeClient, vmIId.SystemId).Extract()
+		return servers.Get(context.TODO(), vmHandler.ComputeClient, vmIId.SystemId).Extract()
 	}
 }
 
@@ -1153,16 +1152,16 @@ func linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt servers.Creat
 	return createOptsExt, nil
 }
 
-func createBlockDeviceSet(imageUUID string, diskSize string) (bootfromvolume.BlockDevice, error) {
+func createBlockDeviceSet(imageUUID string, diskSize string) (servers.BlockDevice, error) {
 	volumeSize, err := strconv.Atoi(diskSize)
 	if err != nil {
-		return bootfromvolume.BlockDevice{}, errors.New(fmt.Sprintf("Invalid RootDiskSize"))
+		return servers.BlockDevice{}, errors.New(fmt.Sprintf("Invalid RootDiskSize"))
 	}
-	return bootfromvolume.BlockDevice{
+	return servers.BlockDevice{
 		UUID:                imageUUID,
-		SourceType:          bootfromvolume.SourceImage,
+		SourceType:          servers.SourceImage,
 		VolumeSize:          volumeSize,
-		DestinationType:     bootfromvolume.DestinationVolume,
+		DestinationType:     servers.DestinationVolume,
 		DeleteOnTermination: true,
 	}, nil
 }
@@ -1187,19 +1186,16 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 		if err != nil {
 			return servers.Server{}, err
 		}
-		blockDeviceSet := []bootfromvolume.BlockDevice{
+		blockDeviceSet := []servers.BlockDevice{
 			rootBlockDeviceSet,
 		}
 		// Linux
+		baseServerCreateOpt.BlockDevice = blockDeviceSet
 		createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
 		if err != nil {
 			return servers.Server{}, err
 		}
-		bootOpt := bootfromvolume.CreateOptsExt{
-			CreateOptsBuilder: createOptsExt,
-			BlockDevice:       blockDeviceSet,
-		}
-		server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+		server, err := servers.Create(context.TODO(), computeClient, createOptsExt, nil).Extract()
 		if err != nil {
 			return servers.Server{}, err
 		}
@@ -1207,7 +1203,11 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 	} else {
 		// Disk Size 변경 X
 		if VolumeClient == nil { // Disk Size 변경 X && VolumeClient == nil
-			server, err := servers.Create(computeClient, baseServerCreateOpt).Extract()
+			createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+			if err != nil {
+				return servers.Server{}, err
+			}
+			server, err := servers.Create(context.TODO(), computeClient, createOptsExt, nil).Extract()
 			if err != nil {
 				return servers.Server{}, err
 			}
@@ -1221,18 +1221,15 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 			if err != nil {
 				return servers.Server{}, err
 			}
-			blockDeviceSet := []bootfromvolume.BlockDevice{
+			blockDeviceSet := []servers.BlockDevice{
 				rootBlockDeviceSet,
 			}
+			baseServerCreateOpt.BlockDevice = blockDeviceSet
 			createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
 			if err != nil {
 				return servers.Server{}, err
 			}
-			bootOpt := bootfromvolume.CreateOptsExt{
-				CreateOptsBuilder: createOptsExt,
-				BlockDevice:       blockDeviceSet,
-			}
-			server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+			server, err := servers.Create(context.TODO(), computeClient, createOptsExt, nil).Extract()
 			if err != nil {
 				return servers.Server{}, err
 			}
@@ -1268,15 +1265,12 @@ func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmRe
 		if err != nil {
 			return servers.Server{}, err
 		}
-		blockDeviceSet := []bootfromvolume.BlockDevice{
+		blockDeviceSet := []servers.BlockDevice{
 			rootBlockDeviceSet,
 		}
 		// Window
-		bootOpt := bootfromvolume.CreateOptsExt{
-			CreateOptsBuilder: baseServerCreateOpt,
-			BlockDevice:       blockDeviceSet,
-		}
-		server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+		baseServerCreateOpt.BlockDevice = blockDeviceSet
+		server, err := servers.Create(context.TODO(), computeClient, baseServerCreateOpt, nil).Extract()
 		if err != nil {
 			return servers.Server{}, err
 		}
@@ -1284,7 +1278,7 @@ func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmRe
 	} else {
 		// Disk Size 변경 X
 		if VolumeClient == nil { // Disk Size 변경 X && VolumeClient == nil
-			server, err := servers.Create(computeClient, baseServerCreateOpt).Extract()
+			server, err := servers.Create(context.TODO(), computeClient, baseServerCreateOpt, nil).Extract()
 			if err != nil {
 				return servers.Server{}, err
 			}
@@ -1298,14 +1292,11 @@ func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmRe
 			if err != nil {
 				return servers.Server{}, err
 			}
-			blockDeviceSet := []bootfromvolume.BlockDevice{
+			blockDeviceSet := []servers.BlockDevice{
 				rootBlockDeviceSet,
 			}
-			bootOpt := bootfromvolume.CreateOptsExt{
-				CreateOptsBuilder: baseServerCreateOpt,
-				BlockDevice:       blockDeviceSet,
-			}
-			server, err := bootfromvolume.Create(computeClient, bootOpt).Extract()
+			baseServerCreateOpt.BlockDevice = blockDeviceSet
+			server, err := servers.Create(context.TODO(), computeClient, baseServerCreateOpt, nil).Extract()
 			if err != nil {
 				return servers.Server{}, err
 			}
@@ -1334,7 +1325,7 @@ func severCreateMyImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInf
 	if exist && VolumeClient == nil {
 		return servers.Server{}, errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. BlockDevice information is located within the snapshot."))
 	}
-	server, err := servers.Create(ComputeClient, baseServerCreateOpt).Extract()
+	server, err := servers.Create(context.TODO(), ComputeClient, baseServerCreateOpt, nil).Extract()
 	if err != nil {
 		return servers.Server{}, err
 	}
@@ -1358,7 +1349,7 @@ func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo
 	}
 
 	createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
-	server, err := servers.Create(computeClient, createOptsExt).Extract()
+	server, err := servers.Create(context.TODO(), computeClient, createOptsExt, nil).Extract()
 	if err != nil {
 		return servers.Server{}, err
 	}
@@ -1373,7 +1364,7 @@ func (vmHandler *OpenStackVMHandler) ListIID() ([]*irs.IID, error) {
 
 	var iidList []*irs.IID
 
-	allPages, err := servers.List(vmHandler.ComputeClient, servers.ListOpts{}).AllPages()
+	allPages, err := servers.List(vmHandler.ComputeClient, servers.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get vm information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())

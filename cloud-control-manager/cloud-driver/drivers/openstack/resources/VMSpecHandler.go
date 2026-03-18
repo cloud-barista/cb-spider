@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,8 +9,8 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -43,7 +44,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, er
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListVMSpec()")
 	start := call.Start()
-	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages()
+	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -79,7 +80,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecI
 		return irs.VMSpecInfo{}, getErr
 	}
 
-	vmSpec, err := flavors.Get(vmSpecHandler.Client, vmSpecId).Extract()
+	vmSpec, err := flavors.Get(context.TODO(), vmSpecHandler.Client, vmSpecId).Extract()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -96,7 +97,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) ListOrgVMSpec() (string, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Client.IdentityEndpoint, call.VMSPEC, VMSpec, "ListOrgVMSpec()")
 	start := call.Start()
-	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages()
+	pager, err := flavors.ListDetail(vmSpecHandler.Client, flavors.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -141,7 +142,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Name string) (string, 
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
 	}
-	vmSpec, err := flavors.Get(vmSpecHandler.Client, vmSpecId).Extract()
+	vmSpec, err := flavors.Get(context.TODO(), vmSpecHandler.Client, vmSpecId).Extract()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -163,7 +164,7 @@ func (vmSpecHandler *OpenStackVMSpecHandler) GetOrgVMSpec(Name string) (string, 
 }
 
 func (vmSpecHandler *OpenStackVMSpecHandler) getIDFromName(serviceClient *gophercloud.ServiceClient, imageName string) (string, error) {
-	pager, err := flavors.ListDetail(serviceClient, flavors.ListOpts{}).AllPages()
+	pager, err := flavors.ListDetail(serviceClient, flavors.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return "", err
 	}
