@@ -46,8 +46,6 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 
 ## Supported Cloud Providers
 
-- #### cf) [Tagging Guide](https://github.com/cloud-barista/cb-spider/wiki/Tag-and-Cloud-Driver-API)  
-
 | Provider      | VM Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | K8S | Object<br> Storage |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|:-----------:|
 | AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
@@ -125,6 +123,7 @@ The [**Quick Start Guide**](https://github.com/cloud-barista/cb-spider/wiki/Quic
 ### Resource Management Guides
 | Resource | Guide |
 |:---------|:------|
+| Register Connection | [Register Connection Guide](https://github.com/cloud-barista/cb-spider/wiki/Register-Connection-Guide) |
 | Region/Zone Info | [Region/Zone Info Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide) |
 | Quota Info | [Quota Info Guide](https://github.com/cloud-barista/cb-spider/wiki/Quota-Info-Guide) |
 | VM Price Info | [VM Price Info Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide) |
@@ -138,6 +137,7 @@ The [**Quick Start Guide**](https://github.com/cloud-barista/cb-spider/wiki/Quic
 | NLB | [Network Load Balancer Guide](https://github.com/cloud-barista/cb-spider/wiki/Network-Load-Balancer(NLB)-Guide) |
 | Kubernetes Cluster | [K8S Cluster Management Guide](https://github.com/cloud-barista/cb-spider/wiki/Kubernetes-Cluster-Management-Guide) |
 | Object Storage (S3) | [Object Storage and S3 API Guide](https://github.com/cloud-barista/cb-spider/wiki/Object-Storage-and-S3-API-Guide) |
+| Tag Management | [Tag Management Guide](https://github.com/cloud-barista/cb-spider/wiki/Tag-Management-Guide) |
 
 > **VM default accounts:** Ubuntu/Debian → `cb-user` · Windows → `Administrator`
 
