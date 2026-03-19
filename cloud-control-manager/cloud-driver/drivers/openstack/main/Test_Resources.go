@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -525,22 +524,11 @@ Loop:
 				cblogger.Info("Finish AddSubnet()")
 			case 6:
 				cblogger.Info("Start RemoveSubnet() ...")
-				vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+				result, err := vpcHandler.RemoveSubnet(vpcIID, addSubnetInfo.IId)
 				if err != nil {
 					cblogger.Error(err)
-				}
-				if vpcInfo.SubnetInfoList != nil && len(vpcInfo.SubnetInfoList) > 0 {
-					firstSubnet := vpcInfo.SubnetInfoList[0]
-					cblogger.Info(fmt.Sprintf("RemoveSubnet : %s %s", firstSubnet.IId.NameId, firstSubnet.IPv4_CIDR))
-					result, err := vpcHandler.RemoveSubnet(vpcIID, firstSubnet.IId)
-					if err != nil {
-						cblogger.Error(err)
-					} else {
-						spew.Dump(result)
-					}
 				} else {
-					err = errors.New("not exist subnet")
-					cblogger.Error(err)
+					spew.Dump(result)
 				}
 				cblogger.Info("Finish RemoveSubnet()")
 			case 7:
