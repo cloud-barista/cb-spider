@@ -2,10 +2,7 @@ module github.com/cloud-barista/cb-spider
 
 go 1.25.0
 
-replace (
-	github.com/alibabacloud-go/ecs-20140526/v4 => github.com/alibabacloud-go/ecs-20140526/v4 v4.0.1
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
-)
+replace github.com/alibabacloud-go/ecs-20140526/v4 => github.com/alibabacloud-go/ecs-20140526/v4 v4.0.1
 
 require (
 	github.com/IBM/go-sdk-core/v5 v5.19.0
