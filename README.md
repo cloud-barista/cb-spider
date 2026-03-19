@@ -1,19 +1,26 @@
-# CB-Spider : "One-Code, Multi-Cloud"
-[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/cloud-barista/cb-spider?label=go.mod)](https://github.com/cloud-barista/cb-spider/blob/master/go.mod)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cloud-barista/cb-spider/blob/master/LICENSE)&nbsp;&nbsp;&nbsp;
-[![Release Version](https://img.shields.io/github/v/release/cloud-barista/cb-spider)](https://github.com/cloud-barista/cb-spider/releases)
-[![Latest Docs](https://img.shields.io/badge/docs-latest-green)](https://github.com/cloud-barista/cb-spider/wiki)
-[![Swagger API Docs](https://img.shields.io/badge/docs-Swagger_API-blue)](https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/refs/heads/master/api/swagger.yaml)
+<h1 align="center">CB-Spider : "One-Code, Multi-Cloud"</h1>
 
-
-- CB-Spider is a sub-framework of the Cloud-Barista Multi-Cloud Platform.<br>
-- CB-Spider implements multi-cloud infrastructure abstraction and integration technology.<br>
-- CB-Spider provides a unified interface and view for efficient multi-cloud management.
+<h2 align="center">A unified framework for multi-cloud infrastructure control</h2>
 
 <p align="center">
-  <img width="850" alt="image" src="https://github.com/user-attachments/assets/c1e5328b-151d-4b24-ad62-947e8bfcbbcf">
+  <a href="https://github.com/cloud-barista/cb-spider/blob/master/go.mod"><img src="https://img.shields.io/github/go-mod/go-version/cloud-barista/cb-spider?label=go.mod" alt="Go Version"></a>
+  <a href="https://github.com/cloud-barista/cb-spider/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <a href="https://github.com/cloud-barista/cb-spider/releases"><img src="https://img.shields.io/github/v/release/cloud-barista/cb-spider" alt="Release"></a>
+  <a href="https://github.com/cloud-barista/cb-spider/wiki"><img src="https://img.shields.io/badge/docs-Wiki-green" alt="Docs"></a>
+  <a href="https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/refs/heads/master/api/swagger.yaml"><img src="https://img.shields.io/badge/API-Swagger-blue" alt="Swagger"></a>
 </p>
 
+<p align="center">
+  <img width="850" alt="CB-Spider Architecture" src="https://github.com/user-attachments/assets/c1e5328b-151d-4b24-ad62-947e8bfcbbcf">
+</p>
+
+---
+
+* CB-Spider is a sub-framework of the [Cloud-Barista](https://github.com/cloud-barista) Multi-Cloud Platform. 
+* CB-Spider provides a **single unified API** for multi-cloud infrastructure control.
+* CB-Spider enables write once, run on any cloud.
+
+<br>
 
 ```
 [NOTE]
@@ -25,41 +32,21 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 (You can open an issue or join the Cloud-Barista Slack community.)
 ```
 
-***
+---
 
-### ▶ **[Quick Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide)**
-***
+## Key Features
 
-#### Table of Contents
-
-1. [Recommended Environment](#1-recommended-environment)  
-2. [How to Run](#2-how-to-run)  
-3. [Supported Resources](#3-supported-resources)  
-4. [VM Accounts](#4-vm-accounts)  
-5. [Usage](#5-usage)  
-6. [API Specifications](#6-api-specifications)  
-7. [Notes](#7-notes)  
-8. [References](#8-references)  
-
-***
-
-#### 1. Recommended Environment
-
-- OS: Ubuntu 24.04  
-- Build: Go 1.25, Swag v1.16.4  
-- Container: Docker v28.0.0  
+- **Unified API** — One consistent REST API for all supported CSPs
+- **Multi-Cloud Abstraction** — VPC, VM, Disk, NLB, Kubernetes, Object Storage and more
+- **Dynamic Plugin Drivers** — Extensible cloud driver architecture with hot-plugin
+- **AdminWeb & CLI** — Built-in web console and `spctl` CLI tool
+- **Swagger API Docs** — Auto-generated, always up-to-date API documentation
 
 ---
 
-#### 2. How to Run
+## Supported Cloud Providers
 
-- ##### Source-based: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide  
-- ##### Container-based: https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide  
-
----
-
-#### 3. Supported Resources
-- #### Reference: [Tagging Guide](https://github.com/cloud-barista/cb-spider/wiki/Tag-and-Cloud-Driver-API)  
+- #### cf) [Tagging Guide](https://github.com/cloud-barista/cb-spider/wiki/Tag-and-Cloud-Driver-API)  
 
 | Provider      | VM Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | K8S | Object<br> Storage |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|:-----------:|
@@ -69,15 +56,19 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 | Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        |
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        |
 | IBM           | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
-| OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           | O        |
+| OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | TBD           | O        |
 | NCP           | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        |
 | NHN           | NA             | O                   | O             | O              | O                 | O                 | O               | O<br>(Note1)   | O    | O    | O     | O           | O        |
-| KT            | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O<br>(Note2)| Wait API  | O        |
+| KT            | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O<br>(Note2)| TBD  | O        |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O              | O    | O   | O       | NA          | -        |
 
-※ WIP: Work In Progress, NA: Not Applicable, Wait API: Pending CSP API Release, ?: TBD/Analysis Needed, -: Excluded (Classic Resource)  
+※ WIP: Work In Progress,  NA: Not Applicable,  -: Excluded (Classic Resource)  
 
-**VPC Notes (see each driver’s README for details):**  
+<details>
+<summary><b>Provider-specific Notes</b></summary>
+<br>
+
+**VPC Notes (see each driver's README for details):**  
 - **Type1:** Default VPC (KT VPC)  
   - CSP: Provides one fixed default VPC only  
   - CB-Spider: Only one VPC can be created (for abstraction)  
@@ -92,29 +83,77 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 **NLB Notes:**  
 - **Note2:** VMs registered to NLB must be in the same Subnet as the NLB.  
 
----
-
-#### 4. VM Accounts
-- Ubuntu, Debian: `cb-user`  
-- Windows: `Administrator`  
+</details>
 
 ---
 
-#### 5. Usage
-- [Feature and Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)  
+## Quick Start
+
+The [**Quick Start Guide**](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide) walks you through the following steps:
+
+1. **Start CB-Spider server** — Run with a single Docker command
+2. **Set cloud credentials** — Register your AWS / GCP access keys
+3. **Register cloud connections** — Configure driver, credential, region, and connection
+4. **Create infrastructure** — Create VPC, Security Group, KeyPair, and VM with unified API calls
+5. **Multi-cloud verification** — Query both clouds with the same API, only `ConnectionName` changes
+6. **Cleanup** — Terminate VMs and delete resources
+
+> **Start methods:** [Docker Guide](https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide) | [Source Guide](https://github.com/cloud-barista/cb-spider/wiki/Source-based-Start-Guide) | [Authentication Guide](https://github.com/cloud-barista/cb-spider/wiki/Authentication-Guide)
 
 ---
 
-#### 6. API Specifications
-- [Swagger Documentation](https://github.com/cloud-barista/cb-spider/tree/master/api)  
-- [Swagger Guide](https://github.com/cloud-barista/cb-spider/wiki/Swagger-Guide)  
+## Documentation
+
+### Getting Started
+| Guide | Description |
+|:------|:------------|
+| [Quick Start Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide) | Start server & create VMs on AWS + GCP in minutes |
+| [Docker-based Start Guide](https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide) | Run CB-Spider using Docker |
+| [Source-based Start Guide](https://github.com/cloud-barista/cb-spider/wiki/Source-based-Start-Guide) | Build and run from source |
+| [How to get CSP Credentials](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-CSP-Credentials) | Obtain credentials for each cloud provider |
+
+### API & Tools
+| Resource | Link |
+|:---------|:-----|
+| Swagger API Docs | [Swagger UI](https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/refs/heads/master/api/swagger.yaml) · [Swagger Guide](https://github.com/cloud-barista/cb-spider/wiki/Swagger-Guide) |
+| AdminWeb | [AdminWeb Guide](https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-AdminWeb-Guide) |
+| CLI (`spctl`) | [CLI Tool Guide](https://github.com/cloud-barista/cb-spider/wiki/CLI-Tool-Install-Guide) |
+| Driver Capability Info | [Capability Info Guide](https://github.com/cloud-barista/cb-spider/wiki/Cloud-Driver-Capability-Info-Guide) |
+| Function Menu | [CB-Spider Menu](https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-Menu) |
+| MetaDB Auto Backup | [Backup Guide](https://github.com/cloud-barista/cb-spider/wiki/Meta-DB-Backup-Guide) |
+
+### Resource Management Guides
+| Resource | Guide |
+|:---------|:------|
+| Region/Zone Info | [Region/Zone Info Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide) |
+| Quota Info | [Quota Info Guide](https://github.com/cloud-barista/cb-spider/wiki/Quota-Info-Guide) |
+| VM Price Info | [VM Price Info Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide) |
+| VM Image Info | [Public Image Info Guide](https://github.com/cloud-barista/cb-spider/wiki/Public-Image-Info-Guide) |
+| VM Spec Info | [VM Spec Info Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Spec-Info-Guide) |
+| VPC/Subnet | [VPC/Subnet Management Guide](https://github.com/cloud-barista/cb-spider/wiki/VPC-Subnet-Management-Guide) |
+| Security Group | [SecurityGroup Management Guide](https://github.com/cloud-barista/cb-spider/wiki/SecurityGroup-Management-Guide) |
+| KeyPair | [KeyPair Management Guide](https://github.com/cloud-barista/cb-spider/wiki/KeyPair-Management-Guide) |
+| VM | [VM Management Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Management-Guide) |
+| Disk | [Disk Management Guide](https://github.com/cloud-barista/cb-spider/wiki/Disk-Management-Guide) |
+| NLB | [Network Load Balancer Guide](https://github.com/cloud-barista/cb-spider/wiki/Network-Load-Balancer(NLB)-Guide) |
+| Kubernetes Cluster | [K8S Cluster Management Guide](https://github.com/cloud-barista/cb-spider/wiki/Kubernetes-Cluster-Management-Guide) |
+| Object Storage (S3) | [Object Storage and S3 API Guide](https://github.com/cloud-barista/cb-spider/wiki/Object-Storage-and-S3-API-Guide) |
+
+> **VM default accounts:** Ubuntu/Debian → `cb-user` · Windows → `Administrator`
+
+> 📖 **Full documentation:** [CB-Spider Wiki](https://github.com/cloud-barista/cb-spider/wiki)
 
 ---
 
-#### 7. Notes
-- Development status: Focused on core features / For R&D use / Needs reinforcement for production use  
+## Contributing
+
+We welcome contributions! Please read [CONTRIBUTING.md](https://github.com/cloud-barista/cb-spider/blob/master/CONTRIBUTING.md) before submitting a pull request.
+
+- **Issues:** [GitHub Issues](https://github.com/cloud-barista/cb-spider/issues)
+- **Pull Requests:** [GitHub Pull Requests](https://github.com/cloud-barista/cb-spider/pulls)
 
 ---
 
-#### 8. References
-- Wiki: https://github.com/cloud-barista/cb-spider/wiki  
+## License
+
+CB-Spider is licensed under the [Apache License 2.0](./LICENSE).
