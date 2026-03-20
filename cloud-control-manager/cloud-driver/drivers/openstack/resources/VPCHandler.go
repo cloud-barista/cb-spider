@@ -11,6 +11,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/external"
 	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/layer3/routers"
 	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/networks"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/ports"
 	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/subnets"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -554,6 +555,29 @@ func (vpcHandler *OpenStackVPCHandler) getRawRouter(vpcName string) (router rout
 	return routerList[0], nil
 }
 
+// cleanupNetworkPorts deletes non-VM ports remaining on a network to allow network deletion.
+func (vpcHandler *OpenStackVPCHandler) cleanupNetworkPorts(networkID string) error {
+	portPages, err := ports.List(vpcHandler.NetworkClient, ports.ListOpts{NetworkID: networkID}).AllPages(context.TODO())
+	if err != nil {
+		return err
+	}
+	portList, err := ports.ExtractPorts(portPages)
+	if err != nil {
+		return err
+	}
+	for _, p := range portList {
+		// Skip ports that are owned by compute (VMs) - should not exist at this point
+		if p.DeviceOwner == "compute:nova" || p.DeviceOwner == "compute:None" {
+			continue
+		}
+		err = ports.Delete(context.TODO(), vpcHandler.NetworkClient, p.ID).ExtractErr()
+		if err != nil {
+			cblogger.Warn(fmt.Sprintf("Failed to delete port %s (device_owner=%s): %v", p.ID, p.DeviceOwner, err))
+		}
+	}
+	return nil
+}
+
 func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 	// VPC
 	vpc, err := vpcHandler.GetVPC(vpcIId)
@@ -570,7 +594,7 @@ func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 		return err
 	}
 	for _, server := range serverList {
-		for k, _ := range server.Addresses {
+		for k := range server.Addresses {
 			if k == vpc.IId.NameId {
 				return errors.New("vm exists on this VPC.")
 			}
@@ -585,31 +609,42 @@ func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 	if err != nil {
 		return err
 	}
-	if len(routerList) == 0 {
-		// Not Exist Route Only VPC Delete
-		err = networks.Delete(context.TODO(), vpcHandler.NetworkClient, vpc.IId.SystemId).ExtractErr()
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	if len(routerList) == 1 {
-		// Exist Route
-		router := routerList[0]
+
+	// Remove all router interfaces (port-based) and delete routers
+	for _, router := range routerList {
+		// First try subnet-based removal
 		for _, subnet := range vpc.SubnetInfoList {
 			vpcHandler.DeleteInterface(subnet.IId.SystemId, router.ID)
 		}
+		// Then remove any remaining ports attached to this router
+		portPages, portErr := ports.List(vpcHandler.NetworkClient, ports.ListOpts{DeviceID: router.ID}).AllPages(context.TODO())
+		if portErr == nil {
+			portList, portErr := ports.ExtractPorts(portPages)
+			if portErr == nil {
+				for _, p := range portList {
+					removeOpts := routers.RemoveInterfaceOpts{PortID: p.ID}
+					_, _ = routers.RemoveInterface(context.TODO(), vpcHandler.NetworkClient, router.ID, removeOpts).Extract()
+				}
+			}
+		}
 		err = routers.Delete(context.TODO(), vpcHandler.NetworkClient, router.ID).ExtractErr()
 		if err != nil {
-			return err
+			cblogger.Error("Failed to Delete Router with Id %s, err=%s", router.ID, err)
 		}
-		err = networks.Delete(context.TODO(), vpcHandler.NetworkClient, vpc.IId.SystemId).ExtractErr()
-		if err != nil {
-			return err
-		}
-		return nil
 	}
-	return errors.New("unexpected error")
+
+	// Clean up remaining ports on the network (e.g. network:distributed, network:dhcp)
+	// that may block network deletion. VM ports are already confirmed absent above.
+	err = vpcHandler.cleanupNetworkPorts(vpc.IId.SystemId)
+	if err != nil {
+		cblogger.Warn("Failed to cleanup remaining ports, proceeding with network delete: ", err)
+	}
+
+	err = networks.Delete(context.TODO(), vpcHandler.NetworkClient, vpc.IId.SystemId).ExtractErr()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (vpcHandler *OpenStackVPCHandler) getRawVPC(vpcIID irs.IID) (*NetworkWithExt, error) {
