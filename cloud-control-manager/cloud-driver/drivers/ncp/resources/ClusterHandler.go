@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"runtime/debug"
 	"strconv"
@@ -654,72 +655,203 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 	return clusterInfo, nil
 }
 
-// GenerateClusterToken generates a token for cluster authentication
-// For NCP, returns kubeconfig with OIDC authentication configuration
-// NCP NKS supports OIDC (OpenID Connect) authentication for kubectl access
+// GenerateClusterToken generates a bearer token string for cluster authentication.
+// Returns an NCP IAM HMAC token (k8s-ncp-v1.xxx) — NOT a full kubeconfig YAML.
+// This token is used by the REST API's ExecCredential response (ClusterTokenResponse.Status.Token).
 func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
-	cblogger.Info("call GenerateClusterToken()")
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
 
-	// Get cluster info first
-	clusterInfo, err := nvch.GetCluster(clusterIID)
-	if err != nil {
-		cblogger.Errorf("Failed to get cluster info: %v", err)
-		return "", fmt.Errorf("failed to get cluster info: %w", err)
-	}
+	cblogger.Debug("NCP Cloud Driver: called GenerateClusterToken()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GenerateClusterToken()")
+	start := call.Start()
 
-	// Get cluster object for UUID
+	var tokenErr error
+	defer func() {
+		if tokenErr != nil {
+			cblogger.Error(tokenErr)
+			LoggingError(hiscallInfo, tokenErr)
+		}
+	}()
+
 	clusterList, err := ncpClustersGet(nvch.ClusterClient, nvch.Ctx)
 	if err != nil {
-		cblogger.Errorf("Failed to get cluster list: %v", err)
-		return "", fmt.Errorf("failed to get cluster list: %w", err)
+		tokenErr = fmt.Errorf("failed to get cluster list: %w", err)
+		return "", tokenErr
 	}
 
 	var targetCluster *vnks.Cluster
 	for _, cluster := range clusterList {
-		if ncloud.StringValue(cluster.Name) == clusterInfo.IId.NameId ||
-			ncloud.StringValue(cluster.Uuid) == clusterInfo.IId.SystemId {
+		if ncloud.StringValue(cluster.Name) == clusterIID.NameId ||
+			ncloud.StringValue(cluster.Uuid) == clusterIID.SystemId {
 			targetCluster = cluster
 			break
 		}
 	}
-
 	if targetCluster == nil || targetCluster.Uuid == nil {
-		return "", fmt.Errorf("cluster not found or UUID is missing")
+		tokenErr = fmt.Errorf("cluster not found or UUID is missing")
+		return "", tokenErr
 	}
 
-	// Get kubeconfig with OIDC authentication
-	kubeconfigWithOIDC, err := nvch.getKubeConfigWithOIDC(targetCluster)
+	ncpRegion := nvch.normalizeRegionCode(nvch.RegionInfo.Region)
+	clusterUUID := ncloud.StringValue(targetCluster.Uuid)
+
+	token, err := generateNCPIAMToken(nvch.CredentialInfo.ClientId, nvch.CredentialInfo.ClientSecret, clusterUUID, ncpRegion)
 	if err != nil {
-		cblogger.Errorf("Failed to generate kubeconfig with OIDC: %v", err)
-		return "", fmt.Errorf("failed to generate kubeconfig with OIDC: %w", err)
+		tokenErr = fmt.Errorf("failed to generate NCP IAM token: %w", err)
+		return "", tokenErr
 	}
 
-	return kubeconfigWithOIDC, nil
+	LoggingInfo(hiscallInfo, start)
+	return token, nil
 }
 
-// getKubeConfig retrieves the kubeconfig from NCP NKS API with OIDC authentication
-// Returns kubeconfig with complete user authentication section
+// getKubeConfig retrieves kubeconfig with exec-based dynamic token authentication
+// Returns kubeconfig that calls CB-Spider's token API at kubectl execution time
 func (nvch *NcpVpcClusterHandler) getKubeConfig(cluster *vnks.Cluster) string {
 	if cluster.Uuid == nil {
 		cblogger.Warn("Cluster UUID is nil, cannot retrieve kubeconfig")
 		return "Kubeconfig is not available: Cluster UUID is missing"
 	}
 
-	// Get kubeconfig with OIDC authentication
-	kubeconfigWithOIDC, err := nvch.getKubeConfigWithOIDC(cluster)
+	kubeconfig, err := nvch.getDynamicKubeConfig(cluster)
 	if err != nil {
-		// Check if cluster is still in progress (not an error, just not ready yet)
 		if strings.Contains(err.Error(), "cluster is not ready yet") {
-			// Don't log as error - cluster is simply not ready yet
-			cblogger.Debugf("Cluster is still being created, kubeconfig not yet available: %v", err)
+			cblogger.Debugf("Cluster is still being created: %v", err)
 			return "Kubeconfig will be available after cluster reaches RUNNING status"
 		}
-		// Actual error
-		cblogger.Errorf("Failed to generate kubeconfig with OIDC: %v", err)
+		cblogger.Errorf("Failed to generate dynamic kubeconfig: %v", err)
 		return fmt.Sprintf("Kubeconfig is not available: %v", err)
 	}
 
-	return kubeconfigWithOIDC
+	return kubeconfig
+}
+
+// normalizeRegionCode converts NCP region code to IAM token format (KR, SGN, JPN)
+func (nvch *NcpVpcClusterHandler) normalizeRegionCode(regionCode string) string {
+	lower := strings.ToLower(regionCode)
+	switch {
+	case strings.Contains(lower, "korea") || strings.Contains(lower, "kr"):
+		return "KR"
+	case strings.Contains(lower, "singapore") || strings.Contains(lower, "sgn"):
+		return "SGN"
+	case strings.Contains(lower, "japan") || strings.Contains(lower, "jpn"):
+		return "JPN"
+	default:
+		return regionCode
+	}
+}
+
+// getServerAddress returns the Spider server address from SERVER_ADDRESS env variable
+func getServerAddress() string {
+	hostEnv := os.Getenv("SERVER_ADDRESS")
+	if hostEnv == "" {
+		return "localhost:1024"
+	}
+
+	// "1.2.3.4" or "localhost"
+	if !strings.Contains(hostEnv, ":") {
+		return hostEnv + ":1024"
+	}
+
+	// ":31024" => "localhost:31024"
+	if strings.HasPrefix(hostEnv, ":") {
+		return "localhost" + hostEnv
+	}
+
+	// "1.2.3.4:31024" or "localhost:31024"
+	return hostEnv
+}
+
+// getDynamicKubeConfig generates kubeconfig with exec-based dynamic token.
+// Unlike the static token approach, this embeds an exec command that calls CB-Spider's
+// token API at kubectl execution time, avoiding Access Key exposure in kubeconfig.
+// CB-Spider server must be accessible from the kubectl execution environment.
+// Note: AWS/GCP와 달리 (string, error)를 반환하는 이유: NCP는 내부에서 API 호출 및 YAML 파싱이 필요하므로 에러 전파가 필수이다.
+func (nvch *NcpVpcClusterHandler) getDynamicKubeConfig(cluster *vnks.Cluster) (string, error) {
+	if cluster.Uuid == nil {
+		return "", fmt.Errorf("cluster UUID is nil")
+	}
+
+	// Fetch base kubeconfig from NCP to extract cluster endpoint and CA data
+	kubeconfigRes, err := nvch.ClusterClient.V2Api.ClustersUuidKubeconfigGet(nvch.Ctx, cluster.Uuid)
+	if err != nil {
+		if strings.Contains(err.Error(), "409") || strings.Contains(err.Error(), "in progress") {
+			return "", fmt.Errorf("cluster is not ready yet: %w", err)
+		}
+		return "", fmt.Errorf("failed to get kubeconfig from NCP: %w", err)
+	}
+	if kubeconfigRes == nil || kubeconfigRes.Kubeconfig == nil {
+		return "", fmt.Errorf("kubeconfig response is empty")
+	}
+
+	baseKubeconfig := ncloud.StringValue(kubeconfigRes.Kubeconfig)
+	var baseMap map[interface{}]interface{}
+	if err := yaml.Unmarshal([]byte(baseKubeconfig), &baseMap); err != nil {
+		return "", fmt.Errorf("failed to parse base kubeconfig: %w", err)
+	}
+
+	endpoint, caData := extractClusterEndpointAndCA(baseMap)
+	if endpoint == "" || caData == "" {
+		return "", fmt.Errorf("failed to extract endpoint or CA data from NCP kubeconfig")
+	}
+
+	clusterName := ncloud.StringValue(cluster.Name)
+	serverAddr := getServerAddress()
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: %s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: ncp-dynamic-token
+  name: %s
+current-context: %s
+users:
+- name: ncp-dynamic-token
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      interactiveMode: Never
+      command: sh
+      args:
+      - -c
+      - ". ~/.cb-spider/.spider-credential && curl -s -u \"$SPIDER_USERNAME:$SPIDER_PASSWORD\" \"http://%s/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER\""
+`, endpoint, caData, clusterName, clusterName, clusterName, clusterName, serverAddr)
+
+	cblogger.Infof("Generated exec-plugin kubeconfig for cluster %s (server: %s)", clusterName, serverAddr)
+	return kubeconfigContent, nil
+}
+
+// extractClusterEndpointAndCA extracts server endpoint and CA data from NCP base kubeconfig map
+func extractClusterEndpointAndCA(kubeconfigMap map[interface{}]interface{}) (endpoint, caData string) {
+	clusters, ok := kubeconfigMap["clusters"].([]interface{})
+	if !ok || len(clusters) == 0 {
+		return "", ""
+	}
+	clusterEntry, ok := clusters[0].(map[interface{}]interface{})
+	if !ok {
+		return "", ""
+	}
+	clusterData, ok := clusterEntry["cluster"].(map[interface{}]interface{})
+	if !ok {
+		return "", ""
+	}
+	if s, ok := clusterData["server"].(string); ok {
+		endpoint = s
+	}
+	if ca, ok := clusterData["certificate-authority-data"].(string); ok {
+		caData = ca
+	}
+	return endpoint, caData
 }
 
 // getKubeConfigWithOIDC generates a complete kubeconfig with IAM authentication
