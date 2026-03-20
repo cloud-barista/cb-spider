@@ -316,6 +316,7 @@ definitions:
     - Inactive
     - Updating
     - Deleting
+    - NotFound
     type: string
     x-enum-varnames:
     - ClusterCreating
@@ -323,6 +324,7 @@ definitions:
     - ClusterInactive
     - ClusterUpdating
     - ClusterDeleting
+    - ClusterNotFound
   spider.CronSchedule:
     properties:
       DayOfMonth:
@@ -4330,7 +4332,10 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete a specified Cluster.
+      description: Delete a specified Cluster from the CSP. <br> This API only deletes
+        the CSP resource and does not remove Spider meta information. <br> After deletion,
+        call **DELETE /cluster/{Name}/finalize** to clean up Spider's internal metadata
+        once the CSP resource no longer exists.
       operationId: delete-cluster
       parameters:
       - description: Request body for deleting a Cluster
@@ -4415,6 +4420,50 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get Cluster
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/finalize:
+    delete:
+      consumes:
+      - application/json
+      description: |-
+        Finalize the deletion of a Cluster by removing its Spider meta information.
+        This API only succeeds when the Cluster no longer exists on the CSP.
+        Use this after DeleteCluster to clean up Spider's internal metadata.
+      operationId: finalize-delete-cluster
+      parameters:
+      - description: Request body for finalizing Cluster deletion
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the Cluster to finalize deletion
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the finalize delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Finalize Delete Cluster
       tags:
       - '[Cluster Management]'
   /cluster/{Name}/nodegroup:

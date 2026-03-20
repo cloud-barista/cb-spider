@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
@@ -52,7 +52,6 @@ type AzureClusterHandler struct {
 	SecurityRulesClient             *armnetwork.SecurityRulesClient
 	VirtualMachineSizesClient       *armcompute.VirtualMachineSizesClient
 	SSHPublicKeysClient             *armcompute.SSHPublicKeysClient
-	DnsZonesClient                  *armdns.ZonesClient
 }
 
 type auth struct {
@@ -201,43 +200,16 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		LoggingError(hiscallInfo, createErr)
 		return irs.ClusterInfo{}, createErr
 	}
-	defer func() {
-		if createErr != nil {
-			if err := ac.CleanCluster(clusterReqInfo.IId.NameId); err != nil {
-				cblogger.Error(fmt.Sprintf("failed to clean up cluster %q: %s", clusterReqInfo.IId.NameId, err))
-			}
-		}
-	}()
-	baseSecurityGroup, err := waitingClusterBaseSecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.Ctx, ac.CredentialInfo, ac.Region)
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.ClusterInfo{}, createErr
+
+	// Async: Return immediately with Creating status (like AWS EKS pattern)
+	// The cluster is being provisioned in the background by Azure.
+	info = irs.ClusterInfo{
+		IId:     clusterReqInfo.IId,
+		Version: clusterReqInfo.Version,
+		Network: clusterReqInfo.Network,
+		Status:  irs.ClusterCreating,
 	}
-	for _, sg := range clusterReqInfo.Network.SecurityGroupIIDs {
-		err = applySecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, irs.IID{NameId: sg.NameId}, baseSecurityGroup, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.SecurityRulesClient, ac.Ctx, ac.CredentialInfo, ac.Region)
-		if err != nil {
-			createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.ClusterInfo{}, createErr
-		}
-	}
-	cluster, err := getRawCluster(clusterReqInfo.IId, ac.ManagedClustersClient, ac.Ctx, ac.CredentialInfo, ac.Region)
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.ClusterInfo{}, createErr
-	}
-	info, err = setterClusterInfo(&cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.ClusterInfo{}, createErr
-	}
+
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
 }
@@ -281,6 +253,12 @@ func (ac *AzureClusterHandler) GetCluster(clusterIID irs.IID) (info irs.ClusterI
 
 	cluster, err := getRawCluster(clusterIID, ac.ManagedClustersClient, ac.Ctx, ac.CredentialInfo, ac.Region)
 	if err != nil {
+		// Check if the error is ResourceNotFound (e.g., async creation not yet visible)
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.ErrorCode == "ResourceNotFound" {
+			cblogger.Infof("Cluster '%s' not found on CSP: %s", clusterIID.NameId, err.Error())
+			return irs.ClusterInfo{}, err
+		}
 		getErr = errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
@@ -1098,30 +1076,6 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 	return nil
 }
 
-func (ac *AzureClusterHandler) generateDnsZone(clusterName string) (string, error) {
-	rg := ac.Region.Region
-	zoneName := fmt.Sprintf("%s.com", clusterName)
-	globalLoc := "global"
-
-	resp, err := ac.DnsZonesClient.CreateOrUpdate(
-		ac.Ctx,
-		rg,
-		zoneName,
-		armdns.Zone{
-			Location: &globalLoc,
-		},
-		nil,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create/update DNS zone %q: %w", zoneName, err)
-	}
-
-	if resp.Zone.ID == nil {
-		return "", fmt.Errorf("DNS zone %q created but returned ID is nil", zoneName)
-	}
-	return *resp.Zone.ID, nil
-}
-
 func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachineSizesClient *armcompute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// nodegroup 확인
 	err := checkValidationNodeGroups(clusterReqInfo.NodeGroupList, virtualMachineSizesClient, regionInfo, ctx)
@@ -1161,13 +1115,6 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 		return err
 	}
 
-	zoneID, err := ac.generateDnsZone(clusterReqInfo.IId.NameId)
-	if err != nil {
-		return fmt.Errorf("failed to create dns zone: %v", err)
-	}
-
-	ingressProfile := generateIngressProfile(&zoneID)
-
 	clusterCreateOpts := armcontainerservice.ManagedCluster{
 		Location: toStrPtr(ac.Region.Region),
 		SKU: &armcontainerservice.ManagedClusterSKU{
@@ -1186,7 +1133,6 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 			AgentPoolProfiles: agentPoolProfiles,
 			NetworkProfile:    &networkProfile,
 			LinuxProfile:      &linuxProfileSSH,
-			IngressProfile:    ingressProfile,
 		},
 	}
 	if clusterReqInfo.TagList != nil {
@@ -1208,22 +1154,11 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 }
 
 func (ac *AzureClusterHandler) CleanCluster(clusterName string) error {
-	delPoller, err := ac.ManagedClustersClient.BeginDelete(ac.Ctx, ac.Region.Region, clusterName, nil)
+	// Async: Begin delete and return immediately (like AWS EKS pattern).
+	// The cluster deletion is processed in the background by Azure.
+	_, err := ac.ManagedClustersClient.BeginDelete(ac.Ctx, ac.Region.Region, clusterName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin deleting cluster %q: %w", clusterName, err)
-	}
-	if _, err := delPoller.PollUntilDone(ac.Ctx, nil); err != nil {
-		return fmt.Errorf("failed to delete cluster %q: %w", clusterName, err)
-	}
-
-	zoneName := fmt.Sprintf("%s.com", clusterName)
-
-	dnsPoller, err := ac.DnsZonesClient.BeginDelete(ac.Ctx, ac.Region.Region, zoneName, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin deleting DNS zone %q: %w", zoneName, err)
-	}
-	if _, err := dnsPoller.PollUntilDone(ac.Ctx, nil); err != nil {
-		return fmt.Errorf("failed to delete DNS zone %q: %w", zoneName, err)
 	}
 
 	return nil
@@ -1400,15 +1335,6 @@ func getSSHKeyIIDByNodeGroups(NodeGroupInfos []irs.NodeGroupInfo) (irs.IID, erro
 		return irs.IID{}, errors.New("failed find SSHKey IID By nodeGroups")
 	}
 	return *key, nil
-}
-
-func generateIngressProfile(dnsZoneID *string) *armcontainerservice.ManagedClusterIngressProfile {
-	return &armcontainerservice.ManagedClusterIngressProfile{
-		WebAppRouting: &armcontainerservice.ManagedClusterIngressProfileWebAppRouting{
-			Enabled:            toBoolPtr(true),
-			DNSZoneResourceIDs: []*string{dnsZoneID},
-		},
-	}
 }
 
 func generateManagedClusterLinuxProfileSSH(clusterReqInfo irs.ClusterInfo, sshPublicKeysClient *armcompute.SSHPublicKeysClient, resourceGroup string, ctx context.Context) (armcontainerservice.LinuxProfile, armcompute.SSHPublicKeyResource, error) {
