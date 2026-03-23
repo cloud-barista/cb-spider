@@ -151,6 +151,9 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize both volume v3 and v2 clients: %v", err)
 		}
+		iConn.Volume2Client.Type = "volumev2"
+	} else {
+		iConn.Volume3Client.Type = "volumev3"
 	}
 
 	iConn.NetworkClient, err = openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{

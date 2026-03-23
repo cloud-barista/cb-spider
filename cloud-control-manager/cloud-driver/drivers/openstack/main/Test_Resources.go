@@ -999,15 +999,17 @@ func testDiskHandler(config Config) {
 
 	testDiskHandlerListPrint()
 	diskIId := irs.IID{
-		NameId: "volume1",
+		NameId: "mcb-test-disk",
 	}
 	createDiskReqInfo := irs.DiskInfo{
 		IId: irs.IID{
-			NameId: "volume1",
+			NameId: "mcb-test-disk",
 		},
 		DiskSize: "1",
 	}
-	delDiskIId := irs.IID{}
+	delDiskIId := irs.IID{
+		NameId: "mcb-test-disk",
+	}
 	attachedDisk := irs.IID{
 		NameId: "volume1",
 	}
