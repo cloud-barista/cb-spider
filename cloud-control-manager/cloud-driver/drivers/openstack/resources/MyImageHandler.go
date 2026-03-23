@@ -118,18 +118,19 @@ type BlockDeviceMapping struct {
 }
 
 type ImageMetaData struct {
-	BaseImageRef        string               `json:"base_image_ref"`
-	RootDeviceName      string               `json:"root_device_name"`
-	ImageType           string               `json:"image_type"`
-	ImageLocation       string               `json:"image_location"`
-	InstanceUuid        string               `json:"instance_uuid"`
-	BlockDeviceMapping  []BlockDeviceMapping `json:"block_device_mapping"`
-	DeviceType          string               `json:"device_type"`
-	DestinationType     string               `json:"destination_type"`
-	DeleteOnTermination bool                 `json:"delete_on_termination"`
-	SourceVMID          string               `json:"source_vm_id"`   // spider Tag
-	SourceVMName        string               `json:"source_vm_name"` // spider Tag
-	DataVolumesString   string               `json:"data_volumes_raw"`
+	BaseImageRef           string               `json:"base_image_ref"`
+	RootDeviceName         string               `json:"root_device_name"`
+	ImageType              string               `json:"image_type"`
+	ImageLocation          string               `json:"image_location"`
+	InstanceUuid           string               `json:"instance_uuid"`
+	BlockDeviceMapping     []BlockDeviceMapping  `json:"-"`
+	BlockDeviceMappingRaw  json.RawMessage       `json:"block_device_mapping"`
+	DeviceType             string               `json:"device_type"`
+	DestinationType        string               `json:"destination_type"`
+	DeleteOnTermination    bool                 `json:"delete_on_termination"`
+	SourceVMID             string               `json:"source_vm_id"`   // spider Tag
+	SourceVMName           string               `json:"source_vm_name"` // spider Tag
+	DataVolumesString      string               `json:"data_volumes_raw"`
 }
 
 func convertImageMetaData(image images.Image) (ImageMetaData, error) {
@@ -140,14 +141,25 @@ func convertImageMetaData(image images.Image) (ImageMetaData, error) {
 			return ImageMetaData{}, errors.New(fmt.Sprintf("Failed convert Metadata err = %s", err.Error()))
 		}
 		err = json.Unmarshal(bytes, &meta)
-
 		if err != nil {
 			return ImageMetaData{}, errors.New(fmt.Sprintf("Failed convert Metadata err = %s", err.Error()))
 		}
-		//if meta.DataVolumesString != "" {
-		//	datas := []byte(meta.DataVolumesString)
-		//	err = json.Unmarshal(datas, &meta.DataVolumes)
-		//}
+
+		// block_device_mapping can be either a JSON array or a JSON string containing an array
+		if len(meta.BlockDeviceMappingRaw) > 0 {
+			var bdm []BlockDeviceMapping
+			if err := json.Unmarshal(meta.BlockDeviceMappingRaw, &bdm); err != nil {
+				// Try unwrapping as a JSON string first
+				var bdmStr string
+				if err2 := json.Unmarshal(meta.BlockDeviceMappingRaw, &bdmStr); err2 == nil && bdmStr != "" {
+					if err3 := json.Unmarshal([]byte(bdmStr), &bdm); err3 != nil {
+						cblogger.Infof("Failed to parse block_device_mapping string: %s", err3.Error())
+					}
+				}
+			}
+			meta.BlockDeviceMapping = bdm
+		}
+
 		return meta, nil
 	}
 	return ImageMetaData{}, nil
