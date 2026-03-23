@@ -11,6 +11,7 @@
 package openstack
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -20,8 +21,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
 )
 
 type OpenStackDriver struct{}
@@ -109,7 +110,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 
 	provider.HTTPClient = *httpClient
 
-	err = openstack.Authenticate(provider, authOpts)
+	err = openstack.Authenticate(context.Background(), provider, authOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		IdentityClient: identityClient,
 	}
 
-	iConn.ImageClient, err = openstack.NewImageServiceV2(provider, gophercloud.EndpointOpts{
+	iConn.ImageClient, err = openstack.NewImageV2(provider, gophercloud.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
@@ -150,6 +151,9 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize both volume v3 and v2 clients: %v", err)
 		}
+		iConn.Volume2Client.Type = "volumev2"
+	} else {
+		iConn.Volume3Client.Type = "volumev3"
 	}
 
 	iConn.NetworkClient, err = openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{

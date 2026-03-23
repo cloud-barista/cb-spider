@@ -13,12 +13,11 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/blockstorage/extensions/volumeactions"
-	volumes2 "github.com/gophercloud/gophercloud/openstack/blockstorage/v2/volumes"
-	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/volumeattach"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2"
+	volumes2 "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v2/volumes"
+	volumes3 "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/volumeattach"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 )
 
 type OpenstackDiskHandler struct {
@@ -239,7 +238,7 @@ func volumes2ToVolumes3(vol2 volumes2.Volume) (volumes3.Volume, error) {
 }
 
 func getRawDiskListV2(volume2Client *gophercloud.ServiceClient) ([]volumes3.Volume, error) {
-	pager2, err := volumes2.List(volume2Client, nil).AllPages()
+	pager2, err := volumes2.List(volume2Client, nil).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +258,7 @@ func getRawDiskListV2(volume2Client *gophercloud.ServiceClient) ([]volumes3.Volu
 }
 
 func getRawDiskListV3(volume3Client *gophercloud.ServiceClient) ([]volumes3.Volume, error) {
-	pager3, err := volumes3.List(volume3Client, nil).AllPages()
+	pager3, err := volumes3.List(volume3Client, nil).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +274,7 @@ func getRawDiskV2(diskIID irs.IID, volume3Client *gophercloud.ServiceClient) (vo
 		return volumes3.Volume{}, errors.New("invalid disk IID")
 	}
 	if diskIID.SystemId != "" {
-		disk, err := volumes2.Get(volume3Client, diskIID.SystemId).Extract()
+		disk, err := volumes2.Get(context.TODO(), volume3Client, diskIID.SystemId).Extract()
 		if err != nil {
 			return volumes3.Volume{}, err
 		}
@@ -289,7 +288,7 @@ func getRawDiskV2(diskIID irs.IID, volume3Client *gophercloud.ServiceClient) (vo
 	nameOpts := volumes2.ListOpts{
 		Name: diskIID.NameId,
 	}
-	pager3, err := volumes2.List(volume3Client, nameOpts).AllPages()
+	pager3, err := volumes2.List(volume3Client, nameOpts).AllPages(context.TODO())
 	if err != nil {
 		return volumes3.Volume{}, err
 	}
@@ -312,7 +311,7 @@ func getRawDiskV3(diskIID irs.IID, volume3Client *gophercloud.ServiceClient) (vo
 		return volumes3.Volume{}, errors.New("invalid disk IID")
 	}
 	if diskIID.SystemId != "" {
-		disk, err := volumes3.Get(volume3Client, diskIID.SystemId).Extract()
+		disk, err := volumes3.Get(context.TODO(), volume3Client, diskIID.SystemId).Extract()
 		if err != nil {
 			return volumes3.Volume{}, err
 		}
@@ -322,7 +321,7 @@ func getRawDiskV3(diskIID irs.IID, volume3Client *gophercloud.ServiceClient) (vo
 	nameOpts := volumes3.ListOpts{
 		Name: diskIID.NameId,
 	}
-	pager3, err := volumes3.List(volume3Client, nameOpts).AllPages()
+	pager3, err := volumes3.List(volume3Client, nameOpts).AllPages(context.TODO())
 	if err != nil {
 		return volumes3.Volume{}, err
 	}
@@ -361,7 +360,7 @@ func deleteDiskV2(diskIID irs.IID, volume2Client *gophercloud.ServiceClient) err
 	if err != nil {
 		return err
 	}
-	return volumes2.Delete(volume2Client, disk.ID, nil).ExtractErr()
+	return volumes2.Delete(context.TODO(), volume2Client, disk.ID, nil).ExtractErr()
 }
 
 func deleteDiskV3(diskIID irs.IID, volume3Client *gophercloud.ServiceClient) error {
@@ -369,7 +368,7 @@ func deleteDiskV3(diskIID irs.IID, volume3Client *gophercloud.ServiceClient) err
 	if err != nil {
 		return err
 	}
-	return volumes3.Delete(volume3Client, disk.ID, nil).ExtractErr()
+	return volumes3.Delete(context.TODO(), volume3Client, disk.ID, nil).ExtractErr()
 }
 
 func deleteDisk(diskIID irs.IID, volumeClient *gophercloud.ServiceClient) error {
@@ -395,7 +394,7 @@ func (diskHandler *OpenstackDiskHandler) setterDisk(rawVolume volumes3.Volume) (
 
 	if rawVolume.Attachments != nil && len(rawVolume.Attachments) > 0 {
 		vmId := rawVolume.Attachments[0].ServerID
-		vm, err := servers.Get(diskHandler.ComputeClient, vmId).Extract()
+		vm, err := servers.Get(context.TODO(), diskHandler.ComputeClient, vmId).Extract()
 		if err == nil {
 			info.OwnerVM = irs.IID{
 				NameId:   vm.Name,
@@ -429,7 +428,7 @@ func (diskHandler *OpenstackDiskHandler) setterDisk(rawVolume volumes3.Volume) (
 }
 
 func checkExistDiskV2(diskIID irs.IID, volume2Client *gophercloud.ServiceClient) (bool, error) {
-	pager, err := volumes2.List(volume2Client, volumes2.ListOpts{}).AllPages()
+	pager, err := volumes2.List(volume2Client, volumes2.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return false, err
 	}
@@ -449,7 +448,7 @@ func checkExistDiskV2(diskIID irs.IID, volume2Client *gophercloud.ServiceClient)
 }
 
 func checkExistDiskV3(diskIID irs.IID, volume3Client *gophercloud.ServiceClient) (bool, error) {
-	pager, err := volumes3.List(volume3Client, volumes3.ListOpts{}).AllPages()
+	pager, err := volumes3.List(volume3Client, volumes3.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return false, err
 	}
@@ -507,7 +506,7 @@ func createDiskV2(diskReq irs.DiskInfo, volume2Client *gophercloud.ServiceClient
 		Name: diskReq.IId.NameId,
 		Size: size,
 	}
-	createVol, err := volumes2.Create(volume2Client, createOpt).Extract()
+	createVol, err := volumes2.Create(context.TODO(), volume2Client, createOpt, nil).Extract()
 	if err != nil {
 		return volumes3.Volume{}, errors.New("invalid Disk Size")
 	}
@@ -531,7 +530,7 @@ func createDiskV3(diskReq irs.DiskInfo, volume3Client *gophercloud.ServiceClient
 		Name: diskReq.IId.NameId,
 		Size: size,
 	}
-	createVol, err := volumes3.Create(volume3Client, createOpt).Extract()
+	createVol, err := volumes3.Create(context.TODO(), volume3Client, createOpt, nil).Extract()
 	if err != nil {
 		return volumes3.Volume{}, errors.New("invalid Disk Size")
 	}
@@ -561,7 +560,7 @@ func attachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 	}
 	var ownerRawVM servers.Server
 	if ownerVMIID.SystemId == "" {
-		pager, err := servers.List(computeClient, nil).AllPages()
+		pager, err := servers.List(computeClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return volumes3.Volume{}, err
 		}
@@ -581,7 +580,7 @@ func attachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 			return volumes3.Volume{}, errors.New("not found vm")
 		}
 	} else {
-		server, err := servers.Get(computeClient, ownerVMIID.SystemId).Extract()
+		server, err := servers.Get(context.TODO(), computeClient, ownerVMIID.SystemId).Extract()
 		if err != nil {
 			return volumes3.Volume{}, err
 		}
@@ -590,7 +589,7 @@ func attachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 	volumeAttachOpt := volumeattach.CreateOpts{
 		VolumeID: disk.ID,
 	}
-	_, err = volumeattach.Create(computeClient, ownerRawVM.ID, volumeAttachOpt).Extract()
+	_, err = volumeattach.Create(context.TODO(), computeClient, ownerRawVM.ID, volumeAttachOpt).Extract()
 	if err != nil {
 		return volumes3.Volume{}, err
 	}
@@ -638,7 +637,7 @@ func AttachList(diskIIDList []irs.IID, ownerVMIID irs.IID, computeClient *gopher
 
 	var ownerRawVM servers.Server
 	if ownerVMIID.SystemId == "" {
-		pager, err := servers.List(computeClient, nil).AllPages()
+		pager, err := servers.List(computeClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -658,7 +657,7 @@ func AttachList(diskIIDList []irs.IID, ownerVMIID irs.IID, computeClient *gopher
 			return nil, errors.New("not found vm")
 		}
 	} else {
-		server, err := servers.Get(computeClient, ownerVMIID.SystemId).Extract()
+		server, err := servers.Get(context.TODO(), computeClient, ownerVMIID.SystemId).Extract()
 		if err != nil {
 			return nil, err
 		}
@@ -687,7 +686,7 @@ func AttachList(diskIIDList []irs.IID, ownerVMIID irs.IID, computeClient *gopher
 	if globalErr != nil {
 		return nil, globalErr
 	}
-	server, err := servers.Get(computeClient, ownerRawVM.ID).Extract()
+	server, err := servers.Get(context.TODO(), computeClient, ownerRawVM.ID).Extract()
 	if err != nil {
 		return nil, err
 	}
@@ -706,7 +705,7 @@ func attachWithCtx(ctx context.Context, volume volumes3.Volume, ownerRawVMID str
 		volumeAttachOpt := volumeattach.CreateOpts{
 			VolumeID: volume.ID,
 		}
-		_, err := volumeattach.Create(computeClient, ownerRawVMID, volumeAttachOpt).Extract()
+		_, err := volumeattach.Create(context.TODO(), computeClient, ownerRawVMID, volumeAttachOpt).Extract()
 		if err != nil {
 			done <- volumeWithError{
 				volumes3.Volume{}, err,
@@ -764,7 +763,7 @@ func detachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 	}
 	var ownerRawVM servers.Server
 	if ownerVMIID.SystemId == "" {
-		pager, err := servers.List(computeClient, nil).AllPages()
+		pager, err := servers.List(computeClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -784,7 +783,7 @@ func detachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 			return errors.New("not found vm")
 		}
 	} else {
-		server, err := servers.Get(computeClient, ownerVMIID.SystemId).Extract()
+		server, err := servers.Get(context.TODO(), computeClient, ownerVMIID.SystemId).Extract()
 		if err != nil {
 			return err
 		}
@@ -800,7 +799,7 @@ func detachDisk(diskIID irs.IID, ownerVMIID irs.IID, computeClient *gophercloud.
 		return errors.New("not exist Disk Attached VM")
 	}
 	//볼륨 아이디..
-	err = volumeattach.Delete(computeClient, ownerRawVM.ID, detachmentVolumeId).ExtractErr()
+	err = volumeattach.Delete(context.TODO(), computeClient, ownerRawVM.ID, detachmentVolumeId).ExtractErr()
 	if err != nil {
 		return err
 	}
@@ -850,10 +849,10 @@ func changeDiskSize(diskIID irs.IID, diskSize string, volumeClient *gophercloud.
 	if volumeClient == nil {
 		return errors.New("VolumeClient not found")
 	}
-	changeSizeOpts := volumeactions.ExtendSizeOpts{
+	changeSizeOpts := volumes3.ExtendSizeOpts{
 		NewSize: newSizeNum,
 	}
-	return volumeactions.ExtendSize(volumeClient, disk.ID, changeSizeOpts).ExtractErr()
+	return volumes3.ExtendSize(context.TODO(), volumeClient, disk.ID, changeSizeOpts).ExtractErr()
 }
 
 func (diskHandler *OpenstackDiskHandler) ListIID() ([]*irs.IID, error) {

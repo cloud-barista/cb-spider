@@ -1,15 +1,16 @@
 package resources
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
-	"github.com/gophercloud/gophercloud/openstack/sharedfilesystems/v2/sharenetworks"
-	"github.com/gophercloud/gophercloud/openstack/sharedfilesystems/v2/shares"
-	"github.com/gophercloud/gophercloud/openstack/sharedfilesystems/v2/sharetypes"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/networks"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/subnets"
+	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/sharenetworks"
+	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/shares"
+	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/sharetypes"
 	"io"
 	"net/http"
 	"strings"
@@ -88,7 +89,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) getQuotaUsage() (*QuotaUsag
 	}
 
 	listOpts := shares.ListOpts{}
-	allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+	allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list shares: %v", err)
 	}
@@ -158,7 +159,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) ListIID() ([]*irs.IID, erro
 	start := call.Start()
 
 	listOpts := shares.ListOpts{}
-	allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+	allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +190,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) findNetworkByName(name stri
 	listOpts := networks.ListOpts{
 		Name: name,
 	}
-	allPages, err := networks.List(filesystemHandler.NetworkClient, listOpts).AllPages()
+	allPages, err := networks.List(filesystemHandler.NetworkClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return "", err
 	}
@@ -210,7 +211,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) findSubnetByName(name strin
 	listOpts := subnets.ListOpts{
 		Name: name,
 	}
-	allPages, err := subnets.List(filesystemHandler.NetworkClient, listOpts).AllPages()
+	allPages, err := subnets.List(filesystemHandler.NetworkClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return "", err
 	}
@@ -243,7 +244,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) findSubnetsByNetwork(networ
 	listOpts := subnets.ListOpts{
 		NetworkID: networkID,
 	}
-	allPages, err := subnets.List(filesystemHandler.NetworkClient, listOpts).AllPages()
+	allPages, err := subnets.List(filesystemHandler.NetworkClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +272,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) getOrCreateShareNetwork(net
 		NeutronSubnetID: subnetID,
 	}
 
-	allPages, err := sharenetworks.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+	allPages, err := sharenetworks.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return "", err
 	}
@@ -292,7 +293,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) getOrCreateShareNetwork(net
 		NeutronSubnetID: subnetID,
 	}
 
-	shareNetwork, err := sharenetworks.Create(filesystemHandler.SharedFileSystemClient, createOpts).Extract()
+	shareNetwork, err := sharenetworks.Create(context.TODO(), filesystemHandler.SharedFileSystemClient, createOpts).Extract()
 	if err != nil {
 		return "", err
 	}
@@ -367,7 +368,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) getOrCreateShareType() (str
 		IsPublic: "true",
 	}
 
-	allPages, err := sharetypes.List(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+	allPages, err := sharetypes.List(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return "", fmt.Errorf("failed to list share types: %v", err)
 	}
@@ -402,6 +403,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) getOrCreateShareType() (str
 
 	var result sharetypes.CreateResult
 	resp, err := filesystemHandler.SharedFileSystemClient.Post(
+		context.TODO(),
 		filesystemHandler.SharedFileSystemClient.Endpoint+"/types",
 		requestBody,
 		&result.Body,
@@ -502,7 +504,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) CreateFileSystem(reqInfo ir
 			subnetID = id
 		}
 
-		subnet, err := subnets.Get(filesystemHandler.NetworkClient, subnetID).Extract()
+		subnet, err := subnets.Get(context.TODO(), filesystemHandler.NetworkClient, subnetID).Extract()
 		if err != nil {
 			LoggingError(hiscallInfo, err)
 			return irs.FileSystemInfo{}, fmt.Errorf("failed to get subnet info: %v", err)
@@ -542,14 +544,14 @@ func (filesystemHandler *OpenstackFileSystemHandler) CreateFileSystem(reqInfo ir
 		createOpts.AvailabilityZone = reqInfo.Zone
 	}
 
-	share, err := shares.Create(filesystemHandler.SharedFileSystemClient, createOpts).Extract()
+	share, err := shares.Create(context.TODO(), filesystemHandler.SharedFileSystemClient, createOpts).Extract()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.FileSystemInfo{}, fmt.Errorf("failed to create file share: %v", err)
 	}
 
 	for i := 0; i < 240; i++ {
-		currentShare, err := shares.Get(filesystemHandler.SharedFileSystemClient, share.ID).Extract()
+		currentShare, err := shares.Get(context.TODO(), filesystemHandler.SharedFileSystemClient, share.ID).Extract()
 		if err != nil {
 			LoggingError(hiscallInfo, err)
 			return irs.FileSystemInfo{}, fmt.Errorf("failed to check share status: %v", err)
@@ -587,7 +589,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) ListFileSystem() ([]*irs.Fi
 	start := call.Start()
 
 	listOpts := shares.ListOpts{}
-	allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+	allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -626,7 +628,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) GetFileSystem(iid irs.IID) 
 		listOpts := shares.ListOpts{
 			Name: iid.NameId,
 		}
-		allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+		allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 		if err != nil {
 			LoggingError(hiscallInfo, err)
 			return irs.FileSystemInfo{}, fmt.Errorf("failed to list shares: %v", err)
@@ -651,7 +653,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) GetFileSystem(iid irs.IID) 
 		return irs.FileSystemInfo{}, err
 	}
 
-	share, err := shares.Get(filesystemHandler.SharedFileSystemClient, shareID).Extract()
+	share, err := shares.Get(context.TODO(), filesystemHandler.SharedFileSystemClient, shareID).Extract()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.FileSystemInfo{}, fmt.Errorf("failed to get file share: %v", err)
@@ -668,7 +670,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) GetFileSystem(iid irs.IID) 
 }
 
 func (filesystemHandler *OpenstackFileSystemHandler) findNetworkByID(networkID string) (*networks.Network, error) {
-	network, err := networks.Get(filesystemHandler.NetworkClient, networkID).Extract()
+	network, err := networks.Get(context.TODO(), filesystemHandler.NetworkClient, networkID).Extract()
 	if err != nil {
 		return nil, err
 	}
@@ -676,7 +678,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) findNetworkByID(networkID s
 }
 
 func (filesystemHandler *OpenstackFileSystemHandler) findSubnetByID(subnetID string) (*subnets.Subnet, error) {
-	subnet, err := subnets.Get(filesystemHandler.NetworkClient, subnetID).Extract()
+	subnet, err := subnets.Get(context.TODO(), filesystemHandler.NetworkClient, subnetID).Extract()
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +722,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) setterFileSystemInfo(share 
 	}
 
 	if share.ShareNetworkID != "" {
-		shareNetwork, err := sharenetworks.Get(filesystemHandler.SharedFileSystemClient, share.ShareNetworkID).Extract()
+		shareNetwork, err := sharenetworks.Get(context.TODO(), filesystemHandler.SharedFileSystemClient, share.ShareNetworkID).Extract()
 		if err == nil {
 			if shareNetwork.NeutronNetID != "" {
 				network, err := filesystemHandler.findNetworkByID(shareNetwork.NeutronNetID)
@@ -760,7 +762,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) DeleteFileSystem(iid irs.II
 		listOpts := shares.ListOpts{
 			Name: iid.NameId,
 		}
-		allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+		allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 		if err != nil {
 			LoggingError(hiscallInfo, err)
 			return false, fmt.Errorf("failed to list shares: %v", err)
@@ -793,14 +795,14 @@ func (filesystemHandler *OpenstackFileSystemHandler) DeleteFileSystem(iid irs.II
 		return false, err
 	}
 
-	err = shares.Delete(filesystemHandler.SharedFileSystemClient, shareID).ExtractErr()
+	err = shares.Delete(context.TODO(), filesystemHandler.SharedFileSystemClient, shareID).ExtractErr()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return false, fmt.Errorf("failed to delete file share: %v", err)
 	}
 
 	for i := 0; i < 120; i++ {
-		_, err := shares.Get(filesystemHandler.SharedFileSystemClient, shareID).Extract()
+		_, err := shares.Get(context.TODO(), filesystemHandler.SharedFileSystemClient, shareID).Extract()
 		if err != nil {
 			break
 		}
@@ -816,7 +818,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) DeleteFileSystem(iid irs.II
 		if err != nil {
 			cblogger.Warnf("failed to get share network: %v", err)
 		} else {
-			err = sharenetworks.Delete(filesystemHandler.SharedFileSystemClient, shareNetworkID).ExtractErr()
+			err = sharenetworks.Delete(context.TODO(), filesystemHandler.SharedFileSystemClient, shareNetworkID).ExtractErr()
 			if err != nil {
 				cblogger.Warnf("failed to delete share network: %v", err)
 			}
@@ -845,7 +847,7 @@ func (filesystemHandler *OpenstackFileSystemHandler) ListAccessSubnet(fsIID irs.
 		listOpts := shares.ListOpts{
 			Name: fsIID.NameId,
 		}
-		allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages()
+		allPages, err := shares.ListDetail(filesystemHandler.SharedFileSystemClient, listOpts).AllPages(context.TODO())
 		if err != nil {
 			return nil, fmt.Errorf("failed to list shares: %v", err)
 		}
@@ -862,14 +864,14 @@ func (filesystemHandler *OpenstackFileSystemHandler) ListAccessSubnet(fsIID irs.
 		shareID = shareList[0].ID
 	}
 
-	share, err := shares.Get(filesystemHandler.SharedFileSystemClient, shareID).Extract()
+	share, err := shares.Get(context.TODO(), filesystemHandler.SharedFileSystemClient, shareID).Extract()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get share: %v", err)
 	}
 
 	var subnetList []irs.IID
 	if share.ShareNetworkID != "" {
-		shareNetwork, err := sharenetworks.Get(filesystemHandler.SharedFileSystemClient, share.ShareNetworkID).Extract()
+		shareNetwork, err := sharenetworks.Get(context.TODO(), filesystemHandler.SharedFileSystemClient, share.ShareNetworkID).Extract()
 		if err == nil && shareNetwork.NeutronSubnetID != "" {
 			subnet, err := filesystemHandler.findSubnetByID(shareNetwork.NeutronSubnetID)
 			if err == nil {

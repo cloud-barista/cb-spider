@@ -12,7 +12,7 @@ package connect
 
 import (
 	cblog "github.com/cloud-barista/cb-log"
-	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/v2"
 	"github.com/sirupsen/logrus"
 
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
@@ -89,6 +89,7 @@ func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, err
 		NetworkClient:  cloudConn.NetworkClient,
 		NLBClient:      cloudConn.NLBClient,
 		VolumeClient:   cloudConn.Volume3Client,
+		ImageClient:    cloudConn.ImageClient,
 	}
 	if vmHandler.VolumeClient == nil {
 		vmHandler.VolumeClient = cloudConn.Volume2Client
@@ -135,6 +136,7 @@ func (cloudConn *OpenStackCloudConnection) CreateMyImageHandler() (irs.MyImageHa
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		ComputeClient:  cloudConn.ComputeClient,
+		ImageClient:    cloudConn.ImageClient,
 		VolumeClient:   cloudConn.Volume3Client,
 	}
 	if myImageHandler.VolumeClient == nil {

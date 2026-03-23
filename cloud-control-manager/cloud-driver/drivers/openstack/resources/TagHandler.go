@@ -1,20 +1,21 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/secgroups"
-	computeTags "github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/tags"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/loadbalancers"
-	networkTags "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/attributestags"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/external"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/secgroups"
+	computeTags "github.com/gophercloud/gophercloud/v2/openstack/compute/v2/tags"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2/openstack/loadbalancer/v2/loadbalancers"
+	networkTags "github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/attributestags"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/external"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/networks"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/subnets"
 	"strings"
 )
 
@@ -57,7 +58,7 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 			ListOptsBuilder: networks.ListOpts{
 				Name: resIID.NameId,
 			},
-		}).AllPages()
+		}).AllPages(context.TODO())
 		if err != nil {
 			return "", err
 		}
@@ -75,7 +76,7 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 	case irs.SUBNET:
 		pager, err := subnets.List(tagHandler.NetworkClient, subnets.ListOpts{
 			Name: resIID.NameId,
-		}).AllPages()
+		}).AllPages(context.TODO())
 		if err != nil {
 			return "", err
 		}
@@ -90,7 +91,7 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 		}
 		return "", errors.New("subnet not found")
 	case irs.SG:
-		pager, err := secgroups.List(tagHandler.ComputeClient).AllPages()
+		pager, err := secgroups.List(tagHandler.ComputeClient).AllPages(context.TODO())
 		if err != nil {
 			return "", err
 		}
@@ -108,7 +109,7 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 		pager, err := loadbalancers.List(tagHandler.NLBClient, loadbalancers.ListOpts{
 			ProjectID: tagHandler.CredentialInfo.ProjectID,
 			Name:      resIID.NameId,
-		}).AllPages()
+		}).AllPages(context.TODO())
 		if err != nil {
 			return "", err
 		}
@@ -123,7 +124,7 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 		}
 		return "", errors.New("nlb not found")
 	case irs.VM:
-		pager, err := servers.List(tagHandler.ComputeClient, servers.ListOpts{Name: resIID.NameId}).AllPages()
+		pager, err := servers.List(tagHandler.ComputeClient, servers.ListOpts{Name: resIID.NameId}).AllPages(context.TODO())
 		if err != nil {
 			return "", err
 		}
@@ -157,11 +158,11 @@ func handleAddTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID ir
 	case irs.VM:
 		cc := tagHandler.ComputeClient
 		cc.Microversion = "2.52"
-		err = computeTags.Add(cc, systemId, tagString).ExtractErr()
+		err = computeTags.Add(context.TODO(), cc, systemId, tagString).ExtractErr()
 	case irs.VPC:
-		err = networkTags.Add(tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
+		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
 	case irs.SUBNET:
-		err = networkTags.Add(tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
+		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
 	case irs.NLB:
 		var keyValues []irs.KeyValue
 		keyValues, err = handleListTag(tagHandler, resType, resIID)
@@ -175,11 +176,11 @@ func handleAddTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID ir
 		}
 		tags = append(tags, tag.Key+"="+tag.Value)
 
-		_, err = loadbalancers.Update(tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
+		_, err = loadbalancers.Update(context.TODO(), tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
 			Tags: &tags,
 		}).Extract()
 	case irs.SG:
-		err = networkTags.Add(tagHandler.NetworkClient, "security-groups", systemId, tagString).ExtractErr()
+		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "security-groups", systemId, tagString).ExtractErr()
 	default:
 		return errors.New(string(resType) + " is not supported Resource!!")
 	}
@@ -204,19 +205,19 @@ func handleListTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID i
 	case irs.VM:
 		cc := tagHandler.ComputeClient
 		cc.Microversion = "2.52"
-		tagStrings, err = computeTags.List(cc, systemId).Extract()
+		tagStrings, err = computeTags.List(context.TODO(), cc, systemId).Extract()
 	case irs.VPC:
-		tagStrings, err = networkTags.List(tagHandler.NetworkClient, "networks", systemId).Extract()
+		tagStrings, err = networkTags.List(context.TODO(), tagHandler.NetworkClient, "networks", systemId).Extract()
 	case irs.SUBNET:
-		tagStrings, err = networkTags.List(tagHandler.NetworkClient, "subnets", systemId).Extract()
+		tagStrings, err = networkTags.List(context.TODO(), tagHandler.NetworkClient, "subnets", systemId).Extract()
 	case irs.NLB:
-		nlb, err := loadbalancers.Get(tagHandler.NLBClient, systemId).Extract()
+		nlb, err := loadbalancers.Get(context.TODO(), tagHandler.NLBClient, systemId).Extract()
 		if err != nil {
 			return nil, fmt.Errorf("Failed to list tags for "+string(resType)+" ("+systemId+") : %v\n", err)
 		}
 		tagStrings = nlb.Tags
 	case irs.SG:
-		tagStrings, err = networkTags.List(tagHandler.NetworkClient, "security-groups", systemId).Extract()
+		tagStrings, err = networkTags.List(context.TODO(), tagHandler.NetworkClient, "security-groups", systemId).Extract()
 	default:
 		return nil, errors.New(string(resType) + " is not supported Resource!!")
 	}
@@ -251,13 +252,13 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 	case irs.VM:
 		cc := tagHandler.ComputeClient
 		cc.Microversion = "2.52"
-		err = computeTags.Delete(cc, systemId, tagString).ExtractErr()
+		err = computeTags.Delete(context.TODO(), cc, systemId, tagString).ExtractErr()
 	case irs.VPC:
-		err = networkTags.Delete(tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
+		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
 	case irs.SUBNET:
-		err = networkTags.Delete(tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
+		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
 	case irs.NLB:
-		nlb, err := loadbalancers.Get(tagHandler.NLBClient, systemId).Extract()
+		nlb, err := loadbalancers.Get(context.TODO(), tagHandler.NLBClient, systemId).Extract()
 		if err != nil {
 			return fmt.Errorf("Failed to remove tag from "+string(resType)+" ("+systemId+") : %v\n", err)
 		}
@@ -271,16 +272,16 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 		}
 
 		if len(tags) == 0 {
-			_, err = loadbalancers.Update(tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
+			_, err = loadbalancers.Update(context.TODO(), tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
 				Tags: &[]string{},
 			}).Extract()
 		} else {
-			_, err = loadbalancers.Update(tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
+			_, err = loadbalancers.Update(context.TODO(), tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
 				Tags: &tags,
 			}).Extract()
 		}
 	case irs.SG:
-		err = networkTags.Delete(tagHandler.NetworkClient, "security-groups", systemId, tagString).ExtractErr()
+		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "security-groups", systemId, tagString).ExtractErr()
 	default:
 		return errors.New(string(resType) + " is not supported Resource!!")
 	}
@@ -427,7 +428,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 	case irs.ALL:
 		fallthrough
 	case irs.VPC:
-		pager, err := networks.List(tagHandler.NetworkClient, nil).AllPages()
+		pager, err := networks.List(tagHandler.NetworkClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -455,7 +456,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 
 		fallthrough
 	case irs.SUBNET:
-		pager, err := subnets.List(tagHandler.NetworkClient, nil).AllPages()
+		pager, err := subnets.List(tagHandler.NetworkClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -482,7 +483,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 
 		fallthrough
 	case irs.SG:
-		pager, err := secgroups.List(tagHandler.ComputeClient).AllPages()
+		pager, err := secgroups.List(tagHandler.ComputeClient).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -519,7 +520,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 
 		fallthrough
 	case irs.NLB:
-		pager, err := loadbalancers.List(tagHandler.NLBClient, nil).AllPages()
+		pager, err := loadbalancers.List(tagHandler.NLBClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -546,7 +547,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 
 		fallthrough
 	case irs.VM:
-		pager, err := servers.List(tagHandler.ComputeClient, nil).AllPages()
+		pager, err := servers.List(tagHandler.ComputeClient, nil).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}

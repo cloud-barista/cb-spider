@@ -1,21 +1,22 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/listeners"
-	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/loadbalancers"
-	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/monitors"
-	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/pools"
-	"github.com/gophercloud/gophercloud/openstack/loadbalancer/v2/providers"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/external"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2/openstack/loadbalancer/v2/listeners"
+	"github.com/gophercloud/gophercloud/v2/openstack/loadbalancer/v2/loadbalancers"
+	"github.com/gophercloud/gophercloud/v2/openstack/loadbalancer/v2/monitors"
+	"github.com/gophercloud/gophercloud/v2/openstack/loadbalancer/v2/pools"
+	"github.com/gophercloud/gophercloud/v2/openstack/loadbalancer/v2/providers"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/external"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/networks"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -275,7 +276,7 @@ func (nlbHandler *OpenStackNLBHandler) ChangeListener(nlbIID irs.IID, listener i
 		LoadbalancerID: rawNLB.ID,
 		AdminStateUp:   gophercloud.Enabled,
 	}
-	newListener, err := listeners.Create(nlbHandler.NLBClient, newOpt).Extract()
+	newListener, err := listeners.Create(context.TODO(), nlbHandler.NLBClient, newOpt).Extract()
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeListener NLB. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
@@ -290,9 +291,9 @@ func (nlbHandler *OpenStackNLBHandler) ChangeListener(nlbIID irs.IID, listener i
 		return irs.ListenerInfo{}, changeErr
 	}
 	// Delete OldListener
-	err = listeners.Delete(nlbHandler.NLBClient, oldListener.ID).Err
+	err = listeners.Delete(context.TODO(), nlbHandler.NLBClient, oldListener.ID).Err
 	if err != nil {
-		listeners.Delete(nlbHandler.NLBClient, newListener.ID)
+		listeners.Delete(context.TODO(), nlbHandler.NLBClient, newListener.ID)
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeListener NLB. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
 		LoggingError(hiscallInfo, changeErr)
@@ -311,7 +312,7 @@ func (nlbHandler *OpenStackNLBHandler) ChangeListener(nlbIID irs.IID, listener i
 		DefaultPoolID: &oldListener.DefaultPoolID,
 	}
 
-	update, err := listeners.Update(nlbHandler.NLBClient, newListener.ID, updateOpts).Extract()
+	update, err := listeners.Update(context.TODO(), nlbHandler.NLBClient, newListener.ID, updateOpts).Extract()
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeListener NLB. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
@@ -721,7 +722,7 @@ func (nlbHandler *OpenStackNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, h
 		LoggingError(hiscallInfo, changeErr)
 		return irs.HealthCheckerInfo{}, changeErr
 	}
-	err = monitors.Delete(nlbHandler.NLBClient, monitor.ID).ExtractErr()
+	err = monitors.Delete(context.TODO(), nlbHandler.NLBClient, monitor.ID).ExtractErr()
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeHealthCheckerInfo NLB. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
@@ -750,7 +751,7 @@ func (nlbHandler *OpenStackNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, h
 		MaxRetries: healthChecker.Threshold,
 		Timeout:    healthChecker.Timeout,
 	}
-	createMonitor, err := monitors.Create(nlbHandler.NLBClient, &monitorCreatOpts).Extract()
+	createMonitor, err := monitors.Create(context.TODO(), nlbHandler.NLBClient, &monitorCreatOpts).Extract()
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeHealthCheckerInfo NLB. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
@@ -829,7 +830,7 @@ func (nlbHandler *OpenStackNLBHandler) setterNLB(rawNLB loadbalancers.LoadBalanc
 }
 
 func (nlbHandler *OpenStackNLBHandler) getVPCIID(nlb loadbalancers.LoadBalancer) (irs.IID, error) {
-	network, err := networks.Get(nlbHandler.NetworkClient, nlb.VipNetworkID).Extract()
+	network, err := networks.Get(context.TODO(), nlbHandler.NetworkClient, nlb.VipNetworkID).Extract()
 	if err != nil {
 		return irs.IID{}, err
 	}
@@ -885,7 +886,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawVMByName(name string) (*servers.Ser
 	opts := servers.ListOpts{
 		Name: name,
 	}
-	pager, err := servers.List(nlbHandler.ComputeClient, opts).AllPages()
+	pager, err := servers.List(nlbHandler.ComputeClient, opts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -901,7 +902,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawVMByIP(ip string) (*servers.Server,
 	opts := servers.ListOpts{
 		IP: ip,
 	}
-	pager, err := servers.List(nlbHandler.ComputeClient, opts).AllPages()
+	pager, err := servers.List(nlbHandler.ComputeClient, opts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -966,7 +967,7 @@ func (nlbHandler *OpenStackNLBHandler) getHealthCheckerInfo(nlb loadbalancers.Lo
 }
 func (nlbHandler *OpenStackNLBHandler) getRawPoolMembersById(poolId string) (*[]pools.Member, error) {
 	poolMemberOption := pools.ListMembersOpts{}
-	pages, err := pools.ListMembers(nlbHandler.NLBClient, poolId, &poolMemberOption).AllPages()
+	pages, err := pools.ListMembers(nlbHandler.NLBClient, poolId, &poolMemberOption).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -981,7 +982,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawPoolMonitorById(monitorId string) (
 	monitorOption := monitors.ListOpts{
 		ID: monitorId,
 	}
-	page, err := monitors.List(nlbHandler.NLBClient, monitorOption).AllPages()
+	page, err := monitors.List(nlbHandler.NLBClient, monitorOption).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -996,7 +997,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawPoolMemberById(poolId string, membe
 	memberOpts := pools.ListMembersOpts{
 		ID: memberId,
 	}
-	page, err := pools.ListMembers(nlbHandler.NLBClient, poolId, memberOpts).AllPages()
+	page, err := pools.ListMembers(nlbHandler.NLBClient, poolId, memberOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -1011,7 +1012,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawPoolById(poolId string) (*pools.Poo
 	poolOption := pools.ListOpts{
 		ID: poolId,
 	}
-	page, err := pools.List(nlbHandler.NLBClient, poolOption).AllPages()
+	page, err := pools.List(nlbHandler.NLBClient, poolOption).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -1025,7 +1026,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawListenerById(listenerId string) (*l
 	listenerOptions := listeners.ListOpts{
 		ID: listenerId,
 	}
-	page, err := listeners.List(nlbHandler.NLBClient, &listenerOptions).AllPages()
+	page, err := listeners.List(nlbHandler.NLBClient, &listenerOptions).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -1038,13 +1039,13 @@ func (nlbHandler *OpenStackNLBHandler) getRawListenerById(listenerId string) (*l
 
 func (nlbHandler *OpenStackNLBHandler) getRawNLB(iid irs.IID) (*loadbalancers.LoadBalancer, error) {
 	if iid.SystemId != "" {
-		return loadbalancers.Get(nlbHandler.NLBClient, iid.SystemId).Extract()
+		return loadbalancers.Get(context.TODO(), nlbHandler.NLBClient, iid.SystemId).Extract()
 	} else {
 		listOpts := loadbalancers.ListOpts{
 			ProjectID: nlbHandler.CredentialInfo.ProjectID,
 			Name:      iid.NameId,
 		}
-		rawListAllPage, err := loadbalancers.List(nlbHandler.NLBClient, listOpts).AllPages()
+		rawListAllPage, err := loadbalancers.List(nlbHandler.NLBClient, listOpts).AllPages(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -1063,7 +1064,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawNLBList() ([]loadbalancers.LoadBala
 	listOpts := loadbalancers.ListOpts{
 		ProjectID: nlbHandler.CredentialInfo.ProjectID,
 	}
-	rawListAllPage, err := loadbalancers.List(nlbHandler.NLBClient, listOpts).AllPages()
+	rawListAllPage, err := loadbalancers.List(nlbHandler.NLBClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -1184,7 +1185,7 @@ func (nlbHandler *OpenStackNLBHandler) getPoolCreateOpt(nlbReqInfo irs.NLBInfo, 
 }
 func (nlbHandler *OpenStackNLBHandler) getRawNLBProviderList() ([]providers.Provider, error) {
 	listOpts := providers.ListOpts{}
-	rawListAllPage, err := providers.List(nlbHandler.NLBClient, listOpts).AllPages()
+	rawListAllPage, err := providers.List(nlbHandler.NLBClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -1212,7 +1213,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawVPCByName(vpcName string) (*Network
 			Name: vpcName,
 		},
 	}
-	page, err := networks.List(nlbHandler.NetworkClient, listOpts).AllPages()
+	page, err := networks.List(nlbHandler.NetworkClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -1265,7 +1266,7 @@ func (nlbHandler *OpenStackNLBHandler) getNLBRawPublicIP(nlbIId irs.IID) (floati
 		FloatingNetworkID: externVPCID,
 		PortID:            rawnlb.VipPortID,
 	}
-	pager, err := floatingips.List(nlbHandler.NetworkClient, listOPt).AllPages()
+	pager, err := floatingips.List(nlbHandler.NetworkClient, listOPt).AllPages(context.TODO())
 	if err != nil {
 		return floatingips.FloatingIP{}, err
 	}
@@ -1291,7 +1292,7 @@ func (nlbHandler *OpenStackNLBHandler) AssociatePublicIP(nlbPortId string) (bool
 		FloatingNetworkID: externVPCID,
 		PortID:            nlbPortId,
 	}
-	_, err = floatingips.Create(nlbHandler.NetworkClient, createOpts).Extract()
+	_, err = floatingips.Create(context.TODO(), nlbHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		return false, err
 	}
@@ -1312,7 +1313,7 @@ func (nlbHandler *OpenStackNLBHandler) waitingNLBHealthDeleted(monitorId string)
 	listOpts := monitors.ListOpts{
 		ID: monitorId,
 	}
-	page, err := monitors.List(nlbHandler.NLBClient, listOpts).AllPages()
+	page, err := monitors.List(nlbHandler.NLBClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return false, err
 	}
@@ -1327,7 +1328,7 @@ func (nlbHandler *OpenStackNLBHandler) waitingNLBHealthDeleted(monitorId string)
 	maxRetryCnt := 240
 	for {
 		curRetryCnt++
-		page, err = monitors.List(nlbHandler.NLBClient, listOpts).AllPages()
+		page, err = monitors.List(nlbHandler.NLBClient, listOpts).AllPages(context.TODO())
 		if err != nil {
 			return false, err
 		}
@@ -1349,7 +1350,7 @@ func (nlbHandler *OpenStackNLBHandler) waitingNLBListenerDeleted(listenerId stri
 	listOpts := listeners.ListOpts{
 		ID: listenerId,
 	}
-	page, err := listeners.List(nlbHandler.NLBClient, listOpts).AllPages()
+	page, err := listeners.List(nlbHandler.NLBClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		return false, err
 	}
@@ -1364,7 +1365,7 @@ func (nlbHandler *OpenStackNLBHandler) waitingNLBListenerDeleted(listenerId stri
 	maxRetryCnt := 240
 	for {
 		curRetryCnt++
-		page, err = listeners.List(nlbHandler.NLBClient, listOpts).AllPages()
+		page, err = listeners.List(nlbHandler.NLBClient, listOpts).AllPages(context.TODO())
 		if err != nil {
 			return false, err
 		}
@@ -1534,12 +1535,12 @@ func (nlbHandler *OpenStackNLBHandler) CleanerNLB(nlbIID irs.IID) (bool, error) 
 	}
 	floatingIP, err := nlbHandler.getNLBRawPublicIP(nlbIID)
 	if err == nil {
-		ipDelErr := floatingips.Delete(nlbHandler.NetworkClient, floatingIP.ID).ExtractErr()
+		ipDelErr := floatingips.Delete(context.TODO(), nlbHandler.NetworkClient, floatingIP.ID).ExtractErr()
 		if ipDelErr != nil {
 			return false, ipDelErr
 		}
 	}
-	err = loadbalancers.Delete(nlbHandler.NLBClient, rawnlb.ID, loadbalancers.DeleteOpts{Cascade: true}).ExtractErr()
+	err = loadbalancers.Delete(context.TODO(), nlbHandler.NLBClient, rawnlb.ID, loadbalancers.DeleteOpts{Cascade: true}).ExtractErr()
 	if err != nil {
 		return false, err
 	}
@@ -1550,7 +1551,7 @@ func (nlbHandler *OpenStackNLBHandler) setPoolDescription(des string, poolId str
 	updateOpts := pools.UpdateOpts{
 		Description: &des,
 	}
-	pool, err := pools.Update(nlbHandler.NLBClient, poolId, updateOpts).Extract()
+	pool, err := pools.Update(context.TODO(), nlbHandler.NLBClient, poolId, updateOpts).Extract()
 	if err != nil {
 		return nil, err
 	}
@@ -1566,7 +1567,7 @@ func (nlbHandler *OpenStackNLBHandler) createPool(nlbReqInfo irs.NLBInfo, nlbId 
 	if err != nil {
 		return nil, err
 	}
-	pool, err := pools.Create(nlbHandler.NLBClient, poolCreateOpts).Extract()
+	pool, err := pools.Create(context.TODO(), nlbHandler.NLBClient, poolCreateOpts).Extract()
 	if err != nil {
 		return nil, err
 	}
@@ -1578,7 +1579,7 @@ func (nlbHandler *OpenStackNLBHandler) createPool(nlbReqInfo irs.NLBInfo, nlbId 
 }
 
 func (nlbHandler *OpenStackNLBHandler) detachPoolMemberByMemberID(memberId string, poolId string) (bool, error) {
-	err := pools.DeleteMember(nlbHandler.NLBClient, poolId, memberId).ExtractErr()
+	err := pools.DeleteMember(context.TODO(), nlbHandler.NLBClient, poolId, memberId).ExtractErr()
 	if err != nil {
 		return false, err
 	}
@@ -1600,7 +1601,7 @@ func (nlbHandler *OpenStackNLBHandler) detachPoolMember(removeIID irs.IID, poolI
 			return false, err
 		}
 		if strings.EqualFold(removeIID.NameId, vm.Name) {
-			err = pools.DeleteMember(nlbHandler.NLBClient, poolId, member.ID).ExtractErr()
+			err = pools.DeleteMember(context.TODO(), nlbHandler.NLBClient, poolId, member.ID).ExtractErr()
 			if err != nil {
 				return false, err
 			}
@@ -1627,7 +1628,7 @@ func (nlbHandler *OpenStackNLBHandler) attachPoolMembers(vmIIds []irs.IID, portS
 	}
 	createdMembers := make([]pools.Member, len(memberOpts))
 	for i, memberOpt := range memberOpts {
-		mem, err := pools.CreateMember(nlbHandler.NLBClient, poolId, memberOpt).Extract()
+		mem, err := pools.CreateMember(context.TODO(), nlbHandler.NLBClient, poolId, memberOpt).Extract()
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed Create Member err = %s", err.Error()))
 		}
@@ -1734,7 +1735,7 @@ func (nlbHandler *OpenStackNLBHandler) createPoolHealthCheck(nlbReqInfo irs.NLBI
 		MaxRetries: nlbReqInfo.HealthChecker.Threshold,
 		Timeout:    nlbReqInfo.HealthChecker.Timeout,
 	}
-	createMonitor, err := monitors.Create(nlbHandler.NLBClient, &monitorCreatOpts).Extract()
+	createMonitor, err := monitors.Create(context.TODO(), nlbHandler.NLBClient, &monitorCreatOpts).Extract()
 	if err != nil {
 		return monitors.Monitor{}, errors.New(fmt.Sprintf("failed Create HealthChecker err = %s", err.Error()))
 	}
@@ -1753,7 +1754,7 @@ func (nlbHandler *OpenStackNLBHandler) createListener(nlbReqInfo irs.NLBInfo, nl
 	if err != nil {
 		return listeners.Listener{}, err
 	}
-	listener, err := listeners.Create(nlbHandler.NLBClient, listenerCreateOpts).Extract()
+	listener, err := listeners.Create(context.TODO(), nlbHandler.NLBClient, listenerCreateOpts).Extract()
 	if err != nil {
 		return listeners.Listener{}, errors.New(fmt.Sprintf("failed Create Listener err = %s", err.Error()))
 	}
@@ -1787,7 +1788,7 @@ func (nlbHandler *OpenStackNLBHandler) createLoadBalancer(nlbReqInfo irs.NLBInfo
 		VipNetworkID: networkId,
 		Provider:     providerName,
 	}
-	loadbalancer, err := loadbalancers.Create(nlbHandler.NLBClient, createOpts).Extract()
+	loadbalancer, err := loadbalancers.Create(context.TODO(), nlbHandler.NLBClient, createOpts).Extract()
 	if err != nil {
 		return loadbalancers.LoadBalancer{}, errors.New(fmt.Sprintf("failed Create LoadBalancer err = %s", err.Error()))
 	}

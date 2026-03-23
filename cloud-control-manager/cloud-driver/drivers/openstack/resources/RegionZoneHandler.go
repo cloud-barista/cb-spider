@@ -1,16 +1,17 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/availabilityzones"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/regions"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/availabilityzones"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/regions"
 	"sort"
 	"strings"
 	"sync"
@@ -24,7 +25,7 @@ type OpenStackRegionZoneHandler struct {
 func getZoneList(client *gophercloud.ServiceClient, hiscallInfo call.CLOUDLOGSCHEMA) (*[]irs.ZoneInfo, error) {
 	var zoneList []irs.ZoneInfo
 
-	allPages, err := availabilityzones.List(client).AllPages()
+	allPages, err := availabilityzones.List(client).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -65,7 +66,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListRegionZone() ([]*irs.Re
 	start := call.Start()
 
 	listOpts := regions.ListOpts{}
-	allPages, err := regions.List(regionZoneHandler.IdentityClient, listOpts).AllPages()
+	allPages, err := regions.List(regionZoneHandler.IdentityClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -193,7 +194,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListOrgRegion() (string, er
 	start := call.Start()
 
 	listOpts := regions.ListOpts{}
-	allPages, err := regions.List(regionZoneHandler.IdentityClient, listOpts).AllPages()
+	allPages, err := regions.List(regionZoneHandler.IdentityClient, listOpts).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List OrgRegion. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -239,7 +240,7 @@ func (regionZoneHandler *OpenStackRegionZoneHandler) ListOrgZone() (string, erro
 		return "", getErr
 	}
 
-	allPages, err := availabilityzones.List(client).AllPages()
+	allPages, err := availabilityzones.List(client).AllPages(context.TODO())
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List OrgZone. err = %s", err))
 		cblogger.Error(getErr.Error())
