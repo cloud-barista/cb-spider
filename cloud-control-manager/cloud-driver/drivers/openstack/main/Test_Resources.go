@@ -1326,204 +1326,117 @@ func testTagHandler(config Config) {
 
 	testTagHandlerListPrint()
 
-Loop:
-	for {
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
+	in := bufio.NewReader(os.Stdin)
+	readLine := func(prompt string) string {
+		fmt.Println(prompt)
+		line, err := in.ReadString('\n')
 		if err != nil {
 			cblogger.Error(err)
 		}
+		return strings.TrimSpace(line)
+	}
 
-		if inputCnt == 1 {
-			switch commandNum {
-			case 0:
-				testTagHandlerListPrint()
-			case 1:
-				cblogger.Info("Start AddTag() ...")
-				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
-				resTypeStr, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resTypeStr = strings.TrimSpace(resTypeStr)
-				result := irs.RSTypeString(irs.RSType(resTypeStr))
-				if strings.Contains(result, "not supported") {
-					cblogger.Error(result)
-					break Loop
-				}
-				resType := inputToRSType(resTypeStr)
+Loop:
+	for {
+		commandStr := readLine("")
+		commandNum := 0
+		fmt.Sscan(commandStr, &commandNum)
 
-				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
-				resName, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resName = strings.TrimSpace(resName)
-
-				fmt.Println("=== Enter tag's key ===")
-				in = bufio.NewReader(os.Stdin)
-				tagKey, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				tagKey = strings.TrimSpace(tagKey)
-
-				fmt.Println("=== Enter tag's value ===")
-				in = bufio.NewReader(os.Stdin)
-				tagValue, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				tagValue = strings.TrimSpace(tagValue)
-
-				if tagKeyValue, err := tagHandler.AddTag(resType, irs.IID{NameId: resName}, irs.KeyValue{Key: tagKey, Value: tagValue}); err != nil {
-					cblogger.Error(err)
-				} else {
-					spew.Dump(tagKeyValue)
-				}
-				cblogger.Info("Finish AddTag()")
-			case 2:
-				cblogger.Info("Start ListTag() ...")
-				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
-				resTypeStr, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resTypeStr = strings.TrimSpace(resTypeStr)
-				result := irs.RSTypeString(irs.RSType(resTypeStr))
-				if strings.Contains(result, "not supported") {
-					cblogger.Error(result)
-					break Loop
-				}
-				resType := inputToRSType(resTypeStr)
-
-				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
-				resName, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resName = strings.TrimSpace(resName)
-
-				if tagList, err := tagHandler.ListTag(resType, irs.IID{NameId: resName}); err != nil {
-					cblogger.Error(err)
-				} else {
-					spew.Dump(tagList)
-				}
-				cblogger.Info("Finish ListTag()")
-			case 3:
-				cblogger.Info("Start GetTag() ...")
-				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
-				resTypeStr, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resTypeStr = strings.TrimSpace(resTypeStr)
-				result := irs.RSTypeString(irs.RSType(resTypeStr))
-				if strings.Contains(result, "not supported") {
-					cblogger.Error(result)
-					break Loop
-				}
-				resType := inputToRSType(resTypeStr)
-
-				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
-				resName, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resName = strings.TrimSpace(resName)
-
-				fmt.Println("=== Enter tag's key ===")
-				in = bufio.NewReader(os.Stdin)
-				tagKey, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				tagKey = strings.TrimSpace(tagKey)
-
-				if tagKeyValue, err := tagHandler.GetTag(resType, irs.IID{NameId: resName}, tagKey); err != nil {
-					cblogger.Error(err)
-				} else {
-					spew.Dump(tagKeyValue)
-				}
-				cblogger.Info("Finish GetTag()")
-			case 4:
-				cblogger.Info("Start RemoveTag() ...")
-				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
-				resTypeStr, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resTypeStr = strings.TrimSpace(resTypeStr)
-				result := irs.RSTypeString(irs.RSType(resTypeStr))
-				if strings.Contains(result, "not supported") {
-					cblogger.Error(result)
-					break Loop
-				}
-				resType := inputToRSType(resTypeStr)
-
-				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
-				resName, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resName = strings.TrimSpace(resName)
-
-				fmt.Println("=== Enter tag's key ===")
-				in = bufio.NewReader(os.Stdin)
-				tagKey, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				tagKey = strings.TrimSpace(tagKey)
-
-				if tagKeyValue, err := tagHandler.RemoveTag(resType, irs.IID{NameId: resName}, tagKey); err != nil {
-					cblogger.Error(err)
-				} else {
-					spew.Dump(tagKeyValue)
-				}
-				cblogger.Info("Finish RemoveTag()")
-			case 5:
-				cblogger.Info("Start FindTag() ...")
-				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
-				resTypeStr, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				resTypeStr = strings.TrimSpace(resTypeStr)
-				result := irs.RSTypeString(irs.RSType(resTypeStr))
-				if strings.Contains(result, "not supported") {
-					cblogger.Error(result)
-					break Loop
-				}
-				resType := inputToRSType(resTypeStr)
-
-				fmt.Println("=== Enter keyword ===")
-				in = bufio.NewReader(os.Stdin)
-				keyword, err := in.ReadString('\n')
-				if err != nil {
-					cblogger.Error(err)
-				}
-				keyword = strings.TrimSpace(keyword)
-
-				if tagKeyValue, err := tagHandler.FindTag(resType, keyword); err != nil {
-					cblogger.Error(err)
-				} else {
-					spew.Dump(tagKeyValue)
-				}
-				cblogger.Info("Finish FindTag()")
-			case 6:
-				cblogger.Info("Exit")
+		switch commandNum {
+		case 0:
+			testTagHandlerListPrint()
+		case 1:
+			cblogger.Info("Start AddTag() ...")
+			resTypeStr := readLine("=== Enter resource type ===")
+			result := irs.RSTypeString(irs.RSType(resTypeStr))
+			if strings.Contains(result, "not supported") {
+				cblogger.Error(result)
 				break Loop
 			}
+			resType := inputToRSType(resTypeStr)
+			resName := readLine("=== Enter name of the resource ===")
+			tagKey := readLine("=== Enter tag's key ===")
+			tagValue := readLine("=== Enter tag's value ===")
+
+			if tagKeyValue, err := tagHandler.AddTag(resType, irs.IID{NameId: resName}, irs.KeyValue{Key: tagKey, Value: tagValue}); err != nil {
+				cblogger.Error(err)
+			} else {
+				spew.Dump(tagKeyValue)
+			}
+			cblogger.Info("Finish AddTag()")
+		case 2:
+			cblogger.Info("Start ListTag() ...")
+			resTypeStr := readLine("=== Enter resource type ===")
+			result := irs.RSTypeString(irs.RSType(resTypeStr))
+			if strings.Contains(result, "not supported") {
+				cblogger.Error(result)
+				break Loop
+			}
+			resType := inputToRSType(resTypeStr)
+			resName := readLine("=== Enter name of the resource ===")
+
+			if tagList, err := tagHandler.ListTag(resType, irs.IID{NameId: resName}); err != nil {
+				cblogger.Error(err)
+			} else {
+				spew.Dump(tagList)
+			}
+			cblogger.Info("Finish ListTag()")
+		case 3:
+			cblogger.Info("Start GetTag() ...")
+			resTypeStr := readLine("=== Enter resource type ===")
+			result := irs.RSTypeString(irs.RSType(resTypeStr))
+			if strings.Contains(result, "not supported") {
+				cblogger.Error(result)
+				break Loop
+			}
+			resType := inputToRSType(resTypeStr)
+			resName := readLine("=== Enter name of the resource ===")
+			tagKey := readLine("=== Enter tag's key ===")
+
+			if tagKeyValue, err := tagHandler.GetTag(resType, irs.IID{NameId: resName}, tagKey); err != nil {
+				cblogger.Error(err)
+			} else {
+				spew.Dump(tagKeyValue)
+			}
+			cblogger.Info("Finish GetTag()")
+		case 4:
+			cblogger.Info("Start RemoveTag() ...")
+			resTypeStr := readLine("=== Enter resource type ===")
+			result := irs.RSTypeString(irs.RSType(resTypeStr))
+			if strings.Contains(result, "not supported") {
+				cblogger.Error(result)
+				break Loop
+			}
+			resType := inputToRSType(resTypeStr)
+			resName := readLine("=== Enter name of the resource ===")
+			tagKey := readLine("=== Enter tag's key ===")
+
+			if tagKeyValue, err := tagHandler.RemoveTag(resType, irs.IID{NameId: resName}, tagKey); err != nil {
+				cblogger.Error(err)
+			} else {
+				spew.Dump(tagKeyValue)
+			}
+			cblogger.Info("Finish RemoveTag()")
+		case 5:
+			cblogger.Info("Start FindTag() ...")
+			resTypeStr := readLine("=== Enter resource type ===")
+			result := irs.RSTypeString(irs.RSType(resTypeStr))
+			if strings.Contains(result, "not supported") {
+				cblogger.Error(result)
+				break Loop
+			}
+			resType := inputToRSType(resTypeStr)
+			keyword := readLine("=== Enter keyword ===")
+
+			if tagKeyValue, err := tagHandler.FindTag(resType, keyword); err != nil {
+				cblogger.Error(err)
+			} else {
+				spew.Dump(tagKeyValue)
+			}
+			cblogger.Info("Finish FindTag()")
+		case 6:
+			cblogger.Info("Exit")
+			break Loop
 		}
 	}
 }
