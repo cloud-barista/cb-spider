@@ -1120,18 +1120,18 @@ func testMyImageHandler(config Config) {
 
 	testMyImageHandlerListPrint()
 	getimageIId := irs.IID{
-		NameId: "vm-defaultsize-sanp",
+		NameId: "mcb-test-myimage",
 	}
 	imageInfo := irs.MyImageInfo{
 		IId: irs.IID{
-			NameId: "winfire1back",
+			NameId: "mcb-test-myimage",
 		},
 		SourceVM: irs.IID{
-			NameId: "winfire1winfire1winfire1",
+			NameId: config.Openstack.Resources.Vm.IID.NameId,
 		},
 	}
 	delimageIId := irs.IID{
-		NameId: "vm-defaultsize-sanp",
+		NameId: "mcb-test-myimage",
 	}
 Loop:
 	for {

@@ -55,6 +55,7 @@ type OpenStackVMHandler struct {
 	NetworkClient  *gophercloud.ServiceClient
 	NLBClient      *gophercloud.ServiceClient
 	VolumeClient   *gophercloud.ServiceClient
+	ImageClient    *gophercloud.ServiceClient
 }
 
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm irs.VMInfo, createErr error) {
@@ -195,7 +196,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	var server servers.Server
 	// Public
 	if vmReqInfo.ImageType != irs.MyImage {
-		imageOSType, err := getOSTypeByImage(vmReqInfo.ImageIID, vmHandler.ComputeClient)
+		imageOSType, err := getOSTypeByImage(vmReqInfo.ImageIID, vmHandler.ImageClient)
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image os type, err : %s", err))
 			cblogger.Error(createErr.Error())
@@ -203,7 +204,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 		if imageOSType == irs.WINDOWS {
-			server, err = severCreatePublicImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			server, err = severCreatePublicImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ImageClient, vmHandler.ComputeClient)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
 				cblogger.Error(createErr.Error())
@@ -211,7 +212,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 				return irs.VMInfo{}, createErr
 			}
 		} else {
-			server, err = severCreatePublicImageLinuxOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			server, err = severCreatePublicImageLinuxOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ImageClient, vmHandler.ComputeClient)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
 				cblogger.Error(createErr.Error())
@@ -221,7 +222,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 	} else {
 		//MyImage
-		imageOSType, err := getOSTypeByMyImage(vmReqInfo.ImageIID, vmHandler.ComputeClient)
+		imageOSType, err := getOSTypeByMyImage(vmReqInfo.ImageIID, vmHandler.ImageClient)
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to startVM err = failed to get image os type, err : %s", err))
 			cblogger.Error(createErr.Error())
@@ -229,7 +230,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 		if imageOSType == irs.WINDOWS {
-			server, err = severCreateMyImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			server, err = severCreateMyImageWindowOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ImageClient, vmHandler.ComputeClient)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
 				cblogger.Error(createErr.Error())
@@ -237,7 +238,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 				return irs.VMInfo{}, createErr
 			}
 		} else {
-			server, err = severCreateMyImageLinuxOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ComputeClient)
+			server, err = severCreateMyImageLinuxOS(serverCreateOpts, vmReqInfo, vmHandler.VolumeClient, vmHandler.ImageClient, vmHandler.ComputeClient)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
 				cblogger.Error(createErr.Error())
@@ -720,7 +721,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			imageInfo := irs.IID{
 				NameId: value,
 			}
-			image, err := getRawImage(imageInfo, vmHandler.ComputeClient)
+			image, err := getRawImage(imageInfo, vmHandler.ImageClient)
 			if err == nil {
 				imageInfo.SystemId = image.ID
 			}
@@ -1056,8 +1057,8 @@ func getAllVolumeByServerAttachedVolume(attachedVolumes []servers.AttachedVolume
 	return volumeList, nil
 }
 
-func getOSTypeByImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (irs.Platform, error) {
-	image, err := getRawImage(imageIID, computeClient)
+func getOSTypeByImage(imageIID irs.IID, imageClient *gophercloud.ServiceClient) (irs.Platform, error) {
+	image, err := getRawImage(imageIID, imageClient)
 	if err != nil {
 		return "", err
 	}
@@ -1072,8 +1073,8 @@ func getOSTypeByImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient
 	return irs.LINUX_UNIX, nil
 }
 
-func getOSTypeByMyImage(imageIID irs.IID, computeClient *gophercloud.ServiceClient) (irs.Platform, error) {
-	image, err := getRawSnapshot(imageIID, computeClient)
+func getOSTypeByMyImage(imageIID irs.IID, imageClient *gophercloud.ServiceClient) (irs.Platform, error) {
+	image, err := getRawSnapshot(imageIID, imageClient)
 	if err != nil {
 		return "", err
 	}
@@ -1166,8 +1167,8 @@ func createBlockDeviceSet(imageUUID string, diskSize string) (servers.BlockDevic
 	}, nil
 }
 
-func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
-	image, err := getRawImage(vmReqInfo.ImageIID, computeClient)
+func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, imageClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
+	image, err := getRawImage(vmReqInfo.ImageIID, imageClient)
 	if err != nil {
 		return servers.Server{}, err
 	}
@@ -1239,12 +1240,12 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 
 }
 
-func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
+func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, imageClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
 	err := checkWindowVMReqInfo(vmReqInfo)
 	if err != nil {
 		return servers.Server{}, err
 	}
-	image, err := getRawImage(vmReqInfo.ImageIID, computeClient)
+	image, err := getRawImage(vmReqInfo.ImageIID, imageClient)
 	if err != nil {
 		return servers.Server{}, err
 	}
@@ -1305,12 +1306,12 @@ func severCreatePublicImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmRe
 	}
 }
 
-func severCreateMyImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, ComputeClient *gophercloud.ServiceClient) (servers.Server, error) {
+func severCreateMyImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, VolumeClient *gophercloud.ServiceClient, imageClient *gophercloud.ServiceClient, ComputeClient *gophercloud.ServiceClient) (servers.Server, error) {
 	err := checkWindowVMReqInfo(vmReqInfo)
 	if err != nil {
 		return servers.Server{}, err
 	}
-	image, err := getRawSnapshot(vmReqInfo.ImageIID, ComputeClient)
+	image, err := getRawSnapshot(vmReqInfo.ImageIID, imageClient)
 	if err != nil {
 		return servers.Server{}, err
 	}
@@ -1332,8 +1333,8 @@ func severCreateMyImageWindowOS(baseServerCreateOpt servers.CreateOpts, vmReqInf
 	return *server, err
 }
 
-func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, volumeClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
-	image, err := getRawSnapshot(vmReqInfo.ImageIID, computeClient)
+func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo irs.VMReqInfo, volumeClient *gophercloud.ServiceClient, imageClient *gophercloud.ServiceClient, computeClient *gophercloud.ServiceClient) (servers.Server, error) {
+	image, err := getRawSnapshot(vmReqInfo.ImageIID, imageClient)
 	if err != nil {
 		return servers.Server{}, errors.New(fmt.Sprintf("failed to get image, err : %s", err))
 	}

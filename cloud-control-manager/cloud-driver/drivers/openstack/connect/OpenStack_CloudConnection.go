@@ -89,6 +89,7 @@ func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, err
 		NetworkClient:  cloudConn.NetworkClient,
 		NLBClient:      cloudConn.NLBClient,
 		VolumeClient:   cloudConn.Volume3Client,
+		ImageClient:    cloudConn.ImageClient,
 	}
 	if vmHandler.VolumeClient == nil {
 		vmHandler.VolumeClient = cloudConn.Volume2Client
