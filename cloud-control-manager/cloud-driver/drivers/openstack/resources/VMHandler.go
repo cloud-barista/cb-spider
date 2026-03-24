@@ -275,7 +275,29 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
-		if strings.ToLower(serverResult.Status) == "active" {
+
+		currentStatus := strings.ToLower(serverResult.Status)
+
+		// Log status periodically (every 10 retries = ~10 seconds)
+		if curRetryCnt%10 == 0 {
+			cblogger.Info(fmt.Sprintf("Waiting for VM %s to become active, current status: %s (retry %d/%d)",
+				server.ID, serverResult.Status, curRetryCnt, maxRetryCnt))
+		}
+
+		// Early exit on error status — capture Nova fault details
+		if currentStatus == "error" {
+			faultMsg := fmt.Sprintf("VM entered ERROR state (status: %s)", serverResult.Status)
+			if serverResult.Fault.Message != "" {
+				faultMsg = fmt.Sprintf("VM entered ERROR state: [code=%d] %s (details: %s)",
+					serverResult.Fault.Code, serverResult.Fault.Message, serverResult.Fault.Details)
+			}
+			createErr = errors.New(fmt.Sprintf("Failed to start VM: %s", faultMsg))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
+		if currentStatus == "active" {
 			// Floating IP 연결 시도
 			ok, ipStr, err := vmHandler.AssociatePublicIP(serverResult.ID)
 			if !ok {
@@ -292,7 +314,8 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		curRetryCnt++
 		time.Sleep(1 * time.Second)
 		if curRetryCnt > maxRetryCnt {
-			createErr = errors.New(fmt.Sprintf("failed to start vm, exceeded maximum retry count %d", maxRetryCnt))
+			createErr = errors.New(fmt.Sprintf("failed to start vm, exceeded maximum retry count %d (last status: %s)",
+				maxRetryCnt, serverResult.Status))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
