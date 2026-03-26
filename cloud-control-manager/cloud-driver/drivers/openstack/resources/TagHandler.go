@@ -27,6 +27,15 @@ type OpenStackTagHandler struct {
 	NLBClient      *gophercloud.ServiceClient
 }
 
+var errNLBNotAvailable = errors.New("NLB(Octavia) service is not available in this OpenStack. Please check if LoadBalancer is installed")
+
+func (tagHandler *OpenStackTagHandler) checkNLBClient() error {
+	if tagHandler.NLBClient == nil {
+		return errNLBNotAvailable
+	}
+	return nil
+}
+
 func tagToKeyValueString(tag irs.KeyValue) (string, error) {
 	if tag.Key == "" {
 		return "", errors.New("tag key is empty")
@@ -106,6 +115,9 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 		}
 		return "", errors.New("security group not found")
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return "", err
+		}
 		pager, err := loadbalancers.List(tagHandler.NLBClient, loadbalancers.ListOpts{
 			ProjectID: tagHandler.CredentialInfo.ProjectID,
 			Name:      resIID.NameId,
@@ -164,6 +176,9 @@ func handleAddTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID ir
 	case irs.SUBNET:
 		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return err
+		}
 		var keyValues []irs.KeyValue
 		keyValues, err = handleListTag(tagHandler, resType, resIID)
 		if err != nil {
@@ -211,6 +226,9 @@ func handleListTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID i
 	case irs.SUBNET:
 		tagStrings, err = networkTags.List(context.TODO(), tagHandler.NetworkClient, "subnets", systemId).Extract()
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return nil, err
+		}
 		nlb, err := loadbalancers.Get(context.TODO(), tagHandler.NLBClient, systemId).Extract()
 		if err != nil {
 			return nil, fmt.Errorf("Failed to list tags for "+string(resType)+" ("+systemId+") : %v\n", err)
@@ -258,6 +276,9 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 	case irs.SUBNET:
 		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return err
+		}
 		nlb, err := loadbalancers.Get(context.TODO(), tagHandler.NLBClient, systemId).Extract()
 		if err != nil {
 			return fmt.Errorf("Failed to remove tag from "+string(resType)+" ("+systemId+") : %v\n", err)
@@ -520,29 +541,36 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 
 		fallthrough
 	case irs.NLB:
-		pager, err := loadbalancers.List(tagHandler.NLBClient, nil).AllPages(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-		nlbs, err := loadbalancers.ExtractLoadBalancers(pager)
-		if err != nil {
-			return nil, err
-		}
-		for _, nlb := range nlbs {
-			for _, tag := range nlb.Tags {
-				tagInfo := getTagInfo(irs.NLB, nlb.Name, nlb.ID, tag, nlb.Tags, keyword)
-				if tagInfo != nil {
-					tagInfos = append(tagInfos, tagInfo)
-					break
+		if tagHandler.NLBClient == nil {
+			if resType == irs.NLB {
+				return nil, errNLBNotAvailable
+			}
+			// For irs.ALL, skip NLB if service is not available
+		} else {
+			pager, err := loadbalancers.List(tagHandler.NLBClient, nil).AllPages(context.TODO())
+			if err != nil {
+				return nil, err
+			}
+			nlbs, err := loadbalancers.ExtractLoadBalancers(pager)
+			if err != nil {
+				return nil, err
+			}
+			for _, nlb := range nlbs {
+				for _, tag := range nlb.Tags {
+					tagInfo := getTagInfo(irs.NLB, nlb.Name, nlb.ID, tag, nlb.Tags, keyword)
+					if tagInfo != nil {
+						tagInfos = append(tagInfos, tagInfo)
+						break
+					}
 				}
 			}
-		}
 
-		if resType != irs.ALL {
-			if len(tagInfos) > 0 {
-				return tagInfos, nil
+			if resType != irs.ALL {
+				if len(tagInfos) > 0 {
+					return tagInfos, nil
+				}
+				return nil, errors.New("keyword not found for nlb")
 			}
-			return nil, errors.New("keyword not found for nlb")
 		}
 
 		fallthrough

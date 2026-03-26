@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"net/http"
 
+	cblog "github.com/cloud-barista/cb-log"
 	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -23,7 +24,14 @@ import (
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/sirupsen/logrus"
 )
+
+var cblogger *logrus.Logger
+
+func init() {
+	cblogger = cblog.GetLogger("CB-SPIDER")
+}
 
 type OpenStackDriver struct{}
 
@@ -138,7 +146,8 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
-		return nil, err
+		cblogger.Warnf("Failed to initialize NLB(Octavia) client. NLB features will be unavailable: %v", err)
+		iConn.NLBClient = nil
 	}
 
 	iConn.Volume3Client, err = openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
@@ -175,7 +184,8 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
-		return nil, err
+		cblogger.Warnf("Failed to initialize SharedFileSystem(Manila) client. FileSystem features will be unavailable: %v", err)
+		iConn.SharedFileSystemClient = nil
 	}
 
 	return &iConn, nil

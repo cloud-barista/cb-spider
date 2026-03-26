@@ -196,6 +196,10 @@ func (cloudConn *OpenStackCloudConnection) CreateTagHandler() (irs.TagHandler, e
 func (cloudConn *OpenStackCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
 	cblogger.Info("OpenStack Driver: called CreateFileSystemHandler()!")
 
+	if cloudConn.SharedFileSystemClient == nil {
+		return nil, errors.New("this OpenStack does not provide SharedFileSystem(Manila) service. Please check if Manila is installed")
+	}
+
 	fileSystemHandler := osrs.OpenstackFileSystemHandler{
 		Region:                 cloudConn.Region,
 		CredentialInfo:         cloudConn.CredentialInfo,
