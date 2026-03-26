@@ -363,9 +363,11 @@ func (vpcHandler *OpenStackVPCHandler) CreateRouter(vpcName string) (*string, er
 	externVPCId, _ := GetPublicVPCInfo(vpcHandler.NetworkClient, "ID")
 	routerName := vpcName
 	AdminStateUp := true
+	distributed := false
 	createOpts := routers.CreateOpts{
 		Name:         routerName,
 		AdminStateUp: &AdminStateUp,
+		Distributed:  &distributed,
 		GatewayInfo: &routers.GatewayInfo{
 			NetworkID: externVPCId,
 		},
