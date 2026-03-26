@@ -2,7 +2,10 @@ module github.com/cloud-barista/cb-spider
 
 go 1.25.0
 
-replace github.com/alibabacloud-go/ecs-20140526/v4 => github.com/alibabacloud-go/ecs-20140526/v4 v4.0.1
+replace (
+	github.com/alibabacloud-go/ecs-20140526/v4 => github.com/alibabacloud-go/ecs-20140526/v4 v4.0.1
+	github.com/cloud-barista/nhncloud-sdk-go => /home/ish/go/src/cloud-migrator/nhncloud-sdk-go
+)
 
 require (
 	github.com/IBM/go-sdk-core/v5 v5.19.0

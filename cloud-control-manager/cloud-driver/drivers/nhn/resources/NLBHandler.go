@@ -41,11 +41,14 @@ type NhnCloudNLBHandler struct {
 	NetworkClient *nhnsdk.ServiceClient
 }
 
+var (
+	defaultWeight       = 1
+	defaultAdminStateUp = true
+)
+
 const (
-	PublicType          string = "shared"
-	InternalType        string = "dedicated"
-	DefaultWeight       int    = 1
-	DefaultAdminStateUp bool   = true
+	PublicType   string = "shared"
+	InternalType string = "dedicated"
 
 	// NHN Cloud default value for Listener and Health Monitor
 	DefaultConnectionLimit        int = 2000 // NHN Cloud Listener ConnectionLimit range : 1 ~ 60000 (Dedicated LB : 1 ~ 480000)
@@ -195,7 +198,7 @@ func (nlbHandler *NhnCloudNLBHandler) createLoadBalancer(nlbReqInfo irs.NLBInfo)
 
 	createOpts := loadbalancers.CreateOpts{
 		Name:         nlbReqInfo.IId.NameId,
-		AdminStateUp: DefaultAdminStateUp,
+		AdminStateUp: &defaultAdminStateUp,
 		VipSubnetID:  subnetID,
 		// VipAddress:   networkID,  // ❌ 제거
 	}
@@ -414,7 +417,7 @@ func (nlbHandler *NhnCloudNLBHandler) createListener(nlbID string, nlbReqInfo ir
 		LoadbalancerID:   nlbID,
 		Protocol:         protocol,
 		ProtocolPort:     portNum,
-		AdminStateUp:     DefaultAdminStateUp,
+		AdminStateUp:     &defaultAdminStateUp,
 		ConnLimit:        DefaultConnectionLimit,
 		KeepAliveTimeout: DefaultKeepAliveTimeout,
 	}
@@ -1183,8 +1186,8 @@ func (nlbHandler *NhnCloudNLBHandler) attachPoolMembers(vmIIDs []irs.IID, port s
 			SubnetID:     subnetID,
 			Address:      privateIP,
 			ProtocolPort: portNum,
-			Weight:       DefaultWeight,
-			AdminStateUp: DefaultAdminStateUp,
+			Weight:       &defaultWeight,
+			AdminStateUp: defaultAdminStateUp,
 		}
 
 		member, err := pools.CreateMember(nlbHandler.NetworkClient, poolID, createOpts).Extract()
