@@ -373,10 +373,15 @@ func (vpcHandler *OpenStackVPCHandler) CreateRouter(vpcName string) (*string, er
 		},
 	}
 
-	// Create Router
+	// Create Router with centralized mode (distributed=false) for VPNaaS compatibility.
+	// If the OpenStack environment does not support the 'distributed' attribute, retry without it.
 	router, err := routers.Create(context.TODO(), vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
-		return nil, err
+		createOpts.Distributed = nil
+		router, err = routers.Create(context.TODO(), vpcHandler.NetworkClient, createOpts).Extract()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &router.ID, nil
 }
