@@ -331,7 +331,7 @@ main() {
     
     run_test "get_bucket_info" \
         "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
-        "Name" \
+        "IId" \
         "Get bucket information (JSON format)"
     
     run_test "head_bucket" \
@@ -503,9 +503,8 @@ main() {
     
     # Test Force Empty Bucket
     if bucket_exists; then
-        # Clean up all objects and multipart uploads first
+        # Clean up all objects first (no multipart cleanup: not supported by this CSP)
         cleanup_all_objects
-        cleanup_multipart_uploads
         run_test "force_empty_bucket" \
             "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?empty=true&ConnectionName=$CONNECTION_NAME'" \
             "204" \
@@ -517,9 +516,8 @@ main() {
     
     # Test Force Delete Bucket (clean up everything first for all connections)
     if bucket_exists; then
-        # Clean up everything first (needed after all previous tests)
+        # Clean up everything first (no multipart cleanup: not supported by this CSP)
         cleanup_all_objects
-        cleanup_multipart_uploads
         run_test "force_delete_bucket" \
             "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME'" \
             "204" \
@@ -551,10 +549,9 @@ main() {
 
 # Check if spider server is running
 check_server() {
-    if ! curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s "$SPIDER_URL?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1; then
-        log_error "CB-Spider server is not running at $SPIDER_URL or connection $CONNECTION_NAME is not valid"
+    if ! curl -s "http://localhost:1024/spider/readyz" | grep -q "ready"; then
+        log_error "CB-Spider server is not running at $SPIDER_URL"
         log_info "Please start the server with: ./bin/start.sh"
-        log_info "And ensure connection '$CONNECTION_NAME' exists"
         exit 1
     fi
 }

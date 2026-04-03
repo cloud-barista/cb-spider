@@ -546,6 +546,7 @@ func getRoutes() []route {
 
 		//----------S3 API Handler - Order matters! More specific routes should come first
 		{"GET", "/s3", ListS3Buckets},
+		{"GET", "/s3/", ListS3Buckets},
 
 		// PreSigned URL API (must be before other /s3/* routes)
 		{"GET", "/s3/presigned/download/:BucketName/:ObjectKey+", GetS3PresignedURLHandler},
@@ -737,8 +738,8 @@ func ApiServer(routes []route) {
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	// Remove trailing slash middleware
-	e.Pre(middleware.RemoveTrailingSlash())
+	// Remove trailing slash middleware (skips S3 API paths — trailing slash is significant for AWS4 signing)
+	e.Pre(customRemoveTrailingSlash())
 
 	// Custom logging for S3 API requests
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -811,6 +812,47 @@ func ApiServer(routes []route) {
 			auth := c.Request().Header.Get(echo.HeaderAuthorization)
 			if auth == "" {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+			}
+			// S3 API paths use AWS4-HMAC-SHA256 authentication (S3-compatible)
+			if strings.HasPrefix(reqPath, "/spider/s3") && strings.HasPrefix(auth, "AWS4-HMAC-SHA256") {
+				// JSON format requests: no signature verification (CB-Spider internal clients)
+				accept := c.Request().Header.Get("Accept")
+				// application/xml in Accept takes priority over application/json
+				isJSON := !strings.Contains(accept, "application/xml") &&
+					(strings.Contains(accept, "application/json") ||
+						strings.ToLower(c.QueryParam("format")) == "json")
+				if isJSON {
+					return next(c)
+				}
+				// XML (S3-compatible) format: require full AWS4 signature
+				s3authForbidden := func(code, msg string) error {
+					c.Response().Header().Set("Content-Type", "application/xml; charset=utf-8")
+					return c.String(http.StatusForbidden,
+						`<?xml version="1.0" encoding="UTF-8"?><Error><Code>`+code+`</Code><Message>`+msg+`</Message></Error>`)
+				}
+				if !isFullAWS4Auth(auth) {
+					cblog.Warnf("S3 AWS4 incomplete signature rejected [%s %s]", c.Request().Method, reqPath)
+					return s3authForbidden("InvalidAccessKeyId", "The Access Key Id you provided does not exist.")
+				}
+				info, err := parseAWS4AuthInfo(auth)
+				if err != nil {
+					cblog.Warnf("S3 AWS4 auth parse failed [%s %s]: %v", c.Request().Method, reqPath, err)
+					return s3authForbidden("InvalidAccessKeyId", "Unable to parse Authorization header.")
+				}
+				username, _ := splitAccessKey(info.AccessKey)
+				// Always verify username: access key must be in "username@connectionName" format
+				if subtle.ConstantTimeCompare([]byte(username), []byte(SPIDER_USERNAME)) != 1 {
+					cblog.Warnf("S3 AWS4 username mismatch [%s %s]: got %q", c.Request().Method, reqPath, username)
+					return s3authForbidden("InvalidAccessKeyId", "The Access Key Id you provided does not exist.")
+				}
+				// Verify AWS4 signature using SPIDER_PASSWORD as the secret key
+				if err := verifyAWS4Signature(c.Request(), auth, SPIDER_PASSWORD); err != nil {
+					cblog.Warnf("S3 AWS4 signature mismatch [%s %s]: %v", c.Request().Method, reqPath, err)
+					return s3authForbidden("SignatureDoesNotMatch",
+						"The request signature we calculated does not match the signature you provided. "+
+							"Check your Secret Access Key and signing method.")
+				}
+				return next(c)
 			}
 			const prefix = "Basic "
 			if !strings.HasPrefix(auth, prefix) {
@@ -1010,7 +1052,21 @@ func customRemoveTrailingSlash() echo.MiddlewareFunc {
 			url := req.URL
 			path := url.Path
 
+			// Skip Swagger UI paths — Swagger UI requires trailing slash for proper redirect.
 			if strings.HasPrefix(path, "/spider/api") {
+				return next(c)
+			}
+
+			// For S3 API paths: strip trailing slash for router matching, but preserve the
+			// original path in a header so AWS4 signature verification can use the exact path
+			// the client signed (clients like S3 Browser always include the trailing slash).
+			// Exception: /spider/s3/ is the ListBuckets root — keep its trailing slash so it
+			// matches the dedicated GET /s3/ route.
+			if strings.HasPrefix(path, "/spider/s3") {
+				if path != "/spider/s3/" && strings.HasSuffix(path, "/") {
+					req.Header.Set("X-Spider-S3-Signing-Path", path)
+					url.Path = strings.TrimSuffix(path, "/")
+				}
 				return next(c)
 			}
 
