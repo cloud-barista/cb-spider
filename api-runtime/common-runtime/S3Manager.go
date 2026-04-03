@@ -405,6 +405,13 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 	return nil, fmt.Errorf("S3 Bucket '%s' created, but info not found", bucketName)
 }
 
+// S3BucketWithIID represents a bucket with IID (NameId/SystemId) information
+type S3BucketWithIID struct {
+	NameId       string
+	SystemId     string
+	CreationDate time.Time
+}
+
 func ListS3Buckets(connectionName string) ([]*minio.BucketInfo, error) {
 	cblog.Info("call ListS3Buckets()")
 
@@ -455,6 +462,60 @@ func ListS3Buckets(connectionName string) ([]*minio.BucketInfo, error) {
 				CreationDate: time.Time{}, // Zero value for metadata-only bucket
 			}
 			out = append(out, &bucketInfo)
+		}
+	}
+	return out, nil
+}
+
+// ListS3BucketsWithIID returns bucket list with IID (NameId/SystemId) information
+func ListS3BucketsWithIID(connectionName string) ([]*S3BucketWithIID, error) {
+	cblog.Info("call ListS3BucketsWithIID()")
+
+	var iidInfoList []*S3BucketIIDInfo
+	err := infostore.ListByCondition(&iidInfoList, "connection_name", connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	if iidInfoList == nil || len(iidInfoList) <= 0 {
+		return []*S3BucketWithIID{}, nil
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	allBuckets, err := client.ListBuckets(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []*S3BucketWithIID
+	for _, iid := range iidInfoList {
+		found := false
+		for _, b := range allBuckets {
+			if b.Name == iid.SystemId {
+				out = append(out, &S3BucketWithIID{
+					NameId:       iid.NameId,
+					SystemId:     iid.SystemId,
+					CreationDate: b.CreationDate,
+				})
+				found = true
+				break
+			}
+		}
+		if !found {
+			cblog.Warnf("Bucket '%s' (SystemId: %s) exists in metadata but not found in CSP", iid.NameId, iid.SystemId)
+			out = append(out, &S3BucketWithIID{
+				NameId:       iid.NameId,
+				SystemId:     iid.SystemId,
+				CreationDate: time.Time{},
+			})
 		}
 	}
 	return out, nil
@@ -2974,25 +3035,56 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 		cblog.Infof("No incomplete multipart uploads found")
 	}
 
-	// Step 1: List all object versions and delete markers
-	cblog.Infof("Step 1: Listing all object versions and delete markers in bucket %s", bucketName)
+	// Step 1: List all object versions and delete markers.
+	// Some CSPs (e.g. OpenStack Swift) do not support ?versions listing; fall back to plain listing.
+	cblog.Infof("Step 1: Listing objects in bucket %s (provider: %s)", bucketName, connInfo.ProviderName)
 
-	opts := minio.ListObjectsOptions{
+	supportsVersioning := true
+	var allObjects []minio.ObjectInfo
+
+	// Use a child context so we can cancel the versioned-listing channel cleanly on failure.
+	vListCtx, vListCancel := context.WithCancel(ctx)
+	for obj := range client.ListObjects(vListCtx, iidInfo.SystemId, minio.ListObjectsOptions{
 		Recursive:    true,
 		WithVersions: true,
-	}
-
-	var allObjects []minio.ObjectInfo
-	for obj := range client.ListObjects(ctx, iidInfo.SystemId, opts) {
+	}) {
 		if obj.Err != nil {
-			cblog.Errorf("Error listing object: %v", obj.Err)
-			// Check for timeout
 			if ctx.Err() == context.DeadlineExceeded {
-				return false, fmt.Errorf("force empty operation timed out while listing objects (provider: %s may have network issues)", connInfo.ProviderName)
+				vListCancel()
+				return false, fmt.Errorf("force empty operation timed out while listing objects (provider: %s)", connInfo.ProviderName)
 			}
-			continue
+			cblog.Warnf("Versioned listing failed (provider %s may not support versioning), retrying without versions: %v",
+				connInfo.ProviderName, obj.Err)
+			supportsVersioning = false
+			vListCancel() // stop the listing goroutine
+			break
 		}
 		allObjects = append(allObjects, obj)
+	}
+	vListCancel()
+
+	// Retry without versioning if the versioned listing failed.
+	if !supportsVersioning {
+		allObjects = nil
+		cblog.Infof("Retrying object listing without versioning for provider %s", connInfo.ProviderName)
+		for obj := range client.ListObjects(ctx, iidInfo.SystemId, minio.ListObjectsOptions{
+			Recursive: true,
+		}) {
+			if obj.Err != nil {
+				cblog.Errorf("Error listing object: %v", obj.Err)
+				if ctx.Err() == context.DeadlineExceeded {
+					return false, fmt.Errorf("force empty operation timed out while listing objects (provider: %s)", connInfo.ProviderName)
+				}
+				continue
+			}
+			allObjects = append(allObjects, obj)
+		}
+	}
+
+	// opts is used in subsequent listing steps; WithVersions mirrors the result above.
+	opts := minio.ListObjectsOptions{
+		Recursive:    true,
+		WithVersions: supportsVersioning,
 	}
 
 	cblog.Infof("Found %d total items (objects and delete markers) to delete", len(allObjects))

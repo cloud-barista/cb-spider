@@ -7660,11 +7660,9 @@ const docTemplate = `{
             "get": {
                 "description": "Returns a list of all buckets owned by the authenticated sender of the request. To list buckets, you must have the ConnectionName parameter.",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -7685,7 +7683,7 @@ const docTemplate = `{
                     "200": {
                         "description": "List of buckets",
                         "schema": {
-                            "$ref": "#/definitions/spider.ListAllMyBucketsResult"
+                            "$ref": "#/definitions/spider.ListAllMyBucketsResultJSON"
                         }
                     },
                     "400": {
@@ -7707,11 +7705,9 @@ const docTemplate = `{
             "get": {
                 "description": "Generates a presigned URL that can be used to download an object from S3 without requiring AWS credentials. This is a CB-Spider special feature.",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -7764,7 +7760,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Presigned URL for download",
                         "schema": {
-                            "$ref": "#/definitions/spider.S3PresignedURLXML"
+                            "$ref": "#/definitions/spider.S3PresignedURL"
                         }
                     },
                     "404": {
@@ -7786,11 +7782,9 @@ const docTemplate = `{
             "get": {
                 "description": "Generates a presigned URL that can be used to upload an object to S3 without requiring AWS credentials. This is a CB-Spider special feature.",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -7831,7 +7825,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Presigned URL for upload",
                         "schema": {
-                            "$ref": "#/definitions/spider.S3PresignedURLXML"
+                            "$ref": "#/definitions/spider.S3PresignedURLUpload"
                         }
                     },
                     "404": {
@@ -7851,13 +7845,11 @@ const docTemplate = `{
         },
         "/s3/{BucketName}": {
             "get": {
-                "description": "List objects in bucket or get bucket configuration based on query parameters. Query parameters: ?location (bucket location), ?versioning (versioning status), ?cors (CORS config), ?versions (object versions), ?uploads (multipart uploads). Without query params, lists objects in bucket.",
+                "description": "List objects in bucket or get bucket configuration. **Response type varies by query parameter:**\n\n| Query Parameter | Response Schema | Description |\n|---|---|---|\n| *(none)* | ` + "`" + `ListBucketResultJSON` + "`" + ` | List objects in bucket (default) |\n| ` + "`" + `?location` + "`" + ` | ` + "`" + `{\"LocationConstraint\": \"ap-northeast-2\"}` + "`" + ` | Bucket region/location |\n| ` + "`" + `?versioning` + "`" + ` | ` + "`" + `VersioningConfiguration` + "`" + ` | Versioning status: Enabled / Suspended / \"\" |\n| ` + "`" + `?cors` + "`" + ` | ` + "`" + `CORSConfiguration` + "`" + ` | CORS configuration rules |\n| ` + "`" + `?versions` + "`" + ` | ` + "`" + `ListVersionsResultJSON` + "`" + ` | Object version history |\n| ` + "`" + `?uploads` + "`" + ` | ` + "`" + `ListMultipartUploadsResultJSON` + "`" + ` | In-progress multipart uploads |\n\n**Note**: The example value below shows the default (no query params) ` + "`" + `ListBucketResultJSON` + "`" + ` response.",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -7882,40 +7874,40 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Get bucket location",
+                        "description": "Get bucket location. Returns: LocationConstraint object (e.g. ap-northeast-2)",
                         "name": "location",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Get versioning status",
+                        "description": "Get versioning status. Returns: VersioningConfiguration",
                         "name": "versioning",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Get CORS configuration",
+                        "description": "Get CORS configuration. Returns: CORSConfiguration",
                         "name": "cors",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "List object versions",
+                        "description": "List object versions. Returns: ListVersionsResultJSON",
                         "name": "versions",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "List multipart uploads",
+                        "description": "List multipart uploads. Returns: ListMultipartUploadsResultJSON",
                         "name": "uploads",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Bucket information or object list",
+                        "description": "Default response (no query params): object list. See description table for other query param responses.",
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/spider.ListBucketResultJSON"
                         }
                     },
                     "404": {
@@ -7935,11 +7927,9 @@ const docTemplate = `{
             "put": {
                 "description": "Creates a new S3 bucket or sets bucket configuration based on query parameters.\n\n**Operations:**\n- No query params: Create a new bucket\n- ?versioning: Set versioning configuration (Enable/Suspend)\n- ?cors: Set CORS configuration\n\n**IMPORTANT: Choose only ONE body configuration based on query parameter:**\n- If using ?versioning: Use VersioningConfiguration body\n- If using ?cors: Use CORSConfiguration body\n- If no query params: No body required (bucket creation)\n\n**Versioning Status Values:**\n- Enabled: Enable versioning for the bucket\n- Suspended: Suspend versioning for the bucket\n\n**CORS Configuration Example:**\n- AllowedOrigin: [\"*\"] or [\"https://example.com\"]\n- AllowedMethod: [\"GET\", \"PUT\", \"POST\", \"DELETE\", \"HEAD\"]\n- AllowedHeader: [\"*\"] or [\"Content-Type\", \"Authorization\"]\n- ExposeHeader: [\"ETag\", \"x-amz-request-id\"]\n- MaxAgeSeconds: 3600 (cache preflight response for 1 hour)",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8016,14 +8006,12 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Uploads a file using HTML form (multipart/form-data) or deletes multiple objects based on query parameters.\n\n**Operations:**\n- No query params: Upload object via form (requires 'key' and 'file' fields, Content-Type: multipart/form-data)\n- ?delete: Delete multiple objects (requires XML/JSON body, Content-Type: application/xml or application/json)\n\n**XML Body Example for Delete Multiple Objects:**\n` + "`" + `` + "`" + `` + "`" + `xml\n\u003cDelete\u003e\n\u003cObject\u003e\n\u003cKey\u003efile1.txt\u003c/Key\u003e\n\u003c/Object\u003e\n\u003cObject\u003e\n\u003cKey\u003efile2.txt\u003c/Key\u003e\n\u003c/Object\u003e\n\u003cObject\u003e\n\u003cKey\u003efolder/file3.txt\u003c/Key\u003e\n\u003c/Object\u003e\n\u003c/Delete\u003e\n` + "`" + `` + "`" + `` + "`" + `\n\n**JSON Body Example for Delete Multiple Objects:**\n` + "`" + `` + "`" + `` + "`" + `json\n{\n\"Delete\": {\n\"Objects\": [\n{\"Key\": \"file1.txt\"},\n{\"Key\": \"file2.txt\"},\n{\"Key\": \"folder/file3.txt\"}\n]\n}\n}\n` + "`" + `` + "`" + `` + "`" + `",
+                "description": "Uploads a file using HTML form (multipart/form-data) or deletes multiple objects based on query parameters.\n\n**Operations:**\n- No query params: Upload object via form (requires 'key' and 'file' fields, Content-Type: multipart/form-data)\n- ?delete: Delete multiple objects (requires JSON body, Content-Type: application/json)\n\n**JSON Body Example for Delete Multiple Objects:**\n` + "`" + `` + "`" + `` + "`" + `json\n{\n\"Delete\": {\n\"Objects\": [\n{\"Key\": \"file1.txt\"},\n{\"Key\": \"file2.txt\"},\n{\"Key\": \"folder/file3.txt\"}\n]\n}\n}\n` + "`" + `` + "`" + `` + "`" + `",
                 "consumes": [
                     "multipart/form-data",
-                    "application/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8053,7 +8041,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "XML/JSON body for delete operation (only when ?delete is specified)",
+                        "description": "JSON body for delete operation (only when ?delete is specified)",
                         "name": "body",
                         "in": "body",
                         "schema": {
@@ -8103,11 +8091,9 @@ const docTemplate = `{
             "delete": {
                 "description": "Deletes an S3 bucket or specific bucket configuration based on query parameters.\n\n**Operations:**\n- No query params: Delete bucket (must be empty)\n- ?cors: Delete CORS configuration\n- ?empty: Force empty bucket (removes all objects)\n- ?force: Force delete bucket with all contents",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8147,18 +8133,6 @@ const docTemplate = `{
                         "description": "Force delete bucket with all contents",
                         "name": "force",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Safety header for force empty (required with ?empty)",
-                        "name": "X-Force-Empty",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Safety header for force delete (required with ?force)",
-                        "name": "X-Force-Delete",
-                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8197,11 +8171,9 @@ const docTemplate = `{
             "head": {
                 "description": "Check if a bucket exists using HEAD request. Returns 200 if exists, 404 if not found.",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8240,13 +8212,11 @@ const docTemplate = `{
         },
         "/s3/{BucketName}/usage": {
             "get": {
-                "description": "Returns the total size (in bytes) of all objects stored in an S3 bucket.\n\n**Response Format:**\n- Supports both XML and JSON formats based on Accept header\n- Default: XML format\n- JSON: Set Accept header to \"application/json\"\n\n**Response Fields:**\n- CurrentSize: Size of current (latest) objects in bytes\n- DeletedVersionsSize: Size of non-current versions in bytes\n- TotalSize: Total bucket size (CurrentSize + DeletedVersionsSize)\n\n**XML Response Example:**\n` + "`" + `` + "`" + `` + "`" + `xml\n\u003c?xml version=\"1.0\" encoding=\"UTF-8\"?\u003e\n\u003cBucketUsage\u003e\n\u003cBucketName\u003emy-bucket\u003c/BucketName\u003e\n\u003cCurrentSize\u003e524288\u003c/CurrentSize\u003e\n\u003cDeletedVersionsSize\u003e524288\u003c/DeletedVersionsSize\u003e\n\u003cTotalSize\u003e1048576\u003c/TotalSize\u003e\n\u003c/BucketUsage\u003e\n` + "`" + `` + "`" + `` + "`" + `\n\n**JSON Response Example:**\n` + "`" + `` + "`" + `` + "`" + `json\n{\n\"BucketName\": \"my-bucket\",\n\"CurrentSize\": 524288,\n\"DeletedVersionsSize\": 524288,\n\"TotalSize\": 1048576\n}\n` + "`" + `` + "`" + `` + "`" + `",
+                "description": "Returns the total size (in bytes) of all objects stored in an S3 bucket.\n\n**Response Fields:**\n- CurrentSize: Size of current (latest) objects in bytes\n- DeletedVersionsSize: Size of non-current versions in bytes\n- TotalSize: Total bucket size (CurrentSize + DeletedVersionsSize)",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8274,7 +8244,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Bucket usage information",
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/spider.BucketUsageJSON"
                         }
                     },
                     "404": {
@@ -8294,14 +8264,12 @@ const docTemplate = `{
         },
         "/s3/{BucketName}/{ObjectKey}": {
             "get": {
-                "description": "Downloads an object from S3 or lists parts of a multipart upload based on query parameters.\n\n**Operations:**\n- No query params: Download object\n- ?versionId={id}: Download specific version of object\n- ?uploadId={id}\u0026list-type=parts: List parts of multipart upload\n\n**List Parts Example (verify uploaded parts):**\n- uploadId: Use UploadId from initiate response\n- list-type: Must be \"parts\"\n- Response shows all uploaded parts with PartNumber, ETag, Size\n- Optional: part-number-marker (pagination), max-parts (limit)",
+                "description": "Downloads an object from S3 or lists parts of a multipart upload. **Response type varies by query parameter:**\n\n| Query Parameter | Response | Description |\n|---|---|---|\n| *(none)* | ` + "`" + `application/octet-stream` + "`" + ` (binary) | Download object content |\n| ` + "`" + `?versionId={id}` + "`" + ` | ` + "`" + `application/octet-stream` + "`" + ` (binary) | Download specific object version |\n| ` + "`" + `?uploadId={id}\u0026list-type=parts` + "`" + ` | ` + "`" + `ListPartsResultJSON` + "`" + ` | List parts of in-progress multipart upload |\n\n**Note**: The example value below shows the ` + "`" + `?uploadId\u0026list-type=parts` + "`" + ` (list parts JSON) response.\nFor binary downloads, the response body is the raw file content.\n\n**List Parts Example (verify uploaded parts):**\n- uploadId: Use UploadId from initiate response\n- list-type: Must be \"parts\"\n- Response shows all uploaded parts with PartNumber, ETag, Size\n- Optional: part-number-marker (pagination), max-parts (limit)",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
                     "application/octet-stream",
-                    "application/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8333,13 +8301,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Version ID for versioned object",
+                        "description": "Version ID for versioned object (binary download)",
                         "name": "versionId",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Upload ID for listing parts",
+                        "description": "Upload ID for listing parts (use with list-type=parts). Returns: ListPartsResultJSON",
                         "name": "uploadId",
                         "in": "query"
                     },
@@ -8352,7 +8320,10 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Object content or parts list"
+                        "description": "?uploadId\u0026list-type=parts → ListPartsResultJSON. No params / ?versionId → binary file download (application/octet-stream). See description table.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListPartsResultJSON"
+                        }
                     },
                     "404": {
                         "description": "Object not found",
@@ -8374,7 +8345,6 @@ const docTemplate = `{
                     "application/octet-stream"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8451,13 +8421,11 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Object-level POST operations: (1) Initiate multipart upload with ?uploads, (2) Complete multipart upload with ?uploadId\n\n**Multipart Upload Testing Guide (Swagger UI):**\n\n**Step 1: Initiate Multipart Upload**\n- Use POST /s3/{BucketName}/{ObjectKey}?uploads\n- Set ConnectionName, BucketName, ObjectKey (e.g., \"testfile.bin\")\n- Response will contain UploadId (save this!)\n\n**Step 2: Upload Parts**\n- Use PUT /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\u0026partNumber=1\n- In request body, upload file part (binary data)\n- Response header contains ETag (save this!)\n- Repeat for part 2, 3, etc. with partNumber=2, 3...\n\n**Step 3: List Parts (Optional)**\n- Use GET /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\u0026list-type=parts\n- Verify all uploaded parts\n\n**Step 4: Complete Upload**\n- Use POST /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\n- IMPORTANT: Enter uploadId in query parameter field (not in the parameter table below)\n- Body XML (required): Provide XML with all uploaded parts\n- Note: ETag values must include double quotes, e.g., \"abc123\" not abc123\n\n**Body XML Example:**\n` + "`" + `` + "`" + `` + "`" + `xml\n\u003cCompleteMultipartUpload\u003e\n\u003cPart\u003e\n\u003cPartNumber\u003e1\u003c/PartNumber\u003e\n\u003cETag\u003e\"ETag_value_from_Step2_part1\"\u003c/ETag\u003e\n\u003c/Part\u003e\n\u003cPart\u003e\n\u003cPartNumber\u003e2\u003c/PartNumber\u003e\n\u003cETag\u003e\"ETag_value_from_Step2_part2\"\u003c/ETag\u003e\n\u003c/Part\u003e\n\u003c/CompleteMultipartUpload\u003e\n` + "`" + `` + "`" + `` + "`" + `",
+                "description": "Object-level POST operations. **Response type varies by query parameter:**\n\n| Query Parameter | Response Schema | Description |\n|---|---|---|\n| ` + "`" + `?uploads` + "`" + ` | ` + "`" + `InitiateMultipartUploadResultJSON` + "`" + ` | Initiate multipart upload (returns UploadId) |\n| ` + "`" + `?uploadId={id}` + "`" + ` | ` + "`" + `CompleteMultipartUploadResultJSON` + "`" + ` | Complete multipart upload |\n\n**Note**: The example value below shows the ` + "`" + `?uploads` + "`" + ` (initiate) response.\n\n**Multipart Upload Testing Guide (Swagger UI):**\n\n**Step 1: Initiate Multipart Upload**\n- Use POST /s3/{BucketName}/{ObjectKey}?uploads\n- Set ConnectionName, BucketName, ObjectKey (e.g., \"testfile.bin\")\n- Response will contain UploadId (save this!)\n\n**Step 2: Upload Parts**\n- Use PUT /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\u0026partNumber=1\n- In request body, upload file part (binary data)\n- Response header contains ETag (save this!)\n- Repeat for part 2, 3, etc. with partNumber=2, 3...\n\n**Step 3: List Parts (Optional)**\n- Use GET /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\u0026list-type=parts\n- Verify all uploaded parts\n\n**Step 4: Complete Upload**\n- Use POST /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}\n- IMPORTANT: Enter uploadId in query parameter field (not in the parameter table below)\n- Body (required): Provide parts list with PartNumber and ETag for each uploaded part\n- Note: ETag values must include double quotes, e.g., \"abc123\" (with surrounding double quotes)",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8489,19 +8457,18 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Initiate multipart upload: leave empty or set any value (e.g., 'uploads')",
+                        "description": "Initiate multipart upload: leave empty or set any value (e.g., 'uploads'). Returns: InitiateMultipartUploadResultJSON",
                         "name": "uploads",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Complete multipart upload: Upload ID from Step 1 response (paste UploadId here)",
+                        "description": "Complete multipart upload: Upload ID from Step 1 response (paste UploadId here). Returns: CompleteMultipartUploadResultJSON",
                         "name": "uploadId",
                         "in": "query"
                     },
                     {
-                        "example": "\u003cCompleteMultipartUpload\u003e\u003cPart\u003e\u003cPartNumber\u003e1\u003c/PartNumber\u003e\u003cETag\u003e\"abc123\"\u003c/ETag\u003e\u003c/Part\u003e\u003c/CompleteMultipartUpload\u003e",
-                        "description": "XML body for complete operation (required when uploadId is set)",
+                        "description": "Request body for complete multipart upload operation (required when uploadId is set)",
                         "name": "body",
                         "in": "body",
                         "schema": {
@@ -8511,9 +8478,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Operation result (InitiateMultipartUploadResult or CompleteMultipartUploadResult)",
+                        "description": "?uploads → InitiateMultipartUploadResultJSON. ?uploadId → CompleteMultipartUploadResultJSON. See description table.",
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/spider.InitiateMultipartUploadResultJSON"
                         }
                     },
                     "400": {
@@ -8539,11 +8506,9 @@ const docTemplate = `{
             "delete": {
                 "description": "Deletes an object or aborts a multipart upload based on query parameters.\n\n**Operations:**\n- No query params: Delete object (current version)\n- ?versionId={id}: Delete specific version\n- ?uploadId={id}: Abort multipart upload",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
-                    "text/xml",
                     "application/json"
                 ],
                 "tags": [
@@ -8607,7 +8572,6 @@ const docTemplate = `{
             "head": {
                 "description": "Returns metadata about an object without returning the object itself.\n\n**Important**: This is a HEAD request that only returns headers (metadata), not the file content.\nThe response includes Content-Type, Content-Length, Last-Modified, ETag, and version information.\nDo NOT use \"Download file\" button in Swagger UI - it will create an empty/invalid file.\nUse GET /s3/{BucketName}/{ObjectKey} to download the actual file.",
                 "consumes": [
-                    "text/xml",
                     "application/json"
                 ],
                 "produces": [
@@ -13598,24 +13562,72 @@ const docTemplate = `{
                 }
             }
         },
-        "spider.Bucket": {
+        "spider.BucketIID": {
             "type": "object",
+            "required": [
+                "NameId",
+                "SystemId"
+            ],
             "properties": {
-                "CreationDate": {
-                    "type": "string"
+                "NameId": {
+                    "type": "string",
+                    "example": "my-bucket"
                 },
-                "Name": {
-                    "type": "string"
+                "SystemId": {
+                    "type": "string",
+                    "example": "my-bucket"
                 }
             }
         },
-        "spider.Buckets": {
+        "spider.BucketJSON": {
+            "type": "object",
+            "required": [
+                "CreationDate",
+                "IId"
+            ],
+            "properties": {
+                "CreationDate": {
+                    "type": "string",
+                    "example": "2025-09-04T16:15:25Z"
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.BucketIID"
+                }
+            }
+        },
+        "spider.BucketUsageJSON": {
+            "type": "object",
+            "required": [
+                "CurrentSize",
+                "DeletedVersionsSize",
+                "IId",
+                "TotalSize"
+            ],
+            "properties": {
+                "CurrentSize": {
+                    "type": "integer",
+                    "example": 524288
+                },
+                "DeletedVersionsSize": {
+                    "type": "integer",
+                    "example": 524288
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.BucketIID"
+                },
+                "TotalSize": {
+                    "type": "integer",
+                    "example": 1048576
+                }
+            }
+        },
+        "spider.BucketsJSON": {
             "type": "object",
             "properties": {
                 "Bucket": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/spider.Bucket"
+                        "$ref": "#/definitions/spider.BucketJSON"
                     }
                 }
             }
@@ -14396,6 +14408,40 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.InitiateMultipartUploadResultJSON": {
+            "type": "object",
+            "required": [
+                "IId",
+                "Key",
+                "UploadId"
+            ],
+            "properties": {
+                "IId": {
+                    "$ref": "#/definitions/spider.BucketIID"
+                },
+                "Key": {
+                    "type": "string",
+                    "example": "my-object.bin"
+                },
+                "UploadId": {
+                    "type": "string",
+                    "example": "bpV9AokiRqAUEYA2z9mhMf..."
+                }
+            }
+        },
+        "spider.InitiatorJSON": {
+            "type": "object",
+            "properties": {
+                "DisplayName": {
+                    "type": "string",
+                    "example": "aws-config01"
+                },
+                "ID": {
+                    "type": "string",
+                    "example": "aws-config01"
+                }
+            }
+        },
         "spider.KeyPairCreateRequest": {
             "type": "object",
             "required": [
@@ -14473,14 +14519,51 @@ const docTemplate = `{
                 }
             }
         },
-        "spider.ListAllMyBucketsResult": {
+        "spider.ListAllMyBucketsResultJSON": {
             "type": "object",
+            "required": [
+                "Buckets",
+                "Owner"
+            ],
             "properties": {
                 "Buckets": {
-                    "$ref": "#/definitions/spider.Buckets"
+                    "$ref": "#/definitions/spider.BucketsJSON"
                 },
                 "Owner": {
                     "$ref": "#/definitions/spider.Owner"
+                }
+            }
+        },
+        "spider.ListBucketResultJSON": {
+            "type": "object",
+            "required": [
+                "IId"
+            ],
+            "properties": {
+                "Contents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.S3ObjectXML"
+                    }
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.BucketIID"
+                },
+                "IsTruncated": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "Marker": {
+                    "type": "string",
+                    "example": ""
+                },
+                "MaxKeys": {
+                    "type": "integer",
+                    "example": 1000
+                },
+                "Prefix": {
+                    "type": "string",
+                    "example": ""
                 }
             }
         },
@@ -14541,6 +14624,60 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/spider.cim.CredentialInfo"
                     }
+                }
+            }
+        },
+        "spider.ListPartsResultJSON": {
+            "type": "object",
+            "required": [
+                "IId",
+                "Key",
+                "Owner",
+                "UploadId"
+            ],
+            "properties": {
+                "IId": {
+                    "$ref": "#/definitions/spider.BucketIID"
+                },
+                "Initiator": {
+                    "$ref": "#/definitions/spider.InitiatorJSON"
+                },
+                "IsTruncated": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "Key": {
+                    "type": "string",
+                    "example": "my-object.bin"
+                },
+                "MaxParts": {
+                    "type": "integer",
+                    "example": 1000
+                },
+                "NextPartNumberMarker": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "Owner": {
+                    "$ref": "#/definitions/spider.Owner"
+                },
+                "PartNumberMarker": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "Parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.PartInfoJSON"
+                    }
+                },
+                "StorageClass": {
+                    "type": "string",
+                    "example": "STANDARD"
+                },
+                "UploadId": {
+                    "type": "string",
+                    "example": "bpV9AokiRqAUEYA2z9mhMf..."
                 }
             }
         },
@@ -14975,12 +15112,43 @@ const docTemplate = `{
         },
         "spider.Owner": {
             "type": "object",
+            "required": [
+                "ID"
+            ],
             "properties": {
                 "DisplayName": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "aws-config01"
                 },
                 "ID": {
+                    "type": "string",
+                    "example": "aws-config01"
+                }
+            }
+        },
+        "spider.PartInfoJSON": {
+            "type": "object",
+            "required": [
+                "ETag",
+                "LastModified",
+                "PartNumber",
+                "Size"
+            ],
+            "properties": {
+                "ETag": {
+                    "type": "string",
+                    "example": "\"d8e8fca2dc0f896fd7cb4cb0031ba249\""
+                },
+                "LastModified": {
                     "type": "string"
+                },
+                "PartNumber": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "Size": {
+                    "type": "integer",
+                    "example": 5242880
                 }
             }
         },
@@ -15153,40 +15321,109 @@ const docTemplate = `{
         },
         "spider.S3Error": {
             "type": "object",
+            "required": [
+                "Code",
+                "Message"
+            ],
             "properties": {
                 "Code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "NoSuchBucket"
                 },
                 "Message": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "The specified bucket does not exist"
                 },
                 "RequestId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "tx000000000000000001"
                 },
                 "Resource": {
+                    "type": "string",
+                    "example": "/my-bucket"
+                }
+            }
+        },
+        "spider.S3ObjectXML": {
+            "type": "object",
+            "properties": {
+                "ETag": {
+                    "type": "string"
+                },
+                "Key": {
+                    "type": "string"
+                },
+                "LastModified": {
+                    "type": "string"
+                },
+                "Owner": {
+                    "$ref": "#/definitions/spider.Owner"
+                },
+                "Size": {
+                    "type": "integer"
+                },
+                "StorageClass": {
                     "type": "string"
                 }
             }
         },
-        "spider.S3PresignedURLXML": {
+        "spider.S3PresignedURL": {
             "type": "object",
+            "required": [
+                "Expires",
+                "Method",
+                "PresignedURL"
+            ],
             "properties": {
                 "Expires": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 3600
                 },
                 "Method": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "GET"
                 },
                 "PresignedURL": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "https://bucket.s3.region.amazonaws.com/object?X-Amz-Algorithm=..."
+                }
+            }
+        },
+        "spider.S3PresignedURLUpload": {
+            "type": "object",
+            "required": [
+                "Expires",
+                "Method",
+                "PresignedURL"
+            ],
+            "properties": {
+                "Expires": {
+                    "type": "integer",
+                    "example": 3600
+                },
+                "Method": {
+                    "type": "string",
+                    "example": "PUT"
+                },
+                "PresignedURL": {
+                    "type": "string",
+                    "example": "https://bucket.s3.region.amazonaws.com/object?X-Amz-Algorithm=..."
                 }
             }
         },
         "spider.S3UploadInfo": {
             "type": "object",
+            "required": [
+                "Bucket",
+                "ETag",
+                "Key",
+                "LastModified",
+                "Size"
+            ],
             "properties": {
                 "Bucket": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "my-bucket"
                 },
                 "ChecksumCRC32": {
                     "type": "string"
@@ -15207,7 +15444,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ETag": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "\"d8e8fca2dc0f896fd7cb4cb0031ba249\""
                 },
                 "Expiration": {
                     "type": "string"
@@ -15216,16 +15454,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Key": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "my-object.txt"
                 },
                 "LastModified": {
                     "type": "string"
                 },
                 "Location": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "/my-bucket/my-object.txt"
                 },
                 "Size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1024
                 },
                 "VersionID": {
                     "type": "string"

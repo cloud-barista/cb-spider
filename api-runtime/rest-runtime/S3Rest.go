@@ -79,28 +79,35 @@ type S3RestoreInfo struct {
 
 // --------------- for Swagger doc (minio.UploadInfo)
 type S3UploadInfo struct {
-	Bucket            string    `json:"Bucket"`
-	Key               string    `json:"Key"`
-	ETag              string    `json:"ETag"`
-	Size              int64     `json:"Size"`
-	LastModified      time.Time `json:"LastModified"`
-	Location          string    `json:"Location"`
-	VersionID         string    `json:"VersionID"`
-	Expiration        time.Time `json:"Expiration"`
-	ExpirationRuleID  string    `json:"ExpirationRuleID"`
-	ChecksumCRC32     string    `json:"ChecksumCRC32"`
-	ChecksumCRC32C    string    `json:"ChecksumCRC32C"`
-	ChecksumSHA1      string    `json:"ChecksumSHA1"`
-	ChecksumSHA256    string    `json:"ChecksumSHA256"`
-	ChecksumCRC64NVME string    `json:"ChecksumCRC64NVME"`
-	ChecksumMode      string    `json:"ChecksumMode"`
+	Bucket            string    `json:"Bucket" validate:"required" example:"my-bucket"`
+	Key               string    `json:"Key" validate:"required" example:"my-object.txt"`
+	ETag              string    `json:"ETag" validate:"required" example:"\"d8e8fca2dc0f896fd7cb4cb0031ba249\""`
+	Size              int64     `json:"Size" validate:"required" example:"1024"`
+	LastModified      time.Time `json:"LastModified" validate:"required"`
+	Location          string    `json:"Location,omitempty" example:"/my-bucket/my-object.txt"`
+	VersionID         string    `json:"VersionID,omitempty"`
+	Expiration        time.Time `json:"Expiration,omitempty"`
+	ExpirationRuleID  string    `json:"ExpirationRuleID,omitempty"`
+	ChecksumCRC32     string    `json:"ChecksumCRC32,omitempty"`
+	ChecksumCRC32C    string    `json:"ChecksumCRC32C,omitempty"`
+	ChecksumSHA1      string    `json:"ChecksumSHA1,omitempty"`
+	ChecksumSHA256    string    `json:"ChecksumSHA256,omitempty"`
+	ChecksumCRC64NVME string    `json:"ChecksumCRC64NVME,omitempty"`
+	ChecksumMode      string    `json:"ChecksumMode,omitempty"`
 }
 
 // --------------- for Swagger doc (minio.BooleanInfo)
 type S3PresignedURL struct {
-	PresignedURL string `json:"PresignedURL"`
-	Expires      int64  `json:"Expires"`
-	Method       string `json:"Method"`
+	PresignedURL string `json:"PresignedURL" validate:"required" example:"https://bucket.s3.region.amazonaws.com/object?X-Amz-Algorithm=..."`
+	Expires      int64  `json:"Expires" validate:"required" example:"3600"`
+	Method       string `json:"Method" validate:"required" example:"GET"`
+}
+
+// S3PresignedURLUpload is the swagger doc struct for presigned upload URL (Method: PUT)
+type S3PresignedURLUpload struct {
+	PresignedURL string `json:"PresignedURL" validate:"required" example:"https://bucket.s3.region.amazonaws.com/object?X-Amz-Algorithm=..."`
+	Expires      int64  `json:"Expires" validate:"required" example:"3600"`
+	Method       string `json:"Method" validate:"required" example:"PUT"`
 }
 
 // XML structure for PreSigned URL response
@@ -119,8 +126,10 @@ func getConnectionName(c echo.Context) (string, bool) {
 	if authHeader != "" && strings.HasPrefix(authHeader, "AWS4-HMAC-SHA256") {
 		accessKey, err := extractAccessKey(authHeader)
 		if err == nil && accessKey != "" {
-			cblog.Debugf("S3 API request detected with AccessKey: %s", accessKey)
-			return accessKey, true
+			// Access key may be in "username@connectionName" format - extract just the connectionName
+			_, connName := splitAccessKey(accessKey)
+			cblog.Debugf("S3 API request detected with ConnectionName: %s", connName)
+			return connName, true
 		}
 	}
 
@@ -165,16 +174,19 @@ func extractAccessKey(authHeader string) (string, error) {
 // S3 Error Response
 type S3Error struct {
 	XMLName   xml.Name `xml:"Error" json:"-"`
-	Code      string   `xml:"Code" json:"Code"`
-	Message   string   `xml:"Message" json:"Message"`
-	Resource  string   `xml:"Resource" json:"Resource"`
-	RequestId string   `xml:"RequestId" json:"RequestId"`
+	Code      string   `xml:"Code" json:"Code" validate:"required" example:"NoSuchBucket"`
+	Message   string   `xml:"Message" json:"Message" validate:"required" example:"The specified bucket does not exist"`
+	Resource  string   `xml:"Resource" json:"Resource,omitempty" example:"/my-bucket"`
+	RequestId string   `xml:"RequestId" json:"RequestId,omitempty" example:"tx000000000000000001"`
 }
 
 // Check if client requests JSON response
 func isJSONResponse(c echo.Context) bool {
-	// Check Accept header
+	// Check Accept header (highest priority)
 	accept := c.Request().Header.Get("Accept")
+	if strings.Contains(strings.ToLower(accept), "application/xml") {
+		return false
+	}
 	if strings.Contains(strings.ToLower(accept), "application/json") {
 		return true
 	}
@@ -184,10 +196,14 @@ func isJSONResponse(c echo.Context) bool {
 		return true
 	}
 
-	// Check Content-Type header for POST/PUT requests
-	contentType := c.Request().Header.Get("Content-Type")
-	if strings.Contains(strings.ToLower(contentType), "application/json") {
-		return true
+	// Check Content-Type only for body-bearing requests (POST/PUT/PATCH)
+	// GET/HEAD/DELETE Content-Type should not affect response format
+	method := c.Request().Method
+	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
+		contentType := c.Request().Header.Get("Content-Type")
+		if strings.Contains(strings.ToLower(contentType), "application/json") {
+			return true
+		}
 	}
 
 	return false
@@ -216,7 +232,7 @@ func returnS3Error(c echo.Context, statusCode int, errorCode string, message str
 		return c.JSON(statusCode, s3Error)
 	}
 
-	xmlData, err := xml.Marshal(s3Error)
+	xmlData, err := xml.MarshalIndent(s3Error, "", "  ")
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Internal Server Error")
 	}
@@ -267,8 +283,8 @@ type ListAllMyBucketsResult struct {
 }
 
 type Owner struct {
-	ID          string `xml:"ID" json:"ID"`
-	DisplayName string `xml:"DisplayName" json:"DisplayName"`
+	ID          string `xml:"ID" json:"ID" validate:"required" example:"aws-config01"`
+	DisplayName string `xml:"DisplayName" json:"DisplayName" example:"aws-config01"`
 }
 
 type Buckets struct {
@@ -278,6 +294,140 @@ type Buckets struct {
 type Bucket struct {
 	Name         string `xml:"Name" json:"Name"`
 	CreationDate string `xml:"CreationDate" json:"CreationDate"`
+}
+
+// ---------- JSON-specific Response Structures (IID format) ----------
+
+type BucketIID struct {
+	NameId   string `json:"NameId" validate:"required" example:"my-bucket"`
+	SystemId string `json:"SystemId" validate:"required" example:"my-bucket"`
+}
+
+type BucketJSON struct {
+	IId          BucketIID `json:"IId" validate:"required"`
+	CreationDate string    `json:"CreationDate" validate:"required" example:"2025-09-04T16:15:25Z"`
+}
+
+type BucketsJSON struct {
+	Bucket []BucketJSON `json:"Bucket"`
+}
+
+type ListAllMyBucketsResultJSON struct {
+	Owner   Owner       `json:"Owner" validate:"required"`
+	Buckets BucketsJSON `json:"Buckets" validate:"required"`
+}
+
+// JSON-specific struct for ListBucketResult (IID format)
+type ListBucketResultJSON struct {
+	IId         BucketIID     `json:"IId" validate:"required"`
+	Prefix      string        `json:"Prefix" example:""`
+	Marker      string        `json:"Marker" example:""`
+	MaxKeys     int           `json:"MaxKeys" example:"1000"`
+	IsTruncated bool          `json:"IsTruncated" example:"false"`
+	Contents    []S3ObjectXML `json:"Contents"`
+}
+
+// JSON-specific struct for ListBucketResultWithPrefix (IID format)
+type CommonPrefixJSON struct {
+	Prefix string `json:"Prefix" validate:"required" example:"folder/"`
+}
+
+type ListBucketResultWithPrefixJSON struct {
+	IId            BucketIID          `json:"IId" validate:"required"`
+	Prefix         string             `json:"Prefix" example:""`
+	Delimiter      string             `json:"Delimiter" example:"/"`
+	Marker         string             `json:"Marker" example:""`
+	MaxKeys        int                `json:"MaxKeys" example:"1000"`
+	IsTruncated    bool               `json:"IsTruncated" example:"false"`
+	Contents       []S3ObjectXML      `json:"Contents"`
+	CommonPrefixes []CommonPrefixJSON `json:"CommonPrefixes"`
+}
+
+// JSON-specific struct for ListVersionsResult (IID format)
+type ListVersionsResultJSON struct {
+	IId                 BucketIID       `json:"IId" validate:"required"`
+	Prefix              string          `json:"Prefix" example:""`
+	KeyMarker           string          `json:"KeyMarker" example:""`
+	VersionIdMarker     string          `json:"VersionIdMarker" example:""`
+	NextKeyMarker       string          `json:"NextKeyMarker" example:""`
+	NextVersionIdMarker string          `json:"NextVersionIdMarker" example:""`
+	MaxKeys             int             `json:"MaxKeys" example:"1000"`
+	IsTruncated         bool            `json:"IsTruncated" example:"false"`
+	Versions            []ObjectVersion `json:"Version"`
+	DeleteMarkers       []DeleteMarker  `json:"DeleteMarker"`
+}
+
+// JSON-specific struct for InitiateMultipartUploadResult (IID format)
+type InitiateMultipartUploadResultJSON struct {
+	IId      BucketIID `json:"IId" validate:"required"`
+	Key      string    `json:"Key" validate:"required" example:"my-object.bin"`
+	UploadId string    `json:"UploadId" validate:"required" example:"bpV9AokiRqAUEYA2z9mhMf..."`
+}
+
+// JSON-specific struct for CompleteMultipartUploadResult (IID format)
+type CompleteMultipartUploadResultJSON struct {
+	Location string    `json:"Location" validate:"required" example:"/my-bucket/my-object.bin"`
+	IId      BucketIID `json:"IId" validate:"required"`
+	Key      string    `json:"Key" validate:"required" example:"my-object.bin"`
+	ETag     string    `json:"ETag" validate:"required" example:"\"50f9c71a2e1d2cd7706f6dfd0b12c9fd-3\""`
+}
+
+// JSON-specific struct for ListPartsResult (IID format)
+type PartInfoJSON struct {
+	PartNumber   int       `json:"PartNumber" validate:"required" example:"1"`
+	LastModified time.Time `json:"LastModified" validate:"required"`
+	ETag         string    `json:"ETag" validate:"required" example:"\"d8e8fca2dc0f896fd7cb4cb0031ba249\""`
+	Size         int64     `json:"Size" validate:"required" example:"5242880"`
+}
+
+type InitiatorJSON struct {
+	ID          string `json:"ID" example:"aws-config01"`
+	DisplayName string `json:"DisplayName" example:"aws-config01"`
+}
+
+type ListPartsResultJSON struct {
+	IId                  BucketIID      `json:"IId" validate:"required"`
+	Key                  string         `json:"Key" validate:"required" example:"my-object.bin"`
+	UploadID             string         `json:"UploadId" validate:"required" example:"bpV9AokiRqAUEYA2z9mhMf..."`
+	PartNumberMarker     int            `json:"PartNumberMarker" example:"0"`
+	NextPartNumberMarker int            `json:"NextPartNumberMarker" example:"0"`
+	MaxParts             int            `json:"MaxParts" example:"1000"`
+	IsTruncated          bool           `json:"IsTruncated" example:"false"`
+	Parts                []PartInfoJSON `json:"Parts"`
+	Initiator            InitiatorJSON  `json:"Initiator"`
+	Owner                Owner          `json:"Owner" validate:"required"`
+	StorageClass         string         `json:"StorageClass" example:"STANDARD"`
+}
+
+// JSON-specific struct for ListMultipartUploadsResult (IID format)
+type MultipartUploadInfoJSON struct {
+	Key          string        `json:"Key" validate:"required" example:"my-object.bin"`
+	UploadID     string        `json:"UploadID" validate:"required" example:"bpV9AokiRqAUEYA2z9mhMf..."`
+	Initiated    time.Time     `json:"Initiated" validate:"required"`
+	StorageClass string        `json:"StorageClass" example:"STANDARD"`
+	Initiator    InitiatorJSON `json:"Initiator"`
+	Owner        Owner         `json:"Owner" validate:"required"`
+}
+
+type ListMultipartUploadsResultJSON struct {
+	IId                BucketIID                 `json:"IId" validate:"required"`
+	KeyMarker          string                    `json:"KeyMarker" example:""`
+	UploadIDMarker     string                    `json:"UploadIDMarker" example:""`
+	NextKeyMarker      string                    `json:"NextKeyMarker" example:""`
+	NextUploadIDMarker string                    `json:"NextUploadIDMarker" example:""`
+	MaxUploads         int                       `json:"MaxUploads" example:"1000"`
+	IsTruncated        bool                      `json:"IsTruncated" example:"false"`
+	Uploads            []MultipartUploadInfoJSON `json:"Uploads"`
+	Prefix             string                    `json:"Prefix" example:""`
+	Delimiter          string                    `json:"Delimiter" example:""`
+}
+
+// JSON-specific struct for BucketUsage (IID format)
+type BucketUsageJSON struct {
+	IId                 BucketIID `json:"IId" validate:"required"`
+	CurrentSize         int64     `json:"CurrentSize" validate:"required" example:"524288"`
+	DeletedVersionsSize int64     `json:"DeletedVersionsSize" validate:"required" example:"524288"`
+	TotalSize           int64     `json:"TotalSize" validate:"required" example:"1048576"`
 }
 
 type ListBucketResult struct {
@@ -754,8 +904,8 @@ func listObjectVersions(c echo.Context) error {
 
 	cblog.Infof("Found %d object versions/delete markers in bucket %s", len(result), bucketName)
 
-	var versions []ObjectVersion
-	var deleteMarkers []DeleteMarker
+	versions := make([]ObjectVersion, 0)
+	deleteMarkers := make([]DeleteMarker, 0)
 
 	for _, obj := range result {
 		if obj.IsDeleteMarker {
@@ -786,7 +936,7 @@ func listObjectVersions(c echo.Context) error {
 				LastModified: obj.LastModified.UTC().Format(time.RFC3339),
 				ETag:         strings.Trim(obj.ETag, "\""),
 				Size:         obj.Size,
-				StorageClass: "STANDARD",
+				StorageClass: obj.StorageClass,
 				Owner: &Owner{
 					ID:          conn,
 					DisplayName: conn,
@@ -795,6 +945,22 @@ func listObjectVersions(c echo.Context) error {
 		}
 	}
 
+	addS3Headers(c)
+
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		jsonResp := ListVersionsResultJSON{
+			IId:           BucketIID{NameId: bucketName, SystemId: bucketName},
+			Prefix:        prefix,
+			MaxKeys:       1000,
+			IsTruncated:   false,
+			Versions:      versions,
+			DeleteMarkers: deleteMarkers,
+		}
+		return c.JSON(http.StatusOK, jsonResp)
+	}
+
+	// XML response: keep standard S3 format
 	resp := ListVersionsResult{
 		Xmlns:         "http://s3.amazonaws.com/doc/2006-03-01/",
 		Name:          bucketName,
@@ -805,7 +971,6 @@ func listObjectVersions(c echo.Context) error {
 		DeleteMarkers: deleteMarkers,
 	}
 
-	addS3Headers(c)
 	return returnS3Response(c, http.StatusOK, resp)
 }
 
@@ -835,8 +1000,8 @@ func listObjectVersions(c echo.Context) error {
 // @Description - ExposeHeader: ["ETag", "x-amz-request-id"]
 // @Description - MaxAgeSeconds: 3600 (cache preflight response for 1 hour)
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param versioning query string false "Set versioning configuration"
@@ -932,10 +1097,10 @@ func CreateS3Bucket(c echo.Context) error {
 // @Summary List all S3 buckets
 // @Description Returns a list of all buckets owned by the authenticated sender of the request. To list buckets, you must have the ConnectionName parameter.
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
-// @Success 200 {object} ListAllMyBucketsResult "List of buckets"
+// @Success 200 {object} ListAllMyBucketsResultJSON "List of buckets"
 // @Failure 400 {object} S3Error "Bad Request - Missing ConnectionName"
 // @Failure 500 {object} S3Error "Internal Server Error"
 // @Router /s3 [get]
@@ -949,6 +1114,37 @@ func ListS3Buckets(c echo.Context) error {
 		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "ConnectionName parameter is required", "/")
 	}
 
+	// JSON response: use IID format for bucket names
+	if isJSONResponse(c) {
+		resultWithIID, err := cmrt.ListS3BucketsWithIID(conn)
+		if err != nil {
+			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/")
+		}
+
+		bucketElems := make([]BucketJSON, 0)
+		for _, b := range resultWithIID {
+			bucketElems = append(bucketElems, BucketJSON{
+				IId: BucketIID{
+					NameId:   b.NameId,
+					SystemId: b.SystemId,
+				},
+				CreationDate: b.CreationDate.UTC().Format(time.RFC3339),
+			})
+		}
+
+		resp := ListAllMyBucketsResultJSON{
+			Owner: Owner{
+				ID:          conn,
+				DisplayName: conn,
+			},
+			Buckets: BucketsJSON{Bucket: bucketElems},
+		}
+
+		addS3Headers(c)
+		return c.JSON(http.StatusOK, resp)
+	}
+
+	// XML response: keep standard S3 format
 	result, err := cmrt.ListS3Buckets(conn)
 	if err != nil {
 		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/")
@@ -977,18 +1173,29 @@ func ListS3Buckets(c echo.Context) error {
 // GetS3BucketGET godoc
 // @ID get-s3-bucket-get
 // @Summary Get S3 bucket information (GET request)
-// @Description List objects in bucket or get bucket configuration based on query parameters. Query parameters: ?location (bucket location), ?versioning (versioning status), ?cors (CORS config), ?versions (object versions), ?uploads (multipart uploads). Without query params, lists objects in bucket.
+// @Description List objects in bucket or get bucket configuration. **Response type varies by query parameter:**
+// @Description
+// @Description | Query Parameter | Response Schema | Description |
+// @Description |---|---|---|
+// @Description | *(none)* | `ListBucketResultJSON` | List objects in bucket (default) |
+// @Description | `?location` | `{"LocationConstraint": "ap-northeast-2"}` | Bucket region/location |
+// @Description | `?versioning` | `VersioningConfiguration` | Versioning status: Enabled / Suspended / "" |
+// @Description | `?cors` | `CORSConfiguration` | CORS configuration rules |
+// @Description | `?versions` | `ListVersionsResultJSON` | Object version history |
+// @Description | `?uploads` | `ListMultipartUploadsResultJSON` | In-progress multipart uploads |
+// @Description
+// @Description **Note**: The example value below shows the default (no query params) `ListBucketResultJSON` response.
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
-// @Param location query string false "Get bucket location"
-// @Param versioning query string false "Get versioning status"
-// @Param cors query string false "Get CORS configuration"
-// @Param versions query string false "List object versions"
-// @Param uploads query string false "List multipart uploads"
-// @Success 200 {object} object "Bucket information or object list"
+// @Param location query string false "Get bucket location. Returns: LocationConstraint object (e.g. ap-northeast-2)"
+// @Param versioning query string false "Get versioning status. Returns: VersioningConfiguration"
+// @Param cors query string false "Get CORS configuration. Returns: CORSConfiguration"
+// @Param versions query string false "List object versions. Returns: ListVersionsResultJSON"
+// @Param uploads query string false "List multipart uploads. Returns: ListMultipartUploadsResultJSON"
+// @Success 200 {object} ListBucketResultJSON "Default response (no query params): object list. See description table for other query param responses."
 // @Failure 404 {object} S3Error "Bucket not found"
 // @Failure 500 {object} S3Error "Internal Server Error"
 // @Router /s3/{BucketName} [get]
@@ -1001,8 +1208,8 @@ func GetS3BucketGET(c echo.Context) error {
 // @Summary Check if S3 bucket exists
 // @Description Check if a bucket exists using HEAD request. Returns 200 if exists, 404 if not found.
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Success 200 "Bucket exists"
@@ -1023,7 +1230,14 @@ func PutS3BucketConfig(c echo.Context) error {
 // HandleS3ObjectPost godoc
 // @ID handle-s3-object-post
 // @Summary Handle S3 object POST operations (multipart upload)
-// @Description Object-level POST operations: (1) Initiate multipart upload with ?uploads, (2) Complete multipart upload with ?uploadId
+// @Description Object-level POST operations. **Response type varies by query parameter:**
+// @Description
+// @Description | Query Parameter | Response Schema | Description |
+// @Description |---|---|---|
+// @Description | `?uploads` | `InitiateMultipartUploadResultJSON` | Initiate multipart upload (returns UploadId) |
+// @Description | `?uploadId={id}` | `CompleteMultipartUploadResultJSON` | Complete multipart upload |
+// @Description
+// @Description **Note**: The example value below shows the `?uploads` (initiate) response.
 // @Description
 // @Description **Multipart Upload Testing Guide (Swagger UI):**
 // @Description
@@ -1045,32 +1259,18 @@ func PutS3BucketConfig(c echo.Context) error {
 // @Description **Step 4: Complete Upload**
 // @Description - Use POST /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}
 // @Description - IMPORTANT: Enter uploadId in query parameter field (not in the parameter table below)
-// @Description - Body XML (required): Provide XML with all uploaded parts
-// @Description - Note: ETag values must include double quotes, e.g., "abc123" not abc123
-// @Description
-// @Description **Body XML Example:**
-// @Description ```xml
-// @Description <CompleteMultipartUpload>
-// @Description     <Part>
-// @Description         <PartNumber>1</PartNumber>
-// @Description         <ETag>"ETag_value_from_Step2_part1"</ETag>
-// @Description     </Part>
-// @Description     <Part>
-// @Description         <PartNumber>2</PartNumber>
-// @Description         <ETag>"ETag_value_from_Step2_part2"</ETag>
-// @Description     </Part>
-// @Description </CompleteMultipartUpload>
-// @Description ```
+// @Description - Body (required): Provide parts list with PartNumber and ETag for each uploaded part
+// @Description - Note: ETag values must include double quotes, e.g., "abc123" (with surrounding double quotes)
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param ObjectKey path string true "Object key (full path including slashes, e.g., 'folder/subfolder/file.txt')"
-// @Param uploads query string false "Initiate multipart upload: leave empty or set any value (e.g., 'uploads')"
-// @Param uploadId query string false "Complete multipart upload: Upload ID from Step 1 response (paste UploadId here)"
-// @Param body body string false "XML body for complete operation (required when uploadId is set)" example(<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>"abc123"</ETag></Part></CompleteMultipartUpload>)
-// @Success 200 {object} object "Operation result (InitiateMultipartUploadResult or CompleteMultipartUploadResult)"
+// @Param uploads query string false "Initiate multipart upload: leave empty or set any value (e.g., 'uploads'). Returns: InitiateMultipartUploadResultJSON"
+// @Param uploadId query string false "Complete multipart upload: Upload ID from Step 1 response (paste UploadId here). Returns: CompleteMultipartUploadResultJSON"
+// @Param body body string false "Request body for complete multipart upload operation (required when uploadId is set)"
+// @Success 200 {object} InitiateMultipartUploadResultJSON "?uploads → InitiateMultipartUploadResultJSON. ?uploadId → CompleteMultipartUploadResultJSON. See description table."
 // @Failure 400 {object} S3Error "Bad Request"
 // @Failure 404 {object} S3Error "Bucket not found"
 // @Failure 500 {object} S3Error "Internal Server Error"
@@ -1235,42 +1435,16 @@ func getBucketLocation(c echo.Context) error {
 // @Summary Get S3 bucket storage usage
 // @Description Returns the total size (in bytes) of all objects stored in an S3 bucket.
 // @Description
-// @Description **Response Format:**
-// @Description - Supports both XML and JSON formats based on Accept header
-// @Description - Default: XML format
-// @Description - JSON: Set Accept header to "application/json"
-// @Description
 // @Description **Response Fields:**
 // @Description - CurrentSize: Size of current (latest) objects in bytes
 // @Description - DeletedVersionsSize: Size of non-current versions in bytes
 // @Description - TotalSize: Total bucket size (CurrentSize + DeletedVersionsSize)
-// @Description
-// @Description **XML Response Example:**
-// @Description ```xml
-// @Description <?xml version="1.0" encoding="UTF-8"?>
-// @Description <BucketUsage>
-// @Description     <BucketName>my-bucket</BucketName>
-// @Description     <CurrentSize>524288</CurrentSize>
-// @Description     <DeletedVersionsSize>524288</DeletedVersionsSize>
-// @Description     <TotalSize>1048576</TotalSize>
-// @Description </BucketUsage>
-// @Description ```
-// @Description
-// @Description **JSON Response Example:**
-// @Description ```json
-// @Description {
-// @Description     "BucketName": "my-bucket",
-// @Description     "CurrentSize": 524288,
-// @Description     "DeletedVersionsSize": 524288,
-// @Description     "TotalSize": 1048576
-// @Description }
-// @Description ```
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
-// @Success 200 {object} object "Bucket usage information"
+// @Success 200 {object} BucketUsageJSON "Bucket usage information"
 // @Failure 404 {object} S3Error "Bucket not found"
 // @Failure 500 {object} S3Error "Internal Server Error"
 // @Router /s3/{BucketName}/usage [get]
@@ -1309,6 +1483,18 @@ func GetS3BucketUsage(c echo.Context) error {
 	}
 
 	addS3Headers(c)
+
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		jsonResp := BucketUsageJSON{
+			IId:                 BucketIID{NameId: bucketName, SystemId: bucketName},
+			CurrentSize:         currentSize,
+			DeletedVersionsSize: deletedVersionsSize,
+			TotalSize:           currentSize + deletedVersionsSize,
+		}
+		return c.JSON(http.StatusOK, jsonResp)
+	}
+
 	return returnS3Response(c, http.StatusOK, usage)
 }
 
@@ -1323,15 +1509,13 @@ func GetS3BucketUsage(c echo.Context) error {
 // @Description - ?empty: Force empty bucket (removes all objects)
 // @Description - ?force: Force delete bucket with all contents
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param cors query string false "Delete CORS configuration"
 // @Param empty query string false "Force empty bucket"
 // @Param force query string false "Force delete bucket with all contents"
-// @Param X-Force-Empty header string false "Safety header for force empty (required with ?empty)"
-// @Param X-Force-Delete header string false "Safety header for force delete (required with ?force)"
 // @Success 200 "CORS configuration deleted"
 // @Success 204 "Bucket deleted successfully"
 // @Failure 400 {object} S3Error "Bad Request"
@@ -1358,53 +1542,16 @@ func DeleteS3Bucket(c echo.Context) error {
 	}
 
 	// Check for force empty
-	if c.QueryParams().Has("empty") || c.Request().Header.Get("X-Force-Empty") != "" {
+	if c.QueryParams().Has("empty") {
 		cblog.Infof("Force empty requested for bucket %s", name)
 		return ForceEmptyS3Bucket(c)
 	}
 
-	// Check if force parameter is set
-	force := c.QueryParam("force")
-	if force == "" && c.Request().Header.Get("X-Force-Delete") != "" {
-		force = "true"
-	}
-
-	// If force is set, directly call DeleteS3Bucket with force (for metadata-only deletion)
-	if force == "true" {
-		cblog.Infof("Force delete requested for bucket %s (metadata deletion if not in CSP)", name)
-		success, err := cmrt.DeleteS3Bucket(conn, name, force)
-		if err != nil {
-			cblog.Errorf("Failed to delete bucket %s: %v", name, err)
-
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-
-			if strings.Contains(err.Error(), "not empty") || strings.Contains(err.Error(), "BucketNotEmpty") {
-				errorCode = "BucketNotEmpty"
-				statusCode = http.StatusConflict
-			} else if strings.Contains(err.Error(), "metadata exists") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			} else if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NoSuchBucket") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			} else if strings.Contains(err.Error(), "access denied") || strings.Contains(err.Error(), "AccessDenied") {
-				errorCode = "AccessDenied"
-				statusCode = http.StatusForbidden
-			}
-
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+name)
-		}
-
-		if !success {
-			cblog.Errorf("Bucket deletion returned false for bucket %s", name)
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError",
-				"Bucket deletion failed for unknown reason", "/"+name)
-		}
-
-		cblog.Infof("Successfully deleted bucket %s", name)
-		addS3Headers(c)
-		return c.NoContent(http.StatusNoContent)
+	// Check if force parameter is set - delegate to ForceDeleteS3Bucket which handles
+	// both non-empty buckets (ForceEmptyAndDelete) and metadata-only orphan cleanup
+	if c.QueryParams().Has("force") {
+		cblog.Infof("Force delete requested for bucket %s, delegating to ForceDeleteS3Bucket", name)
+		return ForceDeleteS3Bucket(c)
 	}
 
 	// First, check if bucket exists
@@ -1600,7 +1747,7 @@ func ListS3Objects(c echo.Context) error {
 			CommonPrefixes []CommonPrefix `xml:"CommonPrefixes" json:"CommonPrefixes"`
 		}
 
-		var contents []S3ObjectXML
+		contents := make([]S3ObjectXML, 0)
 		commonPrefixMap := make(map[string]bool)
 
 		cblog.Infof("Processing objects with delimiter '/' for folder structure")
@@ -1634,7 +1781,7 @@ func ListS3Objects(c echo.Context) error {
 						LastModified: obj.LastModified.UTC().Format(time.RFC3339),
 						ETag:         strings.Trim(obj.ETag, "\""),
 						Size:         obj.Size,
-						StorageClass: "STANDARD",
+						StorageClass: obj.StorageClass,
 					})
 					cblog.Debugf("Adding direct file: %s", objKey)
 				}
@@ -1649,6 +1796,28 @@ func ListS3Objects(c echo.Context) error {
 
 		cblog.Infof("Final result: %d files, %d folders", len(contents), len(commonPrefixes))
 
+		addS3Headers(c)
+
+		// JSON response: use IID format for bucket name
+		if isJSONResponse(c) {
+			cpJSON := make([]CommonPrefixJSON, 0)
+			for _, cp := range commonPrefixes {
+				cpJSON = append(cpJSON, CommonPrefixJSON{Prefix: cp.Prefix})
+			}
+			jsonResp := ListBucketResultWithPrefixJSON{
+				IId:            BucketIID{NameId: bucket, SystemId: bucket},
+				Prefix:         prefix,
+				Delimiter:      delimiter,
+				Marker:         "",
+				MaxKeys:        1000,
+				IsTruncated:    false,
+				Contents:       contents,
+				CommonPrefixes: cpJSON,
+			}
+			return c.JSON(http.StatusOK, jsonResp)
+		}
+
+		// XML response: keep standard S3 format
 		resp := ListBucketResultWithPrefix{
 			Xmlns:          "http://s3.amazonaws.com/doc/2006-03-01/",
 			Name:           bucket,
@@ -1661,22 +1830,20 @@ func ListS3Objects(c echo.Context) error {
 			CommonPrefixes: commonPrefixes,
 		}
 
-		addS3Headers(c)
-
 		return returnS3Response(c, http.StatusOK, resp)
 	}
 
 	// Default response without delimiter (flat list)
 	cblog.Infof("Processing objects as flat list (no delimiter)")
 
-	var contents []S3ObjectXML
+	contents := make([]S3ObjectXML, 0)
 	for _, o := range result {
 		contents = append(contents, S3ObjectXML{
 			Key:          o.Key,
 			LastModified: o.LastModified.UTC().Format(time.RFC3339),
 			ETag:         strings.Trim(o.ETag, "\""),
 			Size:         o.Size,
-			StorageClass: "STANDARD",
+			StorageClass: o.StorageClass,
 		})
 	}
 
@@ -1693,6 +1860,19 @@ func ListS3Objects(c echo.Context) error {
 	addS3Headers(c)
 	cblog.Debugf("Returning flat list with %d objects", len(contents))
 
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		jsonResp := ListBucketResultJSON{
+			IId:         BucketIID{NameId: bucket, SystemId: bucket},
+			Prefix:      prefix,
+			Marker:      "",
+			MaxKeys:     1000,
+			IsTruncated: false,
+			Contents:    contents,
+		}
+		return c.JSON(http.StatusOK, jsonResp)
+	}
+
 	return returnS3Response(c, http.StatusOK, resp)
 }
 
@@ -1706,8 +1886,8 @@ func ListS3Objects(c echo.Context) error {
 // @Description Do NOT use "Download file" button in Swagger UI - it will create an empty/invalid file.
 // @Description Use GET /s3/{BucketName}/{ObjectKey} to download the actual file.
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce text/plain
+// @Accept  json
+// @Produce  text/plain
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param ObjectKey path string true "Object key (full path)"
@@ -1856,8 +2036,8 @@ func GetS3ObjectInfo(c echo.Context) error {
 // @Description - Response: Check ETag header - save it for completion (Step 4)
 // @Description - Repeat for each part with different partNumber
 // @Tags [S3 Object Storage Management]
-// @Accept application/octet-stream
-// @Produce xml,json
+// @Accept  application/octet-stream
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param ObjectKey path string true "Object key (full path)"
@@ -1901,7 +2081,7 @@ func PutS3ObjectFromFile(c echo.Context) error {
 	body := c.Request().Body
 	defer body.Close()
 
-	info, err := cmrt.PutS3ObjectFromReader(conn, bucket, objKey, body, c.Request().ContentLength)
+	info, err := cmrt.PutS3ObjectFromReader(conn, bucket, decodedObjKey, body, c.Request().ContentLength)
 	if err != nil {
 		errorCode := "InternalError"
 		statusCode := http.StatusInternalServerError
@@ -1909,7 +2089,7 @@ func PutS3ObjectFromFile(c echo.Context) error {
 			errorCode = "NoSuchBucket"
 			statusCode = http.StatusNotFound
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
 	}
 
 	addS3Headers(c)
@@ -1927,22 +2107,7 @@ func PutS3ObjectFromFile(c echo.Context) error {
 // @Description
 // @Description **Operations:**
 // @Description - No query params: Upload object via form (requires 'key' and 'file' fields, Content-Type: multipart/form-data)
-// @Description - ?delete: Delete multiple objects (requires XML/JSON body, Content-Type: application/xml or application/json)
-// @Description
-// @Description **XML Body Example for Delete Multiple Objects:**
-// @Description ```xml
-// @Description <Delete>
-// @Description     <Object>
-// @Description         <Key>file1.txt</Key>
-// @Description     </Object>
-// @Description     <Object>
-// @Description         <Key>file2.txt</Key>
-// @Description     </Object>
-// @Description     <Object>
-// @Description         <Key>folder/file3.txt</Key>
-// @Description     </Object>
-// @Description </Delete>
-// @Description ```
+// @Description - ?delete: Delete multiple objects (requires JSON body, Content-Type: application/json)
 // @Description
 // @Description **JSON Body Example for Delete Multiple Objects:**
 // @Description ```json
@@ -1957,12 +2122,12 @@ func PutS3ObjectFromFile(c echo.Context) error {
 // @Description }
 // @Description ```
 // @Tags [S3 Object Storage Management]
-// @Accept multipart/form-data,application/xml,application/json
-// @Produce xml,json
+// @Accept  multipart/form-data,application/json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param delete query string false "Delete multiple objects (use with body parameter)"
-// @Param body body string false "XML/JSON body for delete operation (only when ?delete is specified)"
+// @Param body body string false "JSON body for delete operation (only when ?delete is specified)"
 // @Param key formData string false "Object key/name (only for upload operation without ?delete)"
 // @Param file formData file false "File to upload (only for upload operation without ?delete)"
 // @Success 200 {object} S3UploadInfo "Object uploaded or deletion result"
@@ -2040,8 +2205,8 @@ func PutS3ObjectFromForm(c echo.Context) error {
 // @Description - ?versionId={id}: Delete specific version
 // @Description - ?uploadId={id}: Abort multipart upload
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param ObjectKey path string true "Object key (full path)"
@@ -2136,12 +2301,16 @@ func DeleteS3Object(c echo.Context) error {
 // DownloadS3Object godoc
 // @ID download-s3-object
 // @Summary Download an object from S3 or list parts of multipart upload
-// @Description Downloads an object from S3 or lists parts of a multipart upload based on query parameters.
+// @Description Downloads an object from S3 or lists parts of a multipart upload. **Response type varies by query parameter:**
 // @Description
-// @Description **Operations:**
-// @Description - No query params: Download object
-// @Description - ?versionId={id}: Download specific version of object
-// @Description - ?uploadId={id}&list-type=parts: List parts of multipart upload
+// @Description | Query Parameter | Response | Description |
+// @Description |---|---|---|
+// @Description | *(none)* | `application/octet-stream` (binary) | Download object content |
+// @Description | `?versionId={id}` | `application/octet-stream` (binary) | Download specific object version |
+// @Description | `?uploadId={id}&list-type=parts` | `ListPartsResultJSON` | List parts of in-progress multipart upload |
+// @Description
+// @Description **Note**: The example value below shows the `?uploadId&list-type=parts` (list parts JSON) response.
+// @Description For binary downloads, the response body is the raw file content.
 // @Description
 // @Description **List Parts Example (verify uploaded parts):**
 // @Description - uploadId: Use UploadId from initiate response
@@ -2149,15 +2318,15 @@ func DeleteS3Object(c echo.Context) error {
 // @Description - Response shows all uploaded parts with PartNumber, ETag, Size
 // @Description - Optional: part-number-marker (pagination), max-parts (limit)
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce application/octet-stream,application/xml,application/json
+// @Accept  json
+// @Produce  application/octet-stream,application/json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param ObjectKey path string true "Object key (full path)"
-// @Param versionId query string false "Version ID for versioned object"
-// @Param uploadId query string false "Upload ID for listing parts"
+// @Param versionId query string false "Version ID for versioned object (binary download)"
+// @Param uploadId query string false "Upload ID for listing parts (use with list-type=parts). Returns: ListPartsResultJSON"
 // @Param list-type query string false "Must be 'parts' when listing multipart upload parts"
-// @Success 200 "Object content or parts list"
+// @Success 200 {object} ListPartsResultJSON "?uploadId&list-type=parts → ListPartsResultJSON. No params / ?versionId → binary file download (application/octet-stream). See description table."
 // @Failure 404 {object} S3Error "Object not found"
 // @Failure 500 {object} S3Error "Internal Server Error"
 // @Router /s3/{BucketName}/{ObjectKey} [get]
@@ -2312,6 +2481,17 @@ func initiateMultipartUpload(c echo.Context) error {
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedKey)
 	}
 
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		jsonResp := InitiateMultipartUploadResultJSON{
+			IId:      BucketIID{NameId: bucket, SystemId: bucket},
+			Key:      decodedKey,
+			UploadId: uploadID,
+		}
+		addS3Headers(c)
+		return c.JSON(http.StatusOK, jsonResp)
+	}
+
 	type InitiateMultipartUploadResult struct {
 		XMLName  xml.Name `xml:"InitiateMultipartUploadResult" json:"-"`
 		Xmlns    string   `xml:"xmlns,attr" json:"-"`
@@ -2394,6 +2574,18 @@ func completeMultipartUpload(c echo.Context) error {
 			statusCode = http.StatusNotFound
 		}
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+	}
+
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		jsonResp := CompleteMultipartUploadResultJSON{
+			Location: location,
+			IId:      BucketIID{NameId: bucket, SystemId: bucket},
+			Key:      key,
+			ETag:     etag,
+		}
+		addS3Headers(c)
+		return c.JSON(http.StatusOK, jsonResp)
 	}
 
 	type CompleteMultipartUploadResult struct {
@@ -2579,16 +2771,20 @@ func deleteMultipleObjects(c echo.Context) error {
 		XMLName xml.Name  `xml:"DeleteResult" json:"-"`
 		Xmlns   string    `xml:"xmlns,attr" json:"-"`
 		Deleted []Deleted `xml:"Deleted" json:"Deleted"`
-		Error   []Error   `xml:"Error" json:"Error"`
+		Error   []Error   `xml:"Error" json:"Errors,omitempty"`
 	}
 
 	resp := DeleteResult{
-		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
+		Xmlns:   "http://s3.amazonaws.com/doc/2006-03-01/",
+		Deleted: []Deleted{},
 	}
 
 	for _, result := range allResults {
 		if result.Success {
-			resp.Deleted = append(resp.Deleted, Deleted{Key: result.Key})
+			// Quiet mode: omit Deleted entries from response (only errors are returned)
+			if !req.Quiet {
+				resp.Deleted = append(resp.Deleted, Deleted{Key: result.Key})
+			}
 		} else {
 			// Map common error messages to S3 error codes
 			errorCode := "InternalError"
@@ -2662,10 +2858,23 @@ func postObject(c echo.Context) error {
 	}
 
 	addS3Headers(c)
-	// Return JSON response with upload result
+
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		type UploadResultJSON struct {
+			IId BucketIID `json:"IId"`
+			Key string    `json:"Key"`
+		}
+		return c.JSON(http.StatusOK, UploadResultJSON{
+			IId: BucketIID{NameId: bucket, SystemId: bucket},
+			Key: key,
+		})
+	}
+
+	// XML response: keep standard S3 format
 	type UploadResult struct {
-		Bucket string `json:"Bucket" xml:"Bucket"`
-		Key    string `json:"Key" xml:"Key"`
+		Bucket string `xml:"Bucket"`
+		Key    string `xml:"Key"`
 	}
 	return returnS3Response(c, http.StatusOK, UploadResult{Bucket: bucket, Key: key})
 }
@@ -2721,9 +2930,9 @@ func ForceEmptyS3Bucket(c echo.Context) error {
 	cblog.Infof("Query parameters: %v", c.QueryParams())
 
 	// Check for force empty parameter
-	if c.QueryParam("empty") == "" && c.Request().Header.Get("X-Force-Empty") == "" {
+	if !c.QueryParams().Has("empty") {
 		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest",
-			"Force empty requires 'empty' query parameter or X-Force-Empty header", "/"+name)
+			"Force empty requires 'empty' query parameter", "/"+name)
 	}
 
 	cblog.Infof("Force empty confirmed for bucket %s", name)
@@ -2763,9 +2972,9 @@ func ForceDeleteS3Bucket(c echo.Context) error {
 	cblog.Infof("Query parameters: %v", c.QueryParams())
 
 	// Check for force delete parameter
-	if c.QueryParam("force") == "" && c.Request().Header.Get("X-Force-Delete") == "" {
+	if !c.QueryParams().Has("force") {
 		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest",
-			"Force delete requires 'force' query parameter or X-Force-Delete header", "/"+name)
+			"Force delete requires 'force' query parameter", "/"+name)
 	}
 
 	cblog.Infof("Force delete confirmed for bucket %s", name)
@@ -2830,15 +3039,15 @@ func ForceDeleteS3Bucket(c echo.Context) error {
 // @Summary Generate presigned URL for downloading object (CB-Spider special feature)
 // @Description Generates a presigned URL that can be used to download an object from S3 without requiring AWS credentials. This is a CB-Spider special feature.
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param ObjectKey path string true "Object key (full path)"
 // @Param method query string false "HTTP method for URL (default: GET)"
 // @Param expires query int false "URL expiration time in seconds (default: 3600)"
 // @Param response-content-disposition query string false "Content-Disposition header value for download"
-// @Success 200 {object} S3PresignedURLXML "Presigned URL for download"
+// @Success 200 {object} S3PresignedURL "Presigned URL for download"
 // @Failure 404 {object} S3Error "Bucket not found"
 // @Failure 500 {object} S3Error "Internal Server Error"
 // @Router /s3/presigned/download/{BucketName}/{ObjectKey} [get]
@@ -2912,13 +3121,13 @@ func GetS3PresignedURLHandler(c echo.Context) error {
 // @Summary Generate presigned URL for uploading object (CB-Spider special feature)
 // @Description Generates a presigned URL that can be used to upload an object to S3 without requiring AWS credentials. This is a CB-Spider special feature.
 // @Tags [S3 Object Storage Management]
-// @Accept xml,json
-// @Produce xml,json
+// @Accept  json
+// @Produce  json
 // @Param ConnectionName query string true "Connection name"
 // @Param BucketName path string true "Bucket name"
 // @Param ObjectKey path string true "Object key (full path)"
 // @Param expires query int false "URL expiration time in seconds (default: 3600)"
-// @Success 200 {object} S3PresignedURLXML "Presigned URL for upload"
+// @Success 200 {object} S3PresignedURLUpload "Presigned URL for upload"
 // @Failure 404 {object} S3Error "Bucket not found"
 // @Failure 500 {object} S3Error "Internal Server Error"
 // @Router /s3/presigned/upload/{BucketName}/{ObjectKey} [get]
@@ -3194,10 +3403,36 @@ func listParts(c echo.Context) error {
 	}
 
 	addS3Headers(c)
+
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		partsJSON := make([]PartInfoJSON, 0)
+		for _, p := range result.Parts {
+			partsJSON = append(partsJSON, PartInfoJSON{
+				PartNumber:   p.PartNumber,
+				LastModified: p.LastModified,
+				ETag:         p.ETag,
+				Size:         p.Size,
+			})
+		}
+		jsonResp := ListPartsResultJSON{
+			IId:                  BucketIID{NameId: result.Bucket, SystemId: result.Bucket},
+			Key:                  result.Key,
+			UploadID:             result.UploadID,
+			PartNumberMarker:     result.PartNumberMarker,
+			NextPartNumberMarker: result.NextPartNumberMarker,
+			MaxParts:             result.MaxParts,
+			IsTruncated:          result.IsTruncated,
+			Parts:                partsJSON,
+			Initiator:            InitiatorJSON{ID: result.Initiator.ID, DisplayName: result.Initiator.DisplayName},
+			Owner:                Owner{ID: result.Owner.ID, DisplayName: result.Owner.DisplayName},
+			StorageClass:         result.StorageClass,
+		}
+		return c.JSON(http.StatusOK, jsonResp)
+	}
+
 	return returnS3Response(c, http.StatusOK, result)
 }
-
-// listMultipartUploads lists all in-progress multipart uploads in a bucket
 func listMultipartUploads(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
@@ -3235,10 +3470,38 @@ func listMultipartUploads(c echo.Context) error {
 	}
 
 	addS3Headers(c)
+
+	// JSON response: use IID format for bucket name
+	if isJSONResponse(c) {
+		uploadsJSON := make([]MultipartUploadInfoJSON, 0)
+		for _, u := range result.Uploads {
+			uploadsJSON = append(uploadsJSON, MultipartUploadInfoJSON{
+				Key:          u.Key,
+				UploadID:     u.UploadID,
+				Initiated:    u.Initiated,
+				StorageClass: u.StorageClass,
+				Initiator:    InitiatorJSON{ID: u.Initiator.ID, DisplayName: u.Initiator.DisplayName},
+				Owner:        Owner{ID: u.Owner.ID, DisplayName: u.Owner.DisplayName},
+			})
+		}
+		jsonResp := ListMultipartUploadsResultJSON{
+			IId:                BucketIID{NameId: result.Bucket, SystemId: result.Bucket},
+			KeyMarker:          result.KeyMarker,
+			UploadIDMarker:     result.UploadIDMarker,
+			NextKeyMarker:      result.NextKeyMarker,
+			NextUploadIDMarker: result.NextUploadIDMarker,
+			MaxUploads:         result.MaxUploads,
+			IsTruncated:        result.IsTruncated,
+			Uploads:            uploadsJSON,
+			Prefix:             result.Prefix,
+			Delimiter:          result.Delimiter,
+		}
+		return c.JSON(http.StatusOK, jsonResp)
+	}
+
 	return returnS3Response(c, http.StatusOK, result)
 }
 
-// CountS3BucketsByConnection godoc
 // @ID count-s3-by-connection
 // @Summary Count S3 Buckets by Connection
 // @Description Get the total number of S3 buckets for a specific connection.

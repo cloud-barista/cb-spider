@@ -331,7 +331,7 @@ main() {
     
     run_test "get_bucket_info" \
         "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
-        "Name" \
+        "IId" \
         "Get bucket information (JSON format)"
     
     run_test "head_bucket" \
@@ -416,7 +416,7 @@ main() {
     
     if [[ -n "$UPLOAD_ID" ]]; then
         # Upload part and capture the actual ETag
-        PART_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?partNumber=1&uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
+        PART_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?partNumber=1&uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -i)
         ACTUAL_ETAG=$(echo "$PART_RESPONSE" | grep -i "etag:" | cut -d':' -f2 | tr -d ' \r\n')
         HTTP_CODE=$(echo "$PART_RESPONSE" | tail -1)
         
@@ -441,10 +441,10 @@ main() {
     fi
     
     # Test complete multipart (separate upload)
-    NEW_UPLOAD_ID=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '<UploadId>[^<]*</UploadId>' | sed 's/<[^>]*>//g')
+    NEW_UPLOAD_ID=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | jq -r '.UploadId // empty' 2>/dev/null || curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '"UploadId":"[^"]*"' | sed 's/.*"UploadId":"\([^"]*\)".*/\1/')
     if [[ -n "$NEW_UPLOAD_ID" ]]; then
         # Upload part and get real ETag
-        PART_UPLOAD_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?partNumber=1&uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
+        PART_UPLOAD_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?partNumber=1&uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -i)
         REAL_ETAG=$(echo "$PART_UPLOAD_RESPONSE" | grep -i "etag:" | cut -d':' -f2 | tr -d ' \r\n"' | tr -d '"')
         
         if [[ -n "$REAL_ETAG" ]]; then
@@ -623,10 +623,9 @@ main() {
 
 # Check if spider server is running
 check_server() {
-    if ! curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s "$SPIDER_URL?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1; then
-        log_error "CB-Spider server is not running at $SPIDER_URL or connection $CONNECTION_NAME is not valid"
+    if ! curl -s "http://localhost:1024/spider/readyz" | grep -q "ready"; then
+        log_error "CB-Spider server is not running at $SPIDER_URL"
         log_info "Please start the server with: ./bin/start.sh"
-        log_info "And ensure connection '$CONNECTION_NAME' exists"
         exit 1
     fi
 }
