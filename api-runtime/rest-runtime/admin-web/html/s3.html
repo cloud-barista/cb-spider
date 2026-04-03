@@ -1943,10 +1943,27 @@ function hideObjectDetailOverlay() {
     document.removeEventListener('keydown', handleObjectDetailEsc);
 }
 
-function downloadObject(bucket, key) {
-    // key is already encoded from the server response, use it directly
+async function downloadObject(bucket, key) {
     const url = `/spider/s3/${bucket}/${key}?ConnectionName=${connConfig}`;
-    window.open(url, '_blank');
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const text = await response.text();
+            alert(`Download failed: ${response.status} ${response.statusText}\n${text}`);
+            return;
+        }
+        const blob = await response.blob();
+        const objectURL = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectURL;
+        a.download = decodeURIComponent(key.split('/').pop());
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objectURL);
+    } catch (err) {
+        alert(`Download error: ${err.message}`);
+    }
 }
 
 function generatePresignedURL(bucket, key) {
