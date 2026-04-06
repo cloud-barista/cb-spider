@@ -194,7 +194,7 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
+	config.Timeout = time.Duration(60) * time.Second //time.Millisecond
 	config.AutoRetry = true
 	config.MaxRetryTime = 2
 	//sdk.Timeout(1000)
@@ -247,7 +247,7 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
+	config.Timeout = time.Duration(60) * time.Second //time.Millisecond
 	config.AutoRetry = true
 	config.MaxRetryTime = 2
 	//sdk.Timeout(1000)
@@ -273,7 +273,7 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
+	config.Timeout = time.Duration(60) * time.Second //time.Millisecond
 	config.AutoRetry = true
 	config.MaxRetryTime = 2
 	//sdk.Timeout(1000)
@@ -297,7 +297,7 @@ func getBssClient(connectionInfo idrv.ConnectionInfo) (*bssopenapi.Client, error
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(15) * time.Second //time.Millisecond
+	config.Timeout = time.Duration(60) * time.Second //time.Millisecond
 	config.AutoRetry = true
 	config.MaxRetryTime = 2
 
@@ -406,7 +406,7 @@ func getNASClient(connectionInfo idrv.ConnectionInfo) (*nas.Client, error) {
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(15) * time.Second
+	config.Timeout = time.Duration(60) * time.Second
 	config.AutoRetry = true
 	config.MaxRetryTime = 2
 
@@ -429,7 +429,7 @@ func getQuotaClient(connectionInfo idrv.ConnectionInfo) (*quotas.Client, error) 
 	}
 
 	config := sdk.NewConfig()
-	config.Timeout = time.Duration(15) * time.Second
+	config.Timeout = time.Duration(60) * time.Second
 	config.AutoRetry = true
 	config.MaxRetryTime = 2
 
