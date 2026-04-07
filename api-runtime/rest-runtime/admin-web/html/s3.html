@@ -189,6 +189,14 @@
     .cors-configured { color: #17a2b8; font-weight: bold; cursor: pointer; text-decoration: underline; }
     .cors-not-configured { color: #6c757d; font-weight: bold; }
     .cors-toggle { cursor: pointer; }
+
+    /* Multipart Upload (MPU) styles */
+    .mpu-log { max-height: 200px; overflow-y: auto; background: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; font-size: 11px; padding: 8px; border-radius: 4px; margin-top: 8px; }
+    .mpu-log .log-ok   { color: #6fcf97; }
+    .mpu-log .log-err  { color: #eb5757; }
+    .mpu-log .log-info { color: #aaaaaa; }
+    .mpu-abort-btn { background: #f44336; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+    .mpu-abort-btn:hover { background: #d32f2f; }
 </style>
 </head>
 <body>
@@ -274,9 +282,15 @@
                         <button class="text-button" onclick="showBucketUsage('{{$b.Name}}')">View</button>
                     </td>
                     <td class="center-align">
+                        <button onclick="emptyBucket('{{$b.Name}}')" title="Permanently delete all objects in the bucket (including all versions and incomplete multipart uploads). The bucket itself is kept.">Empty</button>
                         <button onclick="deleteBucket('{{$b.Name}}')">Delete</button>
                     </td>
                     <td class="check-column"><input type="checkbox" name="bucket-checkbox" value="{{$b.Name}}"></td>
+                </tr>
+                {{end}}
+                {{if not .Buckets}}
+                <tr>
+                    <td colspan="8" class="center-align">No Buckets found for this connection.</td>
                 </tr>
                 {{end}}
             </tbody>
@@ -289,6 +303,8 @@
             <div class="header-with-progress">
                 <button onclick="showFolderCreateOverlay()" class="add-button">+ Folder</button>
                 <button onclick="showObjectUploadOverlay()" class="add-button" style="margin-left: 10px;">+ Object</button>
+                <button onclick="showMPUOverlay()" class="add-button" style="margin-left: 10px;">+ Multipart Upload</button>
+                <button onclick="showInProgressUploads()" class="add-button" style="margin-left: 10px;">Multipart Upload Status</button>
                 <button onclick="showObjectVersions()" class="add-button" style="margin-left: 10px;">Versions</button>
                 <div style="flex: 1;"></div>
                 <div class="object-panel-actions">
@@ -513,6 +529,102 @@
 
             <div style="text-align: center; margin-top: 20px;">
                 <button onclick="hideObjectVersionsOverlay()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multipart Upload (MPU) Overlay -->
+    <div id="mpu-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width:600px; max-height:90vh; overflow-y:auto;">
+            <button class="overlay-close-btn" onclick="hideMPUOverlay()">X</button>
+            <h2>Multipart Upload → <span id="mpu-bucket-name"></span></h2>
+
+            <div style="margin-bottom:12px;">
+                <label>Current Path:</label>
+                <div id="mpu-current-path" style="font-family:monospace; background:#f5f5f5; padding:6px; margin-top:4px; border-radius:4px; font-size:12px;"></div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label>File: <span style="color:#999; font-size:11px;">(5 MB minimum per part, except the last)</span></label>
+                <input type="file" id="mpu-file-input" style="margin-top:4px; display:block; width:100%;">
+                <div id="mpu-file-info" style="font-size:12px; color:#555; margin-top:5px;"></div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label>Object Key (full path):</label>
+                <input type="text" id="mpu-object-key"
+                       style="width:100%; margin-top:4px; padding:6px; box-sizing:border-box;"
+                       placeholder="path/to/filename.bin">
+            </div>
+
+            <div style="margin-bottom:12px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+                <div>
+                    <label>Part Size:</label>
+                    <select id="mpu-part-size" style="margin-left:8px; padding:4px;" onchange="updateMPUEstimate()">
+                        <option value="5242880">5 MB</option>
+                        <option value="10485760">10 MB</option>
+                        <option value="26214400">25 MB</option>
+                        <option value="52428800" selected>50 MB</option>
+                        <option value="104857600">100 MB</option>
+                    </select>
+                </div>
+                <div id="mpu-estimate" style="font-size:12px; color:#666;"></div>
+            </div>
+
+            <div id="mpu-progress-section" style="display:none; margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                    <span id="mpu-status-text" style="color:#555;">Preparing...</span>
+                    <span id="mpu-progress-percent" style="font-weight:bold;">0%</span>
+                </div>
+                <div style="width:100%; height:18px; background:#e0e0e0; border-radius:4px; overflow:hidden;">
+                    <div id="mpu-progress-bar" style="height:100%; background:#4CAF50; width:0%; transition:width 0.3s;"></div>
+                </div>
+            </div>
+
+            <div id="mpu-log" class="mpu-log" style="display:none;"></div>
+
+            <div id="mpu-result" style="display:none; padding:10px; background:#f0fff4; border:1px solid #c3e6cb; border-radius:4px; margin-top:8px; font-size:12px;"></div>
+
+            <div style="text-align:center; margin-top:15px; display:flex; gap:8px; justify-content:center;">
+                <button id="mpu-start-btn" onclick="startMultipartUpload()">Start Upload</button>
+                <button id="mpu-abort-btn" class="mpu-abort-btn" style="display:none;" onclick="abortCurrentUpload()">Abort</button>
+                <button onclick="hideMPUOverlay()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- In-Progress Multipart Uploads Overlay -->
+    <div id="inprogress-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width:900px; max-width:95vw; max-height:80vh; overflow-y:auto;">
+            <button class="overlay-close-btn" onclick="hideInProgressUploads()">X</button>
+            <h2>In-Progress Uploads: <span id="inprogress-bucket-name"></span></h2>
+
+            <div style="margin-bottom:10px; padding:10px; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; font-size:13px;">
+                <strong>Note:</strong> These multipart uploads were initiated but not yet completed or aborted.
+                Unfinished uploads may consume storage space on the CSP. Use <strong>Abort</strong> to clean them up.
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                <button onclick="loadInProgressUploads(document.getElementById('inprogress-bucket-name').textContent)">&#8635; Refresh</button>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                    <tr>
+                        <th style="border:1px solid #aaa; padding:6px; background:#f2f2f2; text-align:center; width:30%;">Object Key</th>
+                        <th style="border:1px solid #aaa; padding:6px; background:#f2f2f2; text-align:center; width:28%;">Upload ID</th>
+                        <th style="border:1px solid #aaa; padding:6px; background:#f2f2f2; text-align:center; width:18%;">Initiated</th>
+                        <th style="border:1px solid #aaa; padding:6px; background:#f2f2f2; text-align:center; width:14%;">Storage Class</th>
+                        <th style="border:1px solid #aaa; padding:6px; background:#f2f2f2; text-align:center; width:10%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="inprogress-body">
+                    <tr><td colspan="5" style="text-align:center; padding:20px;">Loading...</td></tr>
+                </tbody>
+            </table>
+
+            <div style="text-align:center; margin-top:15px;">
+                <button onclick="hideInProgressUploads()">Close</button>
             </div>
         </div>
     </div>
@@ -744,6 +856,31 @@ function toggleCORSQuick(bucketName, currentStatus) {
     });
 }
 
+function emptyBucket(name) {
+    if (!confirm(`Empty bucket "${name}"?\n\nThis will permanently delete ALL objects in the bucket.\n\nWarning: This action cannot be undone!`)) return;
+    showProgressBar();
+
+    fetch(`/spider/s3/${name}?empty&ConnectionName=${connConfig}`, {
+        method: 'DELETE',
+        headers: { 'X-Connection-Name': connConfig }
+    })
+    .then(response => {
+        if (response.ok) {
+            alert(`Bucket "${name}" has been emptied successfully.`);
+            if (currentBucket === name) {
+                fetchObjects(name, currentPrefix);
+            }
+            hideProgressBar();
+        } else {
+            return response.text().then(errorText => {
+                const msg = extractS3ErrorMessage(errorText) || errorText;
+                throw new Error(msg);
+            });
+        }
+    })
+    .catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
+}
+
 function deleteBucket(name, forceDelete = false) {
     if (!forceDelete && !confirm(`Delete bucket "${name}"?\n\nWarning: The bucket must be empty before it can be deleted. If the bucket contains objects, the deletion will fail.`)) return;
     showProgressBar();
@@ -771,7 +908,11 @@ function deleteBucket(name, forceDelete = false) {
                         const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
                         
                         if (errorCode === 'BucketNotEmpty') {
-                            throw new Error(`Cannot delete bucket "${name}": The bucket is not empty.\n\nPlease delete all objects in the bucket first, then try again.`);
+                            hideProgressBar();
+                            if (confirm(`Bucket "${name}" is not empty.\n\nForce delete the bucket and all its contents?\n\nWarning: This action cannot be undone!`)) {
+                                deleteBucket(name, true);
+                            }
+                            return;
                         } else if (errorCode === 'NoSuchBucket') {
                             // Check if this is a metadata-only bucket
                             if (errorMessage.includes('metadata exists') || errorMessage.includes('Use force=true')) {
@@ -2608,6 +2749,398 @@ function testUploadURL() {
         
         alert(errorMessage);
     });
+}
+
+// ========================================================================
+// Multipart Upload (MPU)
+// ========================================================================
+
+let mpuUploadId       = null;
+let mpuAbortRequested = false;
+let mpuParts          = [];
+
+// Encode an S3 object key for use in a URL path:
+// encodes each path segment with encodeURIComponent but keeps '/' as separators.
+function encodeS3ObjectKey(key) {
+    return key.split('/').map(segment => encodeURIComponent(segment)).join('/');
+}
+
+function showMPUOverlay() {
+    if (!currentBucket) { alert('Please select a bucket first!'); return; }
+    document.getElementById('mpu-bucket-name').textContent  = currentBucket;
+    document.getElementById('mpu-current-path').textContent = currentPrefix || '(root)';
+    document.getElementById('mpu-file-input').value         = '';
+    document.getElementById('mpu-object-key').value         = '';
+    document.getElementById('mpu-file-info').textContent    = '';
+    document.getElementById('mpu-estimate').textContent     = '';
+    document.getElementById('mpu-progress-section').style.display = 'none';
+    document.getElementById('mpu-progress-bar').style.width       = '0%';
+    document.getElementById('mpu-progress-percent').textContent   = '0%';
+    document.getElementById('mpu-status-text').textContent        = 'Preparing...';
+    document.getElementById('mpu-log').style.display   = 'none';
+    document.getElementById('mpu-log').innerHTML       = '';
+    document.getElementById('mpu-result').style.display = 'none';
+    document.getElementById('mpu-start-btn').disabled  = false;
+    document.getElementById('mpu-abort-btn').style.display = 'none';
+    mpuUploadId       = null;
+    mpuParts          = [];
+    mpuAbortRequested = false;
+    document.getElementById('mpu-overlay').style.display = 'flex';
+    document.getElementById('mpu-file-input').onchange   = onMPUFileSelected;
+    document.addEventListener('keydown', handleMPUEsc);
+}
+
+function handleMPUEsc(event) {
+    if (event.key === 'Escape') hideMPUOverlay();
+}
+
+function hideMPUOverlay() {
+    if (mpuUploadId) {
+        if (!confirm('An upload is in progress.\nClose anyway?\n(The upload will remain incomplete — open "Uploads" to abort it later.)')) {
+            return;
+        }
+    }
+    document.getElementById('mpu-overlay').style.display = 'none';
+    document.removeEventListener('keydown', handleMPUEsc);
+    mpuUploadId       = null;
+    mpuParts          = [];
+    mpuAbortRequested = false;
+}
+
+function onMPUFileSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('mpu-object-key').value      = currentPrefix + file.name;
+    document.getElementById('mpu-file-info').textContent = file.name + '  —  ' + formatBytes(file.size);
+    updateMPUEstimate();
+}
+
+function updateMPUEstimate() {
+    const file = document.getElementById('mpu-file-input').files[0];
+    if (!file) return;
+    const partSize   = parseInt(document.getElementById('mpu-part-size').value);
+    const numParts   = Math.max(1, Math.ceil(file.size / partSize));
+    const lastSize   = file.size % partSize || partSize;
+    document.getElementById('mpu-estimate').textContent =
+        '→ ' + numParts + ' part(s)  (last part: ' + formatBytes(lastSize) + ')';
+}
+
+function mpuLog(message, type) {
+    type = type || 'info';
+    const log = document.getElementById('mpu-log');
+    log.style.display = 'block';
+    const div = document.createElement('div');
+    div.className = 'log-' + type;
+    const now = new Date();
+    const ts  = now.getHours().toString().padStart(2,'0') + ':' +
+                now.getMinutes().toString().padStart(2,'0') + ':' +
+                now.getSeconds().toString().padStart(2,'0');
+    div.textContent = '[' + ts + '] ' + message;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+}
+
+function updateMPUProgress(uploadedBytes, totalBytes, currentPart, totalParts) {
+    const pct = totalBytes > 0 ? Math.floor((uploadedBytes / totalBytes) * 100) : 0;
+    document.getElementById('mpu-progress-bar').style.width        = pct + '%';
+    document.getElementById('mpu-progress-percent').textContent    = pct + '%';
+    document.getElementById('mpu-status-text').textContent         =
+        'Part ' + currentPart + '/' + totalParts + '  —  ' +
+        formatBytes(uploadedBytes) + ' / ' + formatBytes(totalBytes);
+}
+
+// ---------- S3 MPU API wrappers ----------
+
+async function mpuInitiate(bucket, objectKey) {
+    const resp = await fetch(
+        '/spider/s3/' + bucket + '/' + encodeS3ObjectKey(objectKey) + '?uploads&ConnectionName=' + connConfig,
+        { method: 'POST' }
+    );
+    if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error('Initiate failed: ' + (extractS3ErrorMessage(text) || 'HTTP ' + resp.status));
+    }
+    const xml   = await resp.text();
+    const match = xml.match(/<UploadId>([^<]+)<\/UploadId>/);
+    if (!match) throw new Error('No UploadId in server response');
+    return match[1];
+}
+
+// Use XHR for part upload so we can track per-request progress.
+// Note: each PUT request is handled by the Spider server which calls
+// cmrt.UploadPart() with a 60-second server-side context timeout.
+// For large parts (>50 MB) on slow connections this may cause a server-side
+// timeout. Reduce the part size if uploads fail with timeout errors.
+function mpuUploadPartXHR(bucket, objectKey, uploadId, partNumber, chunk) {
+    return new Promise(function(resolve, reject) {
+        const url = '/spider/s3/' + bucket + '/' + encodeS3ObjectKey(objectKey) +
+                    '?uploadId=' + encodeURIComponent(uploadId) +
+                    '&partNumber=' + partNumber +
+                    '&ConnectionName=' + connConfig;
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', url, true);
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            xhr.setRequestHeader('Authorization', 'Basic ' + btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD));
+        }
+        xhr.timeout = 600000; // 10-minute client-side timeout per part
+        xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.getResponseHeader('ETag') || '');
+            } else {
+                const msg = extractS3ErrorMessage(xhr.responseText) || 'HTTP ' + xhr.status;
+                reject(new Error('Part ' + partNumber + ' upload failed: ' + msg));
+            }
+        };
+        xhr.onerror   = function() { reject(new Error('Part ' + partNumber + ': network error')); };
+        xhr.ontimeout = function() { reject(new Error('Part ' + partNumber + ': client-side timeout (10 min)')); };
+        xhr.send(chunk);
+    });
+}
+
+async function mpuComplete(bucket, objectKey, uploadId, parts) {
+    const partsXml = parts.map(function(p) {
+        return '<Part><PartNumber>' + p.PartNumber + '</PartNumber><ETag>' + escapeXml(p.ETag) + '</ETag></Part>';
+    }).join('');
+    const body = '<?xml version="1.0" encoding="UTF-8"?><CompleteMultipartUpload>' + partsXml + '</CompleteMultipartUpload>';
+    const resp = await fetch(
+        '/spider/s3/' + bucket + '/' + encodeS3ObjectKey(objectKey) +
+        '?uploadId=' + encodeURIComponent(uploadId) + '&ConnectionName=' + connConfig,
+        { method: 'POST', headers: { 'Content-Type': 'application/xml' }, body: body }
+    );
+    if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error('Complete failed: ' + (extractS3ErrorMessage(text) || 'HTTP ' + resp.status));
+    }
+    return await resp.text();
+}
+
+async function mpuAbort(bucket, objectKey, uploadId) {
+    const resp = await fetch(
+        '/spider/s3/' + bucket + '/' + encodeS3ObjectKey(objectKey) +
+        '?uploadId=' + encodeURIComponent(uploadId) + '&ConnectionName=' + connConfig,
+        { method: 'DELETE' }
+    );
+    return resp.ok;
+}
+
+function escapeXml(str) {
+    return String(str)
+        .replace(/&/g,  '&amp;')
+        .replace(/</g,  '&lt;')
+        .replace(/>/g,  '&gt;')
+        .replace(/"/g,  '&quot;');
+}
+
+function extractS3ErrorMessage(xmlOrText) {
+    if (!xmlOrText) return null;
+    const codeMatch    = xmlOrText.match(/<Code>([^<]+)<\/Code>/);
+    const messageMatch = xmlOrText.match(/<Message>([^<]+)<\/Message>/);
+    if (messageMatch) {
+        const code = codeMatch ? '[' + codeMatch[1] + '] ' : '';
+        return code + messageMatch[1];
+    }
+    return null;
+}
+
+// ---------- Main upload orchestrator ----------
+
+async function startMultipartUpload() {
+    const file = document.getElementById('mpu-file-input').files[0];
+    if (!file) { alert('Please select a file!'); return; }
+    const objectKey = document.getElementById('mpu-object-key').value.trim();
+    if (!objectKey) { alert('Please enter an object key!'); return; }
+
+    const partSize   = parseInt(document.getElementById('mpu-part-size').value);
+    const totalParts = Math.max(1, Math.ceil(file.size / partSize));
+
+    document.getElementById('mpu-start-btn').disabled         = true;
+    document.getElementById('mpu-abort-btn').style.display    = 'inline-block';
+    document.getElementById('mpu-progress-section').style.display = 'block';
+    document.getElementById('mpu-progress-bar').style.width   = '0%';
+    document.getElementById('mpu-progress-percent').textContent = '0%';
+    document.getElementById('mpu-log').innerHTML               = '';
+    document.getElementById('mpu-result').style.display        = 'none';
+    mpuAbortRequested = false;
+    mpuParts          = [];
+
+    try {
+        // Step 1 — Initiate
+        mpuLog('[1/3] Initiating multipart upload for "' + objectKey + '" ...', 'info');
+        mpuUploadId = await mpuInitiate(currentBucket, objectKey);
+        mpuLog('✓ Initiated  UploadId: ' + mpuUploadId.substring(0, 40) + (mpuUploadId.length > 40 ? '...' : ''), 'ok');
+
+        // Step 2 — Upload parts
+        mpuLog('[2/3] Uploading ' + totalParts + ' part(s)  (' + formatBytes(partSize) + ' each, last may differ) ...', 'info');
+        let uploadedBytes = 0;
+
+        for (let i = 0; i < totalParts; i++) {
+            if (mpuAbortRequested) {
+                mpuLog('⚠ Abort requested. Aborting upload ...', 'err');
+                await mpuAbort(currentBucket, objectKey, mpuUploadId);
+                mpuLog('✓ Upload aborted.', 'ok');
+                mpuUploadId = null;
+                document.getElementById('mpu-abort-btn').style.display = 'none';
+                document.getElementById('mpu-start-btn').disabled       = false;
+                document.getElementById('mpu-status-text').textContent  = 'Aborted';
+                return;
+            }
+
+            const start     = i * partSize;
+            const end       = Math.min(start + partSize, file.size);
+            const chunk     = file.slice(start, end);
+            const partNo    = i + 1;
+            const chunkSize = end - start;
+
+            mpuLog('  → Part ' + partNo + '/' + totalParts + ': ' + formatBytes(chunkSize) + ' uploading ...', 'info');
+            updateMPUProgress(uploadedBytes, file.size, partNo, totalParts);
+
+            const etag = await mpuUploadPartXHR(currentBucket, objectKey, mpuUploadId, partNo, chunk);
+            mpuParts.push({ PartNumber: partNo, ETag: etag });
+            uploadedBytes += chunkSize;
+
+            updateMPUProgress(uploadedBytes, file.size, partNo, totalParts);
+            mpuLog('  ✓ Part ' + partNo + '/' + totalParts + ': ' + formatBytes(chunkSize) + '  ETag: ' + etag, 'ok');
+        }
+
+        // Step 3 — Complete
+        mpuLog('[3/3] Completing multipart upload (' + totalParts + ' parts) ...', 'info');
+        const resultXml = await mpuComplete(currentBucket, objectKey, mpuUploadId, mpuParts);
+        const etagMatch = resultXml.match(/<ETag>([^<]+)<\/ETag>/);
+        const finalETag = etagMatch ? etagMatch[1] : 'N/A';
+
+        mpuLog('✓ Upload completed successfully!', 'ok');
+        mpuUploadId = null;
+
+        document.getElementById('mpu-progress-bar').style.width      = '100%';
+        document.getElementById('mpu-progress-percent').textContent  = '100%';
+        document.getElementById('mpu-status-text').textContent       = 'Completed';
+        document.getElementById('mpu-abort-btn').style.display       = 'none';
+        document.getElementById('mpu-start-btn').disabled            = false;
+
+        const resultDiv = document.getElementById('mpu-result');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML =
+            '<strong>✓ Upload Complete</strong><br>' +
+            'Key: <code>' + objectKey + '</code><br>' +
+            'Size: ' + formatBytes(file.size) + '<br>' +
+            'Parts: ' + totalParts + '<br>' +
+            'ETag: <code>' + finalETag + '</code>';
+
+        fetchObjects(currentBucket, currentPrefix);
+
+    } catch (error) {
+        mpuLog('✗ Error: ' + error.message, 'err');
+        if (mpuUploadId) {
+            mpuLog('Aborting incomplete upload ...', 'info');
+            try {
+                await mpuAbort(currentBucket, objectKey, mpuUploadId);
+                mpuLog('✓ Incomplete upload aborted.', 'ok');
+            } catch (abortErr) {
+                mpuLog('⚠ Could not abort: ' + abortErr.message, 'err');
+            }
+            mpuUploadId = null;
+        }
+        document.getElementById('mpu-abort-btn').style.display = 'none';
+        document.getElementById('mpu-start-btn').disabled       = false;
+        document.getElementById('mpu-status-text').textContent  = 'Failed';
+    }
+}
+
+function abortCurrentUpload() {
+    if (!mpuUploadId) { alert('No upload is currently in progress.'); return; }
+    if (!confirm('Abort the current upload?\n\nAlready-uploaded parts will be cleaned up on the server.')) return;
+    mpuAbortRequested = true;
+}
+
+// ========================================================================
+// In-Progress Multipart Uploads list
+// ========================================================================
+
+function showInProgressUploads() {
+    if (!currentBucket) { alert('Please select a bucket first!'); return; }
+    document.getElementById('inprogress-bucket-name').textContent = currentBucket;
+    document.getElementById('inprogress-overlay').style.display  = 'flex';
+    document.addEventListener('keydown', handleInProgressEsc);
+    loadInProgressUploads(currentBucket);
+}
+
+function handleInProgressEsc(event) {
+    if (event.key === 'Escape') hideInProgressUploads();
+}
+
+function hideInProgressUploads() {
+    document.getElementById('inprogress-overlay').style.display = 'none';
+    document.removeEventListener('keydown', handleInProgressEsc);
+}
+
+async function loadInProgressUploads(bucket) {
+    const tbody = document.getElementById('inprogress-body');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Loading...</td></tr>';
+
+    try {
+        const resp = await fetch('/spider/s3/' + bucket + '?uploads&ConnectionName=' + connConfig);
+        if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(extractS3ErrorMessage(text) || 'HTTP ' + resp.status);
+        }
+        const xml    = await resp.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xml, 'text/xml');
+
+        const errEl = xmlDoc.getElementsByTagName('Error')[0];
+        if (errEl) {
+            const msg = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
+            throw new Error(msg);
+        }
+
+        const uploads = xmlDoc.getElementsByTagName('Upload');
+        if (uploads.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#888;">No in-progress multipart uploads found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        for (let i = 0; i < uploads.length; i++) {
+            const u            = uploads[i];
+            const key          = u.getElementsByTagName('Key')[0]?.textContent       || '';
+            const uploadId     = u.getElementsByTagName('UploadId')[0]?.textContent  || '';
+            const initiated    = u.getElementsByTagName('Initiated')[0]?.textContent || '';
+            const storageClass = u.getElementsByTagName('StorageClass')[0]?.textContent || '';
+
+            const shortId  = uploadId.length > 24 ? uploadId.substring(0, 24) + '...' : uploadId;
+            // Escape single quotes for inline onclick
+            const safeKey  = key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const safeUid  = uploadId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            tbody.innerHTML +=
+                '<tr>' +
+                '<td style="border:1px solid #ddd; padding:6px; word-break:break-all;">' + key + '</td>' +
+                '<td style="border:1px solid #ddd; padding:6px; font-family:monospace; font-size:11px;" title="' + uploadId + '">' + shortId + '</td>' +
+                '<td style="border:1px solid #ddd; padding:6px; text-align:center;">' + formatTime(initiated) + '</td>' +
+                '<td style="border:1px solid #ddd; padding:6px; text-align:center;">' + storageClass + '</td>' +
+                '<td style="border:1px solid #ddd; padding:6px; text-align:center;">' +
+                  '<button onclick="abortUploadById(\'' + bucket + '\', \'' + safeKey + '\', \'' + safeUid + '\')"' +
+                          ' style="background:#e53935; color:white; border:none; padding:3px 8px; border-radius:3px; cursor:pointer;">Abort</button>' +
+                '</td>' +
+                '</tr>';
+        }
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:red;">Error: ' + err.message + '</td></tr>';
+    }
+}
+
+async function abortUploadById(bucket, objectKey, uploadId) {
+    if (!confirm('Abort upload for "' + objectKey + '"?\n\nUpload ID: ' + uploadId.substring(0, 40) + '...')) return;
+    try {
+        const ok = await mpuAbort(bucket, objectKey, uploadId);
+        if (ok) {
+            loadInProgressUploads(bucket);
+        } else {
+            alert('Abort request returned an unexpected response.');
+        }
+    } catch (err) {
+        alert('Error aborting upload: ' + err.message);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
