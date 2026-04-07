@@ -2518,10 +2518,14 @@ func completeMultipartUpload(c echo.Context) error {
 		bucket = c.Param("BucketName")
 	}
 	key := c.Param("ObjectKey+")
+	decodedKey, err := url.PathUnescape(key)
+	if err != nil {
+		decodedKey = key
+	}
 	uploadID := c.QueryParam("uploadId")
 
 	if uploadID == "" {
-		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId parameter is required", "/"+bucket+"/"+key)
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId parameter is required", "/"+bucket+"/"+decodedKey)
 	}
 
 	type Part struct {
@@ -2543,12 +2547,12 @@ func completeMultipartUpload(c echo.Context) error {
 	if strings.Contains(contentType, "application/json") {
 		var jsonReq JSONCompleteMultipartUploadRequest
 		if err := json.NewDecoder(c.Request().Body).Decode(&jsonReq); err != nil {
-			return returnS3Error(c, http.StatusBadRequest, "MalformedJSON", err.Error(), "/"+bucket+"/"+key)
+			return returnS3Error(c, http.StatusBadRequest, "MalformedJSON", err.Error(), "/"+bucket+"/"+decodedKey)
 		}
 		req.Parts = jsonReq.Parts
 	} else {
 		if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
-			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket+"/"+key)
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket+"/"+decodedKey)
 		}
 	}
 
@@ -2560,7 +2564,7 @@ func completeMultipartUpload(c echo.Context) error {
 		})
 	}
 
-	location, etag, err := cmrt.CompleteMultipartUpload(conn, bucket, key, uploadID, parts)
+	location, etag, err := cmrt.CompleteMultipartUpload(conn, bucket, decodedKey, uploadID, parts)
 	if err != nil {
 		errorCode := "InternalError"
 		statusCode := http.StatusInternalServerError
@@ -2573,7 +2577,7 @@ func completeMultipartUpload(c echo.Context) error {
 			errorCode = "NoSuchUpload"
 			statusCode = http.StatusNotFound
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedKey)
 	}
 
 	// JSON response: use IID format for bucket name
@@ -2581,7 +2585,7 @@ func completeMultipartUpload(c echo.Context) error {
 		jsonResp := CompleteMultipartUploadResultJSON{
 			Location: location,
 			IId:      BucketIID{NameId: bucket, SystemId: bucket},
-			Key:      key,
+			Key:      decodedKey,
 			ETag:     etag,
 		}
 		addS3Headers(c)
@@ -2601,7 +2605,7 @@ func completeMultipartUpload(c echo.Context) error {
 		Xmlns:    "http://s3.amazonaws.com/doc/2006-03-01/",
 		Location: location,
 		Bucket:   bucket,
-		Key:      key,
+		Key:      decodedKey,
 		ETag:     etag,
 	}
 
@@ -2884,22 +2888,26 @@ func uploadPart(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	key := c.Param("ObjectKey+")
+	decodedKey, err := url.PathUnescape(key)
+	if err != nil {
+		decodedKey = key
+	}
 	uploadID := c.QueryParam("uploadId")
 	partNumberStr := c.QueryParam("partNumber")
 
 	if uploadID == "" || partNumberStr == "" {
-		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId and partNumber are required", "/"+bucket+"/"+key)
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId and partNumber are required", "/"+bucket+"/"+decodedKey)
 	}
 
 	partNumber, err := strconv.Atoi(partNumberStr)
 	if err != nil {
-		return returnS3Error(c, http.StatusBadRequest, "InvalidArgument", "invalid partNumber", "/"+bucket+"/"+key)
+		return returnS3Error(c, http.StatusBadRequest, "InvalidArgument", "invalid partNumber", "/"+bucket+"/"+decodedKey)
 	}
 
 	body := c.Request().Body
 	defer body.Close()
 
-	etag, err := cmrt.UploadPart(conn, bucket, key, uploadID, partNumber, body, c.Request().ContentLength)
+	etag, err := cmrt.UploadPart(conn, bucket, decodedKey, uploadID, partNumber, body, c.Request().ContentLength)
 	if err != nil {
 		errorCode := "InternalError"
 		statusCode := http.StatusInternalServerError
@@ -2912,7 +2920,7 @@ func uploadPart(c echo.Context) error {
 			errorCode = "NoSuchUpload"
 			statusCode = http.StatusNotFound
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedKey)
 	}
 
 	addS3Headers(c)
