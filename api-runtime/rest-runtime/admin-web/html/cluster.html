@@ -630,8 +630,11 @@
             </div>
         </div>        
         <div class="fixed-action-buttons">
-            <input type="checkbox" onclick="toggleSelectAll(this)">
-            <button onclick="deleteSelectedClusters()">Delete</button>
+            <input type="checkbox" id="selectAllDelete" onclick="toggleSelectAllDelete(this)"> 
+            <button id="btnDelete" onclick="deleteSelectedClusters()">Delete</button>
+            <span style="margin: 0 6px; color:#ccc;">|</span>
+            <input type="checkbox" id="selectAllFinalize" onclick="toggleSelectAllFinalize(this)">
+            <button id="btnFinalize" onclick="finalizeSelectedClusters()" style="background-color:#6c757d; color:white; border:1px solid #5a6268;">Finalize</button>
         </div>
     </div>
 
@@ -655,7 +658,9 @@
                 <th class="nodegroups-info-column center-align">NodeGroups Info</th>
                 <th class="tags-column center-align">Tags</th>
                 <th class="misc-column center-align">Misc</th>
-                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+                <th class="checkbox-cell center-align">
+                    <input type="checkbox" id="selectAllColumn" onclick="toggleSelectAllColumn(this)">
+                </th>
             </tr>
         
             {{range $index, $cluster := .Clusters}}
@@ -666,11 +671,11 @@
                     {{$cluster.IId.NameId}}<span class="cluster-system-id" onclick="showSystemIdOverlay('{{$cluster.IId.SystemId}}')">&nbsp;• {{$cluster.IId.SystemId}}</span>
                     <span class="cluster-created-time" data-time="{{$cluster.CreatedTime}}"></span>
                 </td>    
-                <td class="version-column center-align">{{$cluster.Version}}</td>
+                <td class="version-column center-align">{{if ne (printf "%s" $cluster.Status) "NotFound"}}{{$cluster.Version}}{{end}}</td>
                 <td class="status-column center-align">{{$cluster.Status}}</td>
                 
                 <td class="access-info-column center-align">
-                    {{if $cluster.Status}}
+                    {{if and $cluster.Status (ne (printf "%s" $cluster.Status) "NotFound")}}
                         <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Access Info', {
                             endpoint: '{{$cluster.AccessInfo.Endpoint}}',
                             kubeconfig: `{{$cluster.AccessInfo.Kubeconfig}}`,
@@ -680,7 +685,7 @@
                 </td>
                 
                 <td class="addons-column center-align">
-                    {{if $cluster.Status}}
+                    {{if and $cluster.Status (ne (printf "%s" $cluster.Status) "NotFound")}}
                         {{if $cluster.Addons.KeyValueList}}
                             <span class="addon-count">{{len $cluster.Addons.KeyValueList}} items</span>
                             <a class="view-details-link" href="javascript:void(0);" onclick="showAddonsOverlay(this)">View Details</a>
@@ -694,7 +699,7 @@
                 </td>
                 
                 <td class="network-info-column center-align"> 
-                    {{if $cluster.Status}}
+                    {{if and $cluster.Status (ne (printf "%s" $cluster.Status) "NotFound")}}
                         <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Network Info', {
                             vpc: '{{$cluster.Network.VpcIID.NameId}}',
                             subnets: [{{range $i, $subnet := $cluster.Network.SubnetIIDs}}'{{$subnet.NameId}}'{{if lt (add $i 1) (len $cluster.Network.SubnetIIDs)}},{{end}}{{end}}],
@@ -704,7 +709,7 @@
                 </td>
                 
                 <td class="nodegroups-info-column">
-                    {{if $cluster.Status}}
+                    {{if and $cluster.Status (ne (printf "%s" $cluster.Status) "NotFound")}}
                         <table class="nodegroup-inner-table">
                             <tr>
                                 <th class="nodegroup-name-column">Name</th>
@@ -731,7 +736,7 @@
                 </td>
                 
                 <td class="tags-column">
-                    {{if $cluster.Status}}
+                    {{if and $cluster.Status (ne (printf "%s" $cluster.Status) "NotFound")}}
                         {{range $tag := $cluster.TagList}}
                         <div class="cluster-tag-container" onclick="showClusterTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'Cluster', '{{$cluster.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
                         {{end}}
@@ -742,6 +747,7 @@
                 </td>
                 
                 <td class="misc-column">
+                    {{if ne (printf "%s" $cluster.Status) "NotFound"}}
                     <div class="misc-content">
                         {{range $kv := $cluster.KeyValueList}}
                             {{$kv.Key}}: {{$kv.Value}}<br>
@@ -750,9 +756,10 @@
                     {{if $cluster.KeyValueList}}
                     <button class="more-btn" onclick="showMiscOverlay(this)" style="display: inline;">more...</button>
                     {{end}}
+                    {{end}}
                 </td>
                 
-                <td class="checkbox-cell"><input type="checkbox" name="deleteCheckbox" value="{{$cluster.IId.NameId}}"></td>
+                <td class="checkbox-cell"><input type="checkbox" name="deleteCheckbox" value="{{$cluster.IId.NameId}}" data-status="{{$cluster.Status}}" onchange="onClusterCheckboxChange(this)"></td>
             </tr>
             {{end}}
             {{if not .Clusters}}
@@ -1107,12 +1114,155 @@
         }
 
 
-        function toggleSelectAll(selectAllCheckbox) {
+        function toggleSelectAllDelete(selectAllCheckbox) {
+            // Select only non-NotFound clusters
+            clearAllSelections();
             const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
-            
             checkboxes.forEach((checkbox) => {
-                checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.dataset.status !== 'NotFound') {
+                    checkbox.checked = selectAllCheckbox.checked;
+                } else {
+                    checkbox.checked = false;
+                }
             });
+            // Uncheck the finalize select-all
+            document.getElementById('selectAllFinalize').checked = false;
+            document.getElementById('selectAllColumn').checked = false;
+            updateCheckboxStates();
+        }
+
+        function toggleSelectAllFinalize(selectAllCheckbox) {
+            // Select only NotFound clusters
+            clearAllSelections();
+            const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+            checkboxes.forEach((checkbox) => {
+                if (checkbox.dataset.status === 'NotFound') {
+                    checkbox.checked = selectAllCheckbox.checked;
+                } else {
+                    checkbox.checked = false;
+                }
+            });
+            // Uncheck the delete select-all
+            document.getElementById('selectAllDelete').checked = false;
+            document.getElementById('selectAllColumn').checked = false;
+            updateCheckboxStates();
+        }
+
+        function toggleSelectAllColumn(selectAllCheckbox) {
+            // Determine current selection mode from already checked items
+            const checked = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+            if (checked.length === 0) {
+                // No selection yet: select all non-NotFound (delete mode) by default
+                const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+                checkboxes.forEach((checkbox) => {
+                    if (checkbox.dataset.status !== 'NotFound') {
+                        checkbox.checked = selectAllCheckbox.checked;
+                    }
+                });
+            } else {
+                // Follow current mode
+                const mode = getSelectionMode();
+                const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+                checkboxes.forEach((checkbox) => {
+                    if (mode === 'notfound' && checkbox.dataset.status === 'NotFound') {
+                        checkbox.checked = selectAllCheckbox.checked;
+                    } else if (mode === 'normal' && checkbox.dataset.status !== 'NotFound') {
+                        checkbox.checked = selectAllCheckbox.checked;
+                    }
+                });
+            }
+            updateCheckboxStates();
+        }
+
+        function clearAllSelections() {
+            const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+            checkboxes.forEach((checkbox) => {
+                checkbox.checked = false;
+            });
+        }
+
+        // Returns 'notfound', 'normal', or null
+        function getSelectionMode() {
+            const checked = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+            if (checked.length === 0) return null;
+            const firstStatus = checked[0].dataset.status;
+            return firstStatus === 'NotFound' ? 'notfound' : 'normal';
+        }
+
+        function onClusterCheckboxChange(changedCheckbox) {
+            updateCheckboxStates();
+        }
+
+        function updateCheckboxStates() {
+            const mode = getSelectionMode();
+            const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+            const btnDelete = document.getElementById('btnDelete');
+            const btnFinalize = document.getElementById('btnFinalize');
+
+            checkboxes.forEach((checkbox) => {
+                const isNotFound = checkbox.dataset.status === 'NotFound';
+                const row = checkbox.closest('tr');
+
+                if (mode === null) {
+                    // No selection: all enabled
+                    checkbox.disabled = false;
+                    row.style.opacity = '1';
+                    row.title = '';
+                } else if (mode === 'notfound') {
+                    if (isNotFound) {
+                        checkbox.disabled = false;
+                        row.style.opacity = '1';
+                        row.title = '';
+                    } else {
+                        checkbox.disabled = true;
+                        checkbox.checked = false;
+                        row.style.opacity = '0.45';
+                        row.title = 'Cannot mix: NotFound clusters are selected. Deselect them first to select active clusters.';
+                    }
+                } else {
+                    // mode === 'normal'
+                    if (!isNotFound) {
+                        checkbox.disabled = false;
+                        row.style.opacity = '1';
+                        row.title = '';
+                    } else {
+                        checkbox.disabled = true;
+                        checkbox.checked = false;
+                        row.style.opacity = '0.45';
+                        row.title = 'Cannot mix: Active clusters are selected. Deselect them first to select NotFound clusters.';
+                    }
+                }
+            });
+
+            // Enable/disable header buttons based on selection mode
+            if (mode === 'notfound') {
+                btnDelete.disabled = true;
+                btnDelete.style.opacity = '0.4';
+                btnDelete.style.cursor = 'not-allowed';
+                btnFinalize.disabled = false;
+                btnFinalize.style.opacity = '1';
+                btnFinalize.style.cursor = 'pointer';
+            } else if (mode === 'normal') {
+                btnDelete.disabled = false;
+                btnDelete.style.opacity = '1';
+                btnDelete.style.cursor = 'pointer';
+                btnFinalize.disabled = true;
+                btnFinalize.style.opacity = '0.4';
+                btnFinalize.style.cursor = 'not-allowed';
+            } else {
+                // No selection: both enabled
+                btnDelete.disabled = false;
+                btnDelete.style.opacity = '1';
+                btnDelete.style.cursor = 'pointer';
+                btnFinalize.disabled = false;
+                btnFinalize.style.opacity = '1';
+                btnFinalize.style.cursor = 'pointer';
+            }
+        }
+
+        // Legacy wrapper kept for table header checkbox
+        function toggleSelectAll(selectAllCheckbox) {
+            toggleSelectAllColumn(selectAllCheckbox);
         }
 
 
@@ -1148,6 +1298,41 @@
                 })
                 .catch(error => {
                     alert("Error deleting clusters: " + error.message);
+                });
+        }
+
+        function finalizeSelectedClusters() {
+            const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert("Please select clusters to finalize.");
+                return;
+            }
+
+            if (!confirm("Are you sure you want to finalize the selected clusters?\n\nThis will remove Spider meta information only if the cluster no longer exists on the CSP.")) {
+                return;
+            }
+
+            const finalizePromises = Array.from(checkboxes).map(checkbox => {
+                const clusterName = checkbox.value;
+
+                return fetchWithProgress(`/spider/cluster/${clusterName}/finalize`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ConnectionName: "{{.ConnectionConfig}}" })
+                }).then(response => {
+                    if (!response.ok) {
+                        return response.json().then(error => { throw new Error(error.message); });
+                    }
+                    return response.json();
+                });
+            });
+
+            Promise.all(finalizePromises)
+                .then(() => {
+                    location.reload();
+                })
+                .catch(error => {
+                    alert("Error finalizing clusters: " + error.message);
                 });
         }
 
@@ -1377,7 +1562,7 @@
 
                 switch (providerName.toUpperCase()) {
                     case 'AZURE':
-                        versionInput.value = '1.30.3';
+                        versionInput.value = '1.34.3';
                         vmSpecInput.value = 'Standard_B2s';
                         break;
                     case 'NHNCLOUD':
@@ -1542,7 +1727,7 @@
         function showError(message, title) {
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
-            const formattedMessage = message.split('.').join('.<br>');
+            const formattedMessage = message.split('. ').join('.<br>');
             errorDiv.innerHTML = `<p>${title}</p><p>${formattedMessage}</p><button onclick="closeError()">OK</button>`;
             document.body.appendChild(errorDiv);
             document.addEventListener('keydown', handleEscError);

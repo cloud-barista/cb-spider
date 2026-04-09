@@ -1050,10 +1050,11 @@
         const vpcCIDR = document.getElementById('vpcCIDR').value;
         const subnetName = document.getElementById('subnetName').value;
         const subnetCIDR = document.getElementById('subnetCIDR').value;
-        const subnetZone = document.getElementById('subnetZone').value;
+        const subnetZoneEl = document.getElementById('subnetZone');
+        const subnetZone = subnetZoneEl.value;
         const vpcCount = document.getElementById('vpcCount').value;
 
-        if (!vpcName || !vpcCIDR || !subnetName || !subnetCIDR || !subnetZone || !vpcCount) {
+        if (!vpcName || !vpcCIDR || !subnetName || !subnetCIDR || !vpcCount || (subnetZoneEl.hasAttribute('required') && !subnetZone)) {
             alert("Please fill in all the fields.");
             return false;
         }
@@ -1875,7 +1876,18 @@
             .then(response => response.json())
             .then(data => {
                 zoneSelect.innerHTML = '';
-                data.ZoneList.forEach(zone => {
+                const zones = data.ZoneList || [];
+                if (zones.length === 0) {
+                    zoneSelect.removeAttribute('required');
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No Zone Available';
+                    option.selected = true;
+                    zoneSelect.appendChild(option);
+                    return;
+                }
+                zoneSelect.setAttribute('required', 'required');
+                zones.forEach(zone => {
                     const option = document.createElement('option');
                     option.value = zone.Name;
                     option.textContent = `${zone.Name} (${zone.DisplayName})`;
