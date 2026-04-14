@@ -251,6 +251,21 @@ func (handler *GCPMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMM
 	return handler.getMetricData(vmMonitoringReqInfo.MetricType, resourceFilter, intervalMinute, timeBeforeHour)
 }
 
+// GetClusterNodeMetricData fetches VM-level metrics for a GKE Standard node.
+//
+// Implementation treats a GKE node as its underlying GCE instance, mirroring
+// the Azure AKS handler that uses VMSS VM metrics for the same purpose. This
+// keeps CSP semantics consistent and lets us reuse the VM metric mapping,
+// resolveInstanceID helper, and getMetricData helper.
+//
+// Supported:     GKE Standard clusters (nodes are user-owned GCE instances)
+// NOT supported: GKE Autopilot
+//   - Nodes are owned by a Google-managed project and not accessible via
+//     Compute Engine APIs. Calls for Autopilot clusters fail at
+//     resolveInstanceID with a permission error, propagated as-is.
+//   - Autopilot's operational model is pod-based; node-level observability
+//     is not meaningful for end users since they cannot resize, ssh, or
+//     pin workloads to a specific node.
 func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringReqInfo irs.ClusterNodeMonitoringReqInfo) (irs.MetricData, error) {
 	cblogger.Info("GCP Cloud Driver: called GetClusterNodeMetricData()")
 
@@ -265,7 +280,70 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringR
 		return irs.MetricData{}, getErr
 	}
 
-	getErr := errors.New("GCP MonitoringHandler: not implemented yet")
-	cblogger.Error(getErr.Error())
-	return irs.MetricData{}, getErr
+	intervalMinute, timeBeforeHour, err := parseAndValidateInterval(
+		clusterMonitoringReqInfo.IntervalMinute,
+		clusterMonitoringReqInfo.TimeBeforeHour,
+	)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.MetricData{}, err
+	}
+
+	clusterHandler := GCPClusterHandler{
+		Region:          handler.Region,
+		Ctx:             handler.Ctx,
+		Client:          handler.VMClient,
+		ContainerClient: handler.ContainerClient,
+		Credential:      handler.Credential,
+	}
+
+	cluster, err := clusterHandler.GetCluster(clusterMonitoringReqInfo.ClusterIID)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to get cluster info. err = %s", err))
+		cblogger.Error(getErr.Error())
+		return irs.MetricData{}, getErr
+	}
+
+	var nodeFound bool
+	var instanceName string
+
+	for _, nodeGroup := range cluster.NodeGroupList {
+		if nodeGroup.IId.NameId != clusterMonitoringReqInfo.NodeGroupID.NameId &&
+			nodeGroup.IId.SystemId != clusterMonitoringReqInfo.NodeGroupID.SystemId {
+			continue
+		}
+		for _, node := range nodeGroup.Nodes {
+			if node.NameId == clusterMonitoringReqInfo.NodeIID.NameId ||
+				node.SystemId == clusterMonitoringReqInfo.NodeIID.SystemId {
+				nodeFound = true
+				instanceName = node.NameId
+				if instanceName == "" {
+					instanceName = node.SystemId
+				}
+				break
+			}
+		}
+		if nodeFound {
+			break
+		}
+	}
+
+	if !nodeFound {
+		getErr := errors.New("Failed to get metric data. err = Node not found from the cluster")
+		cblogger.Error(getErr.Error())
+		return irs.MetricData{}, getErr
+	}
+
+	instanceID, err := handler.resolveInstanceID(instanceName)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.MetricData{}, err
+	}
+
+	resourceFilter := fmt.Sprintf(
+		`resource.type="gce_instance" AND resource.labels.instance_id="%s"`,
+		instanceID,
+	)
+
+	return handler.getMetricData(clusterMonitoringReqInfo.MetricType, resourceFilter, intervalMinute, timeBeforeHour)
 }
