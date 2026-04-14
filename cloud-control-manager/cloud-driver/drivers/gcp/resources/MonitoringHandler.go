@@ -22,6 +22,7 @@ import (
 	monitoringpb "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -33,6 +34,7 @@ type GCPMonitoringHandler struct {
 	Region          idrv.RegionInfo
 	Ctx             context.Context
 	Credential      idrv.CredentialInfo
+	VMClient        *compute.Service
 	ContainerClient *container.Service
 }
 
@@ -72,6 +74,20 @@ func (handler *GCPMonitoringHandler) newMonitoringClient() (*monitoring.MetricCl
 	return monitoring.NewMetricClient(handler.Ctx,
 		option.WithCredentialsJSON(handler.credentialJSON()),
 	)
+}
+
+// resolveInstanceID looks up the numeric Compute Engine instance ID for a VM
+// identified by name. Uses the zone configured on handler.Region.
+func (handler *GCPMonitoringHandler) resolveInstanceID(instanceName string) (string, error) {
+	zone := handler.Region.Zone
+	if zone == "" {
+		return "", errors.New("region zone is empty")
+	}
+	inst, err := handler.VMClient.Instances.Get(handler.Credential.ProjectID, zone, instanceName).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to get instance %q in zone %q: %w", instanceName, zone, err)
+	}
+	return strconv.FormatUint(inst.Id, 10), nil
 }
 
 // parseAndValidateInterval parses the IntervalMinute and TimeBeforeHour strings
@@ -207,9 +223,32 @@ func (handler *GCPMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMM
 		return irs.MetricData{}, getErr
 	}
 
-	getErr := errors.New("GCP MonitoringHandler: not implemented yet")
-	cblogger.Error(getErr.Error())
-	return irs.MetricData{}, getErr
+	intervalMinute, timeBeforeHour, err := parseAndValidateInterval(
+		vmMonitoringReqInfo.IntervalMinute,
+		vmMonitoringReqInfo.TimeBeforeHour,
+	)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.MetricData{}, err
+	}
+
+	instanceName := vmMonitoringReqInfo.VMIID.NameId
+	if instanceName == "" {
+		instanceName = vmMonitoringReqInfo.VMIID.SystemId
+	}
+
+	instanceID, err := handler.resolveInstanceID(instanceName)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.MetricData{}, err
+	}
+
+	resourceFilter := fmt.Sprintf(
+		`resource.type="gce_instance" AND resource.labels.instance_id="%s"`,
+		instanceID,
+	)
+
+	return handler.getMetricData(vmMonitoringReqInfo.MetricType, resourceFilter, intervalMinute, timeBeforeHour)
 }
 
 func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringReqInfo irs.ClusterNodeMonitoringReqInfo) (irs.MetricData, error) {

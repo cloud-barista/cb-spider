@@ -208,6 +208,7 @@ func (cloudConn *GCPCloudConnection) CreateMonitoringHandler() (irs.MonitoringHa
 		Region:          cloudConn.Region,
 		Ctx:             cloudConn.Ctx,
 		Credential:      cloudConn.Credential,
+		VMClient:        cloudConn.VMClient,
 		ContainerClient: cloudConn.ContainerClient,
 	}
 	return &monitoringHandler, nil
