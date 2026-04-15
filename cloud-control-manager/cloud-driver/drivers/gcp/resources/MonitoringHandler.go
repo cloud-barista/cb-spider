@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
@@ -32,7 +31,7 @@ import (
 )
 
 // ============================================================================
-// Types & Specs
+// Types
 // ============================================================================
 
 type GCPMonitoringHandler struct {
@@ -43,95 +42,187 @@ type GCPMonitoringHandler struct {
 	ContainerClient *container.Service
 }
 
-// gcpMetricSpec describes how to query a single MetricType from GCP Cloud Monitoring.
+// gcpMetricSpec describes how to query a single GCP Cloud Monitoring metric.
+// ALIGN_DELTA is used for cumulative byte counters so each point is
+// "bytes in the period". ValueScale=0 is treated as 1.0.
 type gcpMetricSpec struct {
-	MetricType string
-	Unit       string
-
-	// Aligner matches Azure semantics: ALIGN_MEAN for gauges, ALIGN_DELTA for
-	// cumulative byte counters (bytes-in-period, like Azure Total), ALIGN_RATE
-	// for /sec counters.
-	Aligner monitoringpb.Aggregation_Aligner
-
-	// RequiresAgent marks metrics sourced from Ops Agent (agent.googleapis.com/*).
-	// Used by diagnoseEmptyMetric to hint at agent installation on empty results.
-	RequiresAgent bool
-
-	// ExtraFilter appends a metric-label selector via AND
-	// (e.g. `metric.labels.state="used"` on agent memory).
-	ExtraFilter string
-
-	// ValueScale post-multiplies each point. CPU uses 100 to convert GCP's
-	// 0-1 fraction to Azure's 0-100 scale. Zero is treated as 1.0.
-	ValueScale float64
+	MetricType    string
+	Unit          string
+	Aligner       monitoringpb.Aggregation_Aligner
+	RequiresAgent bool   // agent.googleapis.com/* — diagnosed on empty result
+	ExtraFilter   string // AND-appended metric-label selector
+	ValueScale    float64
 }
 
-// gcpVMMetricMap: specs for standalone VMs. Memory requires Ops Agent.
-var gcpVMMetricMap = map[irs.MetricType]gcpMetricSpec{
-	irs.CPUUsage:     {"compute.googleapis.com/instance/cpu/utilization", "Percent", monitoringpb.Aggregation_ALIGN_MEAN, false, "", 100.0},
-	irs.MemoryUsage:  {"agent.googleapis.com/memory/bytes_used", "Bytes", monitoringpb.Aggregation_ALIGN_MEAN, true, `metric.labels.state="used"`, 1.0},
-	irs.DiskRead:     {"compute.googleapis.com/instance/disk/read_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_DELTA, false, "", 1.0},
-	irs.DiskWrite:    {"compute.googleapis.com/instance/disk/write_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_DELTA, false, "", 1.0},
-	irs.DiskReadOps:  {"compute.googleapis.com/instance/disk/read_ops_count", "CountPerSecond", monitoringpb.Aggregation_ALIGN_RATE, false, "", 1.0},
-	irs.DiskWriteOps: {"compute.googleapis.com/instance/disk/write_ops_count", "CountPerSecond", monitoringpb.Aggregation_ALIGN_RATE, false, "", 1.0},
-	irs.NetworkIn:    {"compute.googleapis.com/instance/network/received_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_DELTA, false, "", 1.0},
-	irs.NetworkOut:   {"compute.googleapis.com/instance/network/sent_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_DELTA, false, "", 1.0},
+// monitoringTarget is the resolved per-request selector passed to
+// getMetricData. filter is the resource.type + labels clause appended after
+// metric.type; name and status are used only for empty-result diagnostics.
+type monitoringTarget struct {
+	filter string
+	name   string
+	status string
 }
 
-// gcpGKEMetricOverrides: GKE-specific specs that deviate from gcpVMMetricMap.
-// Non-overridden metrics fall back to the VM map (GKE Standard nodes are GCE
-// instances). Memory uses kubernetes.io/* so no Ops Agent is needed; the
-// memory_type="non-evictable" filter approximates "in-use" memory.
-var gcpGKEMetricOverrides = map[irs.MetricType]gcpMetricSpec{
-	irs.MemoryUsage: {"kubernetes.io/node/memory/used_bytes", "Bytes", monitoringpb.Aggregation_ALIGN_MEAN, false, `metric.labels.memory_type="non-evictable"`, 1.0},
+type vmQueryContext struct {
+	instanceName   string
+	instanceID     string
+	instanceStatus string
+	intervalMinute int
+	timeBeforeHour int
 }
 
-// monitoringTarget lets getMetricData stay agnostic of the underlying
-// resource.type (gce_instance vs k8s_node). Each implementation builds its
-// own filter selector and exposes a display name plus VM status for
-// empty-result diagnostics.
-type monitoringTarget interface {
-	filter() string
-	name() string
-	status() string
+func (c vmQueryContext) gceTarget() monitoringTarget {
+	return monitoringTarget{
+		filter: fmt.Sprintf(`resource.type="gce_instance" AND resource.labels.instance_id="%s"`, c.instanceID),
+		name:   c.instanceName,
+		status: c.instanceStatus,
+	}
 }
 
-type gceInstanceTarget struct {
-	Name   string
-	ID     string
-	Status string
+type clusterNodeQueryContext struct {
+	vmQueryContext
+	clusterName string
+	location    string
 }
 
-func (t gceInstanceTarget) filter() string {
-	return fmt.Sprintf(`resource.type="gce_instance" AND resource.labels.instance_id="%s"`, t.ID)
-}
-func (t gceInstanceTarget) name() string   { return t.Name }
-func (t gceInstanceTarget) status() string { return t.Status }
-
-// k8sNodeTarget reuses the underlying VM status so diagnostics can still
-// distinguish "node VM stopped" from "metric not yet reporting" without an
-// extra API call.
-type k8sNodeTarget struct {
-	ClusterName        string
-	NodeName           string
-	Location           string
-	UnderlyingVMStatus string
+// k8sTarget assumes the GKE default where the Kubernetes node name equals
+// the underlying GCE instance name. The VM status is reused as the target
+// status so empty-result diagnostics can still say "node VM stopped".
+func (c clusterNodeQueryContext) k8sTarget() monitoringTarget {
+	return monitoringTarget{
+		filter: fmt.Sprintf(
+			`resource.type="k8s_node" AND resource.labels.cluster_name="%s" AND resource.labels.node_name="%s" AND resource.labels.location="%s"`,
+			c.clusterName, c.instanceName, c.location,
+		),
+		name:   c.instanceName,
+		status: c.instanceStatus,
+	}
 }
 
-func (t k8sNodeTarget) filter() string {
-	return fmt.Sprintf(
-		`resource.type="k8s_node" AND resource.labels.cluster_name="%s" AND resource.labels.node_name="%s" AND resource.labels.location="%s"`,
-		t.ClusterName, t.NodeName, t.Location,
-	)
+type vmMetricHandler func(*GCPMonitoringHandler, vmQueryContext) (irs.MetricData, error)
+type gkeMetricHandler func(*GCPMonitoringHandler, clusterNodeQueryContext) (irs.MetricData, error)
+
+// ============================================================================
+// Metric Specs
+// ============================================================================
+
+var (
+	specCPU = gcpMetricSpec{
+		MetricType: "compute.googleapis.com/instance/cpu/utilization",
+		Unit:       "Percent",
+		Aligner:    monitoringpb.Aggregation_ALIGN_MEAN,
+		ValueScale: 100.0,
+	}
+	specVMMemoryAgent = gcpMetricSpec{
+		MetricType:    "agent.googleapis.com/memory/percent_used",
+		Unit:          "Percent",
+		Aligner:       monitoringpb.Aggregation_ALIGN_MEAN,
+		RequiresAgent: true,
+		ExtraFilter:   `metric.labels.state="used"`,
+		ValueScale:    1.0,
+	}
+	specDiskRead = gcpMetricSpec{
+		MetricType: "compute.googleapis.com/instance/disk/read_bytes_count",
+		Unit:       "Bytes",
+		Aligner:    monitoringpb.Aggregation_ALIGN_DELTA,
+		ValueScale: 1.0,
+	}
+	specDiskWrite = gcpMetricSpec{
+		MetricType: "compute.googleapis.com/instance/disk/write_bytes_count",
+		Unit:       "Bytes",
+		Aligner:    monitoringpb.Aggregation_ALIGN_DELTA,
+		ValueScale: 1.0,
+	}
+	specDiskReadOps = gcpMetricSpec{
+		MetricType: "compute.googleapis.com/instance/disk/read_ops_count",
+		Unit:       "CountPerSecond",
+		Aligner:    monitoringpb.Aggregation_ALIGN_RATE,
+		ValueScale: 1.0,
+	}
+	specDiskWriteOps = gcpMetricSpec{
+		MetricType: "compute.googleapis.com/instance/disk/write_ops_count",
+		Unit:       "CountPerSecond",
+		Aligner:    monitoringpb.Aggregation_ALIGN_RATE,
+		ValueScale: 1.0,
+	}
+	specNetworkIn = gcpMetricSpec{
+		MetricType: "compute.googleapis.com/instance/network/received_bytes_count",
+		Unit:       "Bytes",
+		Aligner:    monitoringpb.Aggregation_ALIGN_DELTA,
+		ValueScale: 1.0,
+	}
+	specNetworkOut = gcpMetricSpec{
+		MetricType: "compute.googleapis.com/instance/network/sent_bytes_count",
+		Unit:       "Bytes",
+		Aligner:    monitoringpb.Aggregation_ALIGN_DELTA,
+		ValueScale: 1.0,
+	}
+
+	// GKE memory is derived: used_bytes / total_bytes on k8s_node.
+	specGKEMemoryUsedBytes = gcpMetricSpec{
+		MetricType:  "kubernetes.io/node/memory/used_bytes",
+		Unit:        "Bytes",
+		Aligner:     monitoringpb.Aggregation_ALIGN_MEAN,
+		ExtraFilter: `metric.labels.memory_type="non-evictable"`,
+		ValueScale:  1.0,
+	}
+	specGKEMemoryTotalBytes = gcpMetricSpec{
+		MetricType: "kubernetes.io/node/memory/total_bytes",
+		Unit:       "Bytes",
+		Aligner:    monitoringpb.Aggregation_ALIGN_MEAN,
+		ValueScale: 1.0,
+	}
+)
+
+// ============================================================================
+// Handler Registry
+// ============================================================================
+
+var gcpVMMetricHandlers = map[irs.MetricType]vmMetricHandler{
+	irs.CPUUsage:     vmDirect(irs.CPUUsage, specCPU),
+	irs.MemoryUsage:  vmDirect(irs.MemoryUsage, specVMMemoryAgent),
+	irs.DiskRead:     vmDirect(irs.DiskRead, specDiskRead),
+	irs.DiskWrite:    vmDirect(irs.DiskWrite, specDiskWrite),
+	irs.DiskReadOps:  vmDirect(irs.DiskReadOps, specDiskReadOps),
+	irs.DiskWriteOps: vmDirect(irs.DiskWriteOps, specDiskWriteOps),
+	irs.NetworkIn:    vmDirect(irs.NetworkIn, specNetworkIn),
+	irs.NetworkOut:   vmDirect(irs.NetworkOut, specNetworkOut),
 }
-func (t k8sNodeTarget) name() string   { return t.NodeName }
-func (t k8sNodeTarget) status() string { return t.UnderlyingVMStatus }
+
+var gcpGKEMetricHandlers = map[irs.MetricType]gkeMetricHandler{
+	irs.CPUUsage:     gkeDirect(irs.CPUUsage, specCPU),
+	irs.MemoryUsage:  gkeMemoryPercent(),
+	irs.DiskRead:     gkeDirect(irs.DiskRead, specDiskRead),
+	irs.DiskWrite:    gkeDirect(irs.DiskWrite, specDiskWrite),
+	irs.DiskReadOps:  gkeDirect(irs.DiskReadOps, specDiskReadOps),
+	irs.DiskWriteOps: gkeDirect(irs.DiskWriteOps, specDiskWriteOps),
+	irs.NetworkIn:    gkeDirect(irs.NetworkIn, specNetworkIn),
+	irs.NetworkOut:   gkeDirect(irs.NetworkOut, specNetworkOut),
+}
+
+func vmDirect(mt irs.MetricType, spec gcpMetricSpec) vmMetricHandler {
+	return func(h *GCPMonitoringHandler, ctx vmQueryContext) (irs.MetricData, error) {
+		return h.getMetricData(mt, spec, ctx.gceTarget(), ctx.intervalMinute, ctx.timeBeforeHour)
+	}
+}
+
+func gkeDirect(mt irs.MetricType, spec gcpMetricSpec) gkeMetricHandler {
+	return func(h *GCPMonitoringHandler, ctx clusterNodeQueryContext) (irs.MetricData, error) {
+		return h.getMetricData(mt, spec, ctx.gceTarget(), ctx.intervalMinute, ctx.timeBeforeHour)
+	}
+}
+
+func gkeMemoryPercent() gkeMetricHandler {
+	return func(h *GCPMonitoringHandler, ctx clusterNodeQueryContext) (irs.MetricData, error) {
+		return h.computeGKEMemoryPercent(ctx.k8sTarget(), ctx.intervalMinute, ctx.timeBeforeHour)
+	}
+}
 
 // ============================================================================
 // Public API
 // ============================================================================
 
-func (handler *GCPMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMMonitoringReqInfo) (irs.MetricData, error) {
+func (handler *GCPMonitoringHandler) GetVMMetricData(req irs.VMMonitoringReqInfo) (irs.MetricData, error) {
 	cblogger.Info("GCP Cloud Driver: called GetVMMetricData()")
 
 	if handler.Credential.ProjectID == "" {
@@ -139,31 +230,21 @@ func (handler *GCPMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMM
 		cblogger.Error(getErr.Error())
 		return irs.MetricData{}, getErr
 	}
-	if vmMonitoringReqInfo.VMIID.NameId == "" && vmMonitoringReqInfo.VMIID.SystemId == "" {
+	if req.VMIID.NameId == "" && req.VMIID.SystemId == "" {
 		getErr := errors.New("VMIID is empty")
 		cblogger.Error(getErr.Error())
 		return irs.MetricData{}, getErr
 	}
 
-	intervalMinute, timeBeforeHour, err := parseAndValidateInterval(
-		vmMonitoringReqInfo.IntervalMinute,
-		vmMonitoringReqInfo.TimeBeforeHour,
-	)
+	intervalMinute, timeBeforeHour, err := parseAndValidateInterval(req.IntervalMinute, req.TimeBeforeHour)
 	if err != nil {
 		cblogger.Error(err.Error())
 		return irs.MetricData{}, err
 	}
 
-	instanceName := vmMonitoringReqInfo.VMIID.NameId
+	instanceName := req.VMIID.NameId
 	if instanceName == "" {
-		instanceName = vmMonitoringReqInfo.VMIID.SystemId
-	}
-
-	spec, ok := gcpVMMetricMap[vmMonitoringReqInfo.MetricType]
-	if !ok {
-		getErr := fmt.Errorf("unsupported VM metric type: %s", vmMonitoringReqInfo.MetricType)
-		cblogger.Error(getErr.Error())
-		return irs.MetricData{}, getErr
+		instanceName = req.VMIID.SystemId
 	}
 
 	instanceID, instanceStatus, err := handler.resolveInstance(instanceName)
@@ -172,22 +253,27 @@ func (handler *GCPMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMM
 		return irs.MetricData{}, err
 	}
 
-	target := gceInstanceTarget{
-		Name:   instanceName,
-		ID:     instanceID,
-		Status: instanceStatus,
+	handle, ok := gcpVMMetricHandlers[req.MetricType]
+	if !ok {
+		getErr := fmt.Errorf("unsupported VM metric type: %s", req.MetricType)
+		cblogger.Error(getErr.Error())
+		return irs.MetricData{}, getErr
 	}
 
-	return handler.getMetricData(vmMonitoringReqInfo.MetricType, spec, target, intervalMinute, timeBeforeHour)
+	ctx := vmQueryContext{
+		instanceName:   instanceName,
+		instanceID:     instanceID,
+		instanceStatus: instanceStatus,
+		intervalMinute: intervalMinute,
+		timeBeforeHour: timeBeforeHour,
+	}
+	return handle(handler, ctx)
 }
 
 // GetClusterNodeMetricData fetches node-level metrics for a GKE Standard node.
-// Non-memory metrics query compute.googleapis.com on the underlying GCE
-// instance; Memory uses kubernetes.io/node/memory/used_bytes so no Ops Agent
-// install is required. GKE Autopilot is not supported: Autopilot nodes live
-// in a Google-managed project and Instances.Get fails with a permission
-// error, which is propagated as-is.
-func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringReqInfo irs.ClusterNodeMonitoringReqInfo) (irs.MetricData, error) {
+// GKE Autopilot is not supported: its nodes live in a Google-managed project
+// and Instances.Get fails with a permission error, which is propagated as-is.
+func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(req irs.ClusterNodeMonitoringReqInfo) (irs.MetricData, error) {
 	cblogger.Info("GCP Cloud Driver: called GetClusterNodeMetricData()")
 
 	if handler.Credential.ProjectID == "" {
@@ -195,16 +281,13 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringR
 		cblogger.Error(getErr.Error())
 		return irs.MetricData{}, getErr
 	}
-	if clusterMonitoringReqInfo.ClusterIID.NameId == "" && clusterMonitoringReqInfo.ClusterIID.SystemId == "" {
+	if req.ClusterIID.NameId == "" && req.ClusterIID.SystemId == "" {
 		getErr := errors.New("ClusterIID is empty")
 		cblogger.Error(getErr.Error())
 		return irs.MetricData{}, getErr
 	}
 
-	intervalMinute, timeBeforeHour, err := parseAndValidateInterval(
-		clusterMonitoringReqInfo.IntervalMinute,
-		clusterMonitoringReqInfo.TimeBeforeHour,
-	)
+	intervalMinute, timeBeforeHour, err := parseAndValidateInterval(req.IntervalMinute, req.TimeBeforeHour)
 	if err != nil {
 		cblogger.Error(err.Error())
 		return irs.MetricData{}, err
@@ -217,94 +300,191 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringR
 		ContainerClient: handler.ContainerClient,
 		Credential:      handler.Credential,
 	}
-
-	cluster, err := clusterHandler.GetCluster(clusterMonitoringReqInfo.ClusterIID)
+	cluster, err := clusterHandler.GetCluster(req.ClusterIID)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to get cluster info. err = %s", err))
+		getErr := fmt.Errorf("failed to get cluster info: %w", err)
 		cblogger.Error(getErr.Error())
 		return irs.MetricData{}, getErr
 	}
 
-	var nodeFound bool
-	var instanceName string
-
-	for _, nodeGroup := range cluster.NodeGroupList {
-		if nodeGroup.IId.NameId != clusterMonitoringReqInfo.NodeGroupID.NameId &&
-			nodeGroup.IId.SystemId != clusterMonitoringReqInfo.NodeGroupID.SystemId {
-			continue
-		}
-		for _, node := range nodeGroup.Nodes {
-			if node.NameId == clusterMonitoringReqInfo.NodeIID.NameId ||
-				node.SystemId == clusterMonitoringReqInfo.NodeIID.SystemId {
-				nodeFound = true
-				instanceName = node.NameId
-				if instanceName == "" {
-					instanceName = node.SystemId
-				}
-				break
-			}
-		}
-		if nodeFound {
-			break
-		}
+	instanceName, err := findClusterNodeInstance(cluster, req.NodeGroupID, req.NodeIID)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.MetricData{}, err
 	}
 
-	if !nodeFound {
-		getErr := errors.New("Failed to get metric data. err = Node not found from the cluster")
-		cblogger.Error(getErr.Error())
-		return irs.MetricData{}, getErr
-	}
-
-	spec, ok := resolveGKEMetricSpec(clusterMonitoringReqInfo.MetricType)
-	if !ok {
-		getErr := fmt.Errorf("unsupported cluster-node metric type: %s", clusterMonitoringReqInfo.MetricType)
-		cblogger.Error(getErr.Error())
-		return irs.MetricData{}, getErr
-	}
-
-	// Always resolve: gce_instance needs the ID, k8s_node still uses the
-	// VM status for empty-result diagnostics. Same single API call either way.
 	instanceID, instanceStatus, err := handler.resolveInstance(instanceName)
 	if err != nil {
 		cblogger.Error(err.Error())
 		return irs.MetricData{}, err
 	}
 
-	var target monitoringTarget
-	if strings.HasPrefix(spec.MetricType, "kubernetes.io/") {
-		clusterName := clusterMonitoringReqInfo.ClusterIID.NameId
-		if clusterName == "" {
-			clusterName = clusterMonitoringReqInfo.ClusterIID.SystemId
-		}
-		// GKE default: k8s node name == GCE instance name.
-		target = k8sNodeTarget{
-			ClusterName:        clusterName,
-			NodeName:           instanceName,
-			Location:           handler.Region.Zone,
-			UnderlyingVMStatus: instanceStatus,
-		}
-	} else {
-		target = gceInstanceTarget{
-			Name:   instanceName,
-			ID:     instanceID,
-			Status: instanceStatus,
-		}
+	handle, ok := gcpGKEMetricHandlers[req.MetricType]
+	if !ok {
+		getErr := fmt.Errorf("unsupported cluster-node metric type: %s", req.MetricType)
+		cblogger.Error(getErr.Error())
+		return irs.MetricData{}, getErr
 	}
 
-	return handler.getMetricData(clusterMonitoringReqInfo.MetricType, spec, target, intervalMinute, timeBeforeHour)
+	clusterName := req.ClusterIID.NameId
+	if clusterName == "" {
+		clusterName = req.ClusterIID.SystemId
+	}
+	ctx := clusterNodeQueryContext{
+		vmQueryContext: vmQueryContext{
+			instanceName:   instanceName,
+			instanceID:     instanceID,
+			instanceStatus: instanceStatus,
+			intervalMinute: intervalMinute,
+			timeBeforeHour: timeBeforeHour,
+		},
+		clusterName: clusterName,
+		location:    handler.Region.Zone,
+	}
+	return handle(handler, ctx)
+}
+
+func findClusterNodeInstance(cluster irs.ClusterInfo, nodeGroupID, nodeIID irs.IID) (string, error) {
+	for _, nodeGroup := range cluster.NodeGroupList {
+		if nodeGroup.IId.NameId != nodeGroupID.NameId &&
+			nodeGroup.IId.SystemId != nodeGroupID.SystemId {
+			continue
+		}
+		for _, node := range nodeGroup.Nodes {
+			if node.NameId != nodeIID.NameId && node.SystemId != nodeIID.SystemId {
+				continue
+			}
+			if node.NameId != "" {
+				return node.NameId, nil
+			}
+			return node.SystemId, nil
+		}
+	}
+	return "", errors.New("node not found in the cluster")
 }
 
 // ============================================================================
-// Helpers
+// Metric Execution
 // ============================================================================
 
-func resolveGKEMetricSpec(mt irs.MetricType) (gcpMetricSpec, bool) {
-	if spec, ok := gcpGKEMetricOverrides[mt]; ok {
-		return spec, true
+func (handler *GCPMonitoringHandler) getMetricData(
+	metricType irs.MetricType,
+	spec gcpMetricSpec,
+	target monitoringTarget,
+	intervalMinute, timeBeforeHour int,
+) (irs.MetricData, error) {
+	client, err := handler.newMonitoringClient()
+	if err != nil {
+		getErr := fmt.Errorf("failed to create monitoring client: %w", err)
+		cblogger.Error(getErr.Error())
+		return irs.MetricData{}, getErr
 	}
-	spec, ok := gcpVMMetricMap[mt]
-	return spec, ok
+	defer client.Close()
+
+	endTime := time.Now().UTC()
+	startTime := endTime.Add(-time.Duration(timeBeforeHour) * time.Hour)
+
+	filter := fmt.Sprintf(`metric.type="%s" AND %s`, spec.MetricType, target.filter)
+	if spec.ExtraFilter != "" {
+		filter = fmt.Sprintf(`%s AND %s`, filter, spec.ExtraFilter)
+	}
+
+	req := &monitoringpb.ListTimeSeriesRequest{
+		Name:   "projects/" + handler.Credential.ProjectID,
+		Filter: filter,
+		Interval: &monitoringpb.TimeInterval{
+			StartTime: timestamppb.New(startTime),
+			EndTime:   timestamppb.New(endTime),
+		},
+		Aggregation: &monitoringpb.Aggregation{
+			AlignmentPeriod:  durationpb.New(time.Duration(intervalMinute) * time.Minute),
+			PerSeriesAligner: spec.Aligner,
+		},
+		View: monitoringpb.ListTimeSeriesRequest_FULL,
+	}
+
+	result := irs.MetricData{
+		MetricName:      spec.MetricType,
+		MetricUnit:      spec.Unit,
+		TimestampValues: []irs.TimestampValue{},
+	}
+
+	it := client.ListTimeSeries(handler.Ctx, req)
+	for {
+		ts, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			getErr := fmt.Errorf("failed to get metric data: %w", err)
+			cblogger.Error(getErr.Error())
+			return irs.MetricData{}, getErr
+		}
+		for _, point := range ts.GetPoints() {
+			result.TimestampValues = append(result.TimestampValues, irs.TimestampValue{
+				Timestamp: point.GetInterval().GetEndTime().AsTime(),
+				Value:     pointValueToString(point.GetValue(), spec.ValueScale),
+			})
+		}
+	}
+
+	if len(result.TimestampValues) == 0 {
+		diagErr := diagnoseEmptyMetric(metricType, spec, target.name, target.status)
+		cblogger.Error(diagErr.Error())
+		return irs.MetricData{}, diagErr
+	}
+
+	return result, nil
 }
+
+// computeGKEMemoryPercent divides used_bytes by total_bytes point-by-point
+// on matching timestamps so GKE memory stays on the same denominator as VM
+// memory (total RAM). Costs one extra ListTimeSeries call per request.
+func (handler *GCPMonitoringHandler) computeGKEMemoryPercent(
+	target monitoringTarget,
+	intervalMinute, timeBeforeHour int,
+) (irs.MetricData, error) {
+	used, err := handler.getMetricData(irs.MemoryUsage, specGKEMemoryUsedBytes, target, intervalMinute, timeBeforeHour)
+	if err != nil {
+		return irs.MetricData{}, err
+	}
+	total, err := handler.getMetricData(irs.MemoryUsage, specGKEMemoryTotalBytes, target, intervalMinute, timeBeforeHour)
+	if err != nil {
+		return irs.MetricData{}, err
+	}
+
+	totalByTime := make(map[time.Time]float64, len(total.TimestampValues))
+	for _, tv := range total.TimestampValues {
+		if f, parseErr := strconv.ParseFloat(tv.Value, 64); parseErr == nil {
+			totalByTime[tv.Timestamp] = f
+		}
+	}
+
+	result := irs.MetricData{
+		MetricName:      "kubernetes.io/node/memory/used_percent",
+		MetricUnit:      "Percent",
+		TimestampValues: []irs.TimestampValue{},
+	}
+	for _, tv := range used.TimestampValues {
+		totalVal, ok := totalByTime[tv.Timestamp]
+		if !ok || totalVal == 0 {
+			continue
+		}
+		usedVal, parseErr := strconv.ParseFloat(tv.Value, 64)
+		if parseErr != nil {
+			continue
+		}
+		result.TimestampValues = append(result.TimestampValues, irs.TimestampValue{
+			Timestamp: tv.Timestamp,
+			Value:     strconv.FormatFloat(usedVal/totalVal*100, 'f', -1, 64),
+		})
+	}
+	return result, nil
+}
+
+// ============================================================================
+// Low-level Helpers
+// ============================================================================
 
 func (handler *GCPMonitoringHandler) credentialJSON() []byte {
 	data := map[string]string{
@@ -362,78 +542,6 @@ func parseAndValidateInterval(intervalMinuteStr, timeBeforeHourStr string) (inte
 	}
 
 	return intervalMinute, timeBeforeHour, nil
-}
-
-func (handler *GCPMonitoringHandler) getMetricData(
-	metricType irs.MetricType,
-	spec gcpMetricSpec,
-	target monitoringTarget,
-	intervalMinute, timeBeforeHour int,
-) (irs.MetricData, error) {
-	client, err := handler.newMonitoringClient()
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to create monitoring client. err = %s", err))
-		cblogger.Error(getErr.Error())
-		return irs.MetricData{}, getErr
-	}
-	defer client.Close()
-
-	endTime := time.Now().UTC()
-	startTime := endTime.Add(-time.Duration(timeBeforeHour) * time.Hour)
-
-	filter := fmt.Sprintf(`metric.type="%s" AND %s`, spec.MetricType, target.filter())
-	if spec.ExtraFilter != "" {
-		filter = fmt.Sprintf(`%s AND %s`, filter, spec.ExtraFilter)
-	}
-
-	req := &monitoringpb.ListTimeSeriesRequest{
-		Name:   "projects/" + handler.Credential.ProjectID,
-		Filter: filter,
-		Interval: &monitoringpb.TimeInterval{
-			StartTime: timestamppb.New(startTime),
-			EndTime:   timestamppb.New(endTime),
-		},
-		Aggregation: &monitoringpb.Aggregation{
-			AlignmentPeriod:  durationpb.New(time.Duration(intervalMinute) * time.Minute),
-			PerSeriesAligner: spec.Aligner,
-		},
-		View: monitoringpb.ListTimeSeriesRequest_FULL,
-	}
-
-	result := irs.MetricData{
-		MetricName:      spec.MetricType,
-		MetricUnit:      spec.Unit,
-		TimestampValues: []irs.TimestampValue{},
-	}
-
-	it := client.ListTimeSeries(handler.Ctx, req)
-	for {
-		ts, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to get metric data. err = %s", err))
-			cblogger.Error(getErr.Error())
-			return irs.MetricData{}, getErr
-		}
-
-		for _, point := range ts.GetPoints() {
-			value := pointValueToString(point.GetValue(), spec.ValueScale)
-			result.TimestampValues = append(result.TimestampValues, irs.TimestampValue{
-				Timestamp: point.GetInterval().GetEndTime().AsTime(),
-				Value:     value,
-			})
-		}
-	}
-
-	if len(result.TimestampValues) == 0 {
-		diagErr := diagnoseEmptyMetric(metricType, spec, target.name(), target.status())
-		cblogger.Error(diagErr.Error())
-		return irs.MetricData{}, diagErr
-	}
-
-	return result, nil
 }
 
 // pointValueToString formats a TypedValue and applies ValueScale. Scale 0
