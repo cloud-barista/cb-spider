@@ -8,6 +8,7 @@
 //
 // by ETRI, 2022.08.
 // by ETRI, 2024.04.
+// by ETRI, 2025.03.
 
 package kt
 
@@ -67,9 +68,9 @@ func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = false
-
 	drvCapabilityInfo.TagHandler = false
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{}
+	drvCapabilityInfo.FileSystemHandler = true
 
 	drvCapabilityInfo.SINGLE_VPC = true
 
@@ -117,6 +118,11 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 		return nil, err
 	}
 
+	NASClient, err := getNASClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}	
+
 	iConn := ktvpccon.KTCloudVpcConnection{
 		RegionInfo:    connInfo.RegionInfo,
 		VMClient:      VMClient,
@@ -124,6 +130,7 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 		NetworkClient: NetworkClient,
 		VolumeClient:  VolumeClient,
 		NLBClient:     NLBClient,
+		NASClient:     NASClient,
 	}
 	return &iConn, nil
 }
@@ -186,6 +193,17 @@ func getVolumeClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.Conn
 
 func getNLBClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*ktvpcsdk.ServiceClient, error) {
 	client, err := ostack.NewLoadBalancerV1(providerClient, ktvpcsdk.EndpointOpts{
+		Region: connInfo.RegionInfo.Zone,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client, err
+}
+
+func getNASClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*ktvpcsdk.ServiceClient, error) {
+	client, err := ostack.NewSharedFileSystemV2(providerClient, ktvpcsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Zone,
 	})
 	if err != nil {
