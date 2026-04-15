@@ -210,8 +210,6 @@ func main() {
 	handleFileSystemInfo()
 }
 
-// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-// (예) FileSystemHandler.go -> "FileSystemInfo"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(ncpdrv.NcpVpcDriver)
@@ -263,16 +261,17 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	return resourceHandler, nil
 }
 
-// Region : 사용할 리전명 (ex) ap-northeast-2
-// ImageID : VM 생성에 사용할 AMI ID (ex) ami-047f7b46bd6dd5d84
-// BaseName : 다중 VM 생성 시 사용할 Prefix이름 ("BaseName" + "_" + "숫자" 형식으로 VM을 생성 함.) (ex) mcloud-barista
-// VmID : 라이프 사이트클을 테스트할 EC2 인스턴스ID
-// InstanceType : VM 생성시 사용할 인스턴스 타입 (ex) t2.micro
-// KeyName : VM 생성시 사용할 키페어 이름 (ex) mcloud-barista-keypair
+// Region: Name of the region to use
+// ImageID: Image ID to use when creating the VM
+// BaseName: Prefix to use when creating multiple VMs (VMs are created in the format “BaseName” + ‘_’ + “number”). (e.g., mcloud-barista)
+// VmID: EC2 instance ID to use for testing the lifecycle
+// InstanceType : Instance type to use when creating the VM (e.g., t2.micro)
+// KeyName : Key pair name to use when creating the VM (e.g., mcloud-barista-keypair)
 // MinCount :
 // MaxCount :
-// SubnetId : VM이 생성될 VPC의 SubnetId (ex) subnet-cf9ccf83
-// SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
+// SubnetId : Subnet ID of the VPC where the VM will be created (e.g., subnet-cf9ccf83)
+// SecurityGroupID: The security group ID to apply to the VM being created (e.g., sg-0df1c209ea1915e4b)
+Translated with DeepL.com (free version)
 type Config struct {
 	Ncp struct {
 		NcpAccessKeyID string `yaml:"ncp_access_key_id"`
