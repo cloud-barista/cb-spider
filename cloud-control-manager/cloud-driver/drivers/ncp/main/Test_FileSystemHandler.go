@@ -271,7 +271,6 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 // MaxCount :
 // SubnetId : Subnet ID of the VPC where the VM will be created (e.g., subnet-cf9ccf83)
 // SecurityGroupID: The security group ID to apply to the VM being created (e.g., sg-0df1c209ea1915e4b)
-Translated with DeepL.com (free version)
 type Config struct {
 	Ncp struct {
 		NcpAccessKeyID string `yaml:"ncp_access_key_id"`
