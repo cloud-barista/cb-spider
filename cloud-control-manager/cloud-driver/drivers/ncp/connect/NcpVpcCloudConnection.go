@@ -21,12 +21,12 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
-	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
-	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-
+	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
+	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
+	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
+	vnas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnas"
 	// ncprs "github.com/cloud-barista/ncp/ncp/resources" // For local testing
 	ncprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources"
 )
@@ -39,6 +39,7 @@ type NcpVpcCloudConnection struct {
 	VlbClient      *vlb.APIClient
 	VnksClient     *vnks.APIClient
 	VasClient      *vas.APIClient
+	VnasClient     *vnas.APIClient
 }
 
 var cblogger *logrus.Logger
@@ -162,6 +163,24 @@ func (cloudConn *NcpVpcCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoH
 	return &priceInfoHandler, nil
 }
 
+func (cloudConn *NcpVpcCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateTagHandler()!")
+
+	return nil, fmt.Errorf("NCP VPC Cloud Driver: CreateTagHandler is not implemented")
+}
+
+func (cloudConn *NcpVpcCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateFileSystemHandler()!")
+
+	fileSystemHandler := ncprs.NcpVpcFileSystemHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VNASClient: cloudConn.VnasClient}
+	return &fileSystemHandler, nil
+}
+
+// CreateQuotaInfoHandler implements connect.CloudConnection.
+func (cloudConn *NcpVpcCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	return nil, fmt.Errorf("NCP VPC Cloud Driver: QuotaInfoHandler not supported")
+}
+
 func (cloudConn *NcpVpcCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called IsConnected()!")
 	if cloudConn == nil {
@@ -179,18 +198,4 @@ func (cloudConn *NcpVpcCloudConnection) Close() error {
 	cblogger.Info("NCP VPC Cloud Driver: called Close()!")
 
 	return nil
-}
-
-func (cloudConn *NcpVpcCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, fmt.Errorf("NCP VPC Cloud Driver: not implemented")
-}
-
-func (cloudConn *NcpVpcCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called CreateFileSystemHandler()!")
-	return nil, fmt.Errorf("NCP VPC Cloud Driver: CreateFileSystemHandler is not implemented")
-}
-
-// CreateQuotaInfoHandler implements connect.CloudConnection.
-func (cloudConn *NcpVpcCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
-	return nil, fmt.Errorf("NCP VPC Cloud Driver: QuotaInfoHandler not supported")
 }
