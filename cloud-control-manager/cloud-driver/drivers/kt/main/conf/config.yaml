@@ -1,0 +1,62 @@
+## Config for KT Cloud VPC connection Driver ##
+ktcloudvpc:
+  identity_endpoint: https://api.ucloudbiz.olleh.com/d1/identity/v3/
+  # $$$ Need to append '/v3/' to identity_endpoint URL 
+
+  username: cloudmaster00@gmail.com
+  # username: neocosmos@gmail.com
+  # KT Cloud Portal User ID
+
+  password: ZMFFKrpdlxm75#$
+  # password: wjfdjsWJFFU5!$*
+  # KT Cloud Portal Password
+
+  domain_name: default
+
+  project_id: bcd017f7dca54ee9aceb449c806205fe
+  # project_id: 8f7731659cca4647a3b75657c82af437 
+
+  # $$$ For 'V3' verson auth., identity_endpoint, username, password and domain_name are required basically.
+  # $$$ But, need 'project_id' for the token role
+  # You can get the prject id on 'Token' > 'Token' menu on KT Cloud Portal
+
+  region: KR1
+  zone: DX-M1
+
+  ###########################################################
+  # Resources for Testing
+  req_vm_name: cb-vm-01
+  vm_id: 9e87d32d-7ec1-4a41-a664-db1d2327850f
+
+  vpc_id: 60e5d9da-55cd-47be-a0d9-6cf67c54f15c
+  subnet_id: a42ea5d6-9ca5-41e2-963c-8707ddd7ff22
+
+  req_disk_name: kt-disk-01
+  disk_id: e51123e3-9594-4531-9bd3-665e93737d66
+  # disk_id: 06a5533d-3a70-455d-a493-6c710ceb8699
+  
+  req_nlb_name: cb-nlb-01
+  nlb_id: 49305
+
+  req_keypair_name: kt-keypair-01
+  keypair_name: kt-keypair-01
+  
+  security_groups: ktvpc-sg-1
+  # req_vm_image: 1a772df6-262e-43a7-896f-98fa23d715c7
+  vm_image_id: 1a772df6-262e-43a7-896f-98fa23d715c7
+  vm_spec_id: 16x16.itl
+  # 4x16.itl
+  # 2x8.itl # vCPU: 2, Mem: 8GB
+  
+  resources:    
+    filesystem:
+      IID:
+        nameId: NAS_Test_001
+        systemId: 47c562fe-9001-4108-8768-f389528e0d5b
+      VpcIID:
+        nameId: EPC_M193805_S1820_VDOM
+        systemId: 60e5d9da-55cd-47be-a0d9-6cf67c54f15c
+      zone: DX-M1
+      AccessSubnetIIDs:
+        - nameId: kt-dx-m1-zone-subnet-cug-d7euu0j1vojfopcuur9g
+    

@@ -128,3 +128,14 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
    - KT Cloud는 NLB 생성시 주요 parameter 중의 하나로 subnet(Tier)이 지정되고 그 subnet(Tier)의 NLB 범위 내에 NLB가 생성됨.
       - CB-Spider 공통 인터페이스에는 NLB 생성시 subnet을 지정하는 parameter가 존재하지 않으니, 본 드라이버에는 NLB에 추가하는 VM이 속한 subnet 정보를 NLB용 subnet으로 지정함.
       - (참고) KT Cloud는 서로 다른 subnet 내에 생성된 VM을 하나의 NLB에 적용 불가함.
+
+ O Shared FileSystem (NAS) volume 생성시 아래의 사항을 참고
+
+   - NAS volume 생성시, 기 생성되어있는 하나의 subnet(Tier)이 필수적으로 지정되어야함.
+      - Spider의 'Access Subnet Name' parameter로서 subnet(Tier) name 입력 필요
+      - NAS 생성 요청시, 본 driver 내부적으로 그 subnet(Tier) 기준으로 NAS volume 생성에 필요한 shared network이 먼저 생성됨.
+   - CB-Spider에서 Shared FileSystem용 protocol은 현재 'NFS' 기준으로 지원함.(CIFS는 미지원)
+   - KT Cloud는 현재 NFS version으로 '3.0'만 지원함.
+   - Spider 기준, FileSystem Type은 'ZONE-TYPE'을 default로 지원함.
+   - NAS volume sizes는 500GB ~ 10,000GB 범위를 지원함.
+   - KT Cloud NAS volume은 내부적으로 'HDD' type만을 지원함.

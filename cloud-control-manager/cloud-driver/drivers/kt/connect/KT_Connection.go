@@ -40,11 +40,7 @@ type KTCloudVpcConnection struct {
 	NetworkClient  *ktvpcsdk.ServiceClient
 	VolumeClient   *ktvpcsdk.ServiceClient
 	NLBClient      *ktvpcsdk.ServiceClient
-}
-
-// CreateFileSystemHandler implements connect.CloudConnection.
-func (cloudConn *KTCloudVpcConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	NASClient      *ktvpcsdk.ServiceClient
 }
 
 func (cloudConn *KTCloudVpcConnection) CreateVMHandler() (irs.VMHandler, error) {
@@ -125,6 +121,17 @@ func (cloudConn *KTCloudVpcConnection) CreatePriceInfoHandler() (irs.PriceInfoHa
 	return nil, fmt.Errorf("KT Cloud VPC Driver does not support PriceInfoHandler yet.")
 }
 
+func (cloudConn *KTCloudVpcConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	cblogger.Info("KT Cloud Driver: called CreateFileSystemHandler()!")
+	fileSystemHandler := ktvpcrs.KTVpcFileSystemHandler{RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient, NASClient: cloudConn.NASClient}
+	return &fileSystemHandler, nil
+}
+
+// CreateQuotaInfoHandler implements connect.CloudConnection.
+func (cloudConn *KTCloudVpcConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
+	return nil, fmt.Errorf("KT Cloud VPC Driver: QuotaInfoHandler not supported")
+}
+
 func (cloudConn *KTCloudVpcConnection) IsConnected() (bool, error) {
 	return true, nil
 }
@@ -135,9 +142,4 @@ func (cloudConn *KTCloudVpcConnection) Close() error {
 
 func (cloudConn *KTCloudVpcConnection) CreateTagHandler() (irs.TagHandler, error) {
 	return nil, fmt.Errorf("KT Cloud VPC Driver: not implemented")
-}
-
-// CreateQuotaInfoHandler implements connect.CloudConnection.
-func (cloudConn *KTCloudVpcConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
-	return nil, fmt.Errorf("KT Cloud VPC Driver: QuotaInfoHandler not supported")
 }
