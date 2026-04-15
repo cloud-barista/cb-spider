@@ -40,22 +40,23 @@ type GCPMonitoringHandler struct {
 
 // gcpMetricSpec describes how to query a single MetricType from GCP Cloud Monitoring.
 type gcpMetricSpec struct {
-	MetricType string                           // GCP metric type identifier
-	Unit       string                           // human-readable unit returned in MetricData.MetricUnit
-	Aligner    monitoringpb.Aggregation_Aligner // per-series alignment (mean for gauges, rate for counters)
+	MetricType    string                           // GCP metric type identifier
+	Unit          string                           // human-readable unit returned in MetricData.MetricUnit
+	Aligner       monitoringpb.Aggregation_Aligner // per-series alignment (mean for gauges, rate for counters)
+	RequiresAgent bool                             // true if metric is sourced from Ops Agent (agent.googleapis.com/*)
 }
 
 // gcpMetricMap maps CB-Spider MetricType enum to GCP Cloud Monitoring metric specs.
-// Memory metric requires the GCP Ops Agent installed on the target VM.
+// Metrics under agent.googleapis.com/* require the GCP Ops Agent installed on the target VM.
 var gcpMetricMap = map[irs.MetricType]gcpMetricSpec{
-	irs.CPUUsage:     {"compute.googleapis.com/instance/cpu/utilization", "Percent", monitoringpb.Aggregation_ALIGN_MEAN},
-	irs.MemoryUsage:  {"agent.googleapis.com/memory/percent_used", "Percent", monitoringpb.Aggregation_ALIGN_MEAN},
-	irs.DiskRead:     {"compute.googleapis.com/instance/disk/read_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE},
-	irs.DiskWrite:    {"compute.googleapis.com/instance/disk/write_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE},
-	irs.DiskReadOps:  {"compute.googleapis.com/instance/disk/read_ops_count", "Count", monitoringpb.Aggregation_ALIGN_RATE},
-	irs.DiskWriteOps: {"compute.googleapis.com/instance/disk/write_ops_count", "Count", monitoringpb.Aggregation_ALIGN_RATE},
-	irs.NetworkIn:    {"compute.googleapis.com/instance/network/received_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE},
-	irs.NetworkOut:   {"compute.googleapis.com/instance/network/sent_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE},
+	irs.CPUUsage:     {"compute.googleapis.com/instance/cpu/utilization", "Percent", monitoringpb.Aggregation_ALIGN_MEAN, false},
+	irs.MemoryUsage:  {"agent.googleapis.com/memory/percent_used", "Percent", monitoringpb.Aggregation_ALIGN_MEAN, true},
+	irs.DiskRead:     {"compute.googleapis.com/instance/disk/read_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE, false},
+	irs.DiskWrite:    {"compute.googleapis.com/instance/disk/write_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE, false},
+	irs.DiskReadOps:  {"compute.googleapis.com/instance/disk/read_ops_count", "Count", monitoringpb.Aggregation_ALIGN_RATE, false},
+	irs.DiskWriteOps: {"compute.googleapis.com/instance/disk/write_ops_count", "Count", monitoringpb.Aggregation_ALIGN_RATE, false},
+	irs.NetworkIn:    {"compute.googleapis.com/instance/network/received_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE, false},
+	irs.NetworkOut:   {"compute.googleapis.com/instance/network/sent_bytes_count", "Bytes", monitoringpb.Aggregation_ALIGN_RATE, false},
 }
 
 // credentialJSON builds a minimal service-account JSON from handler credentials.
@@ -76,18 +77,45 @@ func (handler *GCPMonitoringHandler) newMonitoringClient() (*monitoring.MetricCl
 	)
 }
 
-// resolveInstanceID looks up the numeric Compute Engine instance ID for a VM
-// identified by name. Uses the zone configured on handler.Region.
-func (handler *GCPMonitoringHandler) resolveInstanceID(instanceName string) (string, error) {
+// resolveInstance looks up the numeric Compute Engine instance ID and current
+// status for a VM identified by name. Uses the zone configured on handler.Region.
+//
+// Returning status here lets callers diagnose empty metric results without an
+// extra API call: a stopped VM produces no time series for either platform or
+// agent metrics, which would otherwise be indistinguishable from a missing
+// Ops Agent on a running VM.
+func (handler *GCPMonitoringHandler) resolveInstance(instanceName string) (id, status string, err error) {
 	zone := handler.Region.Zone
 	if zone == "" {
-		return "", errors.New("region zone is empty")
+		return "", "", errors.New("region zone is empty")
 	}
 	inst, err := handler.VMClient.Instances.Get(handler.Credential.ProjectID, zone, instanceName).Do()
 	if err != nil {
-		return "", fmt.Errorf("failed to get instance %q in zone %q: %w", instanceName, zone, err)
+		return "", "", fmt.Errorf("failed to get instance %q in zone %q: %w", instanceName, zone, err)
 	}
-	return strconv.FormatUint(inst.Id, 10), nil
+	return strconv.FormatUint(inst.Id, 10), inst.Status, nil
+}
+
+// diagnoseEmptyMetric returns a descriptive error explaining why GCP Cloud
+// Monitoring returned zero data points for an instance. The status is taken
+// from the prior Instances.Get call, so this adds no additional API traffic.
+func diagnoseEmptyMetric(metricType irs.MetricType, spec gcpMetricSpec, instanceName, status string) error {
+	if status != "" && status != "RUNNING" {
+		return fmt.Errorf(
+			"no %s data: instance %q is in %q state (must be RUNNING to emit metrics)",
+			metricType, instanceName, status)
+	}
+	if spec.RequiresAgent {
+		return fmt.Errorf(
+			"no %s data for running instance %q: this metric requires the GCP Ops Agent. "+
+				"Install: https://cloud.google.com/monitoring/agent/ops-agent/install-index",
+			metricType, instanceName)
+	}
+	return fmt.Errorf(
+		"no %s data for running instance %q in the requested window: "+
+			"the VM may have been started recently or the window is shorter than the metric ingest delay; "+
+			"try increasing TimeBeforeHour",
+		metricType, instanceName)
 }
 
 // parseAndValidateInterval parses the IntervalMinute and TimeBeforeHour strings
@@ -125,6 +153,7 @@ func (handler *GCPMonitoringHandler) getMetricData(
 	metricType irs.MetricType,
 	resourceFilter string,
 	intervalMinute, timeBeforeHour int,
+	instanceName, instanceStatus string,
 ) (irs.MetricData, error) {
 	spec, ok := gcpMetricMap[metricType]
 	if !ok {
@@ -187,6 +216,12 @@ func (handler *GCPMonitoringHandler) getMetricData(
 		}
 	}
 
+	if len(result.TimestampValues) == 0 {
+		diagErr := diagnoseEmptyMetric(metricType, spec, instanceName, instanceStatus)
+		cblogger.Error(diagErr.Error())
+		return irs.MetricData{}, diagErr
+	}
+
 	return result, nil
 }
 
@@ -237,7 +272,7 @@ func (handler *GCPMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMM
 		instanceName = vmMonitoringReqInfo.VMIID.SystemId
 	}
 
-	instanceID, err := handler.resolveInstanceID(instanceName)
+	instanceID, instanceStatus, err := handler.resolveInstance(instanceName)
 	if err != nil {
 		cblogger.Error(err.Error())
 		return irs.MetricData{}, err
@@ -248,7 +283,7 @@ func (handler *GCPMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMM
 		instanceID,
 	)
 
-	return handler.getMetricData(vmMonitoringReqInfo.MetricType, resourceFilter, intervalMinute, timeBeforeHour)
+	return handler.getMetricData(vmMonitoringReqInfo.MetricType, resourceFilter, intervalMinute, timeBeforeHour, instanceName, instanceStatus)
 }
 
 // GetClusterNodeMetricData fetches VM-level metrics for a GKE Standard node.
@@ -334,7 +369,7 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringR
 		return irs.MetricData{}, getErr
 	}
 
-	instanceID, err := handler.resolveInstanceID(instanceName)
+	instanceID, instanceStatus, err := handler.resolveInstance(instanceName)
 	if err != nil {
 		cblogger.Error(err.Error())
 		return irs.MetricData{}, err
@@ -345,5 +380,5 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(clusterMonitoringR
 		instanceID,
 	)
 
-	return handler.getMetricData(clusterMonitoringReqInfo.MetricType, resourceFilter, intervalMinute, timeBeforeHour)
+	return handler.getMetricData(clusterMonitoringReqInfo.MetricType, resourceFilter, intervalMinute, timeBeforeHour, instanceName, instanceStatus)
 }
