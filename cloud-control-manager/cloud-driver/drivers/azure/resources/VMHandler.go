@@ -1335,13 +1335,17 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 	// PublicIP 이름 생성
 	publicIPName := generatePublicIPName(vmReqInfo.IId.NameId)
 
-	publicIPAddressSKUNameBasic := armnetwork.PublicIPAddressSKUNameBasic
+	// Use Standard SKU by default.
+	// Azure retired Basic SKU Public IP on Sep 30, 2025, and newer regions
+	// (e.g., Austria East) do not allow Basic Public IP creation at all.
+	// Ref: https://learn.microsoft.com/en-us/azure/virtual-network/ip-services/public-ip-basic-upgrade-guidance
+	publicIPAddressSKUNameStandard := armnetwork.PublicIPAddressSKUNameStandard
 	publicIPAddressVersion := armnetwork.IPVersionIPv4
 	publicIPAllocationMethod := armnetwork.IPAllocationMethodStatic
 	createOpts := armnetwork.PublicIPAddress{
 		Name: &publicIPName,
 		SKU: &armnetwork.PublicIPAddressSKU{
-			Name: &publicIPAddressSKUNameBasic,
+			Name: &publicIPAddressSKUNameStandard,
 		},
 		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
 			PublicIPAddressVersion:   &publicIPAddressVersion,
@@ -1354,22 +1358,11 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 		},
 	}
 
-	publicIPAddressSKUNameStandard := armnetwork.PublicIPAddressSKUNameStandard
-	// Setting zone if available
-	if vmHandler.Region.TargetZone != "" || vmHandler.Region.Zone != "" {
-		createOpts.SKU = &armnetwork.PublicIPAddressSKU{
-			Name: &publicIPAddressSKUNameStandard,
-		}
-		createOpts.Properties.PublicIPAllocationMethod = &publicIPAllocationMethod
-		if vmHandler.Region.TargetZone != "" {
-			createOpts.Zones = []*string{
-				toStrPtr(vmHandler.Region.TargetZone),
-			}
-		} else {
-			createOpts.Zones = []*string{
-				toStrPtr(vmHandler.Region.Zone),
-			}
-		}
+	// Attach zone if available (Standard SKU supports Availability Zones)
+	if vmHandler.Region.TargetZone != "" {
+		createOpts.Zones = []*string{toStrPtr(vmHandler.Region.TargetZone)}
+	} else if vmHandler.Region.Zone != "" {
+		createOpts.Zones = []*string{toStrPtr(vmHandler.Region.Zone)}
 	}
 
 	poller, err := vmHandler.PublicIPClient.BeginCreateOrUpdate(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, createOpts, nil)
