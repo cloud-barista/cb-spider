@@ -215,3 +215,7 @@ func (cloudConn *OpenStackCloudConnection) CreateQuotaInfoHandler() (irs.QuotaIn
 	cblogger.Info("OpenStack Driver: called CreateQuotaInfoHandler()!")
 	return nil, errors.New("OpenStack Driver: QuotaInfoHandler not supported")
 }
+
+func (cloudConn *OpenStackCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("OpenStack Driver: not implemented")
+}

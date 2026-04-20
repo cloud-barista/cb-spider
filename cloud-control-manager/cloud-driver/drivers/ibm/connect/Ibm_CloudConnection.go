@@ -221,3 +221,7 @@ func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) 
 func (cloudConn *IbmCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
 	return nil, errors.New("IBM Cloud does not provide a Quota API: not implemented")
 }
+
+func (cloudConn *IbmCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("Ibm Cloud Driver: not implemented")
+}

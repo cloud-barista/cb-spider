@@ -175,3 +175,7 @@ func (cloudConn *TencentCloudConnection) CreateTagHandler() (irs.TagHandler, err
 func (cloudConn *TencentCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
 	return nil, errors.New("Tencent Cloud Driver: QuotaInfoHandler not supported")
 }
+
+func (cloudConn *TencentCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("Tencent Driver: not implemented")
+}

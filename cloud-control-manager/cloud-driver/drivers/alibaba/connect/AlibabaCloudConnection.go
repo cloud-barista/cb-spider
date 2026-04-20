@@ -25,6 +25,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -195,4 +197,8 @@ func (cloudConn *AlibabaCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfo
 	cblogger.Info("Alibaba Cloud Driver: called CreateQuotaInfoHandler()!")
 	quotaInfoHandler := alirs.AlibabaQuotaInfoHandler{Region: cloudConn.Region, QuotaClient: cloudConn.QuotaClient}
 	return &quotaInfoHandler, nil
+}
+
+func (cloudConn *AlibabaCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
 }
