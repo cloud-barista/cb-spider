@@ -82,7 +82,15 @@ func GetVMMetricData(connectionName string, nameID string, metricType cres.Metri
 		return nil, err
 	}
 
+	normalizeMetricNameAndUnit(&info, metricType)
 	return &info, nil
+}
+
+func normalizeMetricNameAndUnit(info *cres.MetricData, metricType cres.MetricType) {
+	if name, unit := cres.MetricNameAndUnit(metricType); name != "" {
+		info.MetricName = name
+		info.MetricUnit = unit
+	}
 }
 
 func GetClusterNodeMetricData(connectionName string, clusterNameID string, nodeGroupNameID string, nodeNumber string, metricType cres.MetricType, periodMinute string, timeBeforeHour string) (*cres.MetricData, error) {
@@ -191,5 +199,6 @@ func GetClusterNodeMetricData(connectionName string, clusterNameID string, nodeG
 		return nil, err
 	}
 
+	normalizeMetricNameAndUnit(&info, metricType)
 	return &info, nil
 }

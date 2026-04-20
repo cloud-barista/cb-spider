@@ -169,23 +169,43 @@ func (monitoringHandler *AzureMonitoringHandler) getMetricData(metricType irs.Me
 
 	vmMonitoringInfo.TimestampValues = timestampValues
 
-	// Normalize metric names
-	switch vmMonitoringInfo.MetricName {
-	case "Percentage CPU":
-		vmMonitoringInfo.MetricName = "CPU Usage"
-	case "Available Memory Bytes":
-		vmMonitoringInfo.MetricName = "Memory Available"
-	case "Disk Read Bytes":
-		vmMonitoringInfo.MetricName = "Disk Read"
-	case "Disk Write Bytes":
-		vmMonitoringInfo.MetricName = "Disk Write"
-	case "Disk Read Operations/Sec":
-		vmMonitoringInfo.MetricName = "Disk Read Ops"
-	case "Disk Write Operations/Sec":
-		vmMonitoringInfo.MetricName = "Disk Write Ops"
+	return vmMonitoringInfo, nil
+}
+
+// getVMMemoryPercent converts Azure's "Available Memory Bytes" into a
+// used-percent series. Azure does not expose a memory-percent counter for
+// the base VM platform, so we derive percent = (total - available) / total * 100
+// using the VM size's declared memory as the denominator.
+func (monitoringHandler *AzureMonitoringHandler) getVMMemoryPercent(interval string, timeBeforeHour int, resourceID string, vmSizeName string) (irs.MetricData, error) {
+	totalBytes := monitoringHandler.getVMTotalMemoryBytes(vmSizeName)
+	if totalBytes <= 0 {
+		return irs.MetricData{}, fmt.Errorf("failed to resolve total memory for VM size %q", vmSizeName)
 	}
 
-	return vmMonitoringInfo, nil
+	available, err := monitoringHandler.getMetricData(irs.MemoryUsage, interval, timeBeforeHour, resourceID)
+	if err != nil {
+		return irs.MetricData{}, err
+	}
+
+	totalF := float64(totalBytes)
+	result := irs.MetricData{
+		TimestampValues: make([]irs.TimestampValue, 0, len(available.TimestampValues)),
+	}
+	for _, tv := range available.TimestampValues {
+		availF, parseErr := strconv.ParseFloat(tv.Value, 64)
+		if parseErr != nil {
+			continue
+		}
+		usedPct := (totalF - availF) / totalF * 100
+		if usedPct < 0 {
+			usedPct = 0
+		}
+		result.TimestampValues = append(result.TimestampValues, irs.TimestampValue{
+			Timestamp: tv.Timestamp,
+			Value:     strconv.FormatFloat(usedPct, 'f', -1, 64),
+		})
+	}
+	return result, nil
 }
 
 func (monitoringHandler *AzureMonitoringHandler) GetVMMetricData(vmMonitoringReqInfo irs.VMMonitoringReqInfo) (irs.MetricData, error) {
@@ -241,7 +261,16 @@ func (monitoringHandler *AzureMonitoringHandler) GetVMMetricData(vmMonitoringReq
 		return irs.MetricData{}, getErr
 	}
 
-	vmMonitoringInfo, err := monitoringHandler.getMetricData(vmMonitoringReqInfo.MetricType, interval, timeBeforeHour, *vm.ID)
+	var vmMonitoringInfo irs.MetricData
+	if vmMonitoringReqInfo.MetricType == irs.MemoryUsage {
+		vmSizeName := ""
+		if vm.Properties != nil && vm.Properties.HardwareProfile != nil && vm.Properties.HardwareProfile.VMSize != nil {
+			vmSizeName = string(*vm.Properties.HardwareProfile.VMSize)
+		}
+		vmMonitoringInfo, err = monitoringHandler.getVMMemoryPercent(interval, timeBeforeHour, *vm.ID, vmSizeName)
+	} else {
+		vmMonitoringInfo, err = monitoringHandler.getMetricData(vmMonitoringReqInfo.MetricType, interval, timeBeforeHour, *vm.ID)
+	}
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get metric data. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -333,6 +362,7 @@ func (monitoringHandler *AzureMonitoringHandler) GetClusterNodeMetricData(cluste
 
 	var nodeFound bool
 	var resourceID string
+	var vmSizeName string
 
 	for _, nodeGroup := range cluster.NodeGroupList {
 		if nodeGroup.IId.NameId == clusterNodeMonitoringReqInfo.NodeGroupID.NameId ||
@@ -342,6 +372,7 @@ func (monitoringHandler *AzureMonitoringHandler) GetClusterNodeMetricData(cluste
 					node.SystemId == clusterNodeMonitoringReqInfo.NodeIID.SystemId {
 					nodeFound = true
 					resourceID = node.SystemId
+					vmSizeName = nodeGroup.VMSpecName
 					break
 				}
 			}
@@ -355,7 +386,12 @@ func (monitoringHandler *AzureMonitoringHandler) GetClusterNodeMetricData(cluste
 		return irs.MetricData{}, getErr
 	}
 
-	vmMonitoringInfo, err := monitoringHandler.getMetricData(clusterNodeMonitoringReqInfo.MetricType, interval, timeBeforeHour, resourceID)
+	var vmMonitoringInfo irs.MetricData
+	if clusterNodeMonitoringReqInfo.MetricType == irs.MemoryUsage {
+		vmMonitoringInfo, err = monitoringHandler.getVMMemoryPercent(interval, timeBeforeHour, resourceID, vmSizeName)
+	} else {
+		vmMonitoringInfo, err = monitoringHandler.getMetricData(clusterNodeMonitoringReqInfo.MetricType, interval, timeBeforeHour, resourceID)
+	}
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get metric data. err = %s", err))
 		cblogger.Error(getErr.Error())

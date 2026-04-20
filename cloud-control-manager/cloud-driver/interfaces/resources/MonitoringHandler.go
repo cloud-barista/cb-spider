@@ -79,6 +79,33 @@ func StringMetricType(input string) MetricType {
 	}
 }
 
+// MetricNameAndUnit returns the CSP-agnostic display name and unit for a given
+// MetricType. Drivers produce values in the unit declared here; the common
+// runtime overwrites MetricName/MetricUnit on the returned MetricData so every
+// CSP exposes the same shape to API clients.
+func MetricNameAndUnit(metricType MetricType) (string, string) {
+	switch metricType {
+	case CPUUsage:
+		return "CPU Usage Percent", "Percent"
+	case MemoryUsage:
+		return "Memory Usage Percent", "Percent"
+	case DiskRead:
+		return "Disk Read Bytes", "Bytes"
+	case DiskWrite:
+		return "Disk Write Bytes", "Bytes"
+	case DiskReadOps:
+		return "Disk Read Operations/Sec", "CountPerSecond"
+	case DiskWriteOps:
+		return "Disk Write Operations/Sec", "CountPerSecond"
+	case NetworkIn:
+		return "Network In Bytes", "Bytes"
+	case NetworkOut:
+		return "Network Out Bytes", "Bytes"
+	default:
+		return "", ""
+	}
+}
+
 type MonitoringHandler interface {
 	GetVMMetricData(vmMonitoringReqInfo VMMonitoringReqInfo) (MetricData, error)
 	GetClusterNodeMetricData(clusterMonitoringReqInfo ClusterNodeMonitoringReqInfo) (MetricData, error)
