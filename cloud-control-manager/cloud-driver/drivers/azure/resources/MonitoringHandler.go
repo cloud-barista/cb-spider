@@ -4,7 +4,9 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// Azure Monitoring PoC by ish@innogrid.com, 2024.08.
+// This is Azure Driver.
+//
+// by CB-Spider Team, 2026.
 
 package resources
 
@@ -12,13 +14,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
-	"strconv"
-	"strings"
-	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 
@@ -282,7 +285,6 @@ func (monitoringHandler *AzureMonitoringHandler) GetVMMetricData(vmMonitoringReq
 
 	return vmMonitoringInfo, nil
 }
-
 
 func (monitoringHandler *AzureMonitoringHandler) getVMTotalMemoryBytes(vmSizeName string) int64 {
 	pager := monitoringHandler.VMSizeClient.NewListPager(monitoringHandler.Region.Region, nil)
