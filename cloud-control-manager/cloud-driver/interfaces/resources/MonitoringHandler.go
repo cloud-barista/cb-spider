@@ -6,8 +6,7 @@
 //
 // This is Resouces interfaces of Cloud Driver.
 //
-// by CB-Spider Team, 2020.04.
-// by CB-Spider Team, 2019.06.
+// by CB-Spider Team, 2026.
 
 package resources
 
