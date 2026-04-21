@@ -5,14 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/IBM/go-sdk-core/v5/core"
-	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
-	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
-	"github.com/IBM/vpc-go-sdk/vpcv1"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"io/ioutil"
 	"math/rand"
 	"net/url"
@@ -22,6 +14,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
+	"github.com/IBM/vpc-go-sdk/vpcv1"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type IbmVMHandler struct {
@@ -282,7 +283,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			UserData: &userData,
 		})
 	} else {
-		createInstanceOptions.SetInstancePrototype(&vpcv1.InstancePrototype{
+		instancePrototype := &vpcv1.InstancePrototype{
 			Name: &vmReqInfo.IId.NameId,
 			Image: &vpcv1.ImageIdentity{
 				ID: image.ID,
@@ -309,7 +310,38 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			},
 			UserData:          &userData,
 			VolumeAttachments: existingDataVolumeAttachments,
-		})
+		}
+
+		// Set boot volume profile and/or capacity if specified
+		rootDiskType := vmReqInfo.RootDiskType
+		rootDiskSize := vmReqInfo.RootDiskSize
+		if (rootDiskType != "" && strings.ToLower(rootDiskType) != "default") ||
+			(rootDiskSize != "" && strings.ToLower(rootDiskSize) != "default") {
+			bootVolume := &vpcv1.VolumePrototypeInstanceByImageContext{}
+
+			// Set profile
+			if rootDiskType != "" && strings.ToLower(rootDiskType) != "default" {
+				bootVolume.Profile = &vpcv1.VolumeProfileIdentityByName{
+					Name: core.StringPtr(strings.ToLower(rootDiskType)),
+				}
+			} else {
+				bootVolume.Profile = &vpcv1.VolumeProfileIdentityByName{
+					Name: core.StringPtr("general-purpose"),
+				}
+			}
+
+			// Set capacity
+			if rootDiskSize != "" && strings.ToLower(rootDiskSize) != "default" {
+				size, _ := strconv.ParseInt(rootDiskSize, 10, 64)
+				bootVolume.Capacity = core.Int64Ptr(size)
+			}
+
+			instancePrototype.BootVolumeAttachment = &vpcv1.VolumeAttachmentPrototypeInstanceByImageContext{
+				Volume: bootVolume,
+			}
+		}
+
+		createInstanceOptions.SetInstancePrototype(instancePrototype)
 	}
 
 	createInstance, _, err := vmHandler.VpcService.CreateInstanceWithContext(vmHandler.Ctx, createInstanceOptions)
@@ -904,10 +936,6 @@ func checkVmIID(vmIID irs.IID) error {
 }
 
 func checkVMReqInfo(vmReqInfo irs.VMReqInfo) error {
-	err := notSupportRootDiskCustom(vmReqInfo)
-	if err != nil {
-		return err
-	}
 	if vmReqInfo.IId.NameId == "" {
 		return errors.New("invalid VM IID")
 	}
@@ -1319,6 +1347,10 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 	}
 
 	vmInfo.RootDiskType = "general-purpose"
+	rawBootVolume, getBootVolumeErr := getRawVolume(irs.IID{SystemId: *instance.BootVolumeAttachment.Volume.ID}, vmHandler.VpcService, vmHandler.Ctx)
+	if getBootVolumeErr == nil && rawBootVolume.Profile != nil && rawBootVolume.Profile.Name != nil {
+		vmInfo.RootDiskType = *rawBootVolume.Profile.Name
+	}
 
 	vmInfo.VMBootDisk = *instance.BootVolumeAttachment.Volume.ID
 	rawBootDisk, getRawBootDiskErr := getRawDisk(vmHandler.VpcService, vmHandler.Ctx, irs.IID{SystemId: vmInfo.VMBootDisk})
@@ -1381,16 +1413,6 @@ func (vmHandler *IbmVMHandler) checkFloatingIPName(floatingIPName string) (exist
 		}
 	}
 	return false, nil
-}
-
-func notSupportRootDiskCustom(vmReqInfo irs.VMReqInfo) error {
-	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
-		return errors.New("IBM-VPC_CANNOT_CHANGE_ROOTDISKTYPE")
-	}
-	if vmReqInfo.RootDiskSize != "" && strings.ToLower(vmReqInfo.RootDiskSize) != "default" {
-		return errors.New("IBM-VPC_CANNOT_CHANGE_ROOTDISKSIZE")
-	}
-	return nil
 }
 
 type vmInfoWithError struct {
