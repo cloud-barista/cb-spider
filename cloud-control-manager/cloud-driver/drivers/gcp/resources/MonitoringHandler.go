@@ -83,6 +83,7 @@ type clusterNodeQueryContext struct {
 	vmQueryContext
 	clusterName string
 	location    string
+	vmSpecName  string // machine type (e.g. "e2-small")
 }
 
 // k8sTarget assumes the GKE default where the Kubernetes node name equals
@@ -158,19 +159,14 @@ var (
 		ValueScale: 1.0,
 	}
 
-	// GKE memory is derived: used_bytes / total_bytes on k8s_node.
+	// GKE memory percent uses used_bytes from Cloud Monitoring; the
+	// denominator comes from the VMSpec, not a second metric.
 	specGKEMemoryUsedBytes = gcpMetricSpec{
 		MetricType:  "kubernetes.io/node/memory/used_bytes",
 		Unit:        "Bytes",
 		Aligner:     monitoringpb.Aggregation_ALIGN_MEAN,
 		ExtraFilter: `metric.labels.memory_type="non-evictable"`,
 		ValueScale:  1.0,
-	}
-	specGKEMemoryTotalBytes = gcpMetricSpec{
-		MetricType: "kubernetes.io/node/memory/total_bytes",
-		Unit:       "Bytes",
-		Aligner:    monitoringpb.Aggregation_ALIGN_MEAN,
-		ValueScale: 1.0,
 	}
 )
 
@@ -214,7 +210,7 @@ func gkeDirect(mt irs.MetricType, spec gcpMetricSpec) gkeMetricHandler {
 
 func gkeMemoryPercent() gkeMetricHandler {
 	return func(h *GCPMonitoringHandler, ctx clusterNodeQueryContext) (irs.MetricData, error) {
-		return h.computeGKEMemoryPercent(ctx.k8sTarget(), ctx.intervalMinute, ctx.timeBeforeHour)
+		return h.computeGKEMemoryPercent(ctx.k8sTarget(), ctx.vmSpecName, ctx.intervalMinute, ctx.timeBeforeHour)
 	}
 }
 
@@ -307,7 +303,7 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(req irs.ClusterNod
 		return irs.MetricData{}, getErr
 	}
 
-	instanceName, err := findClusterNodeInstance(cluster, req.NodeGroupID, req.NodeIID)
+	instanceName, vmSpecName, err := findClusterNodeInstance(cluster, req.NodeGroupID, req.NodeIID)
 	if err != nil {
 		cblogger.Error(err.Error())
 		return irs.MetricData{}, err
@@ -340,11 +336,14 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(req irs.ClusterNod
 		},
 		clusterName: clusterName,
 		location:    handler.Region.Zone,
+		vmSpecName:  vmSpecName,
 	}
 	return handle(handler, ctx)
 }
 
-func findClusterNodeInstance(cluster irs.ClusterInfo, nodeGroupID, nodeIID irs.IID) (string, error) {
+// findClusterNodeInstance returns the GCE instance name and the node
+// group's machine type for the requested cluster node.
+func findClusterNodeInstance(cluster irs.ClusterInfo, nodeGroupID, nodeIID irs.IID) (instanceName, vmSpecName string, err error) {
 	for _, nodeGroup := range cluster.NodeGroupList {
 		if nodeGroup.IId.NameId != nodeGroupID.NameId &&
 			nodeGroup.IId.SystemId != nodeGroupID.SystemId {
@@ -354,13 +353,14 @@ func findClusterNodeInstance(cluster irs.ClusterInfo, nodeGroupID, nodeIID irs.I
 			if node.NameId != nodeIID.NameId && node.SystemId != nodeIID.SystemId {
 				continue
 			}
-			if node.NameId != "" {
-				return node.NameId, nil
+			name := node.NameId
+			if name == "" {
+				name = node.SystemId
 			}
-			return node.SystemId, nil
+			return name, nodeGroup.VMSpecName, nil
 		}
 	}
-	return "", errors.New("node not found in the cluster")
+	return "", "", errors.New("node not found in the cluster")
 }
 
 // ============================================================================
@@ -437,46 +437,43 @@ func (handler *GCPMonitoringHandler) getMetricData(
 	return result, nil
 }
 
-// computeGKEMemoryPercent divides used_bytes by total_bytes point-by-point
-// on matching timestamps so GKE memory stays on the same denominator as VM
-// memory (total RAM). Costs one extra ListTimeSeries call per request.
+// computeGKEMemoryPercent returns used memory as a percent of the
+// machine type's total RAM.
 func (handler *GCPMonitoringHandler) computeGKEMemoryPercent(
 	target monitoringTarget,
+	vmSpecName string,
 	intervalMinute, timeBeforeHour int,
 ) (irs.MetricData, error) {
+	totalBytes, err := handler.getVMSpecMemoryBytes(vmSpecName)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.MetricData{}, err
+	}
+	if totalBytes <= 0 {
+		getErr := fmt.Errorf("VMSpec %q reports non-positive memory (%d bytes)", vmSpecName, totalBytes)
+		cblogger.Error(getErr.Error())
+		return irs.MetricData{}, getErr
+	}
+
 	used, err := handler.getMetricData(irs.MemoryUsage, specGKEMemoryUsedBytes, target, intervalMinute, timeBeforeHour)
 	if err != nil {
 		return irs.MetricData{}, err
 	}
-	total, err := handler.getMetricData(irs.MemoryUsage, specGKEMemoryTotalBytes, target, intervalMinute, timeBeforeHour)
-	if err != nil {
-		return irs.MetricData{}, err
-	}
 
-	totalByTime := make(map[time.Time]float64, len(total.TimestampValues))
-	for _, tv := range total.TimestampValues {
-		if f, parseErr := strconv.ParseFloat(tv.Value, 64); parseErr == nil {
-			totalByTime[tv.Timestamp] = f
-		}
-	}
-
+	totalBytesF := float64(totalBytes)
 	result := irs.MetricData{
 		MetricName:      "kubernetes.io/node/memory/used_percent",
 		MetricUnit:      "Percent",
-		TimestampValues: []irs.TimestampValue{},
+		TimestampValues: make([]irs.TimestampValue, 0, len(used.TimestampValues)),
 	}
 	for _, tv := range used.TimestampValues {
-		totalVal, ok := totalByTime[tv.Timestamp]
-		if !ok || totalVal == 0 {
-			continue
-		}
 		usedVal, parseErr := strconv.ParseFloat(tv.Value, 64)
 		if parseErr != nil {
 			continue
 		}
 		result.TimestampValues = append(result.TimestampValues, irs.TimestampValue{
 			Timestamp: tv.Timestamp,
-			Value:     strconv.FormatFloat(usedVal/totalVal*100, 'f', -1, 64),
+			Value:     strconv.FormatFloat(usedVal/totalBytesF*100, 'f', -1, 64),
 		})
 	}
 	return result, nil
@@ -500,6 +497,28 @@ func (handler *GCPMonitoringHandler) newMonitoringClient() (*monitoring.MetricCl
 	return monitoring.NewMetricClient(handler.Ctx,
 		option.WithCredentialsJSON(handler.credentialJSON()),
 	)
+}
+
+// getVMSpecMemoryBytes returns the total RAM of a machine type in bytes.
+func (handler *GCPMonitoringHandler) getVMSpecMemoryBytes(vmSpecName string) (int64, error) {
+	if vmSpecName == "" {
+		return 0, errors.New("vmSpecName is empty")
+	}
+	vmSpecHandler := &GCPVMSpecHandler{
+		Region:     handler.Region,
+		Ctx:        handler.Ctx,
+		Credential: handler.Credential,
+		Client:     handler.VMClient,
+	}
+	spec, err := vmSpecHandler.GetVMSpec(vmSpecName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get VMSpec %q: %w", vmSpecName, err)
+	}
+	memMiB, err := strconv.ParseInt(spec.MemSizeMiB, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse VMSpec %q MemSizeMiB %q: %w", vmSpecName, spec.MemSizeMiB, err)
+	}
+	return memMiB * 1024 * 1024, nil
 }
 
 // resolveInstance returns the numeric instance ID and status from a single
