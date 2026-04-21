@@ -27,6 +27,7 @@ import (
 	//cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
+	monitoring "google.golang.org/api/monitoring/v3"
 
 	// "golang.org/x/oauth2/google"
 
@@ -299,6 +300,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				Scopes: []string{
 					compute.DevstorageFullControlScope,
 					compute.ComputeScope,
+					// Required for Ops Agent to push metrics to Cloud Monitoring.
+					monitoring.MonitoringWriteScope,
 				},
 			},
 		},
