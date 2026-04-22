@@ -1133,7 +1133,7 @@ func testNLBHandler(config Config) {
 			Port:     "8080",
 			Protocol: "TCP",
 			VMs: &[]irs.IID{
-				{NameId: "mcb-test-vm"},
+				{NameId: config.Ibm.Resources.Vm.IID.NameId},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
