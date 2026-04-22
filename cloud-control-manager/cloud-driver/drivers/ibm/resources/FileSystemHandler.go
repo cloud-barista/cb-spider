@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"strconv"
@@ -414,6 +415,8 @@ func (filesystemHandler *IbmFileSystemHandler) CreateFileSystem(reqInfo irs.File
 		}
 
 		mountTarget := &vpcv1.ShareMountTargetPrototype{
+			AccessProtocol:    core.StringPtr(vpcv1.ShareMountTargetPrototypeAccessProtocolNfs4Const),
+			TransitEncryption: core.StringPtr(vpcv1.ShareMountTargetPrototypeTransitEncryptionNoneConst),
 			VirtualNetworkInterface: &vpcv1.ShareMountTargetVirtualNetworkInterfacePrototype{
 				Subnet: &vpcv1.SubnetIdentity{
 					ID: &subnetID,
