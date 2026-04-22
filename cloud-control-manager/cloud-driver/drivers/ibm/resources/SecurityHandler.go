@@ -624,7 +624,7 @@ func ConvertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.Security
 	if unmarshalErr != nil {
 		return nil, err
 	}
-	var ruleProtocolAll vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll
+	var ruleProtocolAll vpcv1.SecurityGroupRuleProtocolAny
 	_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolAll)
 	protocol := convertRuleProtocolIBMToCB(*ruleProtocolAll.Protocol)
 	cidr := "0.0.0.0/0"
