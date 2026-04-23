@@ -960,8 +960,11 @@ func ListCluster(connectionName string, rsType string, kubeconfigType string) ([
 		if err != nil {
 			clusterSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Error(err)
-				info = cres.ClusterInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				cblog.Infof("Cluster '%s' not found on CSP, marking as NotFound", iidInfo.NameId)
+				info = cres.ClusterInfo{
+					IId:    cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId},
+					Status: cres.ClusterNotFound,
+				}
 				infoList2 = append(infoList2, &info)
 				continue
 			}
@@ -1078,6 +1081,14 @@ func GetCluster(connectionName string, rsType string, clusterName string, kubeco
 	// (2) get resource(SystemId)
 	info, err := handler.GetCluster(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
 	if err != nil {
+		if checkNotFoundError(err) {
+			cblog.Info("Cluster not found on CSP, returning NotFound status")
+			notFoundInfo := cres.ClusterInfo{
+				IId:    getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}),
+				Status: cres.ClusterNotFound,
+			}
+			return &notFoundInfo, nil
+		}
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1985,17 +1996,102 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		}
 	}
 
-	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
+	return result, nil
+}
+
+// FinalizeDeleteCluster deletes the Spider meta information for a Cluster
+// only when the Cluster no longer exists on the CSP.
+// (1) Check the Cluster existence in MetaDB
+// (2) Check the Cluster existence on CSP via GetCluster()
+// (3) If the Cluster does not exist on CSP, delete the meta information
+func FinalizeDeleteCluster(connectionName string, rsType string, nameID string) (bool, error) {
+	cblog.Info("call FinalizeDeleteCluster()")
+
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		return false, err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return false, err
+	}
+
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	handler, err := cldConn.CreateClusterHandler()
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	clusterSPLock.Lock(connectionName, nameID)
+	defer clusterSPLock.Unlock(connectionName, nameID)
+
+	// (1) get spiderIID for creating driverIID
+	var iidInfo *ClusterIIDInfo
+	var iidInfoList []*ClusterIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
 			return false, err
 		}
 	}
+	var found = false
+	for _, OneIIdInfo := range iidInfoList {
+		if OneIIdInfo.NameId == nameID {
+			iidInfo = OneIIdInfo
+			found = true
+			break
+		}
+	}
+	if !found {
+		err := fmt.Errorf("%s '%s' does not exist in Spider's MetaDB for connection '%s'", RSTypeString(rsType), nameID, connectionName)
+		cblog.Error(err)
+		return false, err
+	}
 
-	// for NodeGroup list
-	// delete all nodegroups of target Cluster
+	// (2) Check the Cluster existence on CSP via GetCluster()
+	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+	_, err = handler.(cres.ClusterHandler).GetCluster(driverIId)
+	if err != nil {
+		if !checkNotFoundError(err) {
+			// unexpected error from CSP
+			cblog.Error(err)
+			return false, fmt.Errorf("failed to check Cluster existence on CSP: %w", err)
+		}
+		// Cluster does not exist on CSP => proceed to finalize
+	} else {
+		// Cluster still exists on CSP => cannot finalize
+		return false, fmt.Errorf("cannot finalize: Cluster '%s' still exists on CSP (status is not %s)", nameID, cres.ClusterNotFound)
+	}
+
+	// (3) delete IID from MetaDB
+	_, err = infostore.DeleteByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	// delete all nodegroups of target Cluster from MetaDB
 	_, err = infostore.DeleteByConditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName,
 		OWNER_CLUSTER_NAME_COLUMN, iidInfo.NameId)
 	if err != nil {
@@ -2003,7 +2099,7 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		return false, err
 	}
 
-	return result, nil
+	return true, nil
 }
 
 func CountAllClusters() (int64, error) {

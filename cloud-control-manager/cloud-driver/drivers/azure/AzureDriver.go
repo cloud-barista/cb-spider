@@ -260,10 +260,6 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
-	Ctx, dnsZoneClient, err := getDnsZoneClient(connectionInfo.CredentialInfo)
-	if err != nil {
-		return nil, err
-	}
 	Ctx, fileShareClient, err := getFileShareClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
@@ -302,7 +298,6 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		ResourceGroupsClient:            resourceGroupsClient,
 		TagsClient:                      tagsClient,
 		ResourceSKUsClient:              resourceSKUsClient,
-		DnsZoneClient:                   dnsZoneClient,
 		FileShareClient:                 fileShareClient,
 		AccountsClient:                  accountsClient,
 	}
@@ -698,21 +693,6 @@ func getTagsClient(credential idrv.CredentialInfo) (context.Context, *armresourc
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, tagsClient, nil
-}
-
-func getDnsZoneClient(credential idrv.CredentialInfo) (context.Context, *armdns.ZonesClient, error) {
-	cred, err := getCred(credential)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	dnsZoneClient, err := armdns.NewZonesClient(credential.SubscriptionId, cred, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
-	return ctx, dnsZoneClient, nil
 }
 
 func getFileShareClient(credential idrv.CredentialInfo) (context.Context, *armstorage.FileSharesClient, error) {

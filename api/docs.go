@@ -1174,7 +1174,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a specified Cluster.",
+                "description": "Delete a specified Cluster from the CSP. \u003cbr\u003e This API only deletes the CSP resource and does not remove Spider meta information. \u003cbr\u003e After deletion, call **DELETE /cluster/{Name}/finalize** to clean up Spider's internal metadata once the CSP resource no longer exists.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1213,6 +1213,66 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}/finalize": {
+            "delete": {
+                "description": "Finalize the deletion of a Cluster by removing its Spider meta information.\nThis API only succeeds when the Cluster no longer exists on the CSP.\nUse this after DeleteCluster to clean up Spider's internal metadata.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Finalize Delete Cluster",
+                "operationId": "finalize-delete-cluster",
+                "parameters": [
+                    {
+                        "description": "Request body for finalizing Cluster deletion",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to finalize deletion",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the finalize delete operation",
                         "schema": {
                             "$ref": "#/definitions/spider.BooleanInfo"
                         }
@@ -11388,14 +11448,16 @@ const docTemplate = `{
                 "Active",
                 "Inactive",
                 "Updating",
-                "Deleting"
+                "Deleting",
+                "NotFound"
             ],
             "x-enum-varnames": [
                 "ClusterCreating",
                 "ClusterActive",
                 "ClusterInactive",
                 "ClusterUpdating",
-                "ClusterDeleting"
+                "ClusterDeleting",
+                "ClusterNotFound"
             ]
         },
         "spider.CronSchedule": {

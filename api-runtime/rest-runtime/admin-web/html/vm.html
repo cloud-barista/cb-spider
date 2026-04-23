@@ -3892,12 +3892,6 @@ THE SOFTWARE.
         
         // Get current connection info and set filters
         getConnectionInfo().then(info => {
-            if (!info.zone) {
-                alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
-                closeImageSelectionOverlay();
-                return;
-            }
-            
             // For OpenStack and MOCK, skip MC-Insight token check and load filters directly
             if (info.csp.toLowerCase() === 'openstack' || info.csp.toLowerCase() === 'mock') {
                 loadImageFilterOptions(info.csp, info.region, info.zone);
@@ -4068,6 +4062,7 @@ THE SOFTWARE.
             // Populate Region/Zone (cloud_hierarchy)
             if (data.cloud_hierarchy && data.cloud_hierarchy[actualCsp]) {
                 const regions = Object.keys(data.cloud_hierarchy[actualCsp]);
+                let regionFound = false;
                 
                 regions.forEach(region => {
                     const option = document.createElement('option');
@@ -4075,12 +4070,17 @@ THE SOFTWARE.
                     option.textContent = region;
                     if (region === currentRegion) {
                         option.selected = true;
+                        regionFound = true;
                     }
                     regionSelect.appendChild(option);
                 });
                 
                 regionSelect.disabled = true;
                 regionSelect.style.backgroundColor = '#f0f0f0';
+                
+                if (!regionFound) {
+                    alert(`MC-Insight does not have image data for the current region: ${currentRegion}`);
+                }
                 
                 const zones = data.cloud_hierarchy[actualCsp][currentRegion];
                 
@@ -4793,12 +4793,6 @@ THE SOFTWARE.
         
         // Get current connection info and set filters
         getConnectionInfo().then(info => {
-            if (!info.zone) {
-                alert('Cannot determine Zone from selected Subnet. Please select a valid Subnet.');
-                closeSpecSelectionOverlay();
-                return;
-            }
-            
             // For OpenStack and MOCK, skip MC-Insight token check and load filters directly
             if (info.csp.toLowerCase() === 'openstack' || info.csp.toLowerCase() === 'mock') {
                 loadSpecFilterOptions(info.csp, info.region, info.zone);
@@ -5290,6 +5284,7 @@ THE SOFTWARE.
             // Populate Region/Zone (cloud_hierarchy)
             if (data.cloud_hierarchy && data.cloud_hierarchy[actualCsp]) {
                 const regions = Object.keys(data.cloud_hierarchy[actualCsp]);
+                let regionFound = false;
                 
                 regions.forEach(region => {
                     const option = document.createElement('option');
@@ -5297,12 +5292,17 @@ THE SOFTWARE.
                     option.textContent = region;
                     if (region === currentRegion) {
                         option.selected = true;
+                        regionFound = true;
                     }
                     regionSelect.appendChild(option);
                 });
                 
                 regionSelect.disabled = true;
                 regionSelect.style.backgroundColor = '#f0f0f0';
+                
+                if (!regionFound) {
+                    alert(`MC-Insight does not have spec data for the current region: ${currentRegion}`);
+                }
                 
                 const zones = data.cloud_hierarchy[actualCsp][currentRegion];
                 
