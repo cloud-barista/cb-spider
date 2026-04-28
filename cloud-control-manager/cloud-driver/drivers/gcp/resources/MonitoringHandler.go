@@ -46,12 +46,11 @@ type GCPMonitoringHandler struct {
 // ALIGN_DELTA is used for cumulative byte counters so each point is
 // "bytes in the period". ValueScale=0 is treated as 1.0.
 type gcpMetricSpec struct {
-	MetricType    string
-	Unit          string
-	Aligner       monitoringpb.Aggregation_Aligner
-	RequiresAgent bool   // agent.googleapis.com/* — diagnosed on empty result
-	ExtraFilter   string // AND-appended metric-label selector
-	ValueScale    float64
+	MetricType  string
+	Unit        string
+	Aligner     monitoringpb.Aggregation_Aligner
+	ExtraFilter string // AND-appended metric-label selector
+	ValueScale  float64
 }
 
 // monitoringTarget is the resolved per-request selector passed to
@@ -114,14 +113,6 @@ var (
 		Aligner:    monitoringpb.Aggregation_ALIGN_MEAN,
 		ValueScale: 100.0,
 	}
-	specVMMemoryAgent = gcpMetricSpec{
-		MetricType:    "agent.googleapis.com/memory/percent_used",
-		Unit:          "Percent",
-		Aligner:       monitoringpb.Aggregation_ALIGN_MEAN,
-		RequiresAgent: true,
-		ExtraFilter:   `metric.labels.state="used"`,
-		ValueScale:    1.0,
-	}
 	specDiskRead = gcpMetricSpec{
 		MetricType: "compute.googleapis.com/instance/disk/read_bytes_count",
 		Unit:       "Bytes",
@@ -175,8 +166,10 @@ var (
 // ============================================================================
 
 var gcpVMMetricHandlers = map[irs.MetricType]vmMetricHandler{
-	irs.CPUUsage:     vmDirect(irs.CPUUsage, specCPU),
-	irs.MemoryUsage:  vmDirect(irs.MemoryUsage, specVMMemoryAgent),
+	irs.CPUUsage: vmDirect(irs.CPUUsage, specCPU),
+	irs.MemoryUsage: vmRejected(
+		"memory_usage is not supported for GCP VMs",
+	),
 	irs.DiskRead:     vmDirect(irs.DiskRead, specDiskRead),
 	irs.DiskWrite:    vmDirect(irs.DiskWrite, specDiskWrite),
 	irs.DiskReadOps:  vmDirect(irs.DiskReadOps, specDiskReadOps),
@@ -199,6 +192,17 @@ var gcpGKEMetricHandlers = map[irs.MetricType]gkeMetricHandler{
 func vmDirect(mt irs.MetricType, spec gcpMetricSpec) vmMetricHandler {
 	return func(h *GCPMonitoringHandler, ctx vmQueryContext) (irs.MetricData, error) {
 		return h.getMetricData(mt, spec, ctx.gceTarget(), ctx.intervalMinute, ctx.timeBeforeHour)
+	}
+}
+
+// vmRejected returns a handler that fails fast with a fixed reason. Used for
+// MetricTypes present in the common interface but intentionally unsupported
+// on GCE VMs, so callers see why instead of "unsupported VM metric type".
+func vmRejected(reason string) vmMetricHandler {
+	return func(_ *GCPMonitoringHandler, _ vmQueryContext) (irs.MetricData, error) {
+		err := errors.New(reason)
+		cblogger.Error(err.Error())
+		return irs.MetricData{}, err
 	}
 }
 
@@ -341,8 +345,6 @@ func (handler *GCPMonitoringHandler) GetClusterNodeMetricData(req irs.ClusterNod
 	return handle(handler, ctx)
 }
 
-// findClusterNodeInstance returns the GCE instance name and the node
-// group's machine type for the requested cluster node.
 func findClusterNodeInstance(cluster irs.ClusterInfo, nodeGroupID, nodeIID irs.IID) (instanceName, vmSpecName string, err error) {
 	for _, nodeGroup := range cluster.NodeGroupList {
 		if nodeGroup.IId.NameId != nodeGroupID.NameId &&
@@ -429,7 +431,7 @@ func (handler *GCPMonitoringHandler) getMetricData(
 	}
 
 	if len(result.TimestampValues) == 0 {
-		diagErr := diagnoseEmptyMetric(metricType, spec, target.name, target.status)
+		diagErr := diagnoseEmptyMetric(metricType, target.name, target.status)
 		cblogger.Error(diagErr.Error())
 		return irs.MetricData{}, diagErr
 	}
@@ -499,7 +501,6 @@ func (handler *GCPMonitoringHandler) newMonitoringClient() (*monitoring.MetricCl
 	)
 }
 
-// getVMSpecMemoryBytes returns the total RAM of a machine type in bytes.
 func (handler *GCPMonitoringHandler) getVMSpecMemoryBytes(vmSpecName string) (int64, error) {
 	if vmSpecName == "" {
 		return 0, errors.New("vmSpecName is empty")
@@ -521,9 +522,9 @@ func (handler *GCPMonitoringHandler) getVMSpecMemoryBytes(vmSpecName string) (in
 	return memMiB * 1024 * 1024, nil
 }
 
-// resolveInstance returns the numeric instance ID and status from a single
-// Instances.Get call. Status is exposed so empty-result diagnostics can tell
-// "VM stopped" from "Ops Agent missing" without an extra API call.
+// resolveInstance fetches the numeric instance ID and current status. The
+// status is surfaced for empty-result diagnostics to distinguish a stopped
+// VM from a metric-ingest delay without a second API call.
 func (handler *GCPMonitoringHandler) resolveInstance(instanceName string) (id, status string, err error) {
 	zone := handler.Region.Zone
 	if zone == "" {
@@ -563,8 +564,6 @@ func parseAndValidateInterval(intervalMinuteStr, timeBeforeHourStr string) (inte
 	return intervalMinute, timeBeforeHour, nil
 }
 
-// pointValueToString formats a TypedValue and applies ValueScale. Scale 0
-// is treated as 1.0 so unset specs pass values through unchanged.
 func pointValueToString(v *monitoringpb.TypedValue, scale float64) string {
 	if v == nil {
 		return ""
@@ -589,17 +588,11 @@ func pointValueToString(v *monitoringpb.TypedValue, scale float64) string {
 	}
 }
 
-func diagnoseEmptyMetric(metricType irs.MetricType, spec gcpMetricSpec, instanceName, status string) error {
+func diagnoseEmptyMetric(metricType irs.MetricType, instanceName, status string) error {
 	if status != "" && status != "RUNNING" {
 		return fmt.Errorf(
 			"no %s data: instance %q is in %q state (must be RUNNING to emit metrics)",
 			metricType, instanceName, status)
-	}
-	if spec.RequiresAgent {
-		return fmt.Errorf(
-			"no %s data for running instance %q: this metric requires the GCP Ops Agent. "+
-				"Install: https://cloud.google.com/monitoring/agent/ops-agent/install-index",
-			metricType, instanceName)
 	}
 	return fmt.Errorf(
 		"no %s data for running instance %q in the requested window: "+
