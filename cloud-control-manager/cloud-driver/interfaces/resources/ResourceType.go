@@ -18,18 +18,19 @@ import (
 type RSType string
 
 const (
-	ALL       RSType = "all"
-	IMAGE     RSType = "image"
-	VPC       RSType = "vpc"
-	SUBNET    RSType = "subnet"
-	SG        RSType = "sg"
-	KEY       RSType = "keypair"
-	VM        RSType = "vm"
-	NLB       RSType = "nlb"
-	DISK      RSType = "disk"
-	MYIMAGE   RSType = "myimage"
-	CLUSTER   RSType = "cluster"
-	NODEGROUP RSType = "nodegroup"
+	ALL          RSType = "all"
+	IMAGE        RSType = "image"
+	VPC          RSType = "vpc"
+	SUBNET       RSType = "subnet"
+	SG           RSType = "sg"
+	KEY          RSType = "keypair"
+	VM           RSType = "vm"
+	VMMONITORING RSType = "vmmonitoring"
+	NLB          RSType = "nlb"
+	DISK         RSType = "disk"
+	MYIMAGE      RSType = "myimage"
+	CLUSTER      RSType = "cluster"
+	NODEGROUP    RSType = "nodegroup"
 
 	FILESYSTEM RSType = "filesystem"
 )

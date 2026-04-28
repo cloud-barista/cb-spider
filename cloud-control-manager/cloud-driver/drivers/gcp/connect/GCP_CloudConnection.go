@@ -12,6 +12,7 @@ package connect
 
 import (
 	"context"
+	"errors"
 
 	filestore "cloud.google.com/go/filestore/apiv1"
 	cblog "github.com/cloud-barista/cb-log"
@@ -200,4 +201,8 @@ func (cloudConn *GCPCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHand
 		Ctx:        cloudConn.Ctx,
 	}
 	return &quotaInfoHandler, nil
+}
+
+func (cloudConn *GCPCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("GCP Cloud Driver: not implemented")
 }

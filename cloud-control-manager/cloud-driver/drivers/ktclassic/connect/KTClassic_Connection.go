@@ -12,6 +12,7 @@
 package connect
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -151,4 +152,8 @@ func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *KtCloudConnection) Close() error {
 	cblogger.Info("KT Cloud Driver: called Close()!")
 	return nil
+}
+
+func (cloudConn *KtCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("KT Cloud Driver: not implemented")
 }

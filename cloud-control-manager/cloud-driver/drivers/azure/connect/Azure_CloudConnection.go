@@ -287,3 +287,22 @@ func (cloudConn *AzureCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHa
 	}
 	return &quotaInfoHandler, nil
 }
+
+func (cloudConn *AzureCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateMonitoringHandler()!")
+	monitoringHandler := azrs.AzureMonitoringHandler{
+		CredentialInfo:                  cloudConn.CredentialInfo,
+		Region:                          cloudConn.Region,
+		Ctx:                             cloudConn.Ctx,
+		VMClient:                        cloudConn.VMClient,
+		ManagedClustersClient:           cloudConn.ManagedClustersClient,
+		SecurityGroupsClient:            cloudConn.SecurityGroupClient,
+		VirtualNetworksClient:           cloudConn.VNetClient,
+		AgentPoolsClient:                cloudConn.AgentPoolsClient,
+		VirtualMachineScaleSetsClient:   cloudConn.VirtualMachineScaleSetsClient,
+		VirtualMachineScaleSetVMsClient: cloudConn.VirtualMachineScaleSetVMsClient,
+		VMSizeClient:                    cloudConn.VmSpecClient,
+		MetricClient:                    cloudConn.MetricClient,
+	}
+	return &monitoringHandler, nil
+}

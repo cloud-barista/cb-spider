@@ -143,3 +143,7 @@ func (cloudConn *KTCloudVpcConnection) Close() error {
 func (cloudConn *KTCloudVpcConnection) CreateTagHandler() (irs.TagHandler, error) {
 	return nil, fmt.Errorf("KT Cloud VPC Driver: not implemented")
 }
+
+func (cloudConn *KTCloudVpcConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, fmt.Errorf("KT Cloud VPC Driver: not implemented")
+}

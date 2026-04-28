@@ -23,6 +23,7 @@ type CloudConnection interface {
 	CreateSecurityHandler() (irs.SecurityHandler, error)
 	CreateKeyPairHandler() (irs.KeyPairHandler, error)
 	CreateVMHandler() (irs.VMHandler, error)
+	CreateMonitoringHandler() (irs.MonitoringHandler, error)
 
 	CreateNLBHandler() (irs.NLBHandler, error)
 	CreateDiskHandler() (irs.DiskHandler, error)

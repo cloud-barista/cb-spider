@@ -199,3 +199,7 @@ func (cloudConn *NcpVpcCloudConnection) Close() error {
 
 	return nil
 }
+
+func (cloudConn *NcpVpcCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, fmt.Errorf("NCP VPC Cloud Driver: not implemented")
+}
