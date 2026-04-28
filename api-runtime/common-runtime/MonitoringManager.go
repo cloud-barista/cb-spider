@@ -159,7 +159,12 @@ func GetClusterNodeMetricData(connectionName string, clusterNameID string, nodeG
 	var nodeNameId string
 
 	for _, nodeGroup := range clusterInfo.NodeGroupList {
-		if nodeGroup.IId.NameId == nodeGroupDriverIID.NameId {
+		// Driver-level GetCluster may return NodeGroupInfo with only IId.SystemId
+		// populated (NameId left empty), since NameId/SystemId mapping is owned by
+		// common-runtime via NodeGroupIIDInfo. Match on either side so monitoring
+		// works regardless of which field the driver chose to populate.
+		if nodeGroup.IId.NameId == nodeGroupDriverIID.NameId ||
+			nodeGroup.IId.SystemId == nodeGroupDriverIID.SystemId {
 			if nodeNumberInt > len(nodeGroup.Nodes) {
 				errMsg := fmt.Sprintf("Node number %s is greater than the number of nodes (%d).", nodeNumber, len(nodeGroup.Nodes))
 				cblog.Error(errMsg)

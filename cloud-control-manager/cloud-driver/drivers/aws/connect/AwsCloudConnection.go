@@ -11,7 +11,6 @@
 package connect
 
 import (
-	"errors"
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
@@ -227,5 +226,22 @@ func (cloudConn *AwsCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHand
 }
 
 func (cloudConn *AwsCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
-	return nil, errors.New("GCP Cloud Driver: not implemented")
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	clusterHandler := &ars.AwsClusterHandler{
+		Region:      cloudConn.Region,
+		Client:      cloudConn.EKSClient,
+		EC2Client:   cloudConn.VNetworkClient,
+		Iam:         cloudConn.IamClient,
+		StsClient:   cloudConn.StsClient,
+		AutoScaling: cloudConn.AutoScalingClient,
+		TagHandler:  &tagHandler,
+	}
+	handler := ars.AwsMonitoringHandler{
+		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
+		CwClient:       cloudConn.CloudWatchClient,
+		VMClient:       cloudConn.VMClient,
+		ClusterHandler: clusterHandler,
+	}
+	return &handler, nil
 }
