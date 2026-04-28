@@ -168,7 +168,7 @@ var (
 var gcpVMMetricHandlers = map[irs.MetricType]vmMetricHandler{
 	irs.CPUUsage: vmDirect(irs.CPUUsage, specCPU),
 	irs.MemoryUsage: vmRejected(
-		"memory_usage is not supported for GCP VMs",
+		"memory_usage is not supported for GCP VMs in API-based(agentless) monitoring.",
 	),
 	irs.DiskRead:     vmDirect(irs.DiskRead, specDiskRead),
 	irs.DiskWrite:    vmDirect(irs.DiskWrite, specDiskWrite),
