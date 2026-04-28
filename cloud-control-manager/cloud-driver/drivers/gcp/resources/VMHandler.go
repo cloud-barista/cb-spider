@@ -8,6 +8,7 @@
 //
 // program by ysjeon@mz.co.kr, 2019.07.
 // modify by devunet@mz.co.kr, 2019.11.
+// Updated by CB-Spider Team, 2026.04.
 
 package resources
 

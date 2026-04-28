@@ -7,12 +7,12 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by jaz, 2019.07.
+// Updated by CB-Spider Team, 2026.04.
 
 package connect
 
 import (
 	"context"
-	"errors"
 
 	filestore "cloud.google.com/go/filestore/apiv1"
 	cblog "github.com/cloud-barista/cb-log"
@@ -204,5 +204,13 @@ func (cloudConn *GCPCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHand
 }
 
 func (cloudConn *GCPCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
-	return nil, errors.New("GCP Cloud Driver: not implemented")
+	cblogger.Info("GCP Cloud Driver: called CreateMonitoringHandler()!")
+	monitoringHandler := gcprs.GCPMonitoringHandler{
+		Region:          cloudConn.Region,
+		Ctx:             cloudConn.Ctx,
+		Credential:      cloudConn.Credential,
+		VMClient:        cloudConn.VMClient,
+		ContainerClient: cloudConn.ContainerClient,
+	}
+	return &monitoringHandler, nil
 }
