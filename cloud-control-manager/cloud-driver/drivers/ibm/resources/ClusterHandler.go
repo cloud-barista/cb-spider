@@ -713,11 +713,16 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getNewNodeGroupErr))
 	}
 
-	// Apply autoscaler options (best-effort): NodeGroup is already created.
-	// Without the autoscaler addon, this fails harmlessly — log as warning, not error.
-	irsCluster.NodeGroupList = append(irsCluster.NodeGroupList, nodeGroupReqInfo)
-	if applyAutoScalerOptionErr := ic.applyAutoScalerOptions(irsCluster, irsCluster.IId.SystemId, resourceGroupId); applyAutoScalerOptionErr != nil {
-		cblogger.Warn(fmt.Sprintf("Node Group created, but failed to apply autoscaler options: %s", applyAutoScalerOptionErr))
+	// Apply Node Group autoscaler options
+	if nodeGroupReqInfo.OnAutoScaling {
+		irsCluster.NodeGroupList = append(irsCluster.NodeGroupList, nodeGroupReqInfo)
+
+		applyAutoScalerOptionErr := ic.applyAutoScalerOptions(irsCluster, irsCluster.IId.SystemId, resourceGroupId)
+		if applyAutoScalerOptionErr != nil {
+			cblogger.Error(applyAutoScalerOptionErr)
+			LoggingError(hiscallInfo, applyAutoScalerOptionErr)
+			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", applyAutoScalerOptionErr))
+		}
 	}
 
 	// Get Workers in pool
