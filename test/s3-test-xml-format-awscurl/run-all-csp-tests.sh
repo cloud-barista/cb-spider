@@ -16,10 +16,8 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 chmod +x "$SCRIPT_DIR"/*.sh
 
-# ─── Result tracking ──────────────────────────────────────────────────────────
-declare -A test_results
-declare -A csp_pass_count
-declare -A csp_total_count
+# ─── Result tracking (individual variables for bash 3.2 compatibility) ────────
+# Uses tr_<CSP>_<category>, csp_pc_<CSP>, csp_tc_<CSP> variables via eval
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 extract_results() {
@@ -35,8 +33,8 @@ extract_results() {
     passed=$(echo "$summary" | grep "Passed"       | grep -o '[0-9]*' | head -1)
 
     if [[ -n "$total" && -n "$passed" ]]; then
-        csp_pass_count["$csp_name"]="$passed"
-        csp_total_count["$csp_name"]="$total"
+        eval "csp_pc_${csp_name}=\${passed}"
+        eval "csp_tc_${csp_name}=\${total}"
 
         local bucket_pass object_pass multipart_pass versioning_pass cors_pass special_pass
         bucket_pass=$(echo    "$output" | sed -n '/^1\. BUCKET MANAGEMENT/,/^2\. OBJECT MANAGEMENT/p'       | grep -c "| PASS")
@@ -46,21 +44,21 @@ extract_results() {
         cors_pass=$(echo      "$output" | sed -n '/^5\. CORS MANAGEMENT/,/^6\. CB-SPIDER SPECIAL/p'         | grep -c "| PASS")
         special_pass=$(echo   "$output" | sed -n '/^6\. CB-SPIDER SPECIAL/,/^=====*/p'                      | grep -c "| PASS")
 
-        test_results["${csp_name}_bucket"]="$bucket_pass/6"
-        test_results["${csp_name}_object"]="$object_pass/6"
-        test_results["${csp_name}_multipart"]="$multipart_pass/6"
-        test_results["${csp_name}_versioning"]="$versioning_pass/4"
-        test_results["${csp_name}_cors"]="$cors_pass/4"
-        test_results["${csp_name}_special"]="$special_pass/6"
+        eval "tr_${csp_name}_bucket=\${bucket_pass}/6"
+        eval "tr_${csp_name}_object=\${object_pass}/6"
+        eval "tr_${csp_name}_multipart=\${multipart_pass}/6"
+        eval "tr_${csp_name}_versioning=\${versioning_pass}/4"
+        eval "tr_${csp_name}_cors=\${cors_pass}/4"
+        eval "tr_${csp_name}_special=\${special_pass}/6"
     else
-        csp_pass_count["$csp_name"]="0"
-        csp_total_count["$csp_name"]="0"
-        test_results["${csp_name}_bucket"]="ERR"
-        test_results["${csp_name}_object"]="ERR"
-        test_results["${csp_name}_multipart"]="ERR"
-        test_results["${csp_name}_versioning"]="ERR"
-        test_results["${csp_name}_cors"]="ERR"
-        test_results["${csp_name}_special"]="ERR"
+        eval "csp_pc_${csp_name}=0"
+        eval "csp_tc_${csp_name}=0"
+        eval "tr_${csp_name}_bucket=ERR"
+        eval "tr_${csp_name}_object=ERR"
+        eval "tr_${csp_name}_multipart=ERR"
+        eval "tr_${csp_name}_versioning=ERR"
+        eval "tr_${csp_name}_cors=ERR"
+        eval "tr_${csp_name}_special=ERR"
     fi
 }
 
@@ -83,6 +81,7 @@ run_csp_test() {
 # ─── Run all CSPs ─────────────────────────────────────────────────────────────
 run_csp_test "aws-test.sh"        "AWS"
 run_csp_test "gcp-test.sh"        "GCP"
+run_csp_test "azure-test.sh"      "AZURE"
 run_csp_test "alibaba-test.sh"    "ALIBABA"
 run_csp_test "tencent-test.sh"    "TENCENT"
 run_csp_test "ibm-test.sh"        "IBM"
@@ -107,18 +106,22 @@ printf "%-12s | %-8s | %-8s | %-10s | %-10s | %-8s | %-8s | %-10s\n" \
     "CSP" "Bucket" "Object" "Multipart" "Versioning" "CORS" "Special" "Total"
 echo "------------------------------------------------------------------------------------"
 
-for csp in AWS GCP ALIBABA TENCENT IBM OPENSTACK NCP NHN KT; do
-    bucket="${test_results[${csp}_bucket]:-N/A}"
-    object="${test_results[${csp}_object]:-N/A}"
-    multipart="${test_results[${csp}_multipart]:-N/A}"
-    versioning="${test_results[${csp}_versioning]:-N/A}"
-    cors="${test_results[${csp}_cors]:-N/A}"
-    special="${test_results[${csp}_special]:-N/A}"
-    total_pass="${csp_pass_count[$csp]:-0}"
-    total_count="${csp_total_count[$csp]:-0}"
+for csp in AWS GCP AZURE ALIBABA TENCENT IBM OPENSTACK NCP NHN KT; do
+    eval "bucket=\${tr_${csp}_bucket:-N/A}"
+    eval "object=\${tr_${csp}_object:-N/A}"
+    eval "multipart=\${tr_${csp}_multipart:-N/A}"
+    eval "versioning=\${tr_${csp}_versioning:-N/A}"
+    eval "cors=\${tr_${csp}_cors:-N/A}"
+    eval "special=\${tr_${csp}_special:-N/A}"
+    eval "total_pass=\${csp_pc_${csp}:-0}"
+    eval "total_count=\${csp_tc_${csp}:-0}"
 
     # Annotate CSPs with known limitations
-    if [[ "$csp" == "OPENSTACK" ]]; then
+    if [[ "$csp" == "AZURE" ]]; then
+        multipart="0/6 (NA)"
+        versioning="0/4 (NA)"
+        cors="0/4 (NA)"
+    elif [[ "$csp" == "OPENSTACK" ]]; then
         multipart="0/6 (NA)"
         versioning="0/4 (NA)"
     elif [[ "$csp" == "NCP" || "$csp" == "NHN" ]]; then

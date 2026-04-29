@@ -247,6 +247,15 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		useSSL = true
 		regionRequired = true
 
+	case "AZURE":
+		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "StorageAccountName")
+		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "StorageAccountKey")
+		if accessKey != "" {
+			endpoint = fmt.Sprintf("%s.blob.core.windows.net", accessKey)
+		}
+		useSSL = true
+		regionRequired = false
+
 	default:
 		return nil, fmt.Errorf("provider '%s' does not support Object Storage service or is not configured for S3 access", providerName)
 	}
@@ -338,6 +347,28 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 
 	cblog.Infof("CreateS3Bucket: Provider=%s, AppId='%s', BucketName=%s", connInfo.ProviderName, connInfo.AppId, bucketName)
 
+	// Azure: use Azure Blob SDK instead of minio
+	if connInfo.ProviderName == "AZURE" {
+		result, err := createAzureBucket(connectionName, bucketName, connInfo)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo := S3BucketIIDInfo{
+			ConnectionName: connectionName,
+			NameId:         bucketName,
+			SystemId:       bucketName,
+			Region:         connInfo.Region,
+		}
+		err = infostore.Insert(&iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			_ = deleteAzureBucket(connInfo, bucketName)
+			return nil, err
+		}
+		return result, nil
+	}
+
 	// For Tencent COS, AppId is required
 	originalBucketName := bucketName
 	if connInfo.ProviderName == "TENCENT" {
@@ -359,7 +390,8 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		cblog.Error(err)
 		return nil, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	exists, err := client.BucketExists(ctx, bucketName)
 	if err != nil {
 		cblog.Error(err)
@@ -431,11 +463,18 @@ func ListS3Buckets(connectionName string) ([]*minio.BucketInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return listAzureBuckets(connInfo, iidInfoList)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	allBuckets, err := client.ListBuckets(ctx)
 	if err != nil {
 		return nil, err
@@ -485,11 +524,18 @@ func ListS3BucketsWithIID(connectionName string) ([]*S3BucketWithIID, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return listAzureBucketsWithIID(connInfo, iidInfoList)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	allBuckets, err := client.ListBuckets(ctx)
 	if err != nil {
 		return nil, err
@@ -532,11 +578,18 @@ func GetS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return getAzureBucket(connInfo, &iidInfo)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	buckets, err := client.ListBuckets(ctx)
 	if err != nil {
 		return nil, err
@@ -586,13 +639,32 @@ func DeleteS3Bucket(connectionName, bucketName string, force string) (bool, erro
 		return false, err
 	}
 
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		err = deleteAzureBucket(connInfo, iidInfo.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			if force != "true" {
+				return false, err
+			}
+			cblog.Infof("Azure delete failed but force=true, proceeding with metadata deletion")
+		}
+		_, err = infostore.DeleteByConditions(&S3BucketIIDInfo{}, "connection_name", iidInfo.ConnectionName, "name_id", bucketName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return true, nil
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	result := false
 
 	// Use SystemId (actual bucket name with AppId for Tencent)
@@ -649,6 +721,11 @@ func ListS3Objects(connectionName, bucketName, prefix string) ([]minio.ObjectInf
 		return nil, err
 	}
 
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return listAzureObjects(connInfo, iidInfo.SystemId, prefix)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		cblog.Errorf("Failed to create S3 client: %v", err)
@@ -656,7 +733,7 @@ func ListS3Objects(connectionName, bucketName, prefix string) ([]minio.ObjectInf
 	}
 
 	// Set timeout for listing objects to prevent indefinite hangs
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	opts := minio.ListObjectsOptions{
@@ -675,7 +752,7 @@ func ListS3Objects(connectionName, bucketName, prefix string) ([]minio.ObjectInf
 			cblog.Errorf("Error listing object: %v", obj.Err)
 			// Check for context timeout
 			if ctx.Err() == context.DeadlineExceeded {
-				return nil, fmt.Errorf("listing objects timed out after 60s (provider: %s may have network issues)", connInfo.ProviderName)
+				return nil, fmt.Errorf("listing objects timed out after 180s (provider: %s may have network issues)", connInfo.ProviderName)
 			}
 			continue
 		}
@@ -731,13 +808,18 @@ func GetS3BucketTotalSize(connectionName, bucketName string) (int64, int64, erro
 		return 0, 0, err
 	}
 
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return getAzureBucketTotalSize(connInfo, iidInfo.SystemId)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		cblog.Errorf("Failed to create S3 client: %v", err)
 		return 0, 0, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	// List all objects including all versions to get accurate total size
@@ -790,18 +872,24 @@ func GetS3ObjectInfo(connectionName, bucketName, objectName string) (*minio.Obje
 	if err != nil {
 		return nil, err
 	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return getAzureObjectInfo(connInfo, iidInfo.SystemId, objectName)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
 	}
 	// Set timeout for StatObject
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	stat, err := client.StatObject(ctx, iidInfo.SystemId, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("getting object info timed out after 30s (provider: %s may have network issues)", connInfo.ProviderName)
+			return nil, fmt.Errorf("getting object info timed out after 180s (provider: %s may have network issues)", connInfo.ProviderName)
 		}
 		return nil, err
 	}
@@ -833,7 +921,7 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 	}
 
 	// Set timeout for StatObject with version
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	// Special handling for null version ID
@@ -854,7 +942,7 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 			if obj.Err != nil {
 				cblog.Errorf("Error listing objects: %v", obj.Err)
 				if ctx.Err() == context.DeadlineExceeded {
-					return nil, fmt.Errorf("listing object versions timed out after 30s (provider: %s may have network issues)", connInfo.ProviderName)
+					return nil, fmt.Errorf("listing object versions timed out after 180s (provider: %s may have network issues)", connInfo.ProviderName)
 				}
 				continue
 			}
@@ -871,6 +959,7 @@ func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionI
 
 		if !nullVersionExists {
 			cblog.Errorf("Could not find null version object with content")
+			cancel()
 			return nil, fmt.Errorf("null version object not found or has no content")
 		}
 
@@ -939,11 +1028,22 @@ func DeleteS3Object(connectionName, bucketName, objectName string) (bool, error)
 	if err != nil {
 		return false, err
 	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		err = deleteAzureObject(connInfo, iidInfo.SystemId, objectName)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return false, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	err = client.RemoveObject(ctx, iidInfo.SystemId, objectName, minio.RemoveObjectOptions{})
 	if err != nil {
 		cblog.Errorf("Failed to delete object: %v", err)
@@ -971,13 +1071,19 @@ func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (
 		return false, err
 	}
 
+	// Azure: delete markers are not supported (Azure uses soft delete instead)
+	if connInfo.ProviderName == "AZURE" {
+		return false, fmt.Errorf("delete markers are not supported by %s:%s (Azure Blob Storage uses soft delete instead of S3-style delete markers)", connectionName, connInfo.ProviderName)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		cblog.Errorf("Failed to create S3 client: %v", err)
 		return false, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Declare variables that will be reused
 	var stillExists bool
@@ -1182,6 +1288,12 @@ func GetS3ObjectStream(connectionName, bucketName, objectName string) (io.ReadCl
 	if err != nil {
 		return nil, err
 	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return getAzureObjectStream(connInfo, iidInfo.SystemId, objectName)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
@@ -1210,6 +1322,11 @@ func GetS3ObjectStreamWithVersion(connectionName, bucketName, objectName, versio
 	if err != nil {
 		cblog.Errorf("Failed to get connection info: %v", err)
 		return nil, err
+	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return getAzureObjectStreamWithVersion(connInfo, iidInfo.SystemId, objectName, versionId)
 	}
 
 	client, err := NewS3Client(connInfo)
@@ -1329,12 +1446,18 @@ func PutS3ObjectFromReader(connectionName string, bucketName string, objectName 
 		return minio.UploadInfo{}, err
 	}
 
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return putAzureObject(connInfo, iidInfo.SystemId, objectName, reader, objectSize)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return minio.UploadInfo{}, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 1800*time.Second)
+	defer cancel()
 	contentType := "application/octet-stream"
 
 	info, err := client.PutObject(
@@ -1395,6 +1518,9 @@ func InitiateMultipartUpload(connectionName string, bucketName string, objectNam
 	if connInfo.ProviderName == "OPENSTACK" {
 		return "", fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return "", fmt.Errorf("multipart upload is not supported by %s:%s (Azure Block Blob uncommitted blocks are auto-cleaned after 7 days, use direct upload instead)", connectionName, connInfo.ProviderName)
+	}
 
 	cblog.Infof("Initiating multipart upload - Provider: %s, Bucket: %s, Object: %s",
 		connInfo.ProviderName, iidInfo.SystemId, objectName)
@@ -1405,7 +1531,7 @@ func InitiateMultipartUpload(connectionName string, bucketName string, objectNam
 		return "", err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1800*time.Second)
 	defer cancel()
 
 	core := minio.Core{Client: client}
@@ -1413,7 +1539,7 @@ func InitiateMultipartUpload(connectionName string, bucketName string, objectNam
 	if err != nil {
 		cblog.Errorf("Failed to initiate multipart upload for provider %s: %v", connInfo.ProviderName, err)
 		if ctx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("multipart upload initiation timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+			return "", fmt.Errorf("multipart upload initiation timed out after 180s (provider: %s may not support this operation)", connInfo.ProviderName)
 		}
 		return "", err
 	}
@@ -1440,6 +1566,9 @@ func UploadPart(connectionName string, bucketName string, objectName string, upl
 	if connInfo.ProviderName == "OPENSTACK" {
 		return "", fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return "", fmt.Errorf("multipart upload is not supported by %s:%s (Azure Block Blob uncommitted blocks are auto-cleaned after 7 days, use direct upload instead)", connectionName, connInfo.ProviderName)
+	}
 
 	cblog.Infof("Uploading part %d - Provider: %s, Bucket: %s, Object: %s, UploadID: %s, Size: %d",
 		partNumber, connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID, size)
@@ -1450,7 +1579,7 @@ func UploadPart(connectionName string, bucketName string, objectName string, upl
 		return "", err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1800*time.Second)
 	defer cancel()
 
 	core := minio.Core{Client: client}
@@ -1458,7 +1587,7 @@ func UploadPart(connectionName string, bucketName string, objectName string, upl
 	if err != nil {
 		cblog.Errorf("Failed to upload part %d for provider %s: %v", partNumber, connInfo.ProviderName, err)
 		if ctx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("part upload timed out after 60s (provider: %s may have network issues)", connInfo.ProviderName)
+			return "", fmt.Errorf("part upload timed out after 1800s (provider: %s may have network issues)", connInfo.ProviderName)
 		}
 		return "", err
 	}
@@ -1485,6 +1614,9 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 	if connInfo.ProviderName == "OPENSTACK" {
 		return "", "", fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return "", "", fmt.Errorf("multipart upload is not supported by %s:%s (Azure Block Blob uncommitted blocks are auto-cleaned after 7 days, use direct upload instead)", connectionName, connInfo.ProviderName)
+	}
 
 	cblog.Infof("Completing multipart upload - Provider: %s, Bucket: %s, Object: %s, UploadID: %s, Parts: %d",
 		connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID, len(parts))
@@ -1495,7 +1627,7 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 		return "", "", err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	var completeParts []minio.CompletePart
@@ -1511,7 +1643,7 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 	if err != nil {
 		cblog.Errorf("Failed to complete multipart upload for provider %s: %v", connInfo.ProviderName, err)
 		if ctx.Err() == context.DeadlineExceeded {
-			return "", "", fmt.Errorf("multipart upload completion timed out after 60s (provider: %s may not support this operation)", connInfo.ProviderName)
+			return "", "", fmt.Errorf("multipart upload completion timed out after 180s (provider: %s may not support this operation)", connInfo.ProviderName)
 		}
 		return "", "", err
 	}
@@ -1539,6 +1671,9 @@ func AbortMultipartUpload(connectionName string, bucketName string, objectName s
 	if connInfo.ProviderName == "OPENSTACK" {
 		return fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return fmt.Errorf("multipart upload is not supported by %s:%s (Azure Block Blob uncommitted blocks are auto-cleaned after 7 days, use direct upload instead)", connectionName, connInfo.ProviderName)
+	}
 
 	cblog.Infof("Aborting multipart upload - Provider: %s, Bucket: %s, Object: %s, UploadID: %s",
 		connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID)
@@ -1550,7 +1685,7 @@ func AbortMultipartUpload(connectionName string, bucketName string, objectName s
 	}
 
 	// Set timeout for aborting multipart upload
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	core := minio.Core{Client: client}
@@ -1558,7 +1693,7 @@ func AbortMultipartUpload(connectionName string, bucketName string, objectName s
 	if err != nil {
 		cblog.Errorf("Failed to abort multipart upload for provider %s: %v", connInfo.ProviderName, err)
 		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("multipart upload abort timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+			return fmt.Errorf("multipart upload abort timed out after 180s (provider: %s may not support this operation)", connInfo.ProviderName)
 		}
 		return err
 	}
@@ -1619,6 +1754,10 @@ func ListParts(connectionName string, bucketName string, objectName string, uplo
 	cblog.Infof("Listing parts - Provider: %s, Bucket: %s, Object: %s, UploadID: %s",
 		connInfo.ProviderName, iidInfo.SystemId, objectName, uploadID)
 
+	if connInfo.ProviderName == "AZURE" {
+		return nil, fmt.Errorf("multipart upload is not supported by %s:%s (Azure Block Blob uncommitted blocks are auto-cleaned after 7 days, use direct upload instead)", connectionName, connInfo.ProviderName)
+	}
+
 	// Use standard S3 API for all providers
 	client, err := NewS3Client(connInfo)
 	if err != nil {
@@ -1626,7 +1765,7 @@ func ListParts(connectionName string, bucketName string, objectName string, uplo
 	}
 
 	// Set timeout for listing parts
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	core := minio.Core{Client: client}
@@ -1635,7 +1774,7 @@ func ListParts(connectionName string, bucketName string, objectName string, uplo
 	if err != nil {
 		cblog.Errorf("Failed to list parts for provider %s: %v", connInfo.ProviderName, err)
 		if ctx.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("listing parts timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+			return nil, fmt.Errorf("listing parts timed out after 180s (provider: %s may not support this operation)", connInfo.ProviderName)
 		}
 		return nil, err
 	}
@@ -1714,6 +1853,11 @@ func ListMultipartUploads(connectionName string, bucketName string, prefix strin
 		return nil, fmt.Errorf("multipart upload is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
 
+	// Azure: ListMultipartUploads not supported (Azure auto-cleans uncommitted blocks after 7 days)
+	if connInfo.ProviderName == "AZURE" {
+		return nil, fmt.Errorf("ListMultipartUploads is not supported by Azure: uncommitted blocks are auto-cleaned after 7 days")
+	}
+
 	if maxUploads == 0 {
 		maxUploads = 1000 // Default max uploads
 	}
@@ -1727,7 +1871,7 @@ func ListMultipartUploads(connectionName string, bucketName string, prefix strin
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	core := minio.Core{Client: client}
@@ -1736,7 +1880,7 @@ func ListMultipartUploads(connectionName string, bucketName string, prefix strin
 	if err != nil {
 		cblog.Errorf("Failed to list multipart uploads for provider %s: %v", connInfo.ProviderName, err)
 		if ctx.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("listing multipart uploads timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+			return nil, fmt.Errorf("listing multipart uploads timed out after 180s (provider: %s may not support this operation)", connInfo.ProviderName)
 		}
 		return nil, err
 	}
@@ -1789,12 +1933,18 @@ func DeleteMultipleObjects(connectionName string, bucketName string, objectNames
 		return nil, err
 	}
 
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return deleteMultipleAzureObjects(connInfo, iidInfo.SystemId, objectNames)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	objectsCh := make(chan minio.ObjectInfo)
 
 	go func() {
@@ -1849,12 +1999,18 @@ func GetS3PresignedURL(connectionName string, bucketName string, objectName stri
 		return "", err
 	}
 
+	// Azure: use SAS URL
+	if connInfo.ProviderName == "AZURE" {
+		return getAzurePresignedURL(connInfo, iidInfo.SystemId, objectName, method, expiresSeconds, responseContentDisposition)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return "", err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	expires := time.Duration(expiresSeconds) * time.Second
 
 	// CSP S3 PreSigned URL 반환
@@ -1907,12 +2063,16 @@ func EnableVersioning(connectionName string, bucketName string) (bool, error) {
 	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
 		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Azure applies versioning at Storage Account level, not per-Container)", connectionName, connInfo.ProviderName)
+	}
 
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return false, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	opts := minio.BucketVersioningConfiguration{
 		Status: "Enabled",
 	}
@@ -1946,12 +2106,16 @@ func SuspendVersioning(connectionName string, bucketName string) (bool, error) {
 	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
 		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Azure applies versioning at Storage Account level, not per-Container)", connectionName, connInfo.ProviderName)
+	}
 
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return false, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	opts := minio.BucketVersioningConfiguration{
 		Status: "Suspended",
 	}
@@ -1989,6 +2153,9 @@ func GetVersioning(connectionName string, bucketName string) (string, error) {
 	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
 		return "", fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return "", fmt.Errorf("bucket versioning is not supported by %s:%s (Azure applies versioning at Storage Account level, not per-Container)", connectionName, connInfo.ProviderName)
+	}
 
 	client, err := NewS3Client(connInfo)
 	if err != nil {
@@ -1996,7 +2163,8 @@ func GetVersioning(connectionName string, bucketName string) (string, error) {
 		return "", err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	cblog.Infof("Calling GetBucketVersioning for bucket: %s", bucketName)
 
 	versioningConfig, err := client.GetBucketVersioning(ctx, iidInfo.SystemId)
@@ -2034,6 +2202,9 @@ func ListS3ObjectVersions(connectionName string, bucketName string, prefix strin
 	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
 		return nil, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return nil, fmt.Errorf("bucket versioning is not supported by %s:%s (Azure applies versioning at Storage Account level, not per-Container)", connectionName, connInfo.ProviderName)
+	}
 
 	// Use GCP Storage SDK for GCP
 	if connInfo.ProviderName == "GCP" {
@@ -2052,7 +2223,7 @@ func ListS3ObjectVersions(connectionName string, bucketName string, prefix strin
 	}
 
 	// Set timeout for listing object versions
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	cblog.Infof("Listing object versions - Provider: %s, Bucket: %s, Prefix: %s",
@@ -2070,7 +2241,7 @@ func ListS3ObjectVersions(connectionName string, bucketName string, prefix strin
 			cblog.Warnf("Error listing object version: %v", obj.Err)
 			// Check for context timeout
 			if ctx.Err() == context.DeadlineExceeded {
-				return nil, fmt.Errorf("listing object versions timed out after 30s (provider: %s may not support this operation)", connInfo.ProviderName)
+				return nil, fmt.Errorf("listing object versions timed out after 180s (provider: %s may not support this operation)", connInfo.ProviderName)
 			}
 			continue
 		}
@@ -2117,7 +2288,8 @@ func listGCPObjectVersions(connectionName string, bucketName string, prefix stri
 		return nil, fmt.Errorf("failed to marshal credentials: %w", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Create GCP storage client with credentials
 	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
@@ -2211,7 +2383,8 @@ func setGCPBucketCORS(connectionName string, bucketName string, allowedOrigins [
 		return false, fmt.Errorf("failed to marshal credentials: %w", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Create GCP storage client with credentials
 	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
@@ -2289,7 +2462,8 @@ func getGCPBucketCORS(connectionName string, bucketName string) (*cors.Config, e
 		return nil, fmt.Errorf("failed to marshal credentials: %w", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Create GCP storage client with credentials
 	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
@@ -2370,7 +2544,8 @@ func deleteGCPBucketCORS(connectionName string, bucketName string) (bool, error)
 		return false, fmt.Errorf("failed to marshal credentials: %w", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Create GCP storage client with credentials
 	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
@@ -2412,7 +2587,7 @@ func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []
 	}
 
 	// Check if provider supports CORS
-	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" || connInfo.ProviderName == "AZURE" {
 		return false, fmt.Errorf("CORS configuration is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
 
@@ -2432,7 +2607,8 @@ func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []
 		return false, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	corsConfig := &cors.Config{
 		CORSRules: []cors.Rule{
@@ -2508,7 +2684,7 @@ func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, er
 	}
 
 	// Check if provider supports CORS
-	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" || connInfo.ProviderName == "AZURE" {
 		return nil, fmt.Errorf("CORS configuration is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
 
@@ -2528,7 +2704,8 @@ func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, er
 		return nil, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	core := minio.Core{Client: client}
 	corsConfig, err := core.GetBucketCors(ctx, iidInfo.SystemId)
@@ -2552,7 +2729,7 @@ func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) 
 	}
 
 	// Check if provider supports CORS
-	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
+	if connInfo.ProviderName == "NHN" || connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" || connInfo.ProviderName == "AZURE" {
 		return false, fmt.Errorf("CORS configuration is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
 
@@ -2572,7 +2749,8 @@ func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) 
 		return false, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 	core := minio.Core{Client: client}
 
 	err = core.SetBucketCors(ctx, iidInfo.SystemId, nil)
@@ -2675,6 +2853,9 @@ func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID str
 	if connInfo.ProviderName == "NCP" || connInfo.ProviderName == "NCPVPC" {
 		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Naver Cloud Platform Object Storage does not support versioning feature)", connectionName, connInfo.ProviderName)
 	}
+	if connInfo.ProviderName == "AZURE" {
+		return false, fmt.Errorf("bucket versioning is not supported by %s:%s (Azure applies versioning at Storage Account level, not per-Container)", connectionName, connInfo.ProviderName)
+	}
 
 	client, err := NewS3Client(connInfo)
 	if err != nil {
@@ -2682,7 +2863,8 @@ func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID str
 		return false, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Special handling for null version ID
 	if versionID == "null" {
@@ -2770,13 +2952,19 @@ func DeleteMultipleObjectVersions(connectionName, bucketName string, objects []O
 		return nil, fmt.Errorf("bucket versioning is not supported by %s:%s", connectionName, connInfo.ProviderName)
 	}
 
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return deleteMultipleAzureObjectVersions(connInfo, iidInfo.SystemId, objects)
+	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		cblog.Errorf("Failed to create S3 client: %v", err)
 		return nil, err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// For version-specific deletes, we need to use individual calls
 	// as minio-go doesn't support bulk versioned deletes directly
@@ -2856,7 +3044,8 @@ func forceEmptyGCPBucket(connectionName, bucketName string) (bool, error) {
 		return false, fmt.Errorf("failed to marshal credentials: %w", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Create GCP storage client with credentials
 	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
@@ -2992,6 +3181,11 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 		return forceEmptyGCPBucket(connectionName, bucketName)
 	}
 
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return forceEmptyAzureBucket(connectionName, bucketName)
+	}
+
 	var iidInfo S3BucketIIDInfo
 	err = infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
@@ -3005,8 +3199,8 @@ func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
 		return false, err
 	}
 
-	// Use a longer timeout for force empty operations (5 minutes total)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	// Use a longer timeout for force empty operations (180 seconds total)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	// Step 0: Abort all incomplete multipart uploads
@@ -3255,7 +3449,8 @@ func forceEmptyAndDeleteGCPBucket(connectionName, bucketName string) (bool, erro
 		return false, fmt.Errorf("failed to marshal credentials: %w", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
 
 	// Create GCP storage client
 	storageClient, err := storage.NewClient(ctx, option.WithCredentialsJSON(credBytes))
@@ -3312,6 +3507,11 @@ func ForceEmptyAndDeleteBucket(connectionName, bucketName string) (bool, error) 
 	// Use GCP Storage SDK for GCP
 	if connInfo.ProviderName == "GCP" {
 		return forceEmptyAndDeleteGCPBucket(connectionName, bucketName)
+	}
+
+	// Azure: use Azure Blob SDK
+	if connInfo.ProviderName == "AZURE" {
+		return forceEmptyAndDeleteAzureBucket(connectionName, bucketName)
 	}
 
 	// First, empty the bucket

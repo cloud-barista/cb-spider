@@ -2264,6 +2264,9 @@ func DeleteS3Object(c echo.Context) error {
 		// This typically means deleting the latest version (which is the delete marker)
 		success, err = cmrt.DeleteS3ObjectDeleteMarker(conn, bucket, decodedObjKey)
 		if err != nil {
+			if strings.Contains(err.Error(), "not supported by") {
+				return returnS3Error(c, http.StatusNotImplemented, "NotImplemented", err.Error(), "/"+bucket+"/"+decodedObjKey)
+			}
 			cblog.Warnf("Failed to delete DELETE MARKER, trying regular delete: %v", err)
 			// Fallback to regular delete
 			success, err = cmrt.DeleteS3Object(conn, bucket, decodedObjKey)
@@ -2375,7 +2378,8 @@ func DownloadS3Object(c echo.Context) error {
 		statusCode := http.StatusNotFound
 		if strings.Contains(err.Error(), "bucket") {
 			errorCode = "NoSuchBucket"
-		} else if strings.Contains(err.Error(), "version") {
+		} else if versionId != "" && versionId != "null" && versionId != "undefined" {
+			// Only map to NoSuchVersion when a specific versionId was requested
 			errorCode = "NoSuchVersion"
 		}
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
