@@ -32,7 +32,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-declare -A test_results
+# Individual tr_<test_name> variables store results (bash 3.2 compatible)
 test_count=0
 pass_count=0
 fail_count=0
@@ -202,7 +202,7 @@ run_test() {
         echo "  Exit Code : $exit_code"
         echo "  Output    : $result"
     fi
-    test_results["$test_name"]="$status"
+    eval "tr_${test_name}=\${status}"
 }
 
 create_test_file() {
@@ -245,53 +245,53 @@ print_summary() {
     echo "--------------------------------------------------------------------------------"
 
     echo "1. BUCKET MANAGEMENT (6 tests)"
-    printf "%-50s | %-10s\n" "  List Buckets"            "${test_results[list_buckets]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Create Bucket"           "${test_results[create_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Bucket Info"         "${test_results[get_bucket_info]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Check Bucket Exists (HEAD)" "${test_results[head_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Bucket Location"     "${test_results[get_bucket_location]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Bucket"           "${test_results[delete_bucket]:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Buckets"            "${tr_list_buckets:-SKIP}"
+    printf "%-50s | %-10s\n" "  Create Bucket"           "${tr_create_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Info"         "${tr_get_bucket_info:-SKIP}"
+    printf "%-50s | %-10s\n" "  Check Bucket Exists (HEAD)" "${tr_head_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Location"     "${tr_get_bucket_location:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Bucket"           "${tr_delete_bucket:-SKIP}"
     echo
 
     echo "2. OBJECT MANAGEMENT (6 tests)"
-    printf "%-50s | %-10s\n" "  Upload Object (File)"    "${test_results[upload_object_file]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Upload Object (Form)"    "${test_results[upload_object_form]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Download Object"         "${test_results[download_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Object Info (HEAD)"  "${test_results[head_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Object"           "${test_results[delete_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Multiple Objects" "${test_results[delete_multiple_objects]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Object (File)"    "${tr_upload_object_file:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Object (Form)"    "${tr_upload_object_form:-SKIP}"
+    printf "%-50s | %-10s\n" "  Download Object"         "${tr_download_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Object Info (HEAD)"  "${tr_head_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Object"           "${tr_delete_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Multiple Objects" "${tr_delete_multiple_objects:-SKIP}"
     echo
 
     echo "3. MULTIPART UPLOAD (6 tests)"
-    printf "%-50s | %-10s\n" "  Initiate Multipart Upload" "${test_results[initiate_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Upload Part"             "${test_results[upload_part]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Complete Multipart Upload" "${test_results[complete_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Abort Multipart Upload"  "${test_results[abort_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Parts"              "${test_results[list_parts]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Multipart Uploads"  "${test_results[list_multipart_uploads]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Initiate Multipart Upload" "${tr_initiate_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Part"             "${tr_upload_part:-SKIP}"
+    printf "%-50s | %-10s\n" "  Complete Multipart Upload" "${tr_complete_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  Abort Multipart Upload"  "${tr_abort_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Parts"              "${tr_list_parts:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Multipart Uploads"  "${tr_list_multipart_uploads:-SKIP}"
     echo
 
     echo "4. VERSIONING MANAGEMENT (4 tests)"
-    printf "%-50s | %-10s\n" "  Get Bucket Versioning"   "${test_results[get_bucket_versioning]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Set Bucket Versioning"   "${test_results[set_bucket_versioning]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Object Versions"    "${test_results[list_object_versions]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Versioned Object" "${test_results[delete_versioned_object]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Versioning"   "${tr_get_bucket_versioning:-SKIP}"
+    printf "%-50s | %-10s\n" "  Set Bucket Versioning"   "${tr_set_bucket_versioning:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Object Versions"    "${tr_list_object_versions:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Versioned Object" "${tr_delete_versioned_object:-SKIP}"
     echo
 
     echo "5. CORS MANAGEMENT (4 tests)"
-    printf "%-50s | %-10s\n" "  Get Bucket CORS"         "${test_results[get_bucket_cors]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Set Bucket CORS"         "${test_results[set_bucket_cors]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Test CORS with OPTIONS"  "${test_results[test_cors_options]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete CORS Configuration" "${test_results[delete_bucket_cors]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket CORS"         "${tr_get_bucket_cors:-SKIP}"
+    printf "%-50s | %-10s\n" "  Set Bucket CORS"         "${tr_set_bucket_cors:-SKIP}"
+    printf "%-50s | %-10s\n" "  Test CORS with OPTIONS"  "${tr_test_cors_options:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete CORS Configuration" "${tr_delete_bucket_cors:-SKIP}"
     echo
 
     echo "6. CB-SPIDER SPECIAL FEATURES (6 tests)"
-    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Download)" "${test_results[generate_presigned_download]:-SKIP}"
-    printf "%-50s | %-10s\n" "  PreSigned URL Download Test"       "${test_results[test_presigned_download]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Upload)"   "${test_results[generate_presigned_upload]:-SKIP}"
-    printf "%-50s | %-10s\n" "  PreSigned URL Upload Test"         "${test_results[test_presigned_upload]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Force Empty Bucket"                "${test_results[force_empty_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Force Delete Bucket"               "${test_results[force_delete_bucket]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Download)" "${tr_generate_presigned_download:-SKIP}"
+    printf "%-50s | %-10s\n" "  PreSigned URL Download Test"       "${tr_test_presigned_download:-SKIP}"
+    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Upload)"   "${tr_generate_presigned_upload:-SKIP}"
+    printf "%-50s | %-10s\n" "  PreSigned URL Upload Test"         "${tr_test_presigned_upload:-SKIP}"
+    printf "%-50s | %-10s\n" "  Force Empty Bucket"                "${tr_force_empty_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Force Delete Bucket"               "${tr_force_delete_bucket:-SKIP}"
     echo
 
     echo "==================================================================================="
@@ -361,7 +361,7 @@ main() {
             "Delete bucket"
     else
         log_warning "Failed to create separate bucket for deletion test (HTTP $DELETE_CREATE_CODE)"
-        test_results["delete_bucket"]="FAIL"
+        tr_delete_bucket="FAIL"
     fi
 
     # ======================================================
@@ -448,9 +448,9 @@ main() {
             "Abort multipart upload"
     else
         log_warning "Failed to get UploadId — skipping upload_part / list_parts / abort_multipart"
-        test_results["upload_part"]="SKIP"
-        test_results["list_parts"]="SKIP"
-        test_results["abort_multipart"]="SKIP"
+        tr_upload_part="SKIP"
+        tr_list_parts="SKIP"
+        tr_abort_multipart="SKIP"
     fi
 
     # Complete multipart test with a fresh upload
@@ -610,7 +610,7 @@ main() {
             "Force empty bucket"
     else
         log_info "Skipping force_empty_bucket: bucket does not exist"
-        test_results["force_empty_bucket"]="SKIP"
+        tr_force_empty_bucket="SKIP"
     fi
 
     if bucket_exists; then
@@ -622,7 +622,7 @@ main() {
             "Force delete bucket"
     else
         log_info "Skipping force_delete_bucket: bucket does not exist"
-        test_results["force_delete_bucket"]="SKIP"
+        tr_force_delete_bucket="SKIP"
     fi
 
     log_info "=== CLEANING UP ==="

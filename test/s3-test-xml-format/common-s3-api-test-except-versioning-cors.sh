@@ -1,6 +1,7 @@
 #!/bin/bash
 SPIDER_USERNAME=${SPIDER_USERNAME:-admin}
 SPIDER_PASSWORD=$SPIDER_PASSWORD
+SKIP_MULTIPART=${SKIP_MULTIPART:-false}
 
 
 # CB-Spider S3 API Test Script - Versioning & CORS Skipped
@@ -33,8 +34,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Test results tracking
-declare -A test_results
+# Test results tracking (individual variables for bash 3.2 compatibility)
+# Usage: tr_<test_name> holds the result (PASS/FAIL/SKIP)
 test_count=0
 pass_count=0
 fail_count=0
@@ -163,7 +164,7 @@ run_test() {
         echo "  Output: $result"
     fi
     
-    test_results["$test_name"]="$status"
+    eval "tr_${test_name}=\${status}"
 }
 
 # Generate test file
@@ -181,7 +182,9 @@ cleanup() {
     
     # Clean up multipart uploads and objects first if bucket exists
     if bucket_exists; then
-        cleanup_multipart_uploads
+        if [[ "${SKIP_MULTIPART}" != "true" ]]; then
+            cleanup_multipart_uploads
+        fi
         cleanup_all_objects
         
         # Force delete bucket (will empty it first)
@@ -213,58 +216,62 @@ print_summary() {
     
     # 1. Bucket Management Tests
     echo "1. BUCKET MANAGEMENT (6 tests)"
-    printf "%-50s | %-10s\n" "  List Buckets" "${test_results[list_buckets]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Create Bucket" "${test_results[create_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Bucket Info" "${test_results[get_bucket_info]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Check Bucket Exists (HEAD)" "${test_results[head_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Bucket Location" "${test_results[get_bucket_location]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Bucket" "${test_results[delete_bucket]:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Buckets" "${tr_list_buckets:-SKIP}"
+    printf "%-50s | %-10s\n" "  Create Bucket" "${tr_create_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Info" "${tr_get_bucket_info:-SKIP}"
+    printf "%-50s | %-10s\n" "  Check Bucket Exists (HEAD)" "${tr_head_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Location" "${tr_get_bucket_location:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Bucket" "${tr_delete_bucket:-SKIP}"
     echo
     
     # 2. Object Management Tests
     echo "2. OBJECT MANAGEMENT (6 tests)"
-    printf "%-50s | %-10s\n" "  Upload Object (File)" "${test_results[upload_object_file]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Upload Object (Form)" "${test_results[upload_object_form]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Download Object" "${test_results[download_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Object Info (HEAD)" "${test_results[head_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Object" "${test_results[delete_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Multiple Objects" "${test_results[delete_multiple_objects]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Object (File)" "${tr_upload_object_file:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Object (Form)" "${tr_upload_object_form:-SKIP}"
+    printf "%-50s | %-10s\n" "  Download Object" "${tr_download_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Object Info (HEAD)" "${tr_head_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Object" "${tr_delete_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Multiple Objects" "${tr_delete_multiple_objects:-SKIP}"
     echo
     
     # 3. Multipart Upload Tests
-    echo "3. MULTIPART UPLOAD (6 tests)"
-    printf "%-50s | %-10s\n" "  Initiate Multipart Upload" "${test_results[initiate_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Upload Part" "${test_results[upload_part]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Parts" "${test_results[list_parts]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Abort Multipart Upload" "${test_results[abort_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Complete Multipart Upload" "${test_results[complete_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Multipart Uploads" "${test_results[list_multipart_uploads]:-SKIP}"
+    if [[ "$SKIP_MULTIPART" == "true" ]]; then
+        echo "3. MULTIPART UPLOAD (6 tests) - SKIPPED"
+    else
+        echo "3. MULTIPART UPLOAD (6 tests)"
+    fi
+    printf "%-50s | %-10s\n" "  Initiate Multipart Upload" "${tr_initiate_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Part" "${tr_upload_part:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Parts" "${tr_list_parts:-SKIP}"
+    printf "%-50s | %-10s\n" "  Abort Multipart Upload" "${tr_abort_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  Complete Multipart Upload" "${tr_complete_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Multipart Uploads" "${tr_list_multipart_uploads:-SKIP}"
     echo
     
     # 4. Versioning Management Tests
     echo "4. VERSIONING MANAGEMENT (4 tests) - SKIPPED"
-    printf "%-50s | %-10s\n" "  Get Bucket Versioning" "${test_results[get_bucket_versioning]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Set Bucket Versioning" "${test_results[set_bucket_versioning]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Object Versions" "${test_results[list_object_versions]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Versioned Object" "${test_results[delete_versioned_object]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Versioning" "${tr_get_bucket_versioning:-SKIP}"
+    printf "%-50s | %-10s\n" "  Set Bucket Versioning" "${tr_set_bucket_versioning:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Object Versions" "${tr_list_object_versions:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Versioned Object" "${tr_delete_versioned_object:-SKIP}"
     echo
     
     # 5. CORS Management Tests
     echo "5. CORS MANAGEMENT (4 tests) - SKIPPED"
-    printf "%-50s | %-10s\n" "  Set Bucket CORS" "${test_results[set_bucket_cors]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Bucket CORS" "${test_results[get_bucket_cors]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Test CORS with OPTIONS" "${test_results[test_cors_options]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete CORS Configuration" "${test_results[delete_bucket_cors]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Set Bucket CORS" "${tr_set_bucket_cors:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket CORS" "${tr_get_bucket_cors:-SKIP}"
+    printf "%-50s | %-10s\n" "  Test CORS with OPTIONS" "${tr_test_cors_options:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete CORS Configuration" "${tr_delete_bucket_cors:-SKIP}"
     echo
     
     # 6. CB-Spider Special Features Tests
     echo "6. CB-SPIDER SPECIAL FEATURES (6 tests)"
-    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Download)" "${test_results[generate_presigned_download]:-SKIP}"
-    printf "%-50s | %-10s\n" "  PreSigned URL Download Test" "${test_results[test_presigned_download]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Upload)" "${test_results[generate_presigned_upload]:-SKIP}"
-    printf "%-50s | %-10s\n" "  PreSigned URL Upload Test" "${test_results[test_presigned_upload]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Force Empty Bucket" "${test_results[force_empty_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Force Delete Bucket" "${test_results[force_delete_bucket]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Download)" "${tr_generate_presigned_download:-SKIP}"
+    printf "%-50s | %-10s\n" "  PreSigned URL Download Test" "${tr_test_presigned_download:-SKIP}"
+    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Upload)" "${tr_generate_presigned_upload:-SKIP}"
+    printf "%-50s | %-10s\n" "  PreSigned URL Upload Test" "${tr_test_presigned_upload:-SKIP}"
+    printf "%-50s | %-10s\n" "  Force Empty Bucket" "${tr_force_empty_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Force Delete Bucket" "${tr_force_delete_bucket:-SKIP}"
     echo
     
     echo "==================================================================================="
@@ -343,7 +350,7 @@ main() {
             "Delete bucket"
     else
         log_warning "Failed to create separate bucket for deletion test: $DELETE_CREATE_RESPONSE"
-        test_results["delete_bucket"]="FAIL"
+        tr_delete_bucket="FAIL"
     fi
     
     # ========================================
@@ -385,6 +392,16 @@ main() {
     # 3. MULTIPART UPLOAD TESTS (6/6)
     # ========================================
     log_info "=== 3. MULTIPART UPLOAD TESTS ==="
+
+    if [[ "$SKIP_MULTIPART" == "true" ]]; then
+        tr_initiate_multipart="SKIP"
+        tr_upload_part="SKIP"
+        tr_list_parts="SKIP"
+        tr_abort_multipart="SKIP"
+        tr_complete_multipart="SKIP"
+        tr_list_multipart_uploads="SKIP"
+        log_warning "Multipart upload tests skipped (6 tests)"
+    else
     
     # Upload a new object for multipart tests
     curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-test.txt?ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" >/dev/null
@@ -418,9 +435,9 @@ main() {
             "204" \
             "Abort multipart upload"
     else
-        test_results["upload_part"]="SKIP"
-        test_results["list_parts"]="SKIP"
-        test_results["abort_multipart"]="SKIP"
+        tr_upload_part="SKIP"
+        tr_list_parts="SKIP"
+        tr_abort_multipart="SKIP"
     fi
     
     # Test complete multipart (separate upload)
@@ -453,17 +470,19 @@ main() {
         "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET '$SPIDER_URL/$TEST_BUCKET?uploads&ConnectionName=$CONNECTION_NAME'" \
         "ListMultipartUploadsResult" \
         "List multipart uploads"
-    
+
+    fi # end SKIP_MULTIPART check
+
     # ========================================
     # 4. VERSIONING MANAGEMENT TESTS (4/4) - SKIPPED
     # ========================================
     log_info "=== 4. VERSIONING MANAGEMENT TESTS (SKIPPED) ==="
     
     # Skip all versioning tests to avoid timeout issues
-    test_results["get_bucket_versioning"]="SKIP"
-    test_results["set_bucket_versioning"]="SKIP"
-    test_results["list_object_versions"]="SKIP"
-    test_results["delete_versioned_object"]="SKIP"
+    tr_get_bucket_versioning="SKIP"
+    tr_set_bucket_versioning="SKIP"
+    tr_list_object_versions="SKIP"
+    tr_delete_versioned_object="SKIP"
     log_warning "Versioning management tests skipped (4 tests)"
     
     # ========================================
@@ -472,10 +491,10 @@ main() {
     log_info "=== 5. CORS MANAGEMENT TESTS (SKIPPED) ==="
     
     # Skip all CORS tests for NHN
-    test_results["set_bucket_cors"]="SKIP"
-    test_results["get_bucket_cors"]="SKIP"
-    test_results["test_cors_options"]="SKIP"
-    test_results["delete_bucket_cors"]="SKIP"
+    tr_set_bucket_cors="SKIP"
+    tr_get_bucket_cors="SKIP"
+    tr_test_cors_options="SKIP"
+    tr_delete_bucket_cors="SKIP"
     log_warning "CORS management tests skipped (4 tests)"
     
     # ========================================
@@ -488,12 +507,12 @@ main() {
     
     # Test presigned download URL generation
     run_test "generate_presigned_download" \
-        "PRESIGNED_DOWNLOAD_URL=\$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_DOWNLOAD_URL:0:50}...\"" \
+        "PRESIGNED_DOWNLOAD_URL=\$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET '$SPIDER_URL/presigned/download/$TEST_BUCKET/presigned-test.txt?ConnectionName=$CONNECTION_NAME&expires=3600' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_DOWNLOAD_URL:0:50}...\"" \
         "Generated URL:" \
         "Generate presigned download URL"
     
     # Extract presigned download URL for actual test
-    PRESIGNED_DOWNLOAD_URL=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-test.txt?presigned&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
+    PRESIGNED_DOWNLOAD_URL=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET "$SPIDER_URL/presigned/download/$TEST_BUCKET/presigned-test.txt?ConnectionName=$CONNECTION_NAME&expires=3600" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
     
     if [[ -n "$PRESIGNED_DOWNLOAD_URL" ]]; then
         run_test "test_presigned_download" \
@@ -510,17 +529,21 @@ main() {
     
     # Test presigned upload URL generation
     run_test "generate_presigned_upload" \
-        "PRESIGNED_UPLOAD_URL=\$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET '$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_UPLOAD_URL:0:50}...\"" \
+        "PRESIGNED_UPLOAD_URL=\$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET '$SPIDER_URL/presigned/upload/$TEST_BUCKET/presigned-upload-test.txt?ConnectionName=$CONNECTION_NAME&expires=3600' | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g'); echo \"Generated URL: \${PRESIGNED_UPLOAD_URL:0:50}...\"" \
         "Generated URL:" \
         "Generate presigned upload URL"
     
     # Extract presigned upload URL for actual test
-    PRESIGNED_UPLOAD_URL=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET "$SPIDER_URL/$TEST_BUCKET/presigned-upload-test.txt?presigned&upload&duration=3600&ConnectionName=$CONNECTION_NAME" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
+    PRESIGNED_UPLOAD_URL=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -X GET "$SPIDER_URL/presigned/upload/$TEST_BUCKET/presigned-upload-test.txt?ConnectionName=$CONNECTION_NAME&expires=3600" | grep -o '<PresignedURL>[^<]*</PresignedURL>' | sed 's/<[^>]*>//g')
     
     if [[ -n "$PRESIGNED_UPLOAD_URL" ]]; then
+        local _extra_hdr=""
+        if [[ -n "${PRESIGNED_UPLOAD_EXTRA_HEADER:-}" ]]; then
+            _extra_hdr="-H '${PRESIGNED_UPLOAD_EXTRA_HEADER}'"
+        fi
         run_test "test_presigned_upload" \
-            "echo 'Presigned upload test content' > '$TEMP_DIR/presigned-upload.txt' && curl -s -w '%{http_code}' -X PUT '$PRESIGNED_UPLOAD_URL' --data-binary '@/tmp/presigned-upload.txt'" \
-        "200" \
+            "echo 'Presigned upload test content' > '$TEMP_DIR/presigned-upload.txt' && curl -s ${_extra_hdr:-} -w '%{http_code}' -X PUT '$PRESIGNED_UPLOAD_URL' --data-binary '@$TEMP_DIR/presigned-upload.txt'" \
+        "20[01]" \
         "Test presigned URL upload"
     else
         # If URL extraction fails, mark as FAIL instead of SKIP
@@ -534,28 +557,32 @@ main() {
     if bucket_exists; then
         # Clean up all objects and multipart uploads first
         cleanup_all_objects
-        cleanup_multipart_uploads
+        if [[ "${SKIP_MULTIPART}" != "true" ]]; then
+            cleanup_multipart_uploads
+        fi
         run_test "force_empty_bucket" \
             "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?empty=true&ConnectionName=$CONNECTION_NAME'" \
             "204" \
             "Force empty bucket"
     else
         log_info "Skipping force_empty_bucket: bucket does not exist"
-        test_results["force_empty_bucket"]="SKIP"
+        tr_force_empty_bucket="SKIP"
     fi
     
     # Test Force Delete Bucket (clean up everything first for all connections)
     if bucket_exists; then
         # Clean up everything first (needed after all previous tests)
         cleanup_all_objects
-        cleanup_multipart_uploads
+        if [[ "${SKIP_MULTIPART}" != "true" ]]; then
+            cleanup_multipart_uploads
+        fi
         run_test "force_delete_bucket" \
             "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -w '%{http_code}' -X DELETE '$SPIDER_URL/$TEST_BUCKET?force=true&ConnectionName=$CONNECTION_NAME'" \
             "204" \
             "Force delete bucket"
     else
         log_info "Skipping force_delete_bucket: bucket does not exist"
-        test_results["force_delete_bucket"]="SKIP"
+        tr_force_delete_bucket="SKIP"
     fi
     
     # ========================================
