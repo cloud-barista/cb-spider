@@ -129,7 +129,7 @@ func (diskHandler *AzureDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 
 	var diskList []*armcompute.Disk
 
-	pager := diskHandler.DiskClient.NewListPager(nil)
+	pager := diskHandler.DiskClient.NewListByResourceGroupPager(diskHandler.Region.Region, nil)
 
 	for pager.More() {
 		page, err := pager.NextPage(diskHandler.Ctx)
@@ -394,7 +394,7 @@ func GetRawDisk(diskIID irs.IID, resourceGroup string, client *armcompute.DisksC
 	if diskIID.NameId == "" {
 		var diskList []*armcompute.Disk
 
-		pager := client.NewListPager(nil)
+		pager := client.NewListByResourceGroupPager(resourceGroup, nil)
 
 		for pager.More() {
 			page, err := pager.NextPage(ctx)
@@ -415,13 +415,7 @@ func GetRawDisk(diskIID irs.IID, resourceGroup string, client *armcompute.DisksC
 		notExistVpcErr := errors.New(fmt.Sprintf("The Disk id %s not found", diskIID.SystemId))
 		return armcompute.Disk{}, notExistVpcErr
 	} else {
-		rg := resourceGroup
-		if diskIID.SystemId != "" {
-			if extractedRG, err := getResourceGroupById(diskIID.SystemId); err == nil {
-				rg = extractedRG
-			}
-		}
-		resp, err := client.Get(ctx, rg, diskIID.NameId, nil)
+		resp, err := client.Get(ctx, resourceGroup, diskIID.NameId, nil)
 		if err != nil {
 			return armcompute.Disk{}, err
 		}
@@ -541,7 +535,7 @@ func (diskHandler *AzureDiskHandler) validationDiskReq(diskReq irs.DiskInfo) err
 func CheckExistDisk(diskIID irs.IID, resourceGroup string, client *armcompute.DisksClient, ctx context.Context) (bool, error) {
 	var diskList []*armcompute.Disk
 
-	pager := client.NewListPager(nil)
+	pager := client.NewListByResourceGroupPager(resourceGroup, nil)
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -762,7 +756,7 @@ func (diskHandler *AzureDiskHandler) ListIID() ([]*irs.IID, error) {
 
 	var iidList []*irs.IID
 
-	pager := diskHandler.DiskClient.NewListPager(nil)
+	pager := diskHandler.DiskClient.NewListByResourceGroupPager(diskHandler.Region.Region, nil)
 
 	for pager.More() {
 		page, err := pager.NextPage(diskHandler.Ctx)
