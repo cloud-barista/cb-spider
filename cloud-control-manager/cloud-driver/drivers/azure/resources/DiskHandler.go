@@ -415,7 +415,13 @@ func GetRawDisk(diskIID irs.IID, resourceGroup string, client *armcompute.DisksC
 		notExistVpcErr := errors.New(fmt.Sprintf("The Disk id %s not found", diskIID.SystemId))
 		return armcompute.Disk{}, notExistVpcErr
 	} else {
-		resp, err := client.Get(ctx, resourceGroup, diskIID.NameId, nil)
+		rg := resourceGroup
+		if diskIID.SystemId != "" {
+			if extractedRG, err := getResourceGroupById(diskIID.SystemId); err == nil {
+				rg = extractedRG
+			}
+		}
+		resp, err := client.Get(ctx, rg, diskIID.NameId, nil)
 		if err != nil {
 			return armcompute.Disk{}, err
 		}
