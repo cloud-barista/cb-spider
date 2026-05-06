@@ -21,7 +21,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"gopkg.in/yaml.v2"
 
 	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
 	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
@@ -1620,47 +1619,7 @@ func aliDescribeClusterUserKubeconfig(csClient *cs2015.Client, clusterId string)
 
 	kubeconfig := tea.StringValue(response.Body.Config)
 
-	var parsedConfig map[string]interface{}
-	err = yaml.Unmarshal([]byte(kubeconfig), &parsedConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal kubeconfig: %v", err)
-	}
-
-	modifyUserFields(parsedConfig)
-
-	modifiedKubeconfig, err := yaml.Marshal(parsedConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal modified kubeconfig: %v", err)
-	}
-
-	return string(modifiedKubeconfig), nil
-}
-
-func modifyUserFields(config map[string]interface{}) {
-	if contexts, ok := config["contexts"].([]interface{}); ok {
-		for _, context := range contexts {
-			if ctxMap, ok := context.(map[interface{}]interface{}); ok {
-				if ctx, ok := ctxMap["context"].(map[interface{}]interface{}); ok {
-					if user, ok := ctx["user"]; ok {
-						ctx["user"] = fmt.Sprintf("%q", user)
-					}
-				}
-				if name, ok := ctxMap["name"]; ok {
-					ctxMap["name"] = fmt.Sprintf("%q", name)
-				}
-			}
-		}
-	}
-
-	if users, ok := config["users"].([]interface{}); ok {
-		for _, user := range users {
-			if userMap, ok := user.(map[interface{}]interface{}); ok {
-				if name, ok := userMap["name"]; ok {
-					userMap["name"] = fmt.Sprintf("%q", name)
-				}
-			}
-		}
-	}
+	return kubeconfig, nil
 }
 
 func aliDescribeClusterNodePools(csClient *cs2015.Client, clusterId string) ([]*cs2015.DescribeClusterNodePoolsResponseBodyNodepools, error) {
