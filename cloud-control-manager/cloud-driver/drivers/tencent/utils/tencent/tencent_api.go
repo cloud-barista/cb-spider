@@ -11,14 +11,13 @@
 package tencent
 
 import (
-	"fmt"
+	"regexp"
 
 	as "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/as/v20180419"
 	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common/profile"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/vpc/v20170312"
-	"gopkg.in/yaml.v2"
 )
 
 func CreateCluster(secret_id string, secret_key string, region_id string, request *tke.CreateClusterRequest) (*tke.CreateClusterResponse, error) {
@@ -356,45 +355,18 @@ func GetClusterKubeconfig(secret_id string, secret_key string, region_id string,
 
 	kubeconfig := *response.Response.Kubeconfig
 
-	var parsedConfig map[string]interface{}
-	err = yaml.Unmarshal([]byte(kubeconfig), &parsedConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal kubeconfig: %v", err)
-	}
+	// Tencent TKE returns kubeconfig YAML where user/name identifier fields are
+	// bare integers (UIN account IDs, e.g. 100000123456). kubectl (client-go)
+	// requires these fields to be YAML strings. Fix by quoting them directly on
+	// the raw YAML string — more reliable than a marshal/unmarshal round-trip
+	// which re-introduces integer types via yaml.v2 map[interface{}]interface{}.
+	kubeconfig = reKubeconfigIntegerField.ReplaceAllString(kubeconfig, `${1}"${2}"`)
 
-	modifyUserFields(parsedConfig)
-
-	modifiedKubeconfig, err := yaml.Marshal(parsedConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal modified kubeconfig: %v", err)
-	}
-
-	return string(modifiedKubeconfig), nil
+	return kubeconfig, nil
 }
 
-func modifyUserFields(config map[string]interface{}) {
-	if contexts, ok := config["contexts"].([]interface{}); ok {
-		for _, context := range contexts {
-			if ctxMap, ok := context.(map[interface{}]interface{}); ok {
-				if ctx, ok := ctxMap["context"].(map[interface{}]interface{}); ok {
-					if user, ok := ctx["user"]; ok {
-						ctx["user"] = fmt.Sprintf("%q", user)
-					}
-				}
-				if name, ok := ctxMap["name"]; ok {
-					ctxMap["name"] = fmt.Sprintf("%q", name)
-				}
-			}
-		}
-	}
-
-	if users, ok := config["users"].([]interface{}); ok {
-		for _, user := range users {
-			if userMap, ok := user.(map[interface{}]interface{}); ok {
-				if name, ok := userMap["name"]; ok {
-					userMap["name"] = fmt.Sprintf("%q", name)
-				}
-			}
-		}
-	}
-}
+// reKubeconfigIntegerField matches kubeconfig YAML lines where a string-typed
+// identifier field (user, name, current-context) contains a bare integer value.
+// Tencent TKE UIN account IDs (e.g. 100000123456) are returned as integers by
+// the DescribeClusterKubeconfig API but kubectl expects them as strings.
+var reKubeconfigIntegerField = regexp.MustCompile(`(?m)^([ \t]*(?:user|name|current-context): )(\d+)[ \t]*$`)
