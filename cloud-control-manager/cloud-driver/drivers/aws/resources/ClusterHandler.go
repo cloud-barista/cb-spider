@@ -1074,9 +1074,9 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	var amiType string
 
-	if receivedImageName == "" {
+	if receivedImageName == "" || strings.EqualFold(receivedImageName, "default") {
 		// No AMI specified, use default (K8s 1.30+ compatible)
-		cblogger.Info("No ImageName provided, using default: AL2023_x86_64_STANDARD")
+		cblogger.Info("No ImageName provided (empty or 'default'), using default: AL2023_x86_64_STANDARD")
 		amiType = "AL2023_x86_64_STANDARD"
 	} else if isValidEKSAMIType(receivedImageName) {
 		// EKS AMI Type string passed directly (e.g. AL2023_x86_64_STANDARD).

@@ -101,6 +101,50 @@ var (
 	ErrInvalidDesiredNodeSize   = errors.New("DesiredNodeSize must be greater than or equal to MinNodeSize, and less than or equal to MaxNodeSize")
 )
 
+// fetchValidGKEImageTypes retrieves the list of valid node image types for the current
+// project/zone via the GKE GetServerConfig API.
+func (ClusterHandler *GCPClusterHandler) fetchValidGKEImageTypes(ctx context.Context) ([]string, error) {
+	parent := getParentAtContainer(ClusterHandler.Credential.ProjectID, ClusterHandler.Region.Zone)
+	serverConfig, err := ClusterHandler.ContainerClient.Projects.Locations.GetServerConfig(parent).Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch GKE server config for valid image types (location: %s): %w", parent, err)
+	}
+	if len(serverConfig.ValidImageTypes) == 0 {
+		return nil, fmt.Errorf("GKE server config returned empty valid image types for %s", parent)
+	}
+	return serverConfig.ValidImageTypes, nil
+}
+
+// getAvailableGKEImageTypesMessage returns a human-readable list of valid GKE image types.
+func getAvailableGKEImageTypesMessage(validTypes []string) string {
+	msg := "Available GKE Image Types:\n- " + strings.Join(validTypes, "\n- ")
+	msg += "\n\nNotes:"
+	msg += "\n- COS_CONTAINERD is the GKE recommended default."
+	msg += "\n- GCP GKE does not support custom image IDs. Only the above predefined image types are accepted."
+	msg += "\n- Refer to GKE documentation for OS support policy."
+	return msg
+}
+
+// resolveGKEImageType resolves a non-empty, non-default image identifier to a GKE image type string.
+// Precondition: imageNameId is non-empty and not "default" (caller handles those cases).
+//   - valid GKE image type → normalised upper-case string
+//   - anything else        → error with the list of valid types
+func resolveGKEImageType(imageNameId string, validTypes []string) (string, error) {
+	upper := strings.ToUpper(imageNameId)
+	for _, t := range validTypes {
+		if upper == strings.ToUpper(t) { // GKE API returns uppercase, but normalise defensively
+			cblogger.Infof("GKE Image Type specified: %s", upper)
+			return upper, nil
+		}
+	}
+
+	// Not a valid GKE image type (e.g. an image ID or URL) — return error with guidance.
+	return "", fmt.Errorf(
+		"invalid GKE image identifier '%s': GCP GKE does not support image IDs; "+
+			"please use a predefined image type\n\n%s",
+		imageNameId, getAvailableGKEImageTypesMessage(validTypes))
+}
+
 func validateNodeGroup(ngl []irs.NodeGroupInfo) error {
 	if len(ngl) <= 0 {
 		return ErrNodeGroupEmpty
@@ -200,6 +244,13 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// nodeGroup List set
 	nodePools := []*container.NodePool{}
 	cblogger.Info("clusterReqInfo.NodeGroupList ", len(clusterReqInfo.NodeGroupList))
+
+	// Fetch valid image types from GKE API once per CreateCluster call.
+	validImageTypes, err := ClusterHandler.fetchValidGKEImageTypes(context.TODO())
+	if err != nil {
+		return irs.ClusterInfo{}, err
+	}
+
 	if len(clusterReqInfo.NodeGroupList) > 0 {
 		// 최초 생성 시 nodeGroup을 1개 지정함. 2개 이상일 때는 생성 후에 add NodeGroup으로 추가
 		for _, reqNodeGroup := range clusterReqInfo.NodeGroupList {
@@ -234,6 +285,19 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 			nodeConfig.MachineType = reqNodeGroup.VMSpecName
 			nodeConfig.Tags = sgTags
+
+			// "" and "default" → explicit default; anything else → validate against API list.
+			imageNameId := reqNodeGroup.ImageIID.NameId
+			if imageNameId == "" || strings.EqualFold(imageNameId, "default") {
+				cblogger.Info("No ImageType provided (empty or 'default'), using GKE default (COS_CONTAINERD)")
+				nodeConfig.ImageType = "COS_CONTAINERD"
+			} else {
+				imageType, err := resolveGKEImageType(imageNameId, validImageTypes)
+				if err != nil {
+					return irs.ClusterInfo{}, err
+				}
+				nodeConfig.ImageType = imageType
+			}
 
 			keyPair := map[string]string{}
 			if reqNodeGroup.KeyPairIID.SystemId != "" {
@@ -511,6 +575,25 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	nodeConfig.MachineType = nodeGroupReqInfo.VMSpecName
 	nodeConfig.Tags = sgTags
+
+	// Fetch valid image types from GKE API.
+	validImageTypes, err := ClusterHandler.fetchValidGKEImageTypes(context.TODO())
+	if err != nil {
+		return irs.NodeGroupInfo{}, err
+	}
+
+	// "" and "default" → explicit default; anything else → validate against API list.
+	imageNameId := nodeGroupReqInfo.ImageIID.NameId
+	if imageNameId == "" || strings.EqualFold(imageNameId, "default") {
+		cblogger.Info("No ImageType provided (empty or 'default'), using GKE default (COS_CONTAINERD)")
+		nodeConfig.ImageType = "COS_CONTAINERD"
+	} else {
+		imageType, err := resolveGKEImageType(imageNameId, validImageTypes)
+		if err != nil {
+			return irs.NodeGroupInfo{}, err
+		}
+		nodeConfig.ImageType = imageType
+	}
 
 	keyPair := map[string]string{}
 	if nodeGroupReqInfo.KeyPairIID.SystemId != "" {
