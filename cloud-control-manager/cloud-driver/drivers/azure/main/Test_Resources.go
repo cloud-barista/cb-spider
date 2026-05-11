@@ -1498,7 +1498,7 @@ Loop:
 					})
 				}
 
-				if priceInfo, err := priceInfoHandler.GetPriceInfo(productFamiliy, region, filterList); err != nil {
+				if priceInfo, err := priceInfoHandler.GetPriceInfo(productFamiliy, region, filterList, false); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(priceInfo)
