@@ -24,6 +24,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
+	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
@@ -292,6 +293,14 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, mysqlServersClient, err := getMySQLServersClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	Ctx, mysqlFirewallRulesClient, err := getMySQLFirewallRulesClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -325,6 +334,8 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		DnsZoneClient:                   dnsZoneClient,
 		FileShareClient:                 fileShareClient,
 		AccountsClient:                  accountsClient,
+		MySQLServersClient:              mysqlServersClient,
+		MySQLFirewallRulesClient:        mysqlFirewallRulesClient,
 	}
 
 	return &iConn, nil
@@ -749,6 +760,32 @@ func getAccountsClient(credInfo idrv.CredentialInfo) (context.Context, *armstora
 		return nil, nil, err
 	}
 	client, err := armstorage.NewAccountsClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, client, nil
+}
+
+func getMySQLServersClient(credInfo idrv.CredentialInfo) (context.Context, *armmysqlfs.ServersClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := armmysqlfs.NewServersClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, client, nil
+}
+
+func getMySQLFirewallRulesClient(credInfo idrv.CredentialInfo) (context.Context, *armmysqlfs.FirewallRulesClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := armmysqlfs.NewFirewallRulesClient(credInfo.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}

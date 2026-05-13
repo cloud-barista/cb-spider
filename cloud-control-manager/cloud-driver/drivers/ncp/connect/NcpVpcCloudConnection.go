@@ -21,12 +21,14 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
-	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
-	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
 	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
+	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
+	vmysql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vmysql"
 	vnas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnas"
+	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
+	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
+	vpostgresql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpostgresql"
+	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 	// ncprs "github.com/cloud-barista/ncp/ncp/resources" // For local testing
 	ncprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources"
 )
@@ -40,6 +42,8 @@ type NcpVpcCloudConnection struct {
 	VnksClient     *vnks.APIClient
 	VasClient      *vas.APIClient
 	VnasClient     *vnas.APIClient
+	MysqlClient    *vmysql.APIClient
+	PostgresClient *vpostgresql.APIClient
 }
 
 var cblogger *logrus.Logger
@@ -202,4 +206,15 @@ func (cloudConn *NcpVpcCloudConnection) Close() error {
 
 func (cloudConn *NcpVpcCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
 	return nil, fmt.Errorf("NCP VPC Cloud Driver: not implemented")
+}
+
+// CreateRDBMSHandler implements connect.CloudConnection.
+func (cloudConn *NcpVpcCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := ncprs.NcpVpcRDBMSHandler{
+		RegionInfo:     cloudConn.RegionInfo,
+		MysqlClient:    cloudConn.MysqlClient,
+		PostgresClient: cloudConn.PostgresClient,
+	}
+	return &rdbmsHandler, nil
 }

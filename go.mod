@@ -24,7 +24,7 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/swaggo/swag v1.16.3
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.415
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.1.48
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.94
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.1064
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	golang.org/x/crypto v0.50.0
@@ -46,6 +46,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8 v8.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v9 v9.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns v1.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9 v9.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3 v3.0.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.8.1
@@ -53,6 +54,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.4
 	github.com/Azure/go-autorest/autorest/to v0.4.0
+	github.com/IBM/cloud-databases-go-sdk v0.8.1
 	github.com/IBM/platform-services-go-sdk v0.97.2
 	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.27
 	github.com/alibabacloud-go/cs-20151215/v4 v4.5.8
@@ -66,12 +68,14 @@ require (
 	github.com/glebarez/go-sqlite v1.21.2
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-openapi/strfmt v0.25.0
+	github.com/go-sql-driver/mysql v1.10.0
 	github.com/goccy/go-json v0.10.5
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-version v1.6.0
 	github.com/itchyny/gojq v0.12.17
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/labstack/echo/v4 v4.13.3
+	github.com/lib/pq v1.12.3
 	github.com/minio/minio-go/v7 v7.0.94
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/rs/zerolog v1.34.0
@@ -80,6 +84,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cam v1.1.48
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdb v1.3.94
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs v1.1.8
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.0.964
 	golang.org/x/mod v0.34.0
@@ -95,6 +100,7 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/iam v1.5.3 // indirect
 	cloud.google.com/go/longrunning v0.8.0 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.7.0 // indirect

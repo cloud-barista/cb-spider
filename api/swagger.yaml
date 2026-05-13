@@ -202,11 +202,9 @@ definitions:
         type: string
       avgCreationTime:
         description: Average VM creation time in seconds
-        format: float64
         type: number
       creationCount:
         description: Number of successful VM creations
-        format: int64
         type: integer
       csp:
         type: string
@@ -1154,6 +1152,174 @@ definitions:
     - Unit
     - Used
     type: object
+  spider.RDBMSInfo:
+    description: Relational Database (RDBMS) Information
+    properties:
+      BackupRetentionDays:
+        description: Backup
+        example: 7
+        type: integer
+      BackupTime:
+        description: Preferred backup time (HH:MM in UTC)
+        example: "03:00"
+        type: string
+      CreatedTime:
+        type: string
+      DBEngine:
+        description: DB Engine
+        example: mysql
+        type: string
+      DBEngineVersion:
+        description: e.g., "8.0", "10.6", "15"
+        example: "8.0"
+        type: string
+      DBInstanceSpec:
+        description: Instance Spec
+        example: db.t3.medium
+        type: string
+      DBInstanceType:
+        description: Primary | ReadReplica (for response)
+        example: Primary
+        type: string
+      DatabaseName:
+        description: Database
+        example: mydb
+        type: string
+      DeletionProtection:
+        default: false
+        description: Protection
+        type: boolean
+      Encryption:
+        default: false
+        description: Encryption
+        type: boolean
+      Endpoint:
+        description: Connection endpoint (for response)
+        type: string
+      HighAvailability:
+        default: false
+        description: High Availability & Replication
+        type: boolean
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MasterUserName:
+        description: Authentication
+        example: admin
+        type: string
+      MasterUserPassword:
+        description: Master user password (for Create request only)
+        type: string
+      Port:
+        description: DB listen port
+        example: "3306"
+        type: string
+      PublicAccess:
+        default: false
+        description: Access
+        type: boolean
+      ReplicationType:
+        description: async | semi-sync | sync (for response)
+        example: async
+        type: string
+      SecurityGroupIIDs:
+        description: Associated Security Groups
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.RDBMSStatus'
+        description: Status (for response)
+        example: Available
+      StorageSize:
+        description: in GB
+        example: "100"
+        type: string
+      StorageType:
+        description: Storage
+        example: gp2
+        type: string
+      SubnetIIDs:
+        description: Network
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      VpcIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: Owner VPC IID
+    required:
+    - DBEngine
+    - DBEngineVersion
+    - DBInstanceSpec
+    - IId
+    - MasterUserName
+    - Status
+    - StorageSize
+    - VpcIID
+    type: object
+  spider.RDBMSMetaInfo:
+    description: RDBMS Meta Information for CSP-specific capabilities
+    properties:
+      StorageSizeRange:
+        allOf:
+        - $ref: '#/definitions/spider.StorageSizeRange'
+        description: Min/Max storage size in GB
+      StorageTypeOptions:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: 'Available storage types per engine. e.g., {"mysql": ["gp2",
+          "gp3", "io1"]}'
+        type: object
+      SupportedEngines:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: filled by the cloud driver
+        type: object
+      SupportsBackup:
+        description: true if managed automatic backup is supported
+        type: boolean
+      SupportsDeletionProtection:
+        description: true if deletion protection is available
+        type: boolean
+      SupportsEncryption:
+        description: true if storage encryption is available
+        type: boolean
+      SupportsHighAvailability:
+        description: true if HA/Multi-AZ can be configured
+        type: boolean
+      SupportsPublicAccess:
+        description: true if public access can be toggled
+        type: boolean
+    type: object
+  spider.RDBMSStatus:
+    enum:
+    - Creating
+    - Available
+    - Deleting
+    - Stopped
+    - Error
+    type: string
+    x-enum-varnames:
+    - RDBMSCreating
+    - RDBMSAvailable
+    - RDBMSDeleting
+    - RDBMSStopped
+    - RDBMSError
   spider.RSType:
     enum:
     - all
@@ -1170,6 +1336,7 @@ definitions:
     - cluster
     - nodegroup
     - filesystem
+    - rdbms
     type: string
     x-enum-varnames:
     - ALL
@@ -1186,6 +1353,7 @@ definitions:
     - CLUSTER
     - NODEGROUP
     - FILESYSTEM
+    - RDBMS
   spider.RegionInfo:
     properties:
       Region:
@@ -1275,6 +1443,17 @@ definitions:
     - FromPort
     - IPProtocol
     - ToPort
+    type: object
+  spider.StorageSizeRange:
+    properties:
+      Max:
+        description: Maximum storage in GB
+        example: 65536
+        type: integer
+      Min:
+        description: Minimum storage in GB
+        example: 20
+        type: integer
     type: object
   spider.SubnetInfo:
     properties:
@@ -1536,17 +1715,6 @@ definitions:
       Resuming: from suspended to running
       Suspending: from running to suspended
       Terminating: from running, suspended to terminated
-    x-enum-descriptions:
-    - from launch to running
-    - ""
-    - from running to suspended
-    - ""
-    - from suspended to running
-    - from running to running
-    - from running, suspended to terminated
-    - ""
-    - VM does not exist
-    - ""
     x-enum-varnames:
     - Creating
     - Running
@@ -2389,6 +2557,9 @@ definitions:
       quotaInfoHandler:
         description: 'support: true, do not support: false'
         type: boolean
+      rdbmshandler:
+        description: 'support: true, do not support: false'
+        type: boolean
       regionZoneHandler:
         description: Metadata Handler
         type: boolean
@@ -3078,6 +3249,133 @@ definitions:
         type: array
     required:
     - ServiceTypes
+    type: object
+  spider.RDBMSCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          BackupRetentionDays:
+            example: 7
+            type: integer
+          BackupTime:
+            example: "03:00"
+            type: string
+          DBEngine:
+            example: mysql
+            type: string
+          DBEngineVersion:
+            example: "8.0"
+            type: string
+          DBInstanceSpec:
+            example: db.t3.medium
+            type: string
+          DatabaseName:
+            example: mydb
+            type: string
+          DeletionProtection:
+            default: false
+            type: boolean
+          Encryption:
+            default: false
+            type: boolean
+          HighAvailability:
+            default: false
+            type: boolean
+          MasterUserName:
+            example: admin
+            type: string
+          MasterUserPassword:
+            example: password123!
+            type: string
+          Name:
+            example: rdbms-01
+            type: string
+          Port:
+            example: "3306"
+            type: string
+          PublicAccess:
+            default: false
+            type: boolean
+          SecurityGroupNames:
+            example:
+            - sg-01
+            items:
+              type: string
+            type: array
+          StorageSize:
+            description: in GB
+            example: "100"
+            type: string
+          StorageType:
+            example: gp2
+            type: string
+          SubnetNames:
+            example:
+            - subnet-01
+            items:
+              type: string
+            type: array
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - DBEngine
+        - DBEngineVersion
+        - DBInstanceSpec
+        - MasterUserName
+        - MasterUserPassword
+        - Name
+        - StorageSize
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.RDBMSListResponse:
+    properties:
+      rdbms:
+        items:
+          $ref: '#/definitions/spider.RDBMSInfo'
+        type: array
+    required:
+    - rdbms
+    type: object
+  spider.RDBMSRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-rdbms-1234
+            type: string
+          Name:
+            example: rdbms-01
+            type: string
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
     type: object
   spider.RegionZoneListResponse:
     properties:
@@ -4081,6 +4379,65 @@ paths:
       summary: List All NLB Info
       tags:
       - '[NLB Management]'
+  /allrdbms:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all RDBMS instances associated
+        with a specific connection, <br> including those mapped between CB-Spider
+        and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
+      operationId: list-all-rdbms
+      parameters:
+      - description: The name of the Connection to list RDBMS for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all RDBMS instances within the specified connection,
+            including RDBMS in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All RDBMS in a Connection
+      tags:
+      - '[RDBMS Management]'
+  /allrdbmsinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all RDBMS information associated with all connections.
+      operationId: list-all-rdbms-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all RDBMS information across all connections
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All RDBMS Info
+      tags:
+      - '[RDBMS Management]'
   /allsecuritygroup:
     get:
       consumes:
@@ -5287,6 +5644,48 @@ paths:
       summary: Count NLBs by Connection
       tags:
       - '[NLB Management]'
+  /countrdbms:
+    get:
+      description: Get the total number of RDBMS instances across all connections.
+      operationId: count-all-rdbms
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of RDBMS instances
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /countrdbms/{ConnectionName}:
+    get:
+      description: Get the total number of RDBMS instances for a specific connection.
+      operationId: count-rdbms-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of RDBMS instances for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count RDBMS by Connection
+      tags:
+      - '[RDBMS Management]'
   /counts3/{ConnectionName}:
     get:
       description: Get the total number of S3 buckets for a specific connection.
@@ -5793,6 +6192,47 @@ paths:
       summary: Delete CSP NLB
       tags:
       - '[NLB Management]'
+  /csprdbms/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP RDBMS.
+      operationId: delete-csp-rdbms
+      parameters:
+      - description: Request body for deleting a CSP RDBMS
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP RDBMS ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP RDBMS
+      tags:
+      - '[RDBMS Management]'
   /cspsecuritygroup/{Id}:
     delete:
       consumes:
@@ -6683,6 +7123,41 @@ paths:
       summary: Get NLB Owner VPC
       tags:
       - '[NLB Management]'
+  /getrdbmsowner:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the Owner VPC of a given RDBMS CSP ID.
+      operationId: get-rdbms-owner-vpc
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The CSP RDBMS ID
+        in: query
+        name: CSPId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Owner VPC IID
+          schema:
+            $ref: '#/definitions/spider.IID'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS Owner VPC
+      tags:
+      - '[RDBMS Management]'
   /getsecuritygroupowner:
     post:
       consumes:
@@ -8103,6 +8578,190 @@ paths:
       summary: List Quota Service Types
       tags:
       - '[Cloud Metadata] Quota Info'
+  /rdbms:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of RDBMS instances associated with a specific connection.
+      operationId: list-rdbms
+      parameters:
+      - description: The name of the Connection to list RDBMS for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of RDBMS instances
+          schema:
+            $ref: '#/definitions/spider.RDBMSListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List RDBMS
+      tags:
+      - '[RDBMS Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Relational Database (RDBMS) with the specified configuration.
+      operationId: create-rdbms
+      parameters:
+      - description: Request body for creating an RDBMS
+        in: body
+        name: RDBMSCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created RDBMS
+          schema:
+            $ref: '#/definitions/spider.RDBMSInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbms/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified RDBMS instance.
+      operationId: delete-rdbms
+      parameters:
+      - description: Request body for deleting an RDBMS
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the RDBMS to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: 'Force delete the RDBMS. ex) true or false(default: false)'
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete RDBMS
+      tags:
+      - '[RDBMS Management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific RDBMS instance.
+      operationId: get-rdbms
+      parameters:
+      - description: The name of the Connection to get an RDBMS for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the RDBMS to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the RDBMS
+          schema:
+            $ref: '#/definitions/spider.RDBMSInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbmsmetainfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve CSP-specific RDBMS capability information (supported engines,
+        features, storage options).
+      operationId: get-rdbms-metainfo
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: RDBMS MetaInfo for the CSP
+          schema:
+            $ref: '#/definitions/spider.RDBMSMetaInfo'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS Meta Information
+      tags:
+      - '[RDBMS Management]'
   /readyz:
     get:
       consumes:
@@ -8695,6 +9354,83 @@ paths:
       summary: Unregister NLB
       tags:
       - '[NLB Management]'
+  /regrdbms:
+    post:
+      consumes:
+      - application/json
+      description: Register a new RDBMS with the specified name and CSP ID.
+      operationId: register-rdbms
+      parameters:
+      - description: Request body for registering an RDBMS
+        in: body
+        name: RDBMSRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered RDBMS
+          schema:
+            $ref: '#/definitions/spider.RDBMSInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /regrdbms/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister an RDBMS with the specified name.
+      operationId: unregister-rdbms
+      parameters:
+      - description: Request body for unregistering an RDBMS
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the RDBMS to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister RDBMS
+      tags:
+      - '[RDBMS Management]'
   /regsecuritygroup:
     post:
       consumes:

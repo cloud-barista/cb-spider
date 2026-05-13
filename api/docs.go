@@ -491,6 +491,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/allrdbms": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all RDBMS instances associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "List All RDBMS in a Connection",
+                "operationId": "list-all-rdbms",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list RDBMS for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all RDBMS instances within the specified connection, including RDBMS in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allrdbmsinfo": {
+            "get": {
+                "description": "Retrieve a list of all RDBMS information associated with all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "List All RDBMS Info",
+                "operationId": "list-all-rdbms-info",
+                "responses": {
+                    "200": {
+                        "description": "List of all RDBMS information across all connections",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allsecuritygroup": {
             "get": {
                 "description": "Retrieve a comprehensive list of all Security Groups associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -2216,6 +2297,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/countrdbms": {
+            "get": {
+                "description": "Get the total number of RDBMS instances across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Count All RDBMS",
+                "operationId": "count-all-rdbms",
+                "responses": {
+                    "200": {
+                        "description": "Total count of RDBMS instances",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countrdbms/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of RDBMS instances for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Count RDBMS by Connection",
+                "operationId": "count-rdbms-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of RDBMS instances for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/counts3/{ConnectionName}": {
             "get": {
                 "description": "Get the total number of S3 buckets for a specific connection.",
@@ -2933,6 +3077,66 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The CSP NLB ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/csprdbms/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP RDBMS.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Delete CSP RDBMS",
+                "operationId": "delete-csp-rdbms",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP RDBMS",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP RDBMS ID to delete",
                         "name": "Id",
                         "in": "path",
                         "required": true
@@ -4267,6 +4471,58 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/getrdbmsowner": {
+            "get": {
+                "description": "Retrieve the Owner VPC of a given RDBMS CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Get RDBMS Owner VPC",
+                "operationId": "get-rdbms-owner-vpc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP RDBMS ID",
+                        "name": "CSPId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Owner VPC IID",
+                        "schema": {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -6338,6 +6594,275 @@ const docTemplate = `{
                 }
             }
         },
+        "/rdbms": {
+            "get": {
+                "description": "Retrieve a list of RDBMS instances associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "List RDBMS",
+                "operationId": "list-rdbms",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list RDBMS for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of RDBMS instances",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Relational Database (RDBMS) with the specified configuration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Create RDBMS",
+                "operationId": "create-rdbms",
+                "parameters": [
+                    {
+                        "description": "Request body for creating an RDBMS",
+                        "name": "RDBMSCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created RDBMS",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/rdbms/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific RDBMS instance.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Get RDBMS",
+                "operationId": "get-rdbms",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get an RDBMS for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the RDBMS",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified RDBMS instance.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Delete RDBMS",
+                "operationId": "delete-rdbms",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting an RDBMS",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the RDBMS. ex) true or false(default: false)",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/rdbmsmetainfo": {
+            "get": {
+                "description": "Retrieve CSP-specific RDBMS capability information (supported engines, features, storage options).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Get RDBMS Meta Information",
+                "operationId": "get-rdbms-metainfo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "RDBMS MetaInfo for the CSP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSMetaInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/readyz": {
             "get": {
                 "description": "Checks the health of CB-Spider service and its dependencies via /readyz endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]",
@@ -7171,6 +7696,119 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The name of the NLB to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regrdbms": {
+            "post": {
+                "description": "Register a new RDBMS with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Register RDBMS",
+                "operationId": "register-rdbms",
+                "parameters": [
+                    {
+                        "description": "Request body for registering an RDBMS",
+                        "name": "RDBMSRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered RDBMS",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regrdbms/{Name}": {
+            "delete": {
+                "description": "Unregister an RDBMS with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Unregister RDBMS",
+                "operationId": "unregister-rdbms",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering an RDBMS",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS to unregister",
                         "name": "Name",
                         "in": "path",
                         "required": true
@@ -11236,13 +11874,11 @@ const docTemplate = `{
                 },
                 "avgCreationTime": {
                     "description": "Average VM creation time in seconds",
-                    "type": "number",
-                    "format": "float64"
+                    "type": "number"
                 },
                 "creationCount": {
                     "description": "Number of successful VM creations",
-                    "type": "integer",
-                    "format": "int64"
+                    "type": "integer"
                 },
                 "csp": {
                     "type": "string"
@@ -12548,6 +13184,235 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.RDBMSInfo": {
+            "description": "Relational Database (RDBMS) Information",
+            "type": "object",
+            "required": [
+                "DBEngine",
+                "DBEngineVersion",
+                "DBInstanceSpec",
+                "IId",
+                "MasterUserName",
+                "Status",
+                "StorageSize",
+                "VpcIID"
+            ],
+            "properties": {
+                "BackupRetentionDays": {
+                    "description": "Backup",
+                    "type": "integer",
+                    "example": 7
+                },
+                "BackupTime": {
+                    "description": "Preferred backup time (HH:MM in UTC)",
+                    "type": "string",
+                    "example": "03:00"
+                },
+                "CreatedTime": {
+                    "type": "string"
+                },
+                "DBEngine": {
+                    "description": "DB Engine",
+                    "type": "string",
+                    "example": "mysql"
+                },
+                "DBEngineVersion": {
+                    "description": "e.g., \"8.0\", \"10.6\", \"15\"",
+                    "type": "string",
+                    "example": "8.0"
+                },
+                "DBInstanceSpec": {
+                    "description": "Instance Spec",
+                    "type": "string",
+                    "example": "db.t3.medium"
+                },
+                "DBInstanceType": {
+                    "description": "Primary | ReadReplica (for response)",
+                    "type": "string",
+                    "example": "Primary"
+                },
+                "DatabaseName": {
+                    "description": "Database",
+                    "type": "string",
+                    "example": "mydb"
+                },
+                "DeletionProtection": {
+                    "description": "Protection",
+                    "type": "boolean",
+                    "default": false
+                },
+                "Encryption": {
+                    "description": "Encryption",
+                    "type": "boolean",
+                    "default": false
+                },
+                "Endpoint": {
+                    "description": "Connection endpoint (for response)",
+                    "type": "string"
+                },
+                "HighAvailability": {
+                    "description": "High Availability \u0026 Replication",
+                    "type": "boolean",
+                    "default": false
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "MasterUserName": {
+                    "description": "Authentication",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "MasterUserPassword": {
+                    "description": "Master user password (for Create request only)",
+                    "type": "string"
+                },
+                "Port": {
+                    "description": "DB listen port",
+                    "type": "string",
+                    "example": "3306"
+                },
+                "PublicAccess": {
+                    "description": "Access",
+                    "type": "boolean",
+                    "default": false
+                },
+                "ReplicationType": {
+                    "description": "async | semi-sync | sync (for response)",
+                    "type": "string",
+                    "example": "async"
+                },
+                "SecurityGroupIIDs": {
+                    "description": "Associated Security Groups",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "Status": {
+                    "description": "Status (for response)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RDBMSStatus"
+                        }
+                    ],
+                    "example": "Available"
+                },
+                "StorageSize": {
+                    "description": "in GB",
+                    "type": "string",
+                    "example": "100"
+                },
+                "StorageType": {
+                    "description": "Storage",
+                    "type": "string",
+                    "example": "gp2"
+                },
+                "SubnetIIDs": {
+                    "description": "Network",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "VpcIID": {
+                    "description": "Owner VPC IID",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                }
+            }
+        },
+        "spider.RDBMSMetaInfo": {
+            "description": "RDBMS Meta Information for CSP-specific capabilities",
+            "type": "object",
+            "properties": {
+                "StorageSizeRange": {
+                    "description": "Min/Max storage size in GB",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.StorageSizeRange"
+                        }
+                    ]
+                },
+                "StorageTypeOptions": {
+                    "description": "Available storage types per engine. e.g., {\"mysql\": [\"gp2\", \"gp3\", \"io1\"]}",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "SupportedEngines": {
+                    "description": "filled by the cloud driver",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "SupportsBackup": {
+                    "description": "true if managed automatic backup is supported",
+                    "type": "boolean"
+                },
+                "SupportsDeletionProtection": {
+                    "description": "true if deletion protection is available",
+                    "type": "boolean"
+                },
+                "SupportsEncryption": {
+                    "description": "true if storage encryption is available",
+                    "type": "boolean"
+                },
+                "SupportsHighAvailability": {
+                    "description": "true if HA/Multi-AZ can be configured",
+                    "type": "boolean"
+                },
+                "SupportsPublicAccess": {
+                    "description": "true if public access can be toggled",
+                    "type": "boolean"
+                }
+            }
+        },
+        "spider.RDBMSStatus": {
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Available",
+                "Deleting",
+                "Stopped",
+                "Error"
+            ],
+            "x-enum-varnames": [
+                "RDBMSCreating",
+                "RDBMSAvailable",
+                "RDBMSDeleting",
+                "RDBMSStopped",
+                "RDBMSError"
+            ]
+        },
         "spider.RSType": {
             "type": "string",
             "enum": [
@@ -12564,7 +13429,8 @@ const docTemplate = `{
                 "myimage",
                 "cluster",
                 "nodegroup",
-                "filesystem"
+                "filesystem",
+                "rdbms"
             ],
             "x-enum-varnames": [
                 "ALL",
@@ -12580,7 +13446,8 @@ const docTemplate = `{
                 "MYIMAGE",
                 "CLUSTER",
                 "NODEGROUP",
-                "FILESYSTEM"
+                "FILESYSTEM",
+                "RDBMS"
             ]
         },
         "spider.RegionInfo": {
@@ -12710,6 +13577,21 @@ const docTemplate = `{
                     "description": "TCP, UDP: 1~65535, ICMP, ALL: -1",
                     "type": "string",
                     "example": "22"
+                }
+            }
+        },
+        "spider.StorageSizeRange": {
+            "type": "object",
+            "properties": {
+                "Max": {
+                    "description": "Maximum storage in GB",
+                    "type": "integer",
+                    "example": 65536
+                },
+                "Min": {
+                    "description": "Minimum storage in GB",
+                    "type": "integer",
+                    "example": 20
                 }
             }
         },
@@ -13077,18 +13959,6 @@ const docTemplate = `{
                 "Suspending": "from running to suspended",
                 "Terminating": "from running, suspended to terminated"
             },
-            "x-enum-descriptions": [
-                "from launch to running",
-                "",
-                "from running to suspended",
-                "",
-                "from suspended to running",
-                "from running to running",
-                "from running, suspended to terminated",
-                "",
-                "VM does not exist",
-                ""
-            ],
             "x-enum-varnames": [
                 "Creating",
                 "Running",
@@ -14270,6 +15140,10 @@ const docTemplate = `{
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
+                "rdbmshandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
                 "regionZoneHandler": {
                     "description": "Metadata Handler",
                     "type": "boolean"
@@ -15249,6 +16123,181 @@ const docTemplate = `{
                         "\"vpc\"",
                         "\"ebs\"]"
                     ]
+                }
+            }
+        },
+        "spider.RDBMSCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "DBEngine",
+                        "DBEngineVersion",
+                        "DBInstanceSpec",
+                        "MasterUserName",
+                        "MasterUserPassword",
+                        "Name",
+                        "StorageSize",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "BackupRetentionDays": {
+                            "type": "integer",
+                            "example": 7
+                        },
+                        "BackupTime": {
+                            "type": "string",
+                            "example": "03:00"
+                        },
+                        "DBEngine": {
+                            "type": "string",
+                            "example": "mysql"
+                        },
+                        "DBEngineVersion": {
+                            "type": "string",
+                            "example": "8.0"
+                        },
+                        "DBInstanceSpec": {
+                            "type": "string",
+                            "example": "db.t3.medium"
+                        },
+                        "DatabaseName": {
+                            "type": "string",
+                            "example": "mydb"
+                        },
+                        "DeletionProtection": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "Encryption": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "HighAvailability": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "MasterUserName": {
+                            "type": "string",
+                            "example": "admin"
+                        },
+                        "MasterUserPassword": {
+                            "type": "string",
+                            "example": "password123!"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "rdbms-01"
+                        },
+                        "Port": {
+                            "type": "string",
+                            "example": "3306"
+                        },
+                        "PublicAccess": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "SecurityGroupNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "sg-01"
+                            ]
+                        },
+                        "StorageSize": {
+                            "description": "in GB",
+                            "type": "string",
+                            "example": "100"
+                        },
+                        "StorageType": {
+                            "type": "string",
+                            "example": "gp2"
+                        },
+                        "SubnetNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "subnet-01"
+                            ]
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.RDBMSListResponse": {
+            "type": "object",
+            "required": [
+                "rdbms"
+            ],
+            "properties": {
+                "rdbms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.RDBMSInfo"
+                    }
+                }
+            }
+        },
+        "spider.RDBMSRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-rdbms-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "rdbms-01"
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
                 }
             }
         },

@@ -23,8 +23,10 @@ import (
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
+	vmysql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vmysql"
 	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
+	vpostgresql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpostgresql"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 	vnas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnas"
 
@@ -71,6 +73,8 @@ func (NcpVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{}
 
 	drvCapabilityInfo.VPC_CIDR = true
+
+	drvCapabilityInfo.RDBMSHandler = true
 
 	return drvCapabilityInfo
 }
@@ -149,6 +153,26 @@ func getVnasClient(connectionInfo idrv.ConnectionInfo) (*vnas.APIClient, error) 
 	return client, nil
 }
 
+func getMysqlClient(connectionInfo idrv.ConnectionInfo) (*vmysql.APIClient, error) {
+	apiKeys := ncloud.APIKey{
+		AccessKey: connectionInfo.CredentialInfo.ClientId,
+		SecretKey: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	client := vmysql.NewAPIClient(vmysql.NewConfiguration(&apiKeys))
+	return client, nil
+}
+
+func getPostgresqlClient(connectionInfo idrv.ConnectionInfo) (*vpostgresql.APIClient, error) {
+	apiKeys := ncloud.APIKey{
+		AccessKey: connectionInfo.CredentialInfo.ClientId,
+		SecretKey: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	client := vpostgresql.NewAPIClient(vpostgresql.NewConfiguration(&apiKeys))
+	return client, nil
+}
+
 func (driver *NcpVpcDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -188,6 +212,16 @@ func (driver *NcpVpcDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ic
 		return nil, err
 	}
 
+	mysqlClient, err := getMysqlClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	postgresClient, err := getPostgresqlClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := ncpcon.NcpVpcCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		RegionInfo:     connectionInfo.RegionInfo,
@@ -197,6 +231,8 @@ func (driver *NcpVpcDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ic
 		VnksClient:     vnksClient,
 		VasClient:      vasClient,
 		VnasClient:     vnasClient,
+		MysqlClient:    mysqlClient,
+		PostgresClient: postgresClient,
 	}
 
 	return &iConn, nil

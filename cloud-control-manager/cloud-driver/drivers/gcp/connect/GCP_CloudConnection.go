@@ -24,6 +24,7 @@ import (
 	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
+	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 )
 
 var cblogger *logrus.Logger
@@ -56,6 +57,7 @@ type GCPCloudConnection struct {
 	BillingCatalogClient *cloudbilling.APIService
 	CostEstimationClient *cbb.Service
 	FilestoreClient      *filestore.CloudFilestoreManagerClient
+	SQLAdminClient       *sqladmin.Service
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -213,4 +215,10 @@ func (cloudConn *GCPCloudConnection) CreateMonitoringHandler() (irs.MonitoringHa
 		ContainerClient: cloudConn.ContainerClient,
 	}
 	return &monitoringHandler, nil
+}
+
+func (cloudConn *GCPCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := gcprs.GCPRDBMSHandler{Region: cloudConn.Region, Credential: cloudConn.Credential, Client: cloudConn.SQLAdminClient}
+	return &rdbmsHandler, nil
 }

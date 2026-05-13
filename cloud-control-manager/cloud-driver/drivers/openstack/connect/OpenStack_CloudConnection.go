@@ -41,6 +41,7 @@ type OpenStackCloudConnection struct {
 	NLBClient              *gophercloud.ServiceClient
 	SharedFileSystemClient *gophercloud.ServiceClient
 	IdentityClient         *gophercloud.ServiceClient
+	DBClient               *gophercloud.ServiceClient
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -218,4 +219,15 @@ func (cloudConn *OpenStackCloudConnection) CreateQuotaInfoHandler() (irs.QuotaIn
 
 func (cloudConn *OpenStackCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
 	return nil, errors.New("OpenStack Driver: not implemented")
+}
+
+// CreateRDBMSHandler implements connect.CloudConnection.
+func (cloudConn *OpenStackCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("OpenStack Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := osrs.OpenStackRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		DBClient:       cloudConn.DBClient,
+	}
+	return &rdbmsHandler, nil
 }

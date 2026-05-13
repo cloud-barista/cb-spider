@@ -2,6 +2,7 @@ package connect
 
 import (
 	"errors"
+	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
 	mkrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -132,4 +133,8 @@ func (cloudConn *MockConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler,
 
 func (cloudConn *MockConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
 	return nil, errors.New("Mock Driver: not implemented")
+}
+
+func (cloudConn *MockConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	return nil, fmt.Errorf("Mock Driver: RDBMSHandler not supported")
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/quotas"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/rds"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
 	"time"
@@ -74,6 +75,8 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE}
 
 	drvCapabilityInfo.QuotaInfoHandler = true
+
+	drvCapabilityInfo.RDBMSHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = true
 
@@ -134,6 +137,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	RDSClient, err := getRDSClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := alicon.AlibabaCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
@@ -158,6 +166,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		Ecs2014Client:    Ecs2014Client,
 		BssClient:        BssClient,
 		QuotaClient:      QuotaClient,
+		RDSClient:        RDSClient,
 
 		// Connection for AnyCall
 		AnyCallClient: ECSClient,
@@ -440,4 +449,26 @@ func getQuotaClient(connectionInfo idrv.ConnectionInfo) (*quotas.Client, error) 
 	}
 
 	return quotaClient, nil
+}
+
+func getRDSClient(connectionInfo idrv.ConnectionInfo) (*rds.Client, error) {
+	cblog.Info("AlibabaDriver : getRDSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(300) * time.Second
+	config.AutoRetry = true
+	config.MaxRetryTime = 3
+
+	rdsClient, err := rds.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
+	if err != nil {
+		cblog.Error("Could not create alibaba's rds client", err)
+		return nil, err
+	}
+
+	return rdsClient, nil
 }

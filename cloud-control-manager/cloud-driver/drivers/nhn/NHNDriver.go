@@ -62,6 +62,8 @@ func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 	drvCapabilityInfo.VPC_CIDR = true
 
+	drvCapabilityInfo.RDBMSHandler = true
+
 	return drvCapabilityInfo
 }
 
@@ -122,6 +124,15 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		return nil, err
 	}
 
+	DBClient, err := getDBClient(providerClient, connInfo)
+	if err != nil {
+		// Trove may not be available in all NHN regions; log and continue
+		var endpointErr *nhnsdk.ErrEndpointNotFound
+		if !errors.As(err, &endpointErr) {
+			return nil, err
+		}
+	}
+
 	iConn := nhncon.NhnCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo, // Note) Need in RegionZoneHandler
 		RegionInfo:     connInfo.RegionInfo,
@@ -131,6 +142,7 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		VolumeClient:   VolumeClient,
 		ClusterClient:  ClusterClient,
 		FSClient:       FSClient,
+		DBClient:       DBClient,
 	}
 	return &iConn, nil
 }
@@ -207,4 +219,15 @@ func getFSClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.Connection
 	}
 
 	return fsClient, nil
+}
+
+func getDBClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
+	client, err := ostack.NewDBV1(providerClient, nhnsdk.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client, err
 }

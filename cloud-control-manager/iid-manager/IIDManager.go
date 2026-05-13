@@ -182,6 +182,8 @@ func getIDXNumber(rsType string) int {
 		return 8
 	case "nodegroup":
 		return 9
+	case "rdbms":
+		return 10
 	default:
 		return -1
 	}
