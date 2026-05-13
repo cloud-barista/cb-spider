@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
@@ -83,10 +84,7 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 	}
 
 	if strings.EqualFold(diskReqInfo.Zone, "") {
-		newErr := fmt.Errorf("Invalid Zone Info!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.DiskInfo{}, newErr
+		diskReqInfo.Zone = diskHandler.RegionInfo.Zone
 	}
 
 	reqDiskType := diskReqInfo.DiskType // 'default', 'General_HDD' or 'General_SSD'
