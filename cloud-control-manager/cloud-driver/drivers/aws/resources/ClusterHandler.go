@@ -107,6 +107,9 @@ func getServerAddress() string {
 var eksAMITypes = []string{
 	"AL2023_x86_64_STANDARD",
 	"AL2023_ARM_64_STANDARD",
+	"AL2023_x86_64_NVIDIA",
+	"AL2023_ARM_64_NVIDIA",
+	"AL2023_x86_64_NEURON",
 	"BOTTLEROCKET_ARM_64",
 	"BOTTLEROCKET_x86_64",
 	"BOTTLEROCKET_ARM_64_NVIDIA",
@@ -115,6 +118,8 @@ var eksAMITypes = []string{
 	"WINDOWS_FULL_2019_x86_64",
 	"WINDOWS_CORE_2022_x86_64",
 	"WINDOWS_FULL_2022_x86_64",
+	"WINDOWS_CORE_2025_x86_64",
+	"WINDOWS_FULL_2025_x86_64",
 }
 
 // isValidEKSAMIType reports whether s is a known EKS AMI Type string.
