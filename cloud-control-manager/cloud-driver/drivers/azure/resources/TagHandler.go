@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"net/http"
 	"strings"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -136,7 +137,10 @@ func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, ta
 
 	// Update tags
 	start := call.Start()
-	_, err = tagHandler.Client.CreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, resp.TagsResource, nil)
+	poller, err := tagHandler.Client.BeginCreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, resp.TagsResource, nil)
+	if err == nil {
+		_, err = poller.PollUntilDone(tagHandler.Ctx, nil)
+	}
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to add tag to resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(createErr.Error())
@@ -223,7 +227,10 @@ func (tagHandler *AzureTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID,
 
 	// Update tags
 	start := call.Start()
-	_, err = tagHandler.Client.CreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, resp.TagsResource, nil)
+	poller, err := tagHandler.Client.BeginCreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, resp.TagsResource, nil)
+	if err == nil {
+		_, err = poller.PollUntilDone(tagHandler.Ctx, nil)
+	}
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to remove tag from resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(delErr.Error())
