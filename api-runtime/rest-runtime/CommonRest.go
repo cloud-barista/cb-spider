@@ -38,6 +38,7 @@ const (
 	MYIMAGE   string = string(cres.MYIMAGE)
 	CLUSTER   string = string(cres.CLUSTER)
 	NODEGROUP string = string(cres.NODEGROUP)
+	RDBMS     string = string(cres.RDBMS)
 )
 
 //================ Common Request & Response

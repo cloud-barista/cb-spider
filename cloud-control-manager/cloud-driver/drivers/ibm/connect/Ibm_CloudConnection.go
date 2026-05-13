@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/IBM/cloud-databases-go-sdk/clouddatabasesv5"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
+	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	cblog "github.com/cloud-barista/cb-log"
 	ibmrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/resources"
@@ -24,13 +26,15 @@ func init() {
 }
 
 type IbmCloudConnection struct {
-	CredentialInfo idrv.CredentialInfo
-	Region         idrv.RegionInfo
-	VpcService     *vpcv1.VpcV1
-	ClusterService *kubernetesserviceapiv1.KubernetesServiceApiV1
-	TaggingService *globaltaggingv1.GlobalTaggingV1
-	SearchService  *globalsearchv2.GlobalSearchV2
-	Ctx            context.Context
+	CredentialInfo     idrv.CredentialInfo
+	Region             idrv.RegionInfo
+	VpcService         *vpcv1.VpcV1
+	ClusterService     *kubernetesserviceapiv1.KubernetesServiceApiV1
+	TaggingService     *globaltaggingv1.GlobalTaggingV1
+	SearchService      *globalsearchv2.GlobalSearchV2
+	ResourceController *resourcecontrollerv2.ResourceControllerV2
+	CloudDBService     *clouddatabasesv5.CloudDatabasesV5
+	Ctx                context.Context
 }
 
 func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -224,4 +228,16 @@ func (cloudConn *IbmCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHand
 
 func (cloudConn *IbmCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
 	return nil, errors.New("Ibm Cloud Driver: not implemented")
+}
+
+func (cloudConn *IbmCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := ibmrs.IbmRDBMSHandler{
+		CredentialInfo:     cloudConn.CredentialInfo,
+		Region:             cloudConn.Region,
+		Ctx:                cloudConn.Ctx,
+		ResourceController: cloudConn.ResourceController,
+		CloudDBService:     cloudConn.CloudDBService,
+	}
+	return &rdbmsHandler, nil
 }

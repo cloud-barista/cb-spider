@@ -65,6 +65,8 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 	drvCapabilityInfo.VPC_CIDR = false
 
+	drvCapabilityInfo.RDBMSHandler = true
+
 	return drvCapabilityInfo
 }
 
@@ -186,6 +188,15 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	if err != nil {
 		cblogger.Warnf("Failed to initialize SharedFileSystem(Manila) client. FileSystem features will be unavailable: %v", err)
 		iConn.SharedFileSystemClient = nil
+	}
+
+	// Trove (Database-as-a-Service) client - optional, some deployments may not have Trove
+	iConn.DBClient, err = openstack.NewDBV1(provider, gophercloud.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		// Trove may not be available in all OpenStack deployments; log and continue
+		fmt.Printf("Warning: failed to create Trove DB client: %v\n", err)
 	}
 
 	return &iConn, nil

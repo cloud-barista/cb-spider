@@ -33,6 +33,8 @@ const (
 	NODEGROUP    RSType = "nodegroup"
 
 	FILESYSTEM RSType = "filesystem"
+
+	RDBMS RSType = "rdbms"
 )
 
 func RSTypeString(rsType RSType) string {
@@ -63,6 +65,8 @@ func RSTypeString(rsType RSType) string {
 		return "Kubernetes NodeGroup"
 	case FILESYSTEM:
 		return "FileSystem"
+	case RDBMS:
+		return "Relational Database"
 	default:
 		return string(rsType) + " is not supported Resource!!"
 
@@ -100,6 +104,8 @@ func StringToRSType(str string) (RSType, error) {
 		return NODEGROUP, nil
 	case "filesystem":
 		return FILESYSTEM, nil
+	case "rdbms":
+		return RDBMS, nil
 	default:
 		return "", fmt.Errorf("%s is not a valid resource type", str)
 	}

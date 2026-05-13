@@ -18,6 +18,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/quotas"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/rds"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	cblog "github.com/cloud-barista/cb-log"
@@ -63,6 +64,7 @@ type AlibabaCloudConnection struct {
 	Ecs2014Client *ecs2014.Client
 	BssClient     *bssopenapi.Client
 	QuotaClient   *quotas.Client
+	RDSClient     *rds.Client
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -201,4 +203,10 @@ func (cloudConn *AlibabaCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfo
 
 func (cloudConn *AlibabaCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
 	return nil, errors.New("Alibaba Driver: not implemented")
+}
+
+func (cloudConn *AlibabaCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := alirs.AlibabaRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient}
+	return &rdbmsHandler, nil
 }

@@ -42,6 +42,8 @@ type CloudConnection interface {
 	CreateFileSystemHandler() (irs.FileSystemHandler, error)
 	CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error)
 
+	CreateRDBMSHandler() (irs.RDBMSHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }

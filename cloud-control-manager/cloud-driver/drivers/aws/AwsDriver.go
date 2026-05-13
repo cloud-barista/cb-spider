@@ -38,6 +38,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/servicequotas"
 	"github.com/aws/aws-sdk-go/service/sts"
 	cblogger "github.com/cloud-barista/cb-log"
@@ -76,6 +77,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.FileSystemHandler = true
 	drvCapabilityInfo.QuotaInfoHandler = true
+	drvCapabilityInfo.RDBMSHandler = true
 
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER, ires.FILESYSTEM}
@@ -338,6 +340,15 @@ func getEFSClient(connectionInfo idrv.ConnectionInfo) (*efs.EFS, error) {
 	return efs.New(sess), nil
 }
 
+func getRDSClient(connectionInfo idrv.ConnectionInfo) (*rds.RDS, error) {
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
+	return rds.New(sess), nil
+}
+
 func getServiceQuotasClient(connectionInfo idrv.ConnectionInfo) (*servicequotas.ServiceQuotas, error) {
 	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
@@ -369,6 +380,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	autoScalingClient, err := getAutoScalingClient(connectionInfo)
 	efsClient, err := getEFSClient(connectionInfo)
 	serviceQuotasClient, err := getServiceQuotasClient(connectionInfo)
+	rdsClient, err := getRDSClient(connectionInfo)
 	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
 		return nil, err
@@ -410,6 +422,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		CloudWatchClient:    cloudwatchClient,
 		FileSystemClient:    efsClient,
 		ServiceQuotasClient: serviceQuotasClient,
+		RDSClient:           rdsClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)

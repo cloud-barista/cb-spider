@@ -522,6 +522,28 @@ func getRoutes() []route {
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 
+		//----------RDBMS Handler
+		{"GET", "/getrdbmsowner", GetRDBMSOwnerVPC},
+		{"POST", "/getrdbmsowner", GetRDBMSOwnerVPC},
+		{"POST", "/regrdbms", RegisterRDBMS},
+		{"DELETE", "/regrdbms/:Name", UnregisterRDBMS},
+
+		{"POST", "/rdbms", CreateRDBMS},
+		{"GET", "/rdbms", ListRDBMS},
+		{"GET", "/rdbms/:Name", GetRDBMS},
+		{"DELETE", "/rdbms/:Name", DeleteRDBMS},
+
+		//-- for meta info
+		{"GET", "/rdbmsmetainfo", GetRDBMSMetaInfo},
+
+		//-- for management
+		{"GET", "/allrdbms", ListAllRDBMS},
+		{"GET", "/allrdbmsinfo", ListAllRDBMSInfo},
+		{"DELETE", "/csprdbms/:Id", DeleteCSPRDBMS},
+		//-- for dashboard
+		{"GET", "/countrdbms", CountAllRDBMS},
+		{"GET", "/countrdbms/:ConnectionName", CountRDBMSByConnection},
+
 		//----------checking TCP and UDP ports for NLB
 		{"GET", "/check/tcp", CheckTCPPort},
 		{"GET", "/check/udp", CheckUDPPort},
@@ -656,6 +678,21 @@ func getRoutes() []route {
 			{"GET", "/adminweb/s3/:ConnectConfig", aw.S3Management},
 
 			{"GET", "/adminweb/filesystem/:ConnectConfig", aw.FileSystemManagement},
+
+			{"GET", "/adminweb/rdbms/:ConnectConfig", aw.RDBMSManagement},
+
+			//-- RDBMS SQL Proxy (for AdminWeb DB management)
+			{"POST", "/adminweb/rdbms/:Name/sql/connect", aw.RDBMSTestConnection},
+			{"POST", "/adminweb/rdbms/:Name/sql/databases", aw.RDBMSListDatabases},
+			{"POST", "/adminweb/rdbms/:Name/sql/databases/create", aw.RDBMSCreateDatabase},
+			{"POST", "/adminweb/rdbms/:Name/sql/databases/:DBName/drop", aw.RDBMSDropDatabase},
+			{"POST", "/adminweb/rdbms/:Name/sql/tables", aw.RDBMSListTables},
+			{"POST", "/adminweb/rdbms/:Name/sql/tables/create", aw.RDBMSCreateTable},
+			{"POST", "/adminweb/rdbms/:Name/sql/tables/:TableName/describe", aw.RDBMSDescribeTable},
+			{"POST", "/adminweb/rdbms/:Name/sql/tables/:TableName/drop", aw.RDBMSDropTable},
+			{"POST", "/adminweb/rdbms/:Name/sql/tables/:TableName/rows", aw.RDBMSListRows},
+			{"POST", "/adminweb/rdbms/:Name/sql/tables/:TableName/rows/insert", aw.RDBMSInsertRow},
+			{"POST", "/adminweb/rdbms/:Name/sql/tables/:TableName/rows/delete", aw.RDBMSDeleteRow},
 
 			//----------SSH WebTerminal Handler
 			{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket}, //----------WebMon Handler

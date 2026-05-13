@@ -5,10 +5,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/IBM/cloud-databases-go-sdk/clouddatabasesv5"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
+	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/connect"
 	ibms "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/resources"
@@ -47,6 +49,8 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.FileSystemHandler = true
 	drvCapabilityInfo.QuotaInfoHandler = false
+
+	drvCapabilityInfo.RDBMSHandler = true
 
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
@@ -123,14 +127,34 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		return nil, err
 	}
 
+	resourceControllerService, err := resourcecontrollerv2.NewResourceControllerV2(&resourcecontrollerv2.ResourceControllerV2Options{
+		Authenticator: &core.IamAuthenticator{
+			ApiKey: connectionInfo.CredentialInfo.ApiKey,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cloudDBService, err := clouddatabasesv5.NewCloudDatabasesV5(&clouddatabasesv5.CloudDatabasesV5Options{
+		Authenticator: &core.IamAuthenticator{
+			ApiKey: connectionInfo.CredentialInfo.ApiKey,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := connect.IbmCloudConnection{
-		CredentialInfo: connectionInfo.CredentialInfo,
-		Region:         connectionInfo.RegionInfo,
-		VpcService:     vpcService,
-		ClusterService: clusterService,
-		TaggingService: taggingService,
-		SearchService:  searchService,
-		Ctx:            ctx,
+		CredentialInfo:     connectionInfo.CredentialInfo,
+		Region:             connectionInfo.RegionInfo,
+		VpcService:         vpcService,
+		ClusterService:     clusterService,
+		TaggingService:     taggingService,
+		SearchService:      searchService,
+		ResourceController: resourceControllerService,
+		CloudDBService:     cloudDBService,
+		Ctx:                ctx,
 	}
 	return &iConn, nil
 }

@@ -66,6 +66,9 @@ const (
 
 	//=========== FileSystem
 	FILESYSTEM RES_TYPE = "FILESYSTEM"
+
+	//=========== RDBMS
+	RDBMS RES_TYPE = "RDBMS"
 )
 
 type CALLLogger struct {

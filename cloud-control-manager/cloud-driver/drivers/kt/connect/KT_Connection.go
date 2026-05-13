@@ -41,6 +41,7 @@ type KTCloudVpcConnection struct {
 	VolumeClient   *ktvpcsdk.ServiceClient
 	NLBClient      *ktvpcsdk.ServiceClient
 	NASClient      *ktvpcsdk.ServiceClient
+	DBClient       *ktvpcsdk.ServiceClient
 }
 
 func (cloudConn *KTCloudVpcConnection) CreateVMHandler() (irs.VMHandler, error) {
@@ -146,4 +147,13 @@ func (cloudConn *KTCloudVpcConnection) CreateTagHandler() (irs.TagHandler, error
 
 func (cloudConn *KTCloudVpcConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
 	return nil, fmt.Errorf("KT Cloud VPC Driver: not implemented")
+}
+
+func (cloudConn *KTCloudVpcConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("KT Cloud VPC Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := ktvpcrs.KTVpcRDBMSHandler{
+		RegionInfo: cloudConn.RegionInfo,
+		DBClient:   cloudConn.DBClient,
+	}
+	return &rdbmsHandler, nil
 }

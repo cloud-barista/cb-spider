@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
+	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
@@ -70,6 +71,8 @@ type AzureCloudConnection struct {
 	DnsZoneClient                   *armdns.ZonesClient
 	FileShareClient                 *armstorage.FileSharesClient
 	AccountsClient                  *armstorage.AccountsClient
+	MySQLServersClient              *armmysqlfs.ServersClient
+	MySQLFirewallRulesClient        *armmysqlfs.FirewallRulesClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -305,4 +308,16 @@ func (cloudConn *AzureCloudConnection) CreateMonitoringHandler() (irs.Monitoring
 		MetricClient:                    cloudConn.MetricClient,
 	}
 	return &monitoringHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := azrs.AzureRDBMSHandler{
+		CredentialInfo:      cloudConn.CredentialInfo,
+		Region:              cloudConn.Region,
+		Ctx:                 cloudConn.Ctx,
+		ServersClient:       cloudConn.MySQLServersClient,
+		FirewallRulesClient: cloudConn.MySQLFirewallRulesClient,
+	}
+	return &rdbmsHandler, nil
 }

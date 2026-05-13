@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/servicequotas"
 	"github.com/aws/aws-sdk-go/service/sts"
 
@@ -75,6 +76,7 @@ type AwsCloudConnection struct {
 	CloudWatchClient    *cloudwatch.CloudWatch
 	FileSystemClient    *efs.EFS
 	ServiceQuotasClient *servicequotas.ServiceQuotas
+	RDSClient           *rds.RDS
 }
 
 var cblogger *logrus.Logger
@@ -243,5 +245,11 @@ func (cloudConn *AwsCloudConnection) CreateMonitoringHandler() (irs.MonitoringHa
 		VMClient:       cloudConn.VMClient,
 		ClusterHandler: clusterHandler,
 	}
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient, EC2Client: cloudConn.VNetworkClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
