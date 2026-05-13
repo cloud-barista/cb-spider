@@ -30,8 +30,8 @@ import (
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"github.com/gophercloud/gophercloud/v2"
 	volumes3 "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
-	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/keypairs"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/keypairs"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
 	layer3floatingips "github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
 	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/subnets"
@@ -365,6 +365,12 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	}
 
 	serverInfo = vmHandler.mappingServerInfo(*serverResult)
+	// AssociatePublicIP succeeded but Nova's addresses field may not yet reflect
+	// the floating IP due to Neutron→Nova propagation delay. Fill it in directly.
+	if serverInfo.PublicIP == "" && publicIPStr != "" {
+		serverInfo.PublicIP = publicIPStr
+		serverInfo.AccessPoint = fmt.Sprintf("%s:%s", publicIPStr, "22")
+	}
 	password, err := getPassword(*serverResult)
 	if err == nil {
 		serverInfo.VMUserPasswd = password
