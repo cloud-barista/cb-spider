@@ -391,6 +391,12 @@ cb-spider/spiderwatch/
 
 ---
 
+## Roadmap
+
+- **Failure notifications** — automatic alerts via Slack, email, or other channels when a scheduled test run produces errors
+
+---
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
