@@ -1,0 +1,34 @@
+# Binaries
+bin/
+spiderwatch
+
+# PID file and log (created by 'make run')
+.spiderwatch.pid
+spiderwatch.log
+
+# Go build cache
+*.test
+*.out
+
+# Test result data (generated at runtime)
+data/
+
+# Log files
+logs/
+*.log
+
+# Config with secrets (keep the example, not local overrides)
+conf/spiderwatch.local.yaml
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Temp files from Python fix scripts
+fix_*.py
