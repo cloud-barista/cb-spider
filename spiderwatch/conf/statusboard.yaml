@@ -1,0 +1,17 @@
+# Spider Status Board Configuration
+# Changes to this file are applied in real-time without restart.
+
+server:
+  port: 4096            # Web UI / API port (Spider=1024, SpiderWatch=2048, StatusBoard=4096)
+  address: "0.0.0.0"   # Listen address; use "127.0.0.1" to restrict to localhost
+
+# ── Authentication ──────────────────────────────────────────────────────────
+# SpiderWatch pushes test results to POST /api/v1/push using this token.
+# Set a strong random string and configure the same value in spiderwatch.yaml
+# under statusboard.token.
+auth:
+  token: "change-me-to-a-strong-secret"
+
+log:
+  level: "info"                     # debug / info / warn / error
+  file: "logs/statusboard.log"      # leave empty to log to stdout only
