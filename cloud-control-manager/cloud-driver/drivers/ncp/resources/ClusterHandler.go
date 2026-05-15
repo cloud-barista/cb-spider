@@ -50,9 +50,13 @@ const (
 	searchColumnRoleName = "roleName"
 
 	// https://guide.ncloud-docs.com/docs/k8s-k8sprep
-	lbSubnetPrefixLengthForK8s          = 26
-	defaultPrivateLbSubnetForK8s string = "cb-private-lb-subnet-for-k8s"
-	defaultPublicLbSubnetForK8s  string = "cb-public-lb-subnet-for-k8s"
+	lbSubnetPrefixLengthForK8s = 26
+	// Subnet name constraints from NCP createSubnet API:
+	// 3–30 chars, [a-z0-9-], start with a-z, end with a-z or 0-9.
+	// Reference: https://api.ncloud-docs.com/docs/en/networking-vpc-subnetmanagement-createsubnet
+	lbSubnetNamePrefixPrivate string = "cb-prv-lb-"
+	lbSubnetNamePrefixPublic  string = "cb-pub-lb-"
+	lbSubnetNameMaxLen        int    = 30
 
 	defaultNetworkAclName = "default-network-acl"
 )
@@ -133,6 +137,11 @@ func (nvch *NcpVpcClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 			if clusterId != "" {
 				_ = nvch.deleteCluster(clusterId)
 				cblogger.Infof("Cluster(Name=%s) will be Deleted.", clusterReqInfo.IId.NameId)
+			}
+			if clusterReqInfo.Network.VpcIID.SystemId != "" {
+				if lbErr := nvch.deleteLbSubnetsIfAlone(clusterReqInfo.Network.VpcIID); lbErr != nil {
+					cblogger.Warnf("failed to clean up LB subnets for VPC %s: %v", clusterReqInfo.Network.VpcIID.SystemId, lbErr)
+				}
 			}
 		}
 	}()
@@ -234,13 +243,18 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 		return "", fmt.Errorf("failed to get VPC: %v", err)
 	}
 
+	privateLbSubnetName, publicLbSubnetName, err := buildLbSubnetNames(vpc.IId.SystemId)
+	if err != nil {
+		return "", fmt.Errorf("failed to build LB subnet names: %v", err)
+	}
+
 	existPrivateLbSubnet := false
 	existPublicLbSubnet := false
 	existingSubnets := []string{}
 	for _, subnetInfo := range vpc.SubnetInfoList {
-		if strings.EqualFold(subnetInfo.IId.NameId, defaultPrivateLbSubnetForK8s) {
+		if strings.EqualFold(subnetInfo.IId.NameId, privateLbSubnetName) {
 			existPrivateLbSubnet = true
-		} else if strings.EqualFold(subnetInfo.IId.NameId, defaultPublicLbSubnetForK8s) {
+		} else if strings.EqualFold(subnetInfo.IId.NameId, publicLbSubnetName) {
 			existPublicLbSubnet = true
 		} else {
 			existingSubnets = append(existingSubnets, subnetInfo.IPv4_CIDR)
@@ -259,26 +273,48 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 	}
 
 	if !existPrivateLbSubnet {
-		err = nvch.addSubnetAndWait(vpc.IId.SystemId, defaultPrivateLbSubnetForK8s, availSubnets[0], subnetTypeCodePrivate, usageTypeCodeLoadb)
+		err = nvch.addSubnetAndWait(vpc.IId.SystemId, privateLbSubnetName, availSubnets[0], subnetTypeCodePrivate, usageTypeCodeLoadb)
 		if err != nil {
-			return "", fmt.Errorf("failed to create private LB subnet: %v", err)
-		}
-		// VPC 재조회
-		vpc, err = vpcHandler.GetVPC(vpcIID)
-		if err != nil {
-			return "", fmt.Errorf("failed to get VPC after private LB subnet creation: %v", err)
+			if !isSubnetConflictError(err) {
+				return "", fmt.Errorf("failed to create private LB subnet: %v", err)
+			}
+			// CIDR/name conflict: another concurrent request may have created it first
+			vpc, err = vpcHandler.GetVPC(vpcIID)
+			if err != nil {
+				return "", fmt.Errorf("failed to re-read VPC after private LB subnet conflict: %v", err)
+			}
+			if !subnetExistsByName(vpc, privateLbSubnetName) {
+				return "", fmt.Errorf("failed to create private LB subnet: conflict but subnet not found")
+			}
+			cblogger.Infof("private LB subnet(%s) already created by concurrent request, continuing", privateLbSubnetName)
+		} else {
+			vpc, err = vpcHandler.GetVPC(vpcIID)
+			if err != nil {
+				return "", fmt.Errorf("failed to get VPC after private LB subnet creation: %v", err)
+			}
 		}
 		availSubnets = availSubnets[1:]
 	}
 	if !existPublicLbSubnet {
-		err = nvch.addSubnetAndWait(vpc.IId.SystemId, defaultPublicLbSubnetForK8s, availSubnets[0], subnetTypeCodePublic, usageTypeCodeLoadb)
+		err = nvch.addSubnetAndWait(vpc.IId.SystemId, publicLbSubnetName, availSubnets[0], subnetTypeCodePublic, usageTypeCodeLoadb)
 		if err != nil {
-			return "", fmt.Errorf("failed to create public LB subnet: %v", err)
-		}
-		// VPC 재조회
-		vpc, err = vpcHandler.GetVPC(vpcIID)
-		if err != nil {
-			return "", fmt.Errorf("failed to get VPC after public LB subnet creation: %v", err)
+			if !isSubnetConflictError(err) {
+				return "", fmt.Errorf("failed to create public LB subnet: %v", err)
+			}
+			// CIDR/name conflict: another concurrent request may have created it first
+			vpc, err = vpcHandler.GetVPC(vpcIID)
+			if err != nil {
+				return "", fmt.Errorf("failed to re-read VPC after public LB subnet conflict: %v", err)
+			}
+			if !subnetExistsByName(vpc, publicLbSubnetName) {
+				return "", fmt.Errorf("failed to create public LB subnet: conflict but subnet not found")
+			}
+			cblogger.Infof("public LB subnet(%s) already created by concurrent request, continuing", publicLbSubnetName)
+		} else {
+			vpc, err = vpcHandler.GetVPC(vpcIID)
+			if err != nil {
+				return "", fmt.Errorf("failed to get VPC after public LB subnet creation: %v", err)
+			}
 		}
 	}
 
@@ -336,10 +372,10 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 	var subnetNoList []int32
 	var lbPrivateSubnetNo, lbPublicSubnetNo int32
 	for _, subnet := range vpc.SubnetInfoList {
-		if subnet.IId.NameId == defaultPrivateLbSubnetForK8s {
+		if subnet.IId.NameId == privateLbSubnetName {
 			no, _ := strconv.ParseInt(subnet.IId.SystemId, 10, 32)
 			lbPrivateSubnetNo = int32(no)
-		} else if subnet.IId.NameId == defaultPublicLbSubnetForK8s {
+		} else if subnet.IId.NameId == publicLbSubnetName {
 			no, _ := strconv.ParseInt(subnet.IId.SystemId, 10, 32)
 			lbPublicSubnetNo = int32(no)
 		} else {
@@ -376,6 +412,24 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 	}
 
 	return ncloud.StringValue(createClusterRes.Uuid), nil
+}
+
+// buildLbSubnetNames returns the private and public LB subnet names for a given VPC.
+// NCP enforces subnet name uniqueness at the account level (not VPC level),
+// so the VPC SystemId is embedded to ensure global uniqueness across VPCs.
+// Related issues: #1719 (name collision), #1607 (subnet leak).
+func buildLbSubnetNames(vpcSystemId string) (string, string, error) {
+	if vpcSystemId == "" {
+		return "", "", fmt.Errorf("vpcSystemId is empty")
+	}
+	priv := lbSubnetNamePrefixPrivate + vpcSystemId
+	pub := lbSubnetNamePrefixPublic + vpcSystemId
+	if len(priv) > lbSubnetNameMaxLen || len(pub) > lbSubnetNameMaxLen {
+		return "", "", fmt.Errorf(
+			"generated LB subnet name exceeds NCP limit(%d): private=%s public=%s",
+			lbSubnetNameMaxLen, priv, pub)
+	}
+	return priv, pub, nil
 }
 
 func (nvch *NcpVpcClusterHandler) addSubnetAndWait(vpcNo, subnetName, subnetRange, subnetTypeCode, usageTypeCode string) error {
@@ -1797,6 +1851,76 @@ func (nvch *NcpVpcClusterHandler) deleteCluster(clusterId string) error {
 		return fmt.Errorf("failed to delete a cluster(id=%s): %v", clusterId, err)
 	}
 	return nil
+}
+
+// isSubnetConflictError reports whether err is an NCP subnet duplicate error.
+// Checks CIDR-duplicate returnMessage (1001007) and name-duplicate returnMessage (1001020).
+// Error format from SDK: "Status: 400 Bad Request, Body: {\"returnCode\":\"1001007\",\"returnMessage\":\"...\"}"
+func isSubnetConflictError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "Subnet CIDR cannot be duplicated within VPC") ||
+		strings.Contains(msg, "Subnet name already exists")
+}
+
+// subnetExistsByName reports whether a subnet with the given name exists in vpcInfo.
+func subnetExistsByName(vpcInfo irs.VPCInfo, subnetName string) bool {
+	for _, s := range vpcInfo.SubnetInfoList {
+		if strings.EqualFold(s.IId.NameId, subnetName) {
+			return true
+		}
+	}
+	return false
+}
+
+// deleteLbSubnets deletes the private and public LB subnets for a VPC (best-effort per subnet).
+func (nvch *NcpVpcClusterHandler) deleteLbSubnets(vpcSystemId string) error {
+	privateName, publicName, err := buildLbSubnetNames(vpcSystemId)
+	if err != nil {
+		return err
+	}
+	vpcHandler := NcpVpcVPCHandler{
+		RegionInfo: nvch.RegionInfo,
+		VPCClient:  nvch.VPCClient,
+	}
+	vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpcSystemId})
+	if err != nil {
+		return fmt.Errorf("failed to get VPC for LB subnet cleanup: %v", err)
+	}
+	for _, subnet := range vpcInfo.SubnetInfoList {
+		if !strings.EqualFold(subnet.IId.NameId, privateName) && !strings.EqualFold(subnet.IId.NameId, publicName) {
+			continue
+		}
+		delReq := vpc.DeleteSubnetRequest{
+			RegionCode: &nvch.RegionInfo.Region,
+			SubnetNo:   &subnet.IId.SystemId,
+		}
+		if _, delErr := nvch.VPCClient.V2Api.DeleteSubnet(&delReq); delErr != nil {
+			cblogger.Warnf("failed to delete LB subnet(%s, no=%s): %v", subnet.IId.NameId, subnet.IId.SystemId, delErr)
+		} else {
+			cblogger.Infof("LB subnet(%s, no=%s) deleted", subnet.IId.NameId, subnet.IId.SystemId)
+		}
+	}
+	return nil
+}
+
+// deleteLbSubnetsIfAlone deletes LB subnets for a VPC only when no cluster
+// in that VPC is visible (active or deleting). Targets the case where cluster
+// creation failed before the NCP cluster object was ever created (clusterId=="").
+func (nvch *NcpVpcClusterHandler) deleteLbSubnetsIfAlone(vpcIID irs.IID) error {
+	clusters, err := ncpClustersGet(nvch.ClusterClient, nvch.Ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list clusters for LB subnet cleanup: %v", err)
+	}
+	for _, c := range clusters {
+		if fmt.Sprintf("%d", ncloud.Int32Value(c.VpcNo)) == vpcIID.SystemId {
+			cblogger.Infof("VPC %s still has cluster %s, skipping LB subnet cleanup", vpcIID.SystemId, ncloud.StringValue(c.Uuid))
+			return nil
+		}
+	}
+	return nvch.deleteLbSubnets(vpcIID.SystemId)
 }
 
 func (nvch *NcpVpcClusterHandler) ListIID() ([]*irs.IID, error) {
