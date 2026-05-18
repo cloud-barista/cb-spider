@@ -1,8 +1,20 @@
 #!/bin/bash
 #### add Cloud-Barista user
-useradd -s /bin/bash cb-user -rm -G sudo;
-mkdir /home/cb-user/.ssh; 
-cp -r /root/.ssh/ /home/cb-user/;
-cp -r /home/ubuntu/.ssh/ /home/cb-user/;
-chown -R cb-user:cb-user /home/cb-user;
-echo "cb-user ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers;
+if getent group sudo > /dev/null 2>&1; then
+    SUDO_GROUP=sudo
+elif getent group wheel > /dev/null 2>&1; then
+    SUDO_GROUP=wheel
+else
+    groupadd sudo && SUDO_GROUP=sudo
+fi
+useradd -s /bin/bash -m -G $SUDO_GROUP cb-user
+mkdir -p /home/cb-user/.ssh
+echo "{{public_key}}" >> /home/cb-user/.ssh/authorized_keys
+chmod 700 /home/cb-user/.ssh
+chmod 600 /home/cb-user/.ssh/authorized_keys
+chown -R cb-user:cb-user /home/cb-user/.ssh
+if command -v restorecon > /dev/null 2>&1; then
+    restorecon -Rv /home/cb-user/.ssh
+fi
+echo "cb-user ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/cb-user
+chmod 440 /etc/sudoers.d/cb-user
