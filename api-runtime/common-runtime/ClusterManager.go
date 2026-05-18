@@ -1399,10 +1399,6 @@ func translateRootDiskInfo(providerName string, reqInfo *cres.NodeGroupInfo) err
 				typeNum = typeMax
 			}
 			reqInfo.RootDiskType = cloudOSMetaInfo.RootDiskType[typeNum-1]
-		} else if !validateRootDiskType(reqInfo.RootDiskType, cloudOSMetaInfo.RootDiskType) {
-			errMSG := reqInfo.RootDiskType + " is not a valid Root Disk Type of " + providerName + "!"
-			cblog.Error(errMSG)
-			return fmt.Errorf(errMSG)
 		}
 	}
 
