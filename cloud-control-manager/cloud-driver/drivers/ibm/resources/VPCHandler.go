@@ -735,7 +735,7 @@ func existSubnet(subnetIID irs.IID, vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx 
 			}
 			subnets, _, err = vpcService.ListSubnetsWithContext(ctx, options)
 			if err != nil {
-				return false, errors.New("failed Get SubnetList")
+				return false, fmt.Errorf("failed Get SubnetList: %w", err)
 			}
 		} else {
 			break
@@ -768,7 +768,7 @@ func existVpc(vpcIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (boo
 				}
 				vpcs, _, err = vpcService.ListVpcsWithContext(ctx, listVpcsOptions2)
 				if err != nil {
-					return false, errors.New("failed Get VPCList")
+					return false, fmt.Errorf("failed Get VPCList: %w", err)
 				}
 			} else {
 				break
@@ -846,7 +846,7 @@ func getVPCRawSubnets(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Contex
 			}
 			subnets, _, err = vpcService.ListSubnetsWithContext(ctx, options)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("failed to list subnets during pagination: %w", err)
 			}
 		} else {
 			break
@@ -885,7 +885,7 @@ func getRawSubnet(subnetIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Contex
 			}
 			subnets, _, err = vpcService.ListSubnetsWithContext(ctx, options)
 			if err != nil {
-				break
+				return vpcv1.Subnet{}, fmt.Errorf("failed to list subnets during pagination: %w", err)
 			}
 		} else {
 			break

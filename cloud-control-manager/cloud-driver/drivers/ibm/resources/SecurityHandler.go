@@ -624,7 +624,7 @@ func ConvertIbmRuleToCBRuleInfo(rule vpcv1.SecurityGroupRuleIntf) (*irs.Security
 	if unmarshalErr != nil {
 		return nil, err
 	}
-	var ruleProtocolAll vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolAll
+	var ruleProtocolAll vpcv1.SecurityGroupRuleProtocolAny
 	_ = json.Unmarshal(jsonRuleBytes, &ruleProtocolAll)
 	protocol := convertRuleProtocolIBMToCB(*ruleProtocolAll.Protocol)
 	cidr := "0.0.0.0/0"
@@ -703,13 +703,17 @@ func ModifyVPCDefaultRule(rules []vpcv1.SecurityGroupRuleIntf, sgIId irs.IID, vp
 }
 
 func convertRuleProtocolIBMToCB(protocol string) string {
-	return strings.ToLower(protocol)
+	p := strings.ToLower(protocol)
+	if p == "any" {
+		return "all"
+	}
+	return p
 }
 
 func convertRuleProtocolCBToIBM(protocol string) (string, error) {
 	switch strings.ToUpper(protocol) {
 	case "ALL":
-		return strings.ToLower(protocol), nil
+		return "any", nil
 	case "ICMP", "TCP", "UDP":
 		return strings.ToLower(protocol), nil
 	}
@@ -795,9 +799,13 @@ func addDefaultOutBoundRule(baseRuleInfos []irs.SecurityRuleInfo, addRules *[]vp
 		}
 	}
 	if addCheck {
+		ibmProtocol, err := convertRuleProtocolCBToIBM(defaultRuleInfo.IPProtocol)
+		if err != nil {
+			return err
+		}
 		*addRules = append(*addRules, vpcv1.SecurityGroupRulePrototype{
 			Direction: core.StringPtr(strings.ToLower(defaultRuleInfo.Direction)),
-			Protocol:  core.StringPtr(defaultRuleInfo.IPProtocol),
+			Protocol:  core.StringPtr(ibmProtocol),
 			IPVersion: core.StringPtr("ipv4"),
 			Remote: &vpcv1.SecurityGroupRuleRemotePrototype{
 				CIDRBlock: &defaultRuleInfo.CIDR,

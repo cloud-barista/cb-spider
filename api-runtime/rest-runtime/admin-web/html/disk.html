@@ -699,8 +699,14 @@
         const diskName = document.getElementById('diskName').value;
         const diskZone = document.getElementById('diskZone').value;
         const diskType = document.getElementById('diskType').value;
-        const diskSize = document.getElementById('diskSize').value;
+        let diskSize = document.getElementById('diskSize').value;
         const diskCount = parseInt(document.getElementById('diskCount').value);
+
+        // If custom size is selected, use the value from the custom input field
+        if (diskSize === 'custom') {
+            const customInput = document.getElementById('customDiskSize');
+            diskSize = customInput ? customInput.value : '';
+        }
 
         if (!diskName || !diskZone || !diskType || !diskSize || diskCount < 1) {
             alert("All fields are required.");
@@ -1001,6 +1007,7 @@
                         window.diskSizes = metaInfo.DiskSize;
 
                         diskTypeSelect.addEventListener('change', updateSizeOptions);
+                        updateSizeOptions(); // initialize size options for the default type on load
                     })
                     .catch(error => {
                         console.error('Error fetching Disk Types:', error);
@@ -1024,15 +1031,48 @@
 
         diskSizeSelect.innerHTML = '<option value="default" selected>default</option>';
 
+        // Remove any previously created custom size input
+        const existingCustomInput = document.getElementById('customDiskSize');
+        if (existingCustomInput) {
+            existingCustomInput.remove();
+        }
+
         if (diskType === 'default') {
+            // Even with default type, allow custom size input
+            const customSizeOption = document.createElement('option');
+            customSizeOption.value = 'custom';
+            customSizeOption.textContent = 'Custom...';
+            diskSizeSelect.appendChild(customSizeOption);
+
+            const customSizeInput = document.createElement('input');
+            customSizeInput.type = 'number';
+            customSizeInput.id = 'customDiskSize';
+            customSizeInput.name = 'customDiskSize';
+            customSizeInput.placeholder = 'Size in GB';
+            customSizeInput.style.display = 'none';
+            diskSizeSelect.parentNode.appendChild(customSizeInput);
+
+            diskSizeSelect.addEventListener('change', function () {
+                if (diskSizeSelect.value === 'custom') {
+                    customSizeInput.style.display = 'inline-block';
+                } else {
+                    customSizeInput.style.display = 'none';
+                }
+            });
             return;
         }
 
         const sizeOption = window.diskSizes.find(size => size.startsWith(diskType));
         if (sizeOption) {
             const [type, minSize, maxSize, unit] = sizeOption.split('|');
-            const increment = 50;
 
+            // Add Custom option right after default for easy access
+            const customSizeOption = document.createElement('option');
+            customSizeOption.value = 'custom';
+            customSizeOption.textContent = `Custom (${minSize} - ${maxSize} ${unit})`;
+            diskSizeSelect.appendChild(customSizeOption);
+
+            const increment = 50;
             for (let i = parseInt(minSize); i <= parseInt(maxSize); i = (i === 1 ? 50 : i + increment)) {
                 const option = document.createElement('option');
                 option.value = i;
@@ -1046,11 +1086,6 @@
                 option.textContent = `${maxSize} ${unit}`;
                 diskSizeSelect.appendChild(option);
             }
-
-            const customSizeOption = document.createElement('option');
-            customSizeOption.value = 'custom';
-            customSizeOption.textContent = 'Custom...';
-            diskSizeSelect.appendChild(customSizeOption);
 
             const customSizeInput = document.createElement('input');
             customSizeInput.type = 'number';

@@ -20,6 +20,7 @@ import (
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
+	cdb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdb/v20170320"
 	cfs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs/v20190719"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -66,6 +67,8 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER, ires.FILESYSTEM}
 
 	drvCapabilityInfo.VPC_CIDR = true
+
+	drvCapabilityInfo.RDBMSHandler = true
 
 	return drvCapabilityInfo
 }
@@ -264,6 +267,27 @@ func getFileSystemClient(connectionInfo idrv.ConnectionInfo) (*cfs.Client, error
 	return client, nil
 }
 
+func getCDBClient(connectionInfo idrv.ConnectionInfo) (*cdb.Client, error) {
+	cblogger.Debug("TencentDriver : getCDBClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+
+	credential := common.NewCredential(
+		connectionInfo.CredentialInfo.ClientId,
+		connectionInfo.CredentialInfo.ClientSecret,
+	)
+
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "cdb.tencentcloudapi.com"
+	cpf.Language = "en-US"
+	client, err := cdb.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
+	if err != nil {
+		cblogger.Error("Could not create CDB client")
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return client, nil
+}
+
 func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -317,6 +341,12 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	cdbClient, err := getCDBClient(connectionInfo)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
 	iConn := tcon.TencentCloudConnection{
 		CredentialInfo:   connectionInfo.CredentialInfo,
 		Region:           connectionInfo.RegionInfo,
@@ -333,6 +363,7 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		TagClient:        tagClient,
 		ClusterClient:    clusterClient,
 		FileSystemClient: fileSystemClient,
+		CDBClient:        cdbClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -25,6 +26,15 @@ type OpenStackTagHandler struct {
 	ComputeClient  *gophercloud.ServiceClient
 	NetworkClient  *gophercloud.ServiceClient
 	NLBClient      *gophercloud.ServiceClient
+}
+
+var errNLBNotAvailable = errors.New("NLB(Octavia) service is not available in this OpenStack. Please check if LoadBalancer is installed")
+
+func (tagHandler *OpenStackTagHandler) checkNLBClient() error {
+	if tagHandler.NLBClient == nil {
+		return errNLBNotAvailable
+	}
+	return nil
 }
 
 func tagToKeyValueString(tag irs.KeyValue) (string, error) {
@@ -106,6 +116,9 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 		}
 		return "", errors.New("security group not found")
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return "", err
+		}
 		pager, err := loadbalancers.List(tagHandler.NLBClient, loadbalancers.ListOpts{
 			ProjectID: tagHandler.CredentialInfo.ProjectID,
 			Name:      resIID.NameId,
@@ -154,16 +167,26 @@ func handleAddTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID ir
 		return err
 	}
 
+	// gophercloud's attributestags/computeTags Add/Delete embed the tag string
+	// into the URL path verbatim. A '/' in the value (e.g. CIDR "10.0.0.0/18")
+	// is then misread as an additional path segment by Neutron/Nova and the
+	// request 404s. Escape the tag for path-safe transport before the call.
+	// NLB tags are sent in the JSON body, so they keep the raw form.
+	encodedTag := url.PathEscape(tagString)
+
 	switch resType {
 	case irs.VM:
 		cc := tagHandler.ComputeClient
 		cc.Microversion = "2.52"
-		err = computeTags.Add(context.TODO(), cc, systemId, tagString).ExtractErr()
+		err = computeTags.Add(context.TODO(), cc, systemId, encodedTag).ExtractErr()
 	case irs.VPC:
-		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
+		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "networks", systemId, encodedTag).ExtractErr()
 	case irs.SUBNET:
-		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
+		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, encodedTag).ExtractErr()
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return err
+		}
 		var keyValues []irs.KeyValue
 		keyValues, err = handleListTag(tagHandler, resType, resIID)
 		if err != nil {
@@ -180,7 +203,7 @@ func handleAddTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID ir
 			Tags: &tags,
 		}).Extract()
 	case irs.SG:
-		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "security-groups", systemId, tagString).ExtractErr()
+		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "security-groups", systemId, encodedTag).ExtractErr()
 	default:
 		return errors.New(string(resType) + " is not supported Resource!!")
 	}
@@ -211,6 +234,9 @@ func handleListTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID i
 	case irs.SUBNET:
 		tagStrings, err = networkTags.List(context.TODO(), tagHandler.NetworkClient, "subnets", systemId).Extract()
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return nil, err
+		}
 		nlb, err := loadbalancers.Get(context.TODO(), tagHandler.NLBClient, systemId).Extract()
 		if err != nil {
 			return nil, fmt.Errorf("Failed to list tags for "+string(resType)+" ("+systemId+") : %v\n", err)
@@ -248,16 +274,23 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 		return err
 	}
 
+	// See handleAddTag for why path-escape is needed. NLB removal compares the
+	// raw form against tags fetched in the same raw form, so it stays unescaped.
+	encodedTag := url.PathEscape(tagString)
+
 	switch resType {
 	case irs.VM:
 		cc := tagHandler.ComputeClient
 		cc.Microversion = "2.52"
-		err = computeTags.Delete(context.TODO(), cc, systemId, tagString).ExtractErr()
+		err = computeTags.Delete(context.TODO(), cc, systemId, encodedTag).ExtractErr()
 	case irs.VPC:
-		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
+		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "networks", systemId, encodedTag).ExtractErr()
 	case irs.SUBNET:
-		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
+		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "subnets", systemId, encodedTag).ExtractErr()
 	case irs.NLB:
+		if err := tagHandler.checkNLBClient(); err != nil {
+			return err
+		}
 		nlb, err := loadbalancers.Get(context.TODO(), tagHandler.NLBClient, systemId).Extract()
 		if err != nil {
 			return fmt.Errorf("Failed to remove tag from "+string(resType)+" ("+systemId+") : %v\n", err)
@@ -281,7 +314,7 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 			}).Extract()
 		}
 	case irs.SG:
-		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "security-groups", systemId, tagString).ExtractErr()
+		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "security-groups", systemId, encodedTag).ExtractErr()
 	default:
 		return errors.New(string(resType) + " is not supported Resource!!")
 	}
@@ -520,29 +553,36 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 
 		fallthrough
 	case irs.NLB:
-		pager, err := loadbalancers.List(tagHandler.NLBClient, nil).AllPages(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-		nlbs, err := loadbalancers.ExtractLoadBalancers(pager)
-		if err != nil {
-			return nil, err
-		}
-		for _, nlb := range nlbs {
-			for _, tag := range nlb.Tags {
-				tagInfo := getTagInfo(irs.NLB, nlb.Name, nlb.ID, tag, nlb.Tags, keyword)
-				if tagInfo != nil {
-					tagInfos = append(tagInfos, tagInfo)
-					break
+		if tagHandler.NLBClient == nil {
+			if resType == irs.NLB {
+				return nil, errNLBNotAvailable
+			}
+			// For irs.ALL, skip NLB if service is not available
+		} else {
+			pager, err := loadbalancers.List(tagHandler.NLBClient, nil).AllPages(context.TODO())
+			if err != nil {
+				return nil, err
+			}
+			nlbs, err := loadbalancers.ExtractLoadBalancers(pager)
+			if err != nil {
+				return nil, err
+			}
+			for _, nlb := range nlbs {
+				for _, tag := range nlb.Tags {
+					tagInfo := getTagInfo(irs.NLB, nlb.Name, nlb.ID, tag, nlb.Tags, keyword)
+					if tagInfo != nil {
+						tagInfos = append(tagInfos, tagInfo)
+						break
+					}
 				}
 			}
-		}
 
-		if resType != irs.ALL {
-			if len(tagInfos) > 0 {
-				return tagInfos, nil
+			if resType != irs.ALL {
+				if len(tagInfos) > 0 {
+					return tagInfos, nil
+				}
+				return nil, errors.New("keyword not found for nlb")
 			}
-			return nil, errors.New("keyword not found for nlb")
 		}
 
 		fallthrough

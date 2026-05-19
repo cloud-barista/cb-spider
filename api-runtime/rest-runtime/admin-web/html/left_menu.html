@@ -73,7 +73,8 @@
                 nlb: "/spider/adminweb/nlb",
                 cluster: "/spider/adminweb/cluster",
                 s3: "/spider/adminweb/s3",
-                filesystem: "/spider/adminweb/filesystem"
+                filesystem: "/spider/adminweb/filesystem",
+                rdbms: "/spider/adminweb/rdbms"
             };
 
             const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
@@ -133,7 +134,7 @@
         }
 
         function changeSelectedImage(selectedMenu) {
-            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem'];
+            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
                 if (imgElement) {
@@ -148,7 +149,7 @@
 
         window.addEventListener('message', function(event) {
             if (event.data.type === 'deselectLeftMenu') {
-                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem'];
+                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms'];
                 menus.forEach(menu => {
                     const imgElement = document.getElementById(menu + '-img');
                     if (imgElement) {
@@ -216,6 +217,10 @@
         <img id="filesystem-img" src="./images/left-menu/filesystem.png" alt="FileSystem Icon" onerror="this.src='./images/left-menu/disk.png'">
         <div class="menu-text">FS (WIP)</div>
     </div>
-    <div class="divider"></div> <!-- Divider after FileSystem -->
+    <div class="menu-item" onclick="checkConnectionAndRedirect('rdbms', event)">
+        <img id="rdbms-img" src="./images/left-menu/rdbms.png" alt="RDBMS Icon" onerror="this.src='./images/left-menu/disk.png'">
+        <div class="menu-text">RDB (WIP)</div>
+    </div>
+    <div class="divider"></div> <!-- Divider after RDBMS -->
 </body>
 </html>

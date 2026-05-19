@@ -601,6 +601,12 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		accessInfo.Endpoint = *res.Response.ClusterExternalEndpoint
 	}
 
+	// If the endpoint is not a valid value (e.g. still a temporary message),
+	// do not expose the kubeconfig — it won't be externally accessible yet.
+	if !strings.Contains(accessInfo.Endpoint, ":") {
+		return accessInfo, nil
+	}
+
 	// (2) Kubeconfig
 	resKubeconfig, err := tencent.GetClusterKubeconfig(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
@@ -963,7 +969,7 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 		return fmt.Errorf("At least one Subnet must be specified")
 	}
 	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
-		return fmt.Errorf("At least one Subnet must be specified")
+		return fmt.Errorf("At least one Security Group must be specified")
 	}
 	// CAUTION: Currently CB-Spider's Tencent PMKS Drivers does not support to create a cluster with nodegroups
 	if len(clusterInfo.NodeGroupList) > 0 {

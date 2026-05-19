@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
+	cdb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdb/v20170320"
 	cfs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs/v20190719"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
@@ -45,6 +46,7 @@ type TencentCloudConnection struct {
 	TagClient        *tag.Client
 	ClusterClient    *tke.Client
 	FileSystemClient *cfs.Client
+	CDBClient        *cdb.Client
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -174,4 +176,14 @@ func (cloudConn *TencentCloudConnection) CreateTagHandler() (irs.TagHandler, err
 // CreateQuotaInfoHandler implements connect.CloudConnection.
 func (cloudConn *TencentCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
 	return nil, errors.New("Tencent Cloud Driver: QuotaInfoHandler not supported")
+}
+
+func (cloudConn *TencentCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("Tencent Driver: not implemented")
+}
+
+func (cloudConn *TencentCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("Tencent Cloud Driver: called CreateRDBMSHandler()!")
+	handler := trs.TencentRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.CDBClient}
+	return &handler, nil
 }

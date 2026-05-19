@@ -45,6 +45,7 @@ const (
 	CLUSTER    string = string(cres.CLUSTER)
 	NODEGROUP  string = string(cres.NODEGROUP)
 	FILESYSTEM string = string(cres.FILESYSTEM)
+	RDBMS      string = string(cres.RDBMS)
 )
 
 func RSTypeString(rsType string) string {
@@ -61,6 +62,7 @@ var diskSPLock = splock.New()
 var myImageSPLock = splock.New()
 var clusterSPLock = splock.New()
 var fsSPLock = splock.New()
+var rdbmsSPLock = splock.New()
 
 // ====================================================================
 // Common column name and struct for GORM
@@ -316,6 +318,9 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 	case FILESYSTEM:
 		fsSPLock.Lock(connectionName, nameId)
 		defer fsSPLock.Unlock(connectionName, nameId)
+	case RDBMS:
+		rdbmsSPLock.Lock(connectionName, nameId)
+		defer rdbmsSPLock.Unlock(connectionName, nameId)
 	default:
 		return false, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -684,6 +689,55 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			}
 		}
 
+	case RDBMS:
+		var iidInfoList []*RDBMSIIDInfo
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
+				}
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteByConditions(OneIIdInfo, NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+						NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
+			}
+		}
+
 	default:
 		return false, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -730,6 +784,8 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		handler, err = cldConn.CreateMyImageHandler()
 	case CLUSTER:
 		handler, err = cldConn.CreateClusterHandler()
+	case RDBMS:
+		handler, err = cldConn.CreateRDBMSHandler()
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -821,6 +877,17 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		}
 	case CLUSTER:
 		var iidInfoList []*ClusterIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return AllResourceList{}, err
+		}
+		for _, info := range iidInfoList {
+			iid := makeUserIID(info.NameId, info.SystemId)
+			iidList = append(iidList, &iid)
+		}
+	case RDBMS:
+		var iidInfoList []*RDBMSIIDInfo
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
@@ -924,6 +991,17 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 		}
 	case CLUSTER:
 		infoList, err := handler.(cres.ClusterHandler).ListCluster()
+		if err != nil {
+			cblog.Error(err)
+			return AllResourceList{}, err
+		}
+		if infoList != nil {
+			for _, info := range infoList {
+				iidCSPList = append(iidCSPList, &info.IId)
+			}
+		}
+	case RDBMS:
+		infoList, err := handler.(cres.RDBMSHandler).ListRDBMS()
 		if err != nil {
 			cblog.Error(err)
 			return AllResourceList{}, err
@@ -1041,6 +1119,8 @@ func ListAllResourceInfo(connectionName string, rsType cres.RSType) (AllResource
 		handler, err = cldConn.CreateMyImageHandler()
 	case cres.CLUSTER:
 		handler, err = cldConn.CreateClusterHandler()
+	case cres.RDBMS:
+		handler, err = cldConn.CreateRDBMSHandler()
 	default:
 		return AllResourceInfoList{}, fmt.Errorf("%s is not a supported resource type", rsType)
 	}
@@ -1126,6 +1206,12 @@ func fetchIIDList(connectionName string, rsType cres.RSType, iidList *[]*cres.II
 		for _, info := range iidInfoList {
 			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
 		}
+	case cres.RDBMS:
+		var iidInfoList []*RDBMSIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
 	default:
 		return fmt.Errorf("%s is not a supported resource type", rsType)
 	}
@@ -1158,6 +1244,9 @@ func fetchResourceInfoList(handler interface{}, rsType cres.RSType) ([]interface
 		return convertToInterfaceSlice(infoList), err
 	case cres.CLUSTER:
 		infoList, err := handler.(cres.ClusterHandler).ListCluster()
+		return convertToInterfaceSlice(infoList), err
+	case cres.RDBMS:
+		infoList, err := handler.(cres.RDBMSHandler).ListRDBMS()
 		return convertToInterfaceSlice(infoList), err
 	default:
 		return nil, fmt.Errorf("%s is not a supported resource type", rsType)
@@ -1218,6 +1307,8 @@ func resourceInfoMatchesIID(info interface{}, driverSystemId string) bool {
 		return v.IId.SystemId == driverSystemId
 	case *cres.ClusterInfo:
 		return v.IId.SystemId == driverSystemId
+	case *cres.RDBMSInfo:
+		return v.IId.SystemId == driverSystemId
 	default:
 		return false
 	}
@@ -1256,6 +1347,10 @@ func resourceInfoInMappedList(rsType cres.RSType, info interface{}, mappedList [
 			}
 		case cres.CLUSTER:
 			if mapped, ok := mappedInfo.(*cres.ClusterInfo); ok && mapped.IId.SystemId == info.(*cres.ClusterInfo).IId.SystemId {
+				return true
+			}
+		case cres.RDBMS:
+			if mapped, ok := mappedInfo.(*cres.RDBMSInfo); ok && mapped.IId.SystemId == info.(*cres.RDBMSInfo).IId.SystemId {
 				return true
 			}
 		default:
@@ -1359,6 +1454,8 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		handler, err = cldConn.CreateMyImageHandler()
 	case CLUSTER:
 		handler, err = cldConn.CreateClusterHandler()
+	case RDBMS:
+		handler, err = cldConn.CreateRDBMSHandler()
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -1417,6 +1514,12 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		}
 	case CLUSTER:
 		result, err = handler.(cres.ClusterHandler).DeleteCluster(iid)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
+	case RDBMS:
+		result, err = handler.(cres.RDBMSHandler).DeleteRDBMS(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
@@ -1560,6 +1663,8 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 		handler, err = cldConn.CreateMyImageHandler()
 	case CLUSTER:
 		handler, err = cldConn.CreateClusterHandler()
+	case RDBMS:
+		handler, err = cldConn.CreateRDBMSHandler()
 	default:
 		return nil, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -1624,6 +1729,13 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 		jsonResult, _ = json.Marshal(result)
 	case CLUSTER:
 		result, err := handler.(cres.ClusterHandler).GetCluster(iid)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		jsonResult, _ = json.Marshal(result)
+	case RDBMS:
+		result, err := handler.(cres.RDBMSHandler).GetRDBMS(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -1736,6 +1848,16 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
+	case RDBMS:
+		// (1) get IID(NameId)
+		var iid RDBMSIIDInfo
+		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+		// (2) get DriverNameId and return it
+		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
 	default:
 		return "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
@@ -1775,7 +1897,7 @@ func Destroy(connectionName string) (DestroyedInfo, error) {
 
 	// Define resource type groups
 	resourceTypeGroups := [][]string{
-		{CLUSTER, MYIMAGE, NLB},
+		{CLUSTER, MYIMAGE, NLB, RDBMS},
 		{VM},
 		{DISK},
 		{KEY, SG},
@@ -1886,6 +2008,8 @@ func deleteAllResourcesInResType(connectionName string, rsType string) (*Deleted
 				_, err = DeleteMyImage(connectionName, MYIMAGE, nameId, "false")
 			case CLUSTER:
 				_, err = DeleteCluster(connectionName, CLUSTER, nameId, "false")
+			case RDBMS:
+				_, err = DeleteRDBMS(connectionName, RDBMS, nameId, "false")
 			default:
 				err = fmt.Errorf("%s is not supported Resource!!", rsType)
 			}
@@ -1938,6 +2062,9 @@ func ListResourceName(connectionName, rsType string) ([]string, error) {
 		info = &v
 	case CLUSTER:
 		v := ClusterIIDInfo{}
+		info = &v
+	case RDBMS:
+		v := RDBMSIIDInfo{}
 		info = &v
 	default:
 		return nil, fmt.Errorf("%s is not a supported Resource!!", rsType)
@@ -2140,6 +2267,28 @@ func getAuthIIDInfoList(connectionName string, iidInfoList interface{}) error {
 				}
 			}
 		}
+	case *[]*RDBMSIIDInfo:
+		tmpIIDInfoList := []*RDBMSIIDInfo{}
+		handler, err := cldConn.CreateRDBMSHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported type for iidInfoList")
 	}
@@ -2197,6 +2346,12 @@ func isNameIdExists(iidInfoList interface{}, nameId string) (bool, error) {
 			}
 		}
 	case *[]*ClusterIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	case *[]*RDBMSIIDInfo:
 		for _, iidInfo := range *v {
 			if iidInfo.NameId == nameId {
 				return true, nil // NameId exists
@@ -2272,6 +2427,13 @@ func getAuthIIDInfo(iidInfoList interface{}, nameId string) (interface{}, error)
 			}
 		}
 		return nil, fmt.Errorf("Cluster '%s' does not exist", nameId)
+	case *[]*RDBMSIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching RDBMSIIDInfo
+			}
+		}
+		return nil, fmt.Errorf("RDBMS '%s' does not exist", nameId)
 	default:
 		return nil, fmt.Errorf("unsupported type for iidInfoList")
 	}
@@ -2340,6 +2502,13 @@ func getAuthIIDInfoBySystemIdContain(iidInfoList interface{}, systemId string) (
 			}
 		}
 		return nil, fmt.Errorf("Cluster with SystemId containing '%s' not found", systemId)
+	case *[]*RDBMSIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching RDBMSIIDInfo
+			}
+		}
+		return nil, fmt.Errorf("RDBMS with SystemId containing '%s' not found", systemId)
 	default:
 		return nil, fmt.Errorf("unsupported type for iidInfoList")
 	}

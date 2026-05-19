@@ -7,6 +7,7 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by jaz, 2019.07.
+// Updated by CB-Spider Team, 2026.04.
 
 package connect
 
@@ -23,6 +24,7 @@ import (
 	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
+	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 )
 
 var cblogger *logrus.Logger
@@ -55,6 +57,7 @@ type GCPCloudConnection struct {
 	BillingCatalogClient *cloudbilling.APIService
 	CostEstimationClient *cbb.Service
 	FilestoreClient      *filestore.CloudFilestoreManagerClient
+	SQLAdminClient       *sqladmin.Service
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -200,4 +203,22 @@ func (cloudConn *GCPCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHand
 		Ctx:        cloudConn.Ctx,
 	}
 	return &quotaInfoHandler, nil
+}
+
+func (cloudConn *GCPCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateMonitoringHandler()!")
+	monitoringHandler := gcprs.GCPMonitoringHandler{
+		Region:          cloudConn.Region,
+		Ctx:             cloudConn.Ctx,
+		Credential:      cloudConn.Credential,
+		VMClient:        cloudConn.VMClient,
+		ContainerClient: cloudConn.ContainerClient,
+	}
+	return &monitoringHandler, nil
+}
+
+func (cloudConn *GCPCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := gcprs.GCPRDBMSHandler{Region: cloudConn.Region, Credential: cloudConn.Credential, Client: cloudConn.SQLAdminClient}
+	return &rdbmsHandler, nil
 }

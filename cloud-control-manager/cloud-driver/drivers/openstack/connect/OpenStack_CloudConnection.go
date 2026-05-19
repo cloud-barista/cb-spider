@@ -41,6 +41,7 @@ type OpenStackCloudConnection struct {
 	NLBClient              *gophercloud.ServiceClient
 	SharedFileSystemClient *gophercloud.ServiceClient
 	IdentityClient         *gophercloud.ServiceClient
+	DBClient               *gophercloud.ServiceClient
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -196,6 +197,10 @@ func (cloudConn *OpenStackCloudConnection) CreateTagHandler() (irs.TagHandler, e
 func (cloudConn *OpenStackCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
 	cblogger.Info("OpenStack Driver: called CreateFileSystemHandler()!")
 
+	if cloudConn.SharedFileSystemClient == nil {
+		return nil, errors.New("this OpenStack does not provide SharedFileSystem(Manila) service. Please check if Manila is installed")
+	}
+
 	fileSystemHandler := osrs.OpenstackFileSystemHandler{
 		Region:                 cloudConn.Region,
 		CredentialInfo:         cloudConn.CredentialInfo,
@@ -210,4 +215,19 @@ func (cloudConn *OpenStackCloudConnection) CreateFileSystemHandler() (irs.FileSy
 func (cloudConn *OpenStackCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
 	cblogger.Info("OpenStack Driver: called CreateQuotaInfoHandler()!")
 	return nil, errors.New("OpenStack Driver: QuotaInfoHandler not supported")
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("OpenStack Driver: not implemented")
+}
+
+// CreateRDBMSHandler implements connect.CloudConnection.
+func (cloudConn *OpenStackCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("OpenStack Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := osrs.OpenStackRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		DBClient:       cloudConn.DBClient,
+	}
+	return &rdbmsHandler, nil
 }

@@ -12,6 +12,7 @@
 package connect
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -140,6 +141,10 @@ func (cloudConn *KtCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandl
 	return nil, fmt.Errorf("KT Classic Cloud Driver: QuotaInfoHandler not supported")
 }
 
+func (cloudConn *KtCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	return nil, fmt.Errorf("KT Classic Cloud Driver: RDBMSHandler not supported")
+}
+
 func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("KT Cloud Driver: called IsConnected()!")
 	if cloudConn == nil {
@@ -151,4 +156,8 @@ func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *KtCloudConnection) Close() error {
 	cblogger.Info("KT Cloud Driver: called Close()!")
 	return nil
+}
+
+func (cloudConn *KtCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("KT Cloud Driver: not implemented")
 }

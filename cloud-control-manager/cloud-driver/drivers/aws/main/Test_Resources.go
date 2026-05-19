@@ -1862,7 +1862,7 @@ func handlePriceInfo() {
 				//result, err := handler.GetPriceInfo("AmazonEC2", "ap-northeast-2", filterList)
 
 				// AmazonEC2는 ServiceCode고정 -> ProductFamily : Compute Instance로 두고 테스트
-				result, err := handler.GetPriceInfo("Compute Instance", "us-west-1", filterList)
+				result, err := handler.GetPriceInfo("Compute Instance", "us-west-1", filterList, false)
 
 				if err != nil {
 					cblogger.Infof("GetPriceInfo Lookup Failed : ", err)

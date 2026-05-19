@@ -31,8 +31,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Test results tracking
-declare -A test_results
+# Test results tracking (individual variables for bash 3.2 compatibility)
+# Usage: tr_<test_name> holds the result (PASS/FAIL/SKIP)
 test_count=0
 pass_count=0
 fail_count=0
@@ -184,7 +184,7 @@ run_test() {
         echo "  Output: $result"
     fi
     
-    test_results["$test_name"]="$status"
+    eval "tr_${test_name}=\${status}"
 }
 
 # Generate test file
@@ -230,58 +230,58 @@ print_summary() {
     
     # 1. Bucket Management Tests
     echo "1. BUCKET MANAGEMENT (6 tests)"
-    printf "%-50s | %-10s\n" "  List Buckets" "${test_results[list_buckets]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Create Bucket" "${test_results[create_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Bucket Info" "${test_results[get_bucket_info]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Check Bucket Exists (HEAD)" "${test_results[head_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Bucket Location" "${test_results[get_bucket_location]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Bucket" "${test_results[delete_bucket]:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Buckets" "${tr_list_buckets:-SKIP}"
+    printf "%-50s | %-10s\n" "  Create Bucket" "${tr_create_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Info" "${tr_get_bucket_info:-SKIP}"
+    printf "%-50s | %-10s\n" "  Check Bucket Exists (HEAD)" "${tr_head_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Location" "${tr_get_bucket_location:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Bucket" "${tr_delete_bucket:-SKIP}"
     echo
     
     # 2. Object Management Tests
     echo "2. OBJECT MANAGEMENT (6 tests)"
-    printf "%-50s | %-10s\n" "  Upload Object (File)" "${test_results[upload_object_file]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Upload Object (Form)" "${test_results[upload_object_form]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Download Object" "${test_results[download_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Get Object Info (HEAD)" "${test_results[head_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Object" "${test_results[delete_object]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Multiple Objects" "${test_results[delete_multiple_objects]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Object (File)" "${tr_upload_object_file:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Object (Form)" "${tr_upload_object_form:-SKIP}"
+    printf "%-50s | %-10s\n" "  Download Object" "${tr_download_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Object Info (HEAD)" "${tr_head_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Object" "${tr_delete_object:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Multiple Objects" "${tr_delete_multiple_objects:-SKIP}"
     echo
     
     # 3. Multipart Upload Tests
     echo "3. MULTIPART UPLOAD (6 tests)"
-    printf "%-50s | %-10s\n" "  Initiate Multipart Upload" "${test_results[initiate_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Upload Part" "${test_results[upload_part]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Complete Multipart Upload" "${test_results[complete_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Abort Multipart Upload" "${test_results[abort_multipart]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Parts" "${test_results[list_parts]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Multipart Uploads" "${test_results[list_multipart_uploads]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Initiate Multipart Upload" "${tr_initiate_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  Upload Part" "${tr_upload_part:-SKIP}"
+    printf "%-50s | %-10s\n" "  Complete Multipart Upload" "${tr_complete_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  Abort Multipart Upload" "${tr_abort_multipart:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Parts" "${tr_list_parts:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Multipart Uploads" "${tr_list_multipart_uploads:-SKIP}"
     echo
     
     # 4. Versioning Management Tests
     echo "4. VERSIONING MANAGEMENT (4 tests)"
-    printf "%-50s | %-10s\n" "  Get Bucket Versioning" "${test_results[get_bucket_versioning]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Set Bucket Versioning" "${test_results[set_bucket_versioning]:-SKIP}"
-    printf "%-50s | %-10s\n" "  List Object Versions" "${test_results[list_object_versions]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete Versioned Object" "${test_results[delete_versioned_object]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket Versioning" "${tr_get_bucket_versioning:-SKIP}"
+    printf "%-50s | %-10s\n" "  Set Bucket Versioning" "${tr_set_bucket_versioning:-SKIP}"
+    printf "%-50s | %-10s\n" "  List Object Versions" "${tr_list_object_versions:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete Versioned Object" "${tr_delete_versioned_object:-SKIP}"
     echo
     
     # 5. CORS Management Tests
     echo "5. CORS MANAGEMENT (4 tests)"
-    printf "%-50s | %-10s\n" "  Get Bucket CORS" "${test_results[get_bucket_cors]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Set Bucket CORS" "${test_results[set_bucket_cors]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Test CORS with OPTIONS" "${test_results[test_cors_options]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Delete CORS Configuration" "${test_results[delete_bucket_cors]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Get Bucket CORS" "${tr_get_bucket_cors:-SKIP}"
+    printf "%-50s | %-10s\n" "  Set Bucket CORS" "${tr_set_bucket_cors:-SKIP}"
+    printf "%-50s | %-10s\n" "  Test CORS with OPTIONS" "${tr_test_cors_options:-SKIP}"
+    printf "%-50s | %-10s\n" "  Delete CORS Configuration" "${tr_delete_bucket_cors:-SKIP}"
     echo
     
     # 6. CB-Spider Special Features Tests
     echo "6. CB-SPIDER SPECIAL FEATURES (6 tests)"
-    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Download)" "${test_results[generate_presigned_download]:-SKIP}"
-    printf "%-50s | %-10s\n" "  PreSigned URL Download Test" "${test_results[test_presigned_download]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Upload)" "${test_results[generate_presigned_upload]:-SKIP}"
-    printf "%-50s | %-10s\n" "  PreSigned URL Upload Test" "${test_results[test_presigned_upload]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Force Empty Bucket" "${test_results[force_empty_bucket]:-SKIP}"
-    printf "%-50s | %-10s\n" "  Force Delete Bucket" "${test_results[force_delete_bucket]:-SKIP}"
+    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Download)" "${tr_generate_presigned_download:-SKIP}"
+    printf "%-50s | %-10s\n" "  PreSigned URL Download Test" "${tr_test_presigned_download:-SKIP}"
+    printf "%-50s | %-10s\n" "  Generate PreSigned URL (Upload)" "${tr_generate_presigned_upload:-SKIP}"
+    printf "%-50s | %-10s\n" "  PreSigned URL Upload Test" "${tr_test_presigned_upload:-SKIP}"
+    printf "%-50s | %-10s\n" "  Force Empty Bucket" "${tr_force_empty_bucket:-SKIP}"
+    printf "%-50s | %-10s\n" "  Force Delete Bucket" "${tr_force_delete_bucket:-SKIP}"
     echo
     
     echo "==================================================================================="
@@ -331,7 +331,7 @@ main() {
     
     run_test "get_bucket_info" \
         "curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X GET '$SPIDER_URL/$TEST_BUCKET?ConnectionName=$CONNECTION_NAME'" \
-        "Name" \
+        "IId" \
         "Get bucket information (JSON format)"
     
     run_test "head_bucket" \
@@ -360,7 +360,7 @@ main() {
             "Delete bucket"
     else
         log_warning "Failed to create separate bucket for deletion test: $DELETE_CREATE_RESPONSE"
-        test_results["delete_bucket"]="FAIL"
+        tr_delete_bucket="FAIL"
     fi
     
     # ========================================
@@ -416,7 +416,7 @@ main() {
     
     if [[ -n "$UPLOAD_ID" ]]; then
         # Upload part and capture the actual ETag
-        PART_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?partNumber=1&uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
+        PART_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-large.txt?partNumber=1&uploadId=$UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -i)
         ACTUAL_ETAG=$(echo "$PART_RESPONSE" | grep -i "etag:" | cut -d':' -f2 | tr -d ' \r\n')
         HTTP_CODE=$(echo "$PART_RESPONSE" | tail -1)
         
@@ -435,16 +435,16 @@ main() {
             "204" \
             "Abort multipart upload"
     else
-        test_results["upload_part"]="SKIP"
-        test_results["list_parts"]="SKIP"
-        test_results["abort_multipart"]="SKIP"
+        tr_upload_part="SKIP"
+        tr_list_parts="SKIP"
+        tr_abort_multipart="SKIP"
     fi
     
     # Test complete multipart (separate upload)
-    NEW_UPLOAD_ID=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '<UploadId>[^<]*</UploadId>' | sed 's/<[^>]*>//g')
+    NEW_UPLOAD_ID=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | jq -r '.UploadId // empty' 2>/dev/null || curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -X POST "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?uploads&ConnectionName=$CONNECTION_NAME" | grep -o '"UploadId":"[^"]*"' | sed 's/.*"UploadId":"\([^"]*\)".*/\1/')
     if [[ -n "$NEW_UPLOAD_ID" ]]; then
         # Upload part and get real ETag
-        PART_UPLOAD_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?partNumber=1&uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -I)
+        PART_UPLOAD_RESPONSE=$(curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s -H 'Accept: application/json' -w '\n%{http_code}' -X PUT "$SPIDER_URL/$TEST_BUCKET/multipart-complete.txt?partNumber=1&uploadId=$NEW_UPLOAD_ID&ConnectionName=$CONNECTION_NAME" --data-binary "@$TEMP_DIR/large-file.txt" -i)
         REAL_ETAG=$(echo "$PART_UPLOAD_RESPONSE" | grep -i "etag:" | cut -d':' -f2 | tr -d ' \r\n"' | tr -d '"')
         
         if [[ -n "$REAL_ETAG" ]]; then
@@ -584,7 +584,7 @@ main() {
             "Force empty bucket"
     else
         log_info "Skipping force_empty_bucket: bucket does not exist"
-        test_results["force_empty_bucket"]="SKIP"
+        tr_force_empty_bucket="SKIP"
     fi
     
     # Test Force Delete Bucket (clean up everything first for all connections)
@@ -598,7 +598,7 @@ main() {
             "Force delete bucket"
     else
         log_info "Skipping force_delete_bucket: bucket does not exist"
-        test_results["force_delete_bucket"]="SKIP"
+        tr_force_delete_bucket="SKIP"
     fi
     
     # ========================================
@@ -623,10 +623,9 @@ main() {
 
 # Check if spider server is running
 check_server() {
-    if ! curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -s "$SPIDER_URL?ConnectionName=$CONNECTION_NAME" >/dev/null 2>&1; then
-        log_error "CB-Spider server is not running at $SPIDER_URL or connection $CONNECTION_NAME is not valid"
+    if ! curl -s "http://localhost:1024/spider/readyz" | grep -q "ready"; then
+        log_error "CB-Spider server is not running at $SPIDER_URL"
         log_info "Please start the server with: ./bin/start.sh"
-        log_info "And ensure connection '$CONNECTION_NAME' exists"
         exit 1
     fi
 }

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{block "title" .}}{{if .IsBoard}}Spider Status Board{{else}}SpiderWatch{{end}}{{end}} — CB-Spider</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml" />
+  <script src="/static/js/marked.min.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <span class="logo-icon">🕷️</span>
+        {{if .IsBoard}}
+        <span class="logo-text">Spider Status Board</span>
+        <span class="logo-sub">CB-Spider</span>
+        {{else}}
+        <span class="logo-text">SpiderWatch</span>
+        <span class="logo-sub">CB-Spider Status Board</span>
+        {{end}}
+      </a>
+      <nav class="nav">
+        <a href="/" class="nav-link">Dashboard</a>
+        <a href="/runs" class="nav-link">Run History</a>
+      </nav>
+      {{if .IsAdmin}}
+      <div class="header-actions">
+        <button id="btn-csps" class="btn btn-secondary" title="Configure which CSPs to test">☁ CSPs</button>
+        <button id="btn-resources" class="btn btn-secondary" title="Configure which resource types to test">⚙ Resources</button>
+        <span class="header-sep">|</span>
+        <button id="btn-trigger" class="btn btn-primary" title="Trigger an immediate test run">▶ Run Now</button>
+        <button id="btn-cleanup-only" class="btn btn-danger" title="Delete all leftover spider-watch resources from every CSP">🧹 Clean up</button>
+        <button id="btn-stop-run" class="btn btn-warning" title="Stop the current run and save partial results" style="display:none">⏹ Stop</button>        <span class="header-sep">|</span>
+        <span class="header-label">manual:</span>        <button id="btn-spider-start" class="btn btn-secondary" title="Start Spider container for manual resource management">Start Spider</button>
+        <button id="btn-spider-stop" class="btn btn-danger" title="Stop Spider container">Stop Spider</button>
+      </div>
+      {{end}}
+    </div>
+  </header>
+
+  <main class="main-content">
+    {{block "content" .}}{{end}}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>
+        <a href="https://github.com/cloud-barista/cb-spider/tree/main/spiderwatch" target="_blank" rel="noopener">CB-SpiderWatch</a>
+        · Powered by <a href="https://github.com/cloud-barista/cb-spider" target="_blank" rel="noopener">CB-Spider</a>
+        · <a href="https://github.com/cloud-barista" target="_blank" rel="noopener">Cloud-Barista</a>
+      </p>
+      <p id="footer-time"></p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  {{if .IsAdmin}}
+  <!-- Resources settings modal -->
+  <div id="modal-resources" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-resources-title">
+    <div class="modal modal--wide">
+      <div class="modal-title" id="modal-resources-title">⚙ Test Resources</div>
+      <div class="modal-select-all-bar">
+        <label class="select-all-label">
+          <input type="checkbox" id="chk-resources-all"> Select All
+        </label>
+      </div>
+      <div id="modal-resource-list" class="modal-resource-list">
+        <!-- Populated by JS -->
+      </div>
+      <div class="modal-footer">
+        <button id="btn-resources-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="btn-resources-save" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSP selection modal -->
+  <div id="modal-csps" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-csps-title">
+    <div class="modal modal--wide">
+      <div class="modal-title" id="modal-csps-title">☁ Test CSPs</div>
+      <div class="modal-select-all-bar">
+        <label class="select-all-label">
+          <input type="checkbox" id="chk-csps-all"> Select All
+        </label>
+      </div>
+      <div id="modal-csp-list" class="modal-csp-list">
+        <!-- Populated by JS -->
+      </div>
+      <div class="modal-footer">
+        <button id="btn-csps-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="btn-csps-save" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+  {{end}}
+
+  <script src="/static/js/app.js?v=2"></script>
+  {{block "scripts" .}}{{end}}
+</body>
+</html>

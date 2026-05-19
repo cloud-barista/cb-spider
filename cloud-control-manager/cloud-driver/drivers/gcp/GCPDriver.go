@@ -35,6 +35,7 @@ import (
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 	"google.golang.org/api/option"
+	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 )
 
 var cblog *logrus.Logger
@@ -74,6 +75,8 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.CLUSTER}
 
 	drvCapabilityInfo.QuotaInfoHandler = true
+
+	drvCapabilityInfo.RDBMSHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = false
 
@@ -148,6 +151,14 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		BillingCatalogClient: billingCatalogClient,
 		CostEstimationClient: costEstimationClient,
 		FilestoreClient:      filestoreClient,
+	}
+
+	// Cloud SQL Admin client - initialize after connection struct
+	sqlAdminClient, err := getSQLAdminClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		cblog.Warn("Could not create Cloud SQL Admin client: ", err)
+	} else {
+		iConn.SQLAdminClient = sqlAdminClient
 	}
 
 	//cblog.Info("################## resource ConnectionInfo ##################")
@@ -349,4 +360,31 @@ func getFilestoreClient(credential idrv.CredentialInfo) (context.Context, *files
 	}
 
 	return ctx, filestoreClient, nil
+}
+
+func getSQLAdminClient(credential idrv.CredentialInfo) (*sqladmin.Service, error) {
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	res, _ := json.Marshal(data)
+	authURL := "https://www.googleapis.com/auth/cloud-platform"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	client := conf.Client(ctx)
+
+	sqlAdminClient, err := sqladmin.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return nil, err
+	}
+
+	return sqlAdminClient, nil
 }

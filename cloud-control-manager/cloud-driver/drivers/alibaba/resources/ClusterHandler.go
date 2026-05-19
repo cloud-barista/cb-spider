@@ -21,7 +21,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"gopkg.in/yaml.v2"
 
 	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
 	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
@@ -557,8 +556,13 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	}
 	desiredSize := int64(nodeGroupReqInfo.DesiredNodeSize)
 
+	// Use the cluster's SecurityGroupId for the nodepool's worker nodes.
+	// Without this, Alibaba ACK auto-creates a separate SG for the nodepool that lacks
+	// the NodePort range (30000-32767), causing SLB health checks to fail (connection refused).
+	clusterSecurityGroupId := tea.StringValue(cluster.SecurityGroupId)
+
 	nodepoolId, err := aliCreateClusterNodePool(ach.CsClient, clusterId, name,
-		autoScalingEnable, maxInstances, minInstances, vswitchIds, instanceTypes, systemDiskCategory, systemDiskSize, keyPair, imageId, imageType, desiredSize)
+		autoScalingEnable, maxInstances, minInstances, vswitchIds, instanceTypes, systemDiskCategory, systemDiskSize, keyPair, imageId, imageType, desiredSize, clusterSecurityGroupId)
 	if err != nil {
 		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
 		cblogger.Error(err)
@@ -1497,7 +1501,7 @@ func extractRuntimeFromMetadata(metaData string) (string, string, error) {
 	return runtime, runtimeVersion, nil
 }
 
-func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair, imageId, imageType string, desiredSize int64) (*string, error) {
+func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair, imageId, imageType string, desiredSize int64, securityGroupId string) (*string, error) {
 	// Note: KubernetesConfig is optional - Alibaba automatically uses cluster's runtime if not specified
 	// The code below can be uncommented if you need to explicitly set runtime version
 
@@ -1537,6 +1541,10 @@ func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, a
 			KeyPair:            tea.String(keyPair),
 			ImageId:            tea.String(imageId),
 			ImageType:          tea.String(imageType),
+			// SecurityGroupId must match the cluster's SG so that the worker nodes
+			// inherit the same SG rules (including NodePort range 30000-32767) needed
+			// by the SLB health checks. Without this, Alibaba auto-assigns a default SG.
+			SecurityGroupId: tea.String(securityGroupId),
 			//DesiredSize:        tea.Int64(desiredSize),
 		},
 		Management: &cs2015.CreateClusterNodePoolRequestManagement{
@@ -1620,47 +1628,7 @@ func aliDescribeClusterUserKubeconfig(csClient *cs2015.Client, clusterId string)
 
 	kubeconfig := tea.StringValue(response.Body.Config)
 
-	var parsedConfig map[string]interface{}
-	err = yaml.Unmarshal([]byte(kubeconfig), &parsedConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal kubeconfig: %v", err)
-	}
-
-	modifyUserFields(parsedConfig)
-
-	modifiedKubeconfig, err := yaml.Marshal(parsedConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal modified kubeconfig: %v", err)
-	}
-
-	return string(modifiedKubeconfig), nil
-}
-
-func modifyUserFields(config map[string]interface{}) {
-	if contexts, ok := config["contexts"].([]interface{}); ok {
-		for _, context := range contexts {
-			if ctxMap, ok := context.(map[interface{}]interface{}); ok {
-				if ctx, ok := ctxMap["context"].(map[interface{}]interface{}); ok {
-					if user, ok := ctx["user"]; ok {
-						ctx["user"] = fmt.Sprintf("%q", user)
-					}
-				}
-				if name, ok := ctxMap["name"]; ok {
-					ctxMap["name"] = fmt.Sprintf("%q", name)
-				}
-			}
-		}
-	}
-
-	if users, ok := config["users"].([]interface{}); ok {
-		for _, user := range users {
-			if userMap, ok := user.(map[interface{}]interface{}); ok {
-				if name, ok := userMap["name"]; ok {
-					userMap["name"] = fmt.Sprintf("%q", name)
-				}
-			}
-		}
-	}
+	return kubeconfig, nil
 }
 
 func aliDescribeClusterNodePools(csClient *cs2015.Client, clusterId string) ([]*cs2015.DescribeClusterNodePoolsResponseBodyNodepools, error) {
@@ -1955,7 +1923,7 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 		return fmt.Errorf("At least one Subnet must be specified")
 	}
 	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
-		return fmt.Errorf("At least one Subnet must be specified")
+		return fmt.Errorf("At least one Security Group must be specified")
 	}
 	// CAUTION: Currently CB-Spider's Alibaba PMKS Drivers does not support to create a cluster with nodegroups
 	if len(clusterInfo.NodeGroupList) > 0 {

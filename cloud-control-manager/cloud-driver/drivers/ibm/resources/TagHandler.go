@@ -316,10 +316,8 @@ func attachOrDetachTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyV
 
 	switch action {
 	case "add":
-		attachTagOptions := tagService.NewAttachTagOptions(
-			[]globaltaggingv1.Resource{resourceModel},
-		)
-
+		attachTagOptions := tagService.NewAttachTagOptions()
+		attachTagOptions.SetResources([]globaltaggingv1.Resource{resourceModel})
 		attachTagOptions.SetTagNames([]string{tagName})
 		attachTagOptions.SetTagType("user")
 
@@ -328,10 +326,8 @@ func attachOrDetachTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyV
 			return err
 		}
 	case "remove":
-		detachTagOptions := tagService.NewDetachTagOptions(
-			[]globaltaggingv1.Resource{resourceModel},
-		)
-
+		detachTagOptions := tagService.NewDetachTagOptions()
+		detachTagOptions.SetResources([]globaltaggingv1.Resource{resourceModel})
 		detachTagOptions.SetTagNames([]string{tagName})
 		detachTagOptions.SetTagType("user")
 

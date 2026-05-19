@@ -713,13 +713,16 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getNewNodeGroupErr))
 	}
 
-	// Apply Node Group autosacler options
-	irsCluster.NodeGroupList = append(irsCluster.NodeGroupList, nodeGroupReqInfo)
-	applyAutoScalerOptionErr := ic.applyAutoScalerOptions(irsCluster, irsCluster.IId.SystemId, resourceGroupId)
-	if applyAutoScalerOptionErr != nil {
-		cblogger.Error(applyAutoScalerOptionErr)
-		LoggingError(hiscallInfo, applyAutoScalerOptionErr)
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", applyAutoScalerOptionErr))
+	// Apply Node Group autoscaler options
+	if nodeGroupReqInfo.OnAutoScaling {
+		irsCluster.NodeGroupList = append(irsCluster.NodeGroupList, nodeGroupReqInfo)
+
+		applyAutoScalerOptionErr := ic.applyAutoScalerOptions(irsCluster, irsCluster.IId.SystemId, resourceGroupId)
+		if applyAutoScalerOptionErr != nil {
+			cblogger.Error(applyAutoScalerOptionErr)
+			LoggingError(hiscallInfo, applyAutoScalerOptionErr)
+			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", applyAutoScalerOptionErr))
+		}
 	}
 
 	// Get Workers in pool

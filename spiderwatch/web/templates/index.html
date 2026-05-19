@@ -1,0 +1,135 @@
+{{template "base.html" .}}
+
+{{define "title"}}Dashboard{{end}}
+
+{{define "content"}}
+{{/* Expose server-side running state to JS */}}
+<script>
+  window.__isRunning = {{if .IsRunning}}true{{else}}false{{end}};
+  window.__isSpiderRunning = {{if .IsSpiderRunning}}true{{else}}false{{end}};
+  window.__isExternalSpider = {{if .IsExternalSpider}}true{{else}}false{{end}};
+</script>
+
+<div id="running-banner" class="running-banner{{if not .IsRunning}} hidden{{end}}">
+  <span class="running-spinner"></span>
+  <span>Test in progress…</span>
+</div>
+
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <div class="run-meta">
+    {{if .IsRunning}}
+      <span class="badge badge-status-running">RUNNING</span>
+    {{else if .Latest}}
+      <span class="badge badge-{{statusClass .Latest.Status}}">{{.Latest.Status}}</span>
+    {{end}}
+    {{if .Latest}}
+      <span class="muted">Last run: <time datetime="{{.Latest.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{fmtTime .Latest.StartedAt}}</time></span>
+    {{else if not .IsRunning}}
+      <span class="muted">No runs yet.</span>
+    {{end}}
+    {{if .NextRunTime}}
+      <span class="muted">Next run: <time datetime="{{.NextRunTime.Format "2006-01-02T15:04:05Z07:00"}}">{{fmtTimePtr .NextRunTime}}</time></span>
+    {{end}}
+    {{if .Latest}}{{if .Latest.SpiderImage}}<span class="muted" title="Spider image used in this run">🐳 {{.Latest.SpiderImage}}</span>{{end}}{{end}}
+  </div>
+</div>
+
+{{if .Latest}}
+  {{$run := .Latest}}
+  {{if $run.Error}}
+  <div class="run-error-banner">
+    <span class="run-error-icon">⚠</span>
+    <span class="run-error-msg">{{$run.Error}}</span>
+  </div>
+  {{end}}
+  <div id="live-board">
+  <div class="csp-grid">
+    {{range $run.CSPs}}
+    {{$csp := .}}
+    <div class="csp-card">
+      <div class="csp-card-header">
+        <span class="csp-icon" data-csp="{{lower $csp.Name}}"></span>
+        <h2 class="csp-name">{{$csp.Name}}</h2>
+        <span class="csp-conn muted">{{$csp.Connection}}</span>
+        {{with sumDuration $csp.Resources}}<span class="csp-total-dur muted">{{durStr .}}</span>{{end}}
+      </div>
+
+      {{/* Compute counts inline */}}
+      {{$ok := 0}}{{$fail := 0}}{{$skip := 0}}{{$total := len $csp.Resources}}
+      {{range $csp.Resources}}
+        {{if eq .Status "OK"}}{{$ok = add $ok 1}}{{end}}
+        {{if eq .Status "FAIL"}}{{$fail = add $fail 1}}{{end}}
+        {{if eq .Status "SKIPPED"}}{{$skip = add $skip 1}}{{end}}
+      {{end}}
+
+      {{if not $.CleanupOnly}}
+      <div class="csp-stats">
+        <div class="stat stat-ok"><span class="stat-val">{{$ok}}</span><span class="stat-lbl">OK</span></div>
+        <div class="stat stat-fail"><span class="stat-val">{{$fail}}</span><span class="stat-lbl">FAIL</span></div>
+        <div class="stat stat-skip"><span class="stat-val">{{$skip}}</span><span class="stat-lbl">SKIP</span></div>
+        <div class="stat stat-total"><span class="stat-val">{{$total}}</span><span class="stat-lbl">TOTAL</span></div>
+      </div>
+
+      <div class="progress-bar-wrap" title="{{pct $ok $total}}% OK">
+        <div class="progress-bar-ok" style="width:{{pct $ok $total}}%"></div>
+        <div class="progress-bar-fail" style="width:{{pct $fail $total}}%"></div>
+      </div>
+      {{end}}
+
+      <table class="resource-table">
+        <thead>
+          <tr>
+            <th>Resource</th>
+            <th>Status</th>
+            <th>Count</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range $csp.Resources}}
+          <tr class="{{statusClass .Status}}">
+            <td class="res-kind">{{.Kind}}</td>
+            <td class="res-status"><span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}} {{.Status}}</span></td>
+            <td class="res-count">{{if eq .Status "OK"}}{{.Count}}{{else}}-{{end}}</td>
+            <td class="res-dur">{{durStr .DurationMs}}</td>
+          </tr>
+          {{if .Error}}
+          <tr class="error-row">
+            <td colspan="4" class="error-msg">{{.Error}}</td>
+          </tr>
+          {{end}}
+          {{if .Operations}}
+          <tr class="ops-row">
+            <td colspan="4">
+              <table class="ops-table">
+                {{range .Operations}}
+                <tr>
+                  <td class="op-name">{{.Op}}</td>
+                  <td class="op-status"><span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}}</span></td>
+                  <td class="op-dur">{{durStr .DurationMs}}</td>
+                  <td class="op-err">{{.Error}}</td>
+                </tr>
+                {{end}}
+              </table>
+            </td>
+          </tr>
+          {{end}}
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+  </div>{{/* end #live-board */}}
+{{else}}
+  <div id="live-board">
+  <div class="empty-state">
+    <div class="empty-icon">🕷️</div>
+    <p>No test results yet.</p>
+    <p>Click <strong>▶ Run Now</strong> to start the first run, or wait for the scheduled run.</p>
+  </div>
+  </div>{{/* end #live-board */}}
+{{end}}
+
+{{end}}

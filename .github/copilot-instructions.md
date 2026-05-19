@@ -47,3 +47,5 @@
 - Local: `make`.  
 - Container: official image.  
 - Config: `setup.env`, `conf/*.conf`.
+- Run: `cd bin; ./start.sh`
+- Stop: `cd bin; ./stop.sh`

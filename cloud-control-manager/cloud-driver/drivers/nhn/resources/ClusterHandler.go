@@ -2239,7 +2239,7 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo, supportedK8sVersions [
 		return fmt.Errorf("At least one Subnet must be specified")
 	}
 	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
-		return fmt.Errorf("At least one Subnet must be specified")
+		return fmt.Errorf("At least one Security Group must be specified")
 	}
 
 	// Check clusterInfo.Version

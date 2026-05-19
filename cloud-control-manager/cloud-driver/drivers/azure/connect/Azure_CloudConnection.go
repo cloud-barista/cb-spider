@@ -15,12 +15,13 @@ import (
 	"errors"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
+	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -70,6 +71,8 @@ type AzureCloudConnection struct {
 	DnsZoneClient                   *armdns.ZonesClient
 	FileShareClient                 *armstorage.FileSharesClient
 	AccountsClient                  *armstorage.AccountsClient
+	MySQLServersClient              *armmysqlfs.ServersClient
+	MySQLFirewallRulesClient        *armmysqlfs.FirewallRulesClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -286,4 +289,35 @@ func (cloudConn *AzureCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHa
 		Ctx:            cloudConn.Ctx,
 	}
 	return &quotaInfoHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateMonitoringHandler()!")
+	monitoringHandler := azrs.AzureMonitoringHandler{
+		CredentialInfo:                  cloudConn.CredentialInfo,
+		Region:                          cloudConn.Region,
+		Ctx:                             cloudConn.Ctx,
+		VMClient:                        cloudConn.VMClient,
+		ManagedClustersClient:           cloudConn.ManagedClustersClient,
+		SecurityGroupsClient:            cloudConn.SecurityGroupClient,
+		VirtualNetworksClient:           cloudConn.VNetClient,
+		AgentPoolsClient:                cloudConn.AgentPoolsClient,
+		VirtualMachineScaleSetsClient:   cloudConn.VirtualMachineScaleSetsClient,
+		VirtualMachineScaleSetVMsClient: cloudConn.VirtualMachineScaleSetVMsClient,
+		VMSizeClient:                    cloudConn.VmSpecClient,
+		MetricClient:                    cloudConn.MetricClient,
+	}
+	return &monitoringHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := azrs.AzureRDBMSHandler{
+		CredentialInfo:      cloudConn.CredentialInfo,
+		Region:              cloudConn.Region,
+		Ctx:                 cloudConn.Ctx,
+		ServersClient:       cloudConn.MySQLServersClient,
+		FirewallRulesClient: cloudConn.MySQLFirewallRulesClient,
+	}
+	return &rdbmsHandler, nil
 }

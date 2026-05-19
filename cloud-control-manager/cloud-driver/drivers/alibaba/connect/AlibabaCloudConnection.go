@@ -18,6 +18,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/quotas"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/rds"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	cblog "github.com/cloud-barista/cb-log"
@@ -25,6 +26,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
+
+	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -61,6 +64,7 @@ type AlibabaCloudConnection struct {
 	Ecs2014Client *ecs2014.Client
 	BssClient     *bssopenapi.Client
 	QuotaClient   *quotas.Client
+	RDSClient     *rds.Client
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -195,4 +199,14 @@ func (cloudConn *AlibabaCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfo
 	cblogger.Info("Alibaba Cloud Driver: called CreateQuotaInfoHandler()!")
 	quotaInfoHandler := alirs.AlibabaQuotaInfoHandler{Region: cloudConn.Region, QuotaClient: cloudConn.QuotaClient}
 	return &quotaInfoHandler, nil
+}
+
+func (cloudConn *AlibabaCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}
+
+func (cloudConn *AlibabaCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := alirs.AlibabaRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient}
+	return &rdbmsHandler, nil
 }

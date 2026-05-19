@@ -1,0 +1,57 @@
+{{template "base.html" .}}
+
+{{define "title"}}Run History{{end}}
+
+{{define "content"}}
+<div class="page-header page-header-sticky">
+  <h1>Run History</h1>
+  <span class="muted">{{len .Runs}} runs recorded</span>
+  {{if .IsAdmin}}
+  <div class="history-toolbar" id="history-toolbar">
+    <span id="history-sel-count" class="muted"></span>
+    <button id="btn-delete-selected" class="btn btn-danger btn-sm">Delete</button>
+  </div>
+  {{end}}
+</div>
+
+{{if .Runs}}
+<div class="table-wrap">
+  <table class="history-table" id="history-table">
+    <thead>
+      <tr>
+        <th>Run ID</th>
+        <th>Started</th>
+        <th>Finished</th>
+        <th>Status</th>
+        <th>CSPs</th>
+        <th>Spider Image</th>
+        <th></th>
+        {{if .IsAdmin}}<th class="col-check"><input type="checkbox" id="chk-all" title="Select all"></th>{{end}}
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Runs | reverse}}
+      <tr data-run-id="{{.ID}}">
+        <td class="mono">{{.ID}}</td>
+        <td><time datetime="{{.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{fmtTime .StartedAt}}</time></td>
+        <td>{{fmtTimePtr .FinishedAt}}</td>
+        <td>
+          <span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}} {{.Status}}</span>
+          {{$fc := runFailCount .}}{{if gt $fc 0}}<span class="run-fail-badge">{{$fc}} FAIL</span>{{end}}
+        </td>
+        <td>{{len .CSPs}}</td>
+        <td class="muted" style="font-size:0.78em;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{.SpiderImage}}">{{.SpiderImage}}</td>
+        <td><a href="/runs/{{.ID}}" class="btn btn-sm">Detail</a></td>
+        {{if $.IsAdmin}}<td class="col-check"><input type="checkbox" class="row-chk" value="{{.ID}}"></td>{{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="empty-state">
+  <div class="empty-icon">📋</div>
+  <p>No runs recorded yet.</p>
+</div>
+{{end}}
+{{end}}

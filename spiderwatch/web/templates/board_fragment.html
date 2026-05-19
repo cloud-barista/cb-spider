@@ -1,0 +1,139 @@
+{{define "board-fragment"}}
+{{$progresses := .Progresses}}
+{{if not .CSPs}}
+<div class="csp-grid">
+  <div class="csp-card csp-card-pending">
+    <div class="csp-card-header">
+      <span class="running-spinner"></span>
+      <span class="csp-name" style="margin-left:.75rem">Preparing test run…</span>
+    </div>
+  </div>
+</div>
+{{else}}
+<div class="csp-grid">
+  {{range .CSPs}}
+  {{$csp := .}}
+  {{$p := index $progresses $csp.Name}}
+  {{$isActive := false}}
+  {{if $p}}{{$isActive = true}}{{end}}
+
+  {{$ok := 0}}{{$fail := 0}}{{$skip := 0}}
+  {{$total := $csp.ExpectedTotal}}{{if eq $total 0}}{{$total = len $csp.Resources}}{{end}}
+  {{range $csp.Resources}}
+    {{if eq .Status "OK"}}{{$ok = add $ok 1}}{{end}}
+    {{if eq .Status "FAIL"}}{{$fail = add $fail 1}}{{end}}
+    {{if eq .Status "SKIPPED"}}{{$skip = add $skip 1}}{{end}}
+  {{end}}
+
+  <div class="csp-card">
+    <div class="csp-card-header">
+      <span class="csp-icon" data-csp="{{lower $csp.Name}}"></span>
+      <h2 class="csp-name">{{$csp.Name}}</h2>
+      <span class="csp-conn muted">{{$csp.Connection}}</span>
+      {{with sumDuration $csp.Resources}}<span class="csp-total-dur muted">{{durStr .}}</span>{{end}}
+    </div>
+
+    {{if not $.CleanupOnly}}
+    <div class="csp-stats">
+      <div class="stat stat-ok"><span class="stat-val">{{$ok}}</span><span class="stat-lbl">OK</span></div>
+      <div class="stat stat-fail"><span class="stat-val">{{$fail}}</span><span class="stat-lbl">FAIL</span></div>
+      <div class="stat stat-skip"><span class="stat-val">{{$skip}}</span><span class="stat-lbl">SKIP</span></div>
+      <div class="stat stat-total"><span class="stat-val">{{$total}}</span><span class="stat-lbl">TOTAL</span></div>
+    </div>
+
+    <div class="progress-bar-wrap" title="{{pct $ok $total}}% OK">
+      <div class="progress-bar-ok" style="width:{{pct $ok $total}}%"></div>
+      <div class="progress-bar-fail" style="width:{{pct $fail $total}}%"></div>
+    </div>
+    {{end}}
+
+    <table class="resource-table">
+      <thead>
+        <tr>
+          <th>Resource</th>
+          <th>Status</th>
+          <th>Count</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{$runID := $.RunID}}
+        {{range $csp.Resources}}
+        <tr class="{{statusClass .Status}}">
+          <td class="res-kind">{{.Kind}}</td>
+          <td class="res-status"><span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}} {{.Status}}</span></td>
+          <td class="res-count">{{if eq .Status "OK"}}{{.Count}}{{else}}-{{end}}</td>
+          <td class="res-dur">
+            {{if .IssueURL}}
+              <a class="issue-link" href="{{.IssueURL}}" target="_blank" rel="noopener">#{{.IssueNumber}}</a>
+            {{else if and (eq .Status "FAIL") $.IsAdmin}}
+              <button class="btn btn-sm btn-gh-issue"
+                data-run="{{$runID}}"
+                data-csp="{{$csp.Name}}"
+                data-resource="{{.Kind}}">🐞 Issue</button>
+            {{else}}
+              {{durStr .DurationMs}}
+            {{end}}
+          </td>
+        </tr>
+        {{if and .Error (not .Operations)}}
+        <tr class="error-row">
+          <td colspan="4" class="error-msg">{{.Error}}</td>
+        </tr>
+        {{end}}
+        {{if .Operations}}
+        <tr class="ops-row">
+          <td colspan="4">
+            <table class="ops-table">
+              {{range .Operations}}
+              <tr class="op-row-{{statusClass .Status}}">
+                <td class="op-name">{{.Op}}</td>
+                <td class="op-status"><span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}}</span></td>
+                <td class="op-dur">{{durStr .DurationMs}}{{if .Message}}&nbsp;&nbsp;<span class="op-msg">({{.Message}})</span>{{end}}</td>
+                <td class="op-err">{{.Error}}</td>
+              </tr>
+              {{end}}
+            </table>
+          </td>
+        </tr>
+        {{end}}
+        {{end}}
+        {{if and $isActive $p.Resource}}
+        <tr class="res-row-inprogress">
+          <td class="res-kind">{{$p.Resource}}</td>
+          <td class="res-status"><span class="status-pill status-status-running"><span class="running-spinner" style="width:.75rem;height:.75rem;border-width:2px;margin-right:.35rem;flex-shrink:0"></span>RUNNING</span></td>
+          <td class="res-count">-</td>
+          <td class="res-dur">-</td>
+        </tr>
+        {{if or $p.CompletedOps $p.Operation}}
+        <tr class="ops-row">
+          <td colspan="4">
+            <table class="ops-table">
+              {{range $p.CompletedOps}}
+              <tr class="op-row-{{statusClass .Status}}">
+                <td class="op-name">{{.Op}}</td>
+                <td class="op-status"><span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}}</span></td>
+                <td class="op-dur">{{durStr .DurationMs}}</td>
+                <td class="op-err">{{.Error}}</td>
+              </tr>
+              {{end}}
+              {{if $p.Operation}}
+              <tr>
+                <td class="op-name">{{$p.Operation}}</td>
+                <td class="op-status"><span class="status-pill status-status-running"><span class="running-spinner" style="width:.65rem;height:.65rem;border-width:2px;margin-right:.3rem;flex-shrink:0"></span>running</span></td>
+                <td class="op-dur"></td>
+                <td class="op-err"></td>
+              </tr>
+              {{end}}
+            </table>
+          </td>
+        </tr>
+        {{end}}
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Tencent Cloud S3 Test Script (SigV4 / awscurl)
+# This script sets the connection configuration and runs the full S3 API test suite
+# Author: CB-Spider Team
+
+# Set connection name for Tencent Cloud COS
+#export CONNECTION_NAME="tencent-beijing3-config"
+export CONNECTION_NAME="tencent-tokyo-config"
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Run the full S3 API test
+echo "Running S3 SigV4 tests with CONNECTION_NAME=$CONNECTION_NAME"
+"$SCRIPT_DIR/common-s3-full-api-test.sh"

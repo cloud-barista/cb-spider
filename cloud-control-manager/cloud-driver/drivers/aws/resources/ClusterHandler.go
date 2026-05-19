@@ -107,6 +107,9 @@ func getServerAddress() string {
 var eksAMITypes = []string{
 	"AL2023_x86_64_STANDARD",
 	"AL2023_ARM_64_STANDARD",
+	"AL2023_x86_64_NVIDIA",
+	"AL2023_ARM_64_NVIDIA",
+	"AL2023_x86_64_NEURON",
 	"BOTTLEROCKET_ARM_64",
 	"BOTTLEROCKET_x86_64",
 	"BOTTLEROCKET_ARM_64_NVIDIA",
@@ -115,6 +118,8 @@ var eksAMITypes = []string{
 	"WINDOWS_FULL_2019_x86_64",
 	"WINDOWS_CORE_2022_x86_64",
 	"WINDOWS_FULL_2022_x86_64",
+	"WINDOWS_CORE_2025_x86_64",
+	"WINDOWS_FULL_2025_x86_64",
 }
 
 // isValidEKSAMIType reports whether s is a known EKS AMI Type string.
@@ -1074,9 +1079,9 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	var amiType string
 
-	if receivedImageName == "" {
+	if receivedImageName == "" || strings.EqualFold(receivedImageName, "default") {
 		// No AMI specified, use default (K8s 1.30+ compatible)
-		cblogger.Info("No ImageName provided, using default: AL2023_x86_64_STANDARD")
+		cblogger.Info("No ImageName provided (empty or 'default'), using default: AL2023_x86_64_STANDARD")
 		amiType = "AL2023_x86_64_STANDARD"
 	} else if isValidEKSAMIType(receivedImageName) {
 		// EKS AMI Type string passed directly (e.g. AL2023_x86_64_STANDARD).

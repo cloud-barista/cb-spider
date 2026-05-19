@@ -1,0 +1,496 @@
+# SpiderWatch Configuration
+# Changes to this file are applied in real-time without restart.
+
+# ── GitHub Issue Reporting ──────────────────────────────────────────────────
+# The Run Detail page always shows a "File Issue" button on FAIL rows.
+# Users can review and edit the pre-filled issue body before submitting.
+# Filed issue numbers are saved with the run result and linked from the UI.
+# Set token to enable actual GitHub issue creation; leave empty to disable.
+github:
+  token: ""                                                                 # GitHub personal access token (needs repo scope)
+  owner: "cloud-barista"         # GitHub repository owner
+  repo: "cb-spider"              # GitHub repository name
+  labels:
+    - "spiderwatch"
+    - "bug"
+
+# ── Spider Status Board Push ────────────────────────────────────────────────
+# After each test run, SpiderWatch pushes the result to the public Status Board.
+# Leave url empty to disable pushing.
+statusboard:
+  url: "http://spider-statusboard.cloud-barista.org:4096"        # e.g. "https://spider-status.example.com"
+  token: "change-me-to-a-strong-secret"      # shared secret (must match statusboard.yaml auth.token)
+
+server:
+  port: 2048
+  # Set to "" or "0.0.0.0" to listen on all interfaces
+  address: "0.0.0.0"
+
+spider:
+# (Optional) URL of an already-running Spider server to use instead of
+  # starting a Docker container. When set, SpiderWatch skips docker pull/run
+  # and does NOT stop the Spider server after a test or cleanup-only run.
+  # The image/host_port/meta_db_dir/server_address settings are ignored.
+  # Example: external_url: "http://localhost:1024/spider"
+  #external_url: "http://localhost:1024/spider"
+  external_url: ""
+  
+  # Docker image to pull and run
+  image: "cloudbaristaorg/cb-spider:edge"
+  # Host port mapped to Spider's internal port 1024
+  host_port: 1024
+  # Spider REST API base URL (using host port)
+  api_url: "http://localhost:1024/spider"
+  
+  # Basic auth credentials for Spider API
+  username: "admin"
+  password: ""
+  
+  # Directory for Spider meta_db volume mount
+  meta_db_dir: "${HOME}/cb-spider/meta_db"
+  # MC_INSIGHT_API_TOKEN for Spider
+  mc_insight_api_token: ""
+  # Server address advertised inside the Spider container
+  server_address: "0.0.0.0:1024"
+  # Timeout for each individual Spider API call (seconds)
+  api_timeout_sec: 1800
+  # Startup wait after docker run before calling APIs (seconds)
+  startup_wait_sec: 60
+  # Timeout for the overall test run covering all CSPs (minutes)
+  run_timeout_min: 120
+  
+
+scheduler:
+  # Cron expression for test schedule (default: 01:00 daily)
+  # Format: "sec min hour day month weekday"  (6-field, go-cron style)
+  cron: "0 0 1 * * *"
+  # When true, run a test immediately on SpiderWatch startup as well
+  run_on_startup: false
+
+# Resources to test for each CSP (all Spider resource types)
+resources:
+  - vpc
+  - securitygroup
+  - keypair
+  - vm
+  - disk
+  - nlb
+  - myimage
+  - cluster
+  - s3
+
+# Resource cleanup behavior after each test run.
+# true  - delete created resources after tests (default)
+# false - leave resources in the CSP after tests (useful for manual verification)
+cleanup: true
+
+log:
+  level: "info"
+  # Log file path; leave empty to log to stdout only
+  file: "logs/spiderwatch.log"
+
+# CSP Connection configurations
+csps:
+  - name: AWS
+    connection: aws-config01
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: ami-0131a0fdbb6fda7e6
+      spec_name: t2.micro
+    disk_test:
+      disk_type: "gp2"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    cluster_test:
+      version: "1.32"
+      # AWS EKS uses Dynamic Token (Spider Default exec-plugin calling Spider Token API)
+      kubeconfig_type: "spider_default"
+      # AWS EKS: NodeGroup is added after cluster is Active (Type-I)
+      node_group_type: "type1"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "t3.medium"
+      node_group_root_disk_type: "gp2"
+      node_group_root_disk_size: "20"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      extra_subnet_cidr: "192.168.2.0/24"
+      extra_subnet_zone: "ap-southeast-2b"
+
+  - name: AZURE
+    connection: azure-northeu-config
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      # /23 provides 507 usable IPs; Azure AKS requires 333+ IPs in the subnet
+      subnet_cidr: "192.168.0.0/23"
+    vm_test:
+      image_name: "Canonical:ubuntu-25_10:minimal:25.10.202512100"
+      spec_name: "Standard_B1ls"
+    disk_test:
+      disk_type: "PremiumSSD"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "22"
+      target_protocol: "TCP"
+      target_port: "22"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    cluster_test:
+      version: "1.35.0"
+      # Azure AKS: NodeGroup included in cluster create (Type-II)
+      # Azure AKS uses Static Token (client-certificate-data/client-key-data embedded)
+      kubeconfig_type: "static"
+      # Azure AKS: system node pool is created with the cluster (Type-II)
+      node_group_type: "type2"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "Standard_B2s"
+      node_group_root_disk_type: "default"
+      node_group_root_disk_size: "30"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      # Azure AKS does not require subnets in multiple AZs
+      extra_subnet_cidr: ""
+      extra_subnet_zone: ""
+
+  - name: GCP
+    connection: gcp-iowa-config
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20240423"
+      spec_name: "e2-standard-2"
+    disk_test:
+      disk_type: "pd-standard"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      # GCP Target Pool-based NLB only supports HTTP health checks
+      health_protocol: "HTTP"
+      health_port: "80"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+      # nginx must be running on the VM for the HTTP health check to pass
+      nginx_pre_install: true
+    cluster_test:
+      version: ""
+      # GCP GKE uses Dynamic Token (Spider Default exec-plugin calling Spider Token API)
+      kubeconfig_type: "spider_default"
+      # GCP GKE: node pool is created with the cluster (Type-II)
+      node_group_type: "type2"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "e2-standard-4"
+      node_group_root_disk_type: "default"
+      node_group_root_disk_size: "30"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      extra_subnet_cidr: ""
+      extra_subnet_zone: ""
+
+  - name: ALIBABA
+    connection: alibaba-tokyo-config
+    enabled: true
+    # Alibaba ACK requires port 6443 (Kubernetes API server) open on the SG.
+    sg_extra_inbound_ports: ["6443"]
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      # __prefix: triggers auto-detection: spiderwatch calls GET /vmimage and picks
+      # the lexicographically latest image whose name starts with the given prefix.
+      # Alibaba rotates ubuntu images monthly (e.g. alibase_20260413.vhd → alibase_20260501.vhd),
+      # so this avoids manual YAML updates on each rotation.
+      image_name: "__prefix:ubuntu_24_04_x64_20G_alibase_"
+      spec_name: "ecs.c9i.large"
+    disk_test:
+      # cloud_essd is the recommended SSD type for Alibaba (min 20 GiB)
+      disk_type: "cloud_essd"
+      disk_size: "20"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    cluster_test:
+      version: ""
+      # Alibaba ACK: NodeGroup added after cluster is Active (Type-I)
+      # Alibaba ACK uses Static Token (credentials embedded in kubeconfig)
+      kubeconfig_type: "static"
+      # Alibaba ACK: NodeGroup is added after cluster is Active (Type-I)
+      node_group_type: "type1"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "ecs.c9i.large"
+      node_group_root_disk_type: "cloud_essd"
+      node_group_root_disk_size: "60"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      extra_subnet_cidr: ""
+      extra_subnet_zone: ""
+
+  - name: TENCENT
+    connection: tencent-beijing3-config
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: "img-pi0ii46r"
+      spec_name: "S5.MEDIUM8"
+    disk_test:
+      disk_type: "CLOUD_PREMIUM"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    cluster_test:
+      version: ""
+      # Tencent TKE: NodeGroup added after cluster is Active (Type-I)
+      # Tencent TKE uses Static Token (credentials embedded in kubeconfig)
+      kubeconfig_type: "static"
+      # Tencent TKE: NodeGroup is added after cluster is Active (Type-I)
+      node_group_type: "type1"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "S5.MEDIUM8"
+      node_group_root_disk_type: "CLOUD_PREMIUM"
+      node_group_root_disk_size: "50"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      extra_subnet_cidr: ""
+      extra_subnet_zone: ""
+
+  - name: IBM
+    connection: ibm-us-east-1-config
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: "r014-1696a049-e959-493d-9a97-1655ef4c942e"
+      spec_name: "bx2-2x8"
+    disk_test:
+      disk_type: "general-purpose"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    cluster_test:
+      version: "1.32.13"
+      # IBM IKS: NodeGroup included in cluster create (Type-II)
+      # IBM IKS uses Static Token (credentials embedded in kubeconfig)
+      kubeconfig_type: "static"
+      # IBM IKS: node pool is created with the cluster (Type-II)
+      node_group_type: "type2"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "bx2.4x16"
+      node_group_root_disk_type: "default"
+      node_group_root_disk_size: "60"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      extra_subnet_cidr: ""
+      extra_subnet_zone: ""
+
+  - name: OPENSTACK
+    connection: openstack-config01
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: "78d90dae-d21d-4606-a9dd-c1268e321864"
+      spec_name: "m1.small"
+    disk_test:
+      # OpenStack Cinder: use "default" to let the environment choose the volume type
+      disk_type: "default"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    # cluster and s3 are not implemented for OpenStack; they will be auto-skipped
+
+  - name: NCP
+    connection: ncp-korea1-config
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: "104630229"
+      spec_name: "s2-g3"
+    disk_test:
+      disk_type: "SSD"
+      disk_size: "100"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    cluster_test:
+      version: "1.33.4-nks.1"  # Available: 1.34.3-nks.1, 1.33.4-nks.1
+      # NCP NKS: NodeGroup included in cluster create (Type-II)
+      # NCP NKS uses Dynamic Token (Spider Default exec-plugin calling Spider Token API)
+      kubeconfig_type: "spider_default"
+      # NCP NKS: node pool is created with the cluster (Type-II)
+      node_group_type: "type2"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "r2.c4m16"
+      node_group_root_disk_type: "default"
+      node_group_root_disk_size: "100"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      extra_subnet_cidr: ""
+      extra_subnet_zone: ""
+
+  - name: NHN
+    connection: nhn-korea-pangyo1-config
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: "5396655e-166a-4875-80d2-ed8613aa054f"
+      spec_name: "m2.c4m8"
+    disk_test:
+      # NHN Cloud disk types: General_HDD or General_SSD
+      disk_type: "General_SSD"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    cluster_test:
+      version: "v1.32.3"  # Available: v1.31.4, v1.32.3, v1.33.4
+      # NHN Cloud NKE: NodeGroup included in cluster create (Type-II)
+      # NHN Cloud NKE uses Static Token (credentials embedded in kubeconfig)
+      kubeconfig_type: "static"
+      # NHN Cloud NKE: node pool is created with the cluster (Type-II)
+      node_group_type: "type2"
+      node_group_image_name: ""
+      node_group_vm_spec_name: "m2.c4m8"
+      node_group_root_disk_type: "default"
+      node_group_root_disk_size: "30"
+      node_group_on_auto_scaling: "true"
+      node_group_desired_node_size: "1"
+      node_group_min_node_size: "1"
+      node_group_max_node_size: "3"
+      # NHN Cloud does not require extra subnets for cluster creation
+      extra_subnet_cidr: ""
+      extra_subnet_zone: ""
+
+  - name: KT
+    connection: kt-mokdong1-config
+    enabled: true
+    vpc_test:
+      vpc_cidr: "192.168.0.0/16"
+      subnet_cidr: "192.168.1.0/24"
+    vm_test:
+      image_name: "1a772df6-262e-43a7-896f-98fa23d715c7"
+      spec_name: "4x8.itl"
+    disk_test:
+      disk_type: "default"
+      disk_size: "10"
+    nlb_test:
+      type: "PUBLIC"
+      scope: "REGION"
+      listener_protocol: "TCP"
+      listener_port: "80"
+      target_protocol: "TCP"
+      target_port: "80"
+      health_protocol: "TCP"
+      health_port: "22"
+      health_interval: "default"
+      health_timeout: "default"
+      health_threshold: "default"
+    # cluster and s3 are not implemented for KT; they will be auto-skipped
+
+
+

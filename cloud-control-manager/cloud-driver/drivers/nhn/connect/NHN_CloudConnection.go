@@ -45,6 +45,7 @@ type NhnCloudConnection struct {
 	ClusterClient  *nhnsdk.ServiceClient
 	FSClient       *nhnsdk.ServiceClient
 	NetworkClient1 *nhnsdk.ServiceClient
+	DBClient       *nhnsdk.ServiceClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -170,4 +171,18 @@ func (cloudConn *NhnCloudConnection) CreateTagHandler() (irs.TagHandler, error) 
 // CreateQuotaInfoHandler implements connect.CloudConnection.
 func (cloudConn *NhnCloudConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error) {
 	return nil, errors.New("NHN Cloud Driver: QuotaInfoHandler not supported")
+}
+
+func (cloudConn *NhnCloudConnection) CreateMonitoringHandler() (irs.MonitoringHandler, error) {
+	return nil, fmt.Errorf("NHN Cloud Driver: not implemented")
+}
+
+// CreateRDBMSHandler implements connect.CloudConnection.
+func (cloudConn *NhnCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
+	cblogger.Info("NHN Cloud Driver: called CreateRDBMSHandler()!")
+	rdbmsHandler := nhnrs.NhnCloudRDBMSHandler{
+		RegionInfo: cloudConn.RegionInfo,
+		DBClient:   cloudConn.DBClient,
+	}
+	return &rdbmsHandler, nil
 }

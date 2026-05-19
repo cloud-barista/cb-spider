@@ -1,0 +1,146 @@
+{{template "base.html" .}}
+
+{{define "title"}}Run {{.Run.ID}}{{end}}
+
+{{define "content"}}
+<div class="page-header">
+  <a href="/runs" class="breadcrumb">← Run History</a>
+  <h1>Run Detail</h1>
+  <div class="run-meta">
+    <span class="mono">{{.Run.ID}}</span>
+    <span class="badge badge-{{statusClass .Run.Status}}">{{.Run.Status}}</span>
+    <span class="muted">Started: {{fmtTime .Run.StartedAt}}</span>
+    <span class="muted">Finished: {{fmtTimePtr .Run.FinishedAt}}</span>
+    {{if .Run.SpiderImage}}<span class="muted" title="Spider image used in this run">🐳 {{.Run.SpiderImage}}</span>{{end}}
+  </div>
+</div>
+
+<div class="csp-grid">
+  {{if .Run.Error}}
+  <div class="run-error-banner" style="grid-column:1/-1">
+    <span class="run-error-icon">⚠</span>
+    <span class="run-error-msg">{{.Run.Error}}</span>
+  </div>
+  {{end}}
+  {{range .Run.CSPs}}
+  {{$csp := .}}
+  <div class="csp-card">
+    <div class="csp-card-header">
+      <span class="csp-icon" data-csp="{{lower $csp.Name}}"></span>
+      <h2 class="csp-name">{{$csp.Name}}</h2>
+      <span class="csp-conn muted">{{$csp.Connection}}</span>
+      {{with sumDuration $csp.Resources}}<span class="csp-total-dur muted">{{durStr .}}</span>{{end}}
+    </div>
+
+    {{$ok := 0}}{{$fail := 0}}{{$skip := 0}}{{$total := len $csp.Resources}}
+    {{range $csp.Resources}}
+      {{if eq .Status "OK"}}{{$ok = add $ok 1}}{{end}}
+      {{if eq .Status "FAIL"}}{{$fail = add $fail 1}}{{end}}
+      {{if eq .Status "SKIPPED"}}{{$skip = add $skip 1}}{{end}}
+    {{end}}
+
+    {{if not $.Run.CleanupOnly}}
+    <div class="csp-stats">
+      <div class="stat stat-ok"><span class="stat-val">{{$ok}}</span><span class="stat-lbl">OK</span></div>
+      <div class="stat stat-fail"><span class="stat-val">{{$fail}}</span><span class="stat-lbl">FAIL</span></div>
+      <div class="stat stat-skip"><span class="stat-val">{{$skip}}</span><span class="stat-lbl">SKIP</span></div>
+      <div class="stat stat-total"><span class="stat-val">{{$total}}</span><span class="stat-lbl">TOTAL</span></div>
+    </div>
+
+    <div class="progress-bar-wrap" title="{{pct $ok $total}}% OK">
+      <div class="progress-bar-ok" style="width:{{pct $ok $total}}%"></div>
+      <div class="progress-bar-fail" style="width:{{pct $fail $total}}%"></div>
+    </div>
+    {{end}}
+
+    <table class="resource-table">
+      <colgroup>
+        <col class="col-resource">
+        <col class="col-status">
+        <col class="col-count">
+        <col class="col-duration">
+        <col class="col-testedat">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Resource</th>
+          <th>Status</th>
+          <th>Count</th>
+          <th>Duration</th>
+          <th>Tested At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range $csp.Resources}}
+        <tr class="{{statusClass .Status}}">
+          <td class="res-kind">{{.Kind}}</td>
+          <td class="res-status"><span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}} {{.Status}}</span></td>
+          <td class="res-count">{{if eq .Status "OK"}}{{.Count}}{{else}}-{{end}}</td>
+          <td class="res-dur">
+            {{if .IssueURL}}
+              <a class="issue-link" href="{{.IssueURL}}" target="_blank" rel="noopener">#{{.IssueNumber}}</a>
+            {{else if and (eq .Status "FAIL") $.IsAdmin}}
+              <button class="btn btn-sm btn-gh-issue"
+                data-run="{{$.Run.ID}}"
+                data-csp="{{$csp.Name}}"
+                data-resource="{{.Kind}}">🐞 Issue</button>
+            {{else}}
+              {{durStr .DurationMs}}
+            {{end}}
+          </td>
+          <td class="res-time muted">{{fmtTime .TestedAt}}</td>
+        </tr>
+        {{if and .Error (not .Operations)}}
+        <tr class="error-row">
+          <td colspan="5" class="error-msg">{{.Error}}</td>
+        </tr>
+        {{end}}
+        {{if .Operations}}
+        <tr class="ops-row">
+          <td colspan="5">
+            <table class="ops-table">
+              {{range .Operations}}
+              <tr class="op-row-{{statusClass .Status}}">
+                <td class="op-name">{{.Op}}</td>
+                <td class="op-status"><span class="status-pill status-{{statusClass .Status}}">{{statusIcon .Status}}</span></td>
+                <td class="op-dur">{{durStr .DurationMs}}{{if .Message}}&nbsp;&nbsp;<span class="op-msg">({{.Message}})</span>{{end}}</td>
+                <td class="op-err">{{.Error}}</td>
+              </tr>
+              {{end}}
+            </table>
+          </td>
+        </tr>
+        {{end}}
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+
+{{/* ── GitHub Issue Modal ──────────────────────────────────────────────── */}}
+{{if .IsAdmin}}
+<div class="modal-backdrop" id="modal-gh-issue">
+  <div class="modal modal--wide modal--gh">
+    <h2 class="modal-title">Open GitHub Issue</h2>
+    <div class="gh-issue-meta" id="gh-issue-meta"></div>
+    <div class="gh-form-group">
+      <label class="gh-label" for="gh-issue-title">Title</label>
+      <input type="text" id="gh-issue-title" class="gh-input" autocomplete="off" />
+    </div>
+    <div class="gh-form-group gh-body-group">
+      <div class="gh-tab-bar">
+        <button class="gh-tab active" id="gh-tab-write" type="button">Write</button>
+        <button class="gh-tab" id="gh-tab-preview" type="button">Preview</button>
+      </div>
+      <textarea id="gh-issue-body" class="gh-textarea"></textarea>
+      <div id="gh-preview-pane" class="gh-preview-pane" hidden></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-gh-cancel">Cancel</button>
+      <button class="btn btn-primary" id="btn-gh-submit">Submit Issue</button>
+    </div>
+  </div>
+</div>
+{{end}}{{/* IsAdmin */}}
+{{end}}

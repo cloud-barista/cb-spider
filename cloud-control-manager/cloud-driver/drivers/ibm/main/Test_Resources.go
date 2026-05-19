@@ -1133,7 +1133,7 @@ func testNLBHandler(config Config) {
 			Port:     "8080",
 			Protocol: "TCP",
 			VMs: &[]irs.IID{
-				{NameId: "mcb-test-vm"},
+				{NameId: config.Ibm.Resources.Vm.IID.NameId},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
@@ -1944,6 +1944,8 @@ func testTagHandler(config Config) {
 	}
 	tagHandler := resourceHandler.(irs.TagHandler)
 
+	in := bufio.NewReader(os.Stdin)
+
 	testTagHandlerListPrint()
 Loop:
 	for {
@@ -1960,7 +1962,6 @@ Loop:
 			case 1:
 				cblogger.Info("Start AddTag() ...")
 				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
 				resTypeStr, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -1974,7 +1975,6 @@ Loop:
 				resType := inputToRSType(resTypeStr)
 
 				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
 				resName, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -1982,7 +1982,6 @@ Loop:
 				resName = strings.TrimSpace(resName)
 
 				fmt.Println("=== Enter tag's key ===")
-				in = bufio.NewReader(os.Stdin)
 				tagKey, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -1990,7 +1989,6 @@ Loop:
 				tagKey = strings.TrimSpace(tagKey)
 
 				fmt.Println("=== Enter tag's value ===")
-				in = bufio.NewReader(os.Stdin)
 				tagValue, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2006,7 +2004,6 @@ Loop:
 			case 2:
 				cblogger.Info("Start ListTag() ...")
 				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
 				resTypeStr, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2020,7 +2017,6 @@ Loop:
 				resType := inputToRSType(resTypeStr)
 
 				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
 				resName, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2036,7 +2032,6 @@ Loop:
 			case 3:
 				cblogger.Info("Start GetTag() ...")
 				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
 				resTypeStr, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2050,7 +2045,6 @@ Loop:
 				resType := inputToRSType(resTypeStr)
 
 				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
 				resName, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2058,7 +2052,6 @@ Loop:
 				resName = strings.TrimSpace(resName)
 
 				fmt.Println("=== Enter tag's key ===")
-				in = bufio.NewReader(os.Stdin)
 				tagKey, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2074,7 +2067,6 @@ Loop:
 			case 4:
 				cblogger.Info("Start RemoveTag() ...")
 				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
 				resTypeStr, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2088,7 +2080,6 @@ Loop:
 				resType := inputToRSType(resTypeStr)
 
 				fmt.Println("=== Enter name of the resource ===")
-				in = bufio.NewReader(os.Stdin)
 				resName, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2096,7 +2087,6 @@ Loop:
 				resName = strings.TrimSpace(resName)
 
 				fmt.Println("=== Enter tag's key ===")
-				in = bufio.NewReader(os.Stdin)
 				tagKey, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2112,7 +2102,6 @@ Loop:
 			case 5:
 				cblogger.Info("Start FindTag() ...")
 				fmt.Println("=== Enter resource type ===")
-				in := bufio.NewReader(os.Stdin)
 				resTypeStr, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)
@@ -2126,7 +2115,6 @@ Loop:
 				resType := inputToRSType(resTypeStr)
 
 				fmt.Println("=== Enter keyword ===")
-				in = bufio.NewReader(os.Stdin)
 				keyword, err := in.ReadString('\n')
 				if err != nil {
 					cblogger.Error(err)

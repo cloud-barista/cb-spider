@@ -1,0 +1,2715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RDBMS Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 4%;
+        text-align: center;
+    }
+
+    .inner-table {
+        width: 100%;
+        table-layout: fixed;
+    }
+    .inner-table th {
+        width: 40%;
+        font-weight: normal;
+        font-size: 12px;
+        padding: 4px 8px;
+        text-align: right;
+    }
+    .inner-table td {
+        width: 60%;
+        font-size: 12px;
+        padding: 4px 8px;
+        text-align: center;
+    }
+
+    .inner-table tr:nth-child(-n+2) td:nth-child(2) {
+        background-color: #e0f7fa;
+        color: #00796b;
+        font-weight: bold;
+        border: 1px solid #004d40;
+    }
+
+    /* Loading spinner */
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 46px;
+        left: 0;
+        width: 100%;
+        height: calc(100% - 46px);
+        background: rgba(255,255,255,0.7);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+    }
+    .loading-overlay.active {
+        display: flex;
+    }
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #ccc;
+        border-top: 4px solid #333;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        0%   { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+        margin-top: 12px;
+        font-size: 14px;
+        color: #555;
+    }
+
+    .center-align {
+        text-align: center;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        position: relative;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .checkbox-cell {
+        width: 4%;
+        text-align: center;
+    }
+
+    .rdbms-name, .rdbms-status, .rdbms-vpc, .rdbms-engine, .rdbms-spec, .rdbms-network, .rdbms-auth, .rdbms-options, .tags, .misc {
+        text-align: center;
+    }
+    .rdbms-name {
+        width: 11%;
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .rdbms-status {
+        width: 5%;
+        text-align: center;
+    }
+    .rdbms-vpc {
+        width: 10%;
+    }
+    .rdbms-engine {
+        width: 12%;
+        vertical-align: top;
+    }
+    .rdbms-spec {
+        width: 13%;
+        vertical-align: top;
+    }
+    .rdbms-network {
+        width: 14%;
+        vertical-align: top;
+    }
+    .rdbms-auth {
+        width: 10%;
+        vertical-align: top;
+    }
+    .rdbms-options {
+        width: 12%;
+        vertical-align: top;
+    }
+    .tags {
+        width: 8%;
+    }
+    .misc {
+        width: 8%;
+    }
+
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+
+    .add-btn-container {
+        margin-top: 5px;
+        text-align: left;
+    }
+    .add-btn-container .add-btn {
+        background-color: transparent;
+        font-size: 14px;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .misc-cell {
+        position: relative;
+    }
+
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+
+    .overlay-dark-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 1999;
+        display: none;
+    }
+
+    .misc-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 50%;
+        height: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        overflow-y: auto;
+        user-select: text;
+    }
+
+    .misc-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .misc-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+
+    .misc-overlay-content {
+        font-size: 14px;
+        width: 700px;
+        position: relative;
+        padding-top: 30px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+
+    .tag-overlay {
+        display: none;
+        position: absolute;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 1001;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+
+    .tag-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .tag-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+
+    .tag-overlay-content {
+        position: relative;
+        padding: 20px;
+        border-radius: 5px;
+        background-color: white;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+
+    .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .add-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group:first-of-type {
+        margin-top: 30px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .add-tag-overlay-content .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .rdbms-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        word-wrap: break-word;
+    }
+
+    .system-id-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .system-id-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+
+    .rdbms-name .rdbms-created-time {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+        flex: 2;
+    }
+    .form-group .tag-inputs {
+        display: flex;
+        flex: 2;
+        margin-left: 10px;
+    }
+    .form-group .tag-inputs input {
+        flex: 1;
+        margin-right: 5px;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+
+    .form-group-tags {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    .info-group legend {
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    .info-group .form-group:last-child,
+    .info-group .form-group-tags:last-child {
+        margin-bottom: 0;
+    }
+    .form-group-tags label {
+        flex: 1;
+        text-align: right;
+        margin-left: 6px;
+        margin-right: 2px;
+    }
+    .form-group-tags input {
+        flex: 2;
+    }
+
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 60px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    .rdbms-tag-key {
+        margin-left: 10px;
+    }
+
+    #rdbms-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .header-with-progress {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0px;
+    }
+    .progress-bar-container {
+        width: 600px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+        height: 22px;
+        background-color: #f0f5ff;
+        border-radius: 4px;
+        overflow: hidden;
+        display: none;
+        position: relative;
+        z-index: 2000;
+    }
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #cce6ff;
+        border-radius: 4px;
+        transition: width 3s ease;
+    }
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
+
+    /* Error Modal Styling */
+    #errorModal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    #errorModal .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 500px;
+        width: 80%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    #errorModal button {
+        margin-top: 15px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .status-creating {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    .status-deleting {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .status-stopped {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    .status-error {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .checkbox-wrapper {
+        display: block;
+        margin-right: 0px;
+    }
+
+    .checkbox-wrapper input[type="checkbox"] {
+        margin-right: 5px;
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* DB Detail Panel Styles */
+    #db-panel {
+        margin-top: 20px;
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+    .db-panel-header {
+        margin-bottom: 10px;
+    }
+    .db-panel-header h2 {
+        margin: 0;
+        font-size: 15px;
+    }
+    .db-connect-section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .db-connect-section label {
+        font-weight: bold;
+        font-size: 13px;
+    }
+    .db-connect-section input {
+        padding: 4px 8px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    .db-connect-section button {
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .db-connect-status {
+        font-size: 12px;
+        margin-left: 10px;
+    }
+    .db-connect-status.connected {
+        color: #155724;
+    }
+    .db-connect-status.error {
+        color: #721c24;
+    }
+    #db-table-panel, #db-row-panel {
+        margin-top: 10px;
+    }
+    #db-table-list, #db-row-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    #db-table-list th, #db-table-list td,
+    #db-row-table th, #db-row-table td {
+        border: 1px solid #ccc;
+        padding: 5px 8px;
+        text-align: left;
+    }
+    #db-table-list th, #db-row-table th {
+        background-color: #e8e8e8;
+        font-size: 13px;
+        text-align: center;
+    }
+    #db-table-list tr:hover {
+        background-color: #f0f8ff;
+        cursor: pointer;
+    }
+    .selected-rdbms > td {
+        background-color: #e3f2fd !important;
+    }
+    .db-table-actions, .db-row-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+    .db-breadcrumb {
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+    .db-breadcrumb span {
+        cursor: pointer;
+    }
+
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/rdbms.png" alt="RDBMS Icon" onerror="this.src='/spider/adminweb/images/left-menu/disk.png'">
+            <h1>RDBMS Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedRDBMSs()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+ RDBMS</button>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>
+        </div>
+        <table id="rdbms-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="rdbms-name" style="text-align: center;">Name</th>
+                <th class="rdbms-status" style="text-align: center;">Status</th>
+                <th class="rdbms-vpc">VPC</th>
+                <th class="rdbms-engine">Engine</th>
+                <th class="rdbms-spec">Instance</th>
+                <th class="rdbms-network">Network</th>
+                <th class="rdbms-auth">Auth</th>
+                <th class="rdbms-options">Options</th>
+                <th class="tags">Tags</th>
+                <th class="misc">Misc</th>
+                <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+            </tr>
+            {{range $index, $rdbms := .RDBMSs}}
+            <tr id="rdbms-row-{{$index}}">
+                <td class="column-num" onclick="showDBPanel('{{$rdbms.IId.NameId}}')" style="cursor: pointer;">{{$index | inc}}</td>
+                <td class="rdbms-name" onclick="showDBPanel('{{$rdbms.IId.NameId}}')" style="cursor: pointer;">
+                    {{$rdbms.IId.NameId}}
+                    <span class="rdbms-system-id" onclick="showSystemIdOverlay('{{$rdbms.IId.SystemId}}')">&nbsp;• {{$rdbms.IId.SystemId}}</span>
+                    <span class="rdbms-created-time" data-time="{{ $rdbms.CreatedTime }}"></span>
+                </td>
+                <td class="rdbms-status">
+                    <span class="status-badge
+                        {{- if eq (printf "%s" $rdbms.Status) "Available"}} status-available
+                        {{- else if eq (printf "%s" $rdbms.Status) "Creating"}} status-creating
+                        {{- else if eq (printf "%s" $rdbms.Status) "Deleting"}} status-deleting
+                        {{- else if eq (printf "%s" $rdbms.Status) "Stopped"}} status-stopped
+                        {{- else if eq (printf "%s" $rdbms.Status) "Error"}} status-error
+                        {{- end}}">{{$rdbms.Status}}</span>
+                </td>
+                <td class="rdbms-vpc" style="text-align: left; font-size: 13px; font-weight: bold;">
+                    {{if $rdbms.VpcIID.NameId}}
+                        {{$rdbms.VpcIID.NameId}}
+                        <span class="rdbms-system-id" onclick="showSystemIdOverlay('{{$rdbms.VpcIID.SystemId}}')">&nbsp;• {{$rdbms.VpcIID.SystemId}}</span>
+                    {{end}}
+                </td>
+
+                <!-- Engine -->
+                <td class="rdbms-engine">
+                    <table class="inner-table">
+                        <tr>
+                            <th>Engine</th>
+                            <td>{{$rdbms.DBEngine}}</td>
+                        </tr>
+                        <tr>
+                            <th>Version</th>
+                            <td>{{$rdbms.DBEngineVersion}}</td>
+                        </tr>
+                        <tr>
+                            <th>Endpoint</th>
+                            <td style="font-size: 11px; word-break: break-all;">{{$rdbms.Endpoint}}</td>
+                        </tr>
+                        <tr>
+                            <th>Port</th>
+                            <td>{{$rdbms.Port}}</td>
+                        </tr>
+                    </table>
+                </td>
+
+                <!-- Instance -->
+                <td class="rdbms-spec">
+                    <table class="inner-table">
+                        <tr>
+                            <th>Spec</th>
+                            <td>{{$rdbms.DBInstanceSpec}}</td>
+                        </tr>
+                        <tr>
+                            <th>Type</th>
+                            <td>{{$rdbms.DBInstanceType}}</td>
+                        </tr>
+                        <tr>
+                            <th>Storage</th>
+                            <td>{{$rdbms.StorageSize}} GB</td>
+                        </tr>
+                        <tr>
+                            <th>StorageType</th>
+                            <td>{{$rdbms.StorageType}}</td>
+                        </tr>
+                    </table>
+                </td>
+
+                <!-- Network -->
+                <td class="rdbms-network">
+                    <table class="inner-table">
+                        <tr>
+                            <th>Subnets</th>
+                            <td style="font-size: 11px;">
+                                {{range $subnet := $rdbms.SubnetIIDs}}
+                                    <div>{{$subnet.NameId}}</div>
+                                {{end}}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>SGs</th>
+                            <td style="font-size: 11px;">
+                                {{range $sg := $rdbms.SecurityGroupIIDs}}
+                                    <div>{{$sg.NameId}}</div>
+                                {{end}}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Public</th>
+                            <td>{{if $rdbms.PublicAccess}}Yes{{else}}No{{end}}</td>
+                        </tr>
+                    </table>
+                </td>
+
+                <!-- Auth -->
+                <td class="rdbms-auth">
+                    <table class="inner-table">
+                        <tr>
+                            <th>User</th>
+                            <td>{{$rdbms.MasterUserName}}</td>
+                        </tr>
+                    </table>
+                </td>
+
+                <!-- Options -->
+                <td class="rdbms-options">
+                    <table class="inner-table">
+                        <tr>
+                            <th>HA</th>
+                            <td>{{if $rdbms.HighAvailability}}Yes{{else}}No{{end}}</td>
+                        </tr>
+                        <tr>
+                            <th>Encrypt</th>
+                            <td>{{if $rdbms.Encryption}}Yes{{else}}No{{end}}</td>
+                        </tr>
+                        <tr>
+                            <th>Backup</th>
+                            <td>{{$rdbms.BackupRetentionDays}}d / {{$rdbms.BackupTime}}</td>
+                        </tr>
+                        <tr>
+                            <th>DelProtect</th>
+                            <td>{{if $rdbms.DeletionProtection}}Yes{{else}}No{{end}}</td>
+                        </tr>
+                    </table>
+                </td>
+
+                <td class="tags" style="text-align: left;">
+                    {{range $tag := $rdbms.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'RDBMS', '{{$rdbms.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$rdbms.IId.NameId}}')">+</button>
+                    </div>
+                </td>
+
+                <td class="misc misc-cell">
+                    <div class="misc-content">{{range $kv := $rdbms.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}</div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="checkbox-cell center-align">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$rdbms.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .RDBMSs}}
+            <tr>
+                <td colspan="11" class="center-align">No RDBMSs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+
+        <!-- DB Detail Panel (like S3 Object Panel) -->
+        <div id="db-panel" style="display:none; border-top: 2px solid #ccc; margin-top: 20px; padding-top: 20px;">
+            <div class="db-panel-header">
+                <h2 id="db-panel-title"></h2>
+            </div>
+
+            <!-- Connection Section -->
+            <div class="db-connect-section">
+                <label>Password:</label>
+                <input type="password" id="dbPassword" placeholder="Master user password" style="width: 200px;">
+                <button onclick="connectToDB()">Connect</button>
+                <button onclick="disconnectDB()">Disconnect</button>
+                <span id="dbConnectStatus" class="db-connect-status"></span>
+            </div>
+
+            <!-- Database List Panel -->
+            <div id="db-database-panel" style="display:none;">
+                <div class="db-breadcrumb" id="db-database-breadcrumb"></div>
+                <div class="db-table-actions">
+                    <button class="add-button" onclick="showCreateDatabaseOverlay()">+ Database</button>
+                    <span style="font-size: 12px; color: #666;" id="db-database-count"></span>
+                </div>
+                <table id="db-database-list">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">#</th>
+                            <th>Database Name</th>
+                            <th style="width: 15%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="db-database-list-body">
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table List Panel -->
+            <div id="db-table-panel" style="display:none;">
+                <div class="db-breadcrumb" id="db-breadcrumb"></div>
+                <div class="db-table-actions">
+                    <button class="add-button" onclick="showCreateTableOverlay()">+ Table</button>
+                    <span style="font-size: 12px; color: #666;" id="db-table-count"></span>
+                </div>
+                <table id="db-table-list">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">#</th>
+                            <th>Table Name</th>
+                            <th style="width: 15%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="db-table-list-body">
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Row List Panel -->
+            <div id="db-row-panel" style="display:none; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px;">
+                <div class="db-breadcrumb" id="db-row-breadcrumb"></div>
+                <div class="db-row-actions">
+                    <button class="add-button" onclick="showInsertRowOverlay()">+ Row</button>
+                    <span style="font-size: 12px; color: #666;" id="db-row-count"></span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="db-row-table">
+                        <thead id="db-row-table-head">
+                        </thead>
+                        <tbody id="db-row-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Overlay: Create Database -->
+    <div id="createDatabaseOverlay" class="overlay">
+        <div class="overlay-content" style="width: 400px;">
+            <button type="button" class="overlay-close-btn" onclick="hideCreateDatabaseOverlay()">X</button>
+            <h2>Create Database</h2>
+            <form id="createDatabaseForm" onsubmit="event.preventDefault(); createDatabase();">
+                <div class="form-group">
+                    <label for="newDatabaseName">Database Name:</label>
+                    <input type="text" id="newDatabaseName" required placeholder="e.g., mydb" style="width: 65%;" pattern="[a-zA-Z_][a-zA-Z0-9_]*" title="Letters, numbers, underscores only. Must start with a letter or underscore.">
+                </div>
+                <div class="form-group" style="display: flex; justify-content: center; margin-top: 20px;">
+                    <button type="submit">Create Database</button>
+                    <button type="button" onclick="hideCreateDatabaseOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Overlay: Create Table -->
+    <div id="createTableOverlay" class="overlay">
+        <div class="overlay-content" style="width: 520px;">
+            <button type="button" class="overlay-close-btn" onclick="hideCreateTableOverlay()">X</button>
+            <h2>Create Table</h2>
+            <form id="createTableForm" onsubmit="event.preventDefault(); createTable();">
+                <div class="form-group">
+                    <label for="newTableName">Table Name:</label>
+                    <input type="text" id="newTableName" required placeholder="e.g., users" style="width: 65%;">
+                </div>
+                <fieldset class="info-group">
+                    <legend>Columns:</legend>
+                    <div id="createTableColumns">
+                        <div class="form-group create-table-col">
+                            <input type="text" placeholder="Column Name" class="col-name" style="width: 25%;" required>
+                            <select class="col-type" style="width: 25%;">
+                                <option value="INT">INT</option>
+                                <option value="BIGINT">BIGINT</option>
+                                <option value="VARCHAR(255)" selected>VARCHAR(255)</option>
+                                <option value="TEXT">TEXT</option>
+                                <option value="BOOLEAN">BOOLEAN</option>
+                                <option value="DATE">DATE</option>
+                                <option value="DATETIME">DATETIME</option>
+                                <option value="TIMESTAMP">TIMESTAMP</option>
+                                <option value="FLOAT">FLOAT</option>
+                                <option value="DOUBLE">DOUBLE</option>
+                                <option value="DECIMAL(10,2)">DECIMAL(10,2)</option>
+                            </select>
+                            <label style="font-size: 11px;"><input type="checkbox" class="col-pk"> PK</label>
+                            <label style="font-size: 11px;"><input type="checkbox" class="col-notnull"> NOT NULL</label>
+                            <button type="button" onclick="this.parentElement.remove()">-</button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addColumnField()">+ Column</button>
+                </fieldset>
+                <div class="form-group" style="display: flex; justify-content: center; margin-top: 20px;">
+                    <button type="submit">Create Table</button>
+                    <button type="button" onclick="hideCreateTableOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Overlay: Insert Row -->
+    <div id="insertRowOverlay" class="overlay">
+        <div class="overlay-content" style="width: 520px;">
+            <button type="button" class="overlay-close-btn" onclick="hideInsertRowOverlay()">X</button>
+            <h2>Insert Row</h2>
+            <form id="insertRowForm" onsubmit="event.preventDefault(); insertRow();">
+                <div id="insertRowFields"></div>
+                <div class="form-group" style="display: flex; justify-content: center; margin-top: 20px;">
+                    <button type="submit">Insert</button>
+                    <button type="button" onclick="hideInsertRowOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Overlay: Add New RDBMS -->
+    <div id="overlay" class="overlay">
+        <div class="overlay-content" style="width: 520px;">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New RDBMS</h2>
+            <form id="addRDBMSForm" onsubmit="event.preventDefault(); postRDBMS();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+
+                <!-- RDBMS Basic Info -->
+                <fieldset class="info-group">
+                    <legend>Basic Info:</legend>
+                    <div class="form-group">
+                        <label for="rdbmsName">Name:</label>
+                        <input type="text" id="rdbmsName" name="rdbmsName" required style="width: 65%; color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label for="vpcName">VPC Name:</label>
+                        <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
+                    </div>
+                </fieldset>
+
+                <!-- DB Engine -->
+                <fieldset class="info-group">
+                    <legend>DB Engine:</legend>
+                    <div class="form-group">
+                        <label for="dbEngine">Engine:</label>
+                        <select id="dbEngine" name="dbEngine" required style="background-color: #E6E6FA; width: 65%;">
+                            <option value="mysql">mysql</option>
+                            <option value="mariadb">mariadb</option>
+                            <option value="postgresql">postgresql</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dbEngineVersion">Version:</label>
+                        <input type="text" id="dbEngineVersion" name="dbEngineVersion" required placeholder="e.g., 8.0" style="background-color: #F5F5DC; width: 65%;">
+                    </div>
+                </fieldset>
+
+                <!-- Instance Spec -->
+                <fieldset class="info-group">
+                    <legend>Instance Spec:</legend>
+                    <div class="form-group">
+                        <label for="dbInstanceSpec">Instance Spec:</label>
+                        <input type="text" id="dbInstanceSpec" name="dbInstanceSpec" required placeholder="e.g., db.t3.medium" style="width: 65%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="storageSize">Storage (GB):</label>
+                        <input type="number" id="storageSize" name="storageSize" required min="1" value="20" style="background-color: #F5F5DC; width: 65%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="storageType">Storage Type:</label>
+                        <input type="text" id="storageType" name="storageType" placeholder="e.g., gp2 (optional)" style="width: 65%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="port">Port:</label>
+                        <input type="text" id="port" name="port" placeholder="e.g., 3306 (optional)" style="width: 65%;">
+                    </div>
+                </fieldset>
+
+                <!-- Network -->
+                <fieldset class="info-group">
+                    <legend>Network:</legend>
+                    <div class="form-group">
+                        <label for="subnetNames">Subnet Names:</label>
+                        <input type="text" id="subnetNames" name="subnetNames" placeholder="comma-separated (optional)" style="width: 65%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="sgNames">SG Names:</label>
+                        <input type="text" id="sgNames" name="sgNames" placeholder="comma-separated (optional)" style="width: 65%;">
+                    </div>
+                </fieldset>
+
+                <!-- Authentication -->
+                <fieldset class="info-group">
+                    <legend>Authentication:</legend>
+                    <div class="form-group">
+                        <label for="masterUserName">Master User:</label>
+                        <input type="text" id="masterUserName" name="masterUserName" required placeholder="e.g., admin" style="width: 65%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="masterUserPassword">Password:</label>
+                        <input type="password" id="masterUserPassword" name="masterUserPassword" required placeholder="Master password" style="width: 65%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="databaseName">DB Name:</label>
+                        <input type="text" id="databaseName" name="databaseName" placeholder="Initial DB name (optional)" style="width: 65%;">
+                    </div>
+                </fieldset>
+
+                <!-- Advanced Options -->
+                <fieldset class="info-group">
+                    <legend>Advanced Options:</legend>
+                    <div class="form-group">
+                        <label for="highAvailability">HA:</label>
+                        <select id="highAvailability" name="highAvailability" style="background-color: #E6E6FA; width: 65%;">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="publicAccess">Public Access:</label>
+                        <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="encryption">Encryption:</label>
+                        <select id="encryption" name="encryption" style="background-color: #E6E6FA; width: 65%;">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deletionProtection">Del. Protection:</label>
+                        <select id="deletionProtection" name="deletionProtection" style="background-color: #E6E6FA; width: 65%;">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                    <div class="form-group-tags">
+                        <label for="backupRetentionDays">Backup Days:</label>
+                        <input type="number" id="backupRetentionDays" name="backupRetentionDays" value="0" min="0" style="width: 43px;">
+
+                        <label for="backupTime">Backup Time:</label>
+                        <input type="text" id="backupTime" name="backupTime" placeholder="HH:MM" style="width: 43px;">
+                    </div>
+                </fieldset>
+
+                <!-- Tags -->
+                <div class="form-group">
+                    <label for="rdbms-tag-container">Tags:</label>
+                    <div id="rdbms-tag-container"></div>
+                    <button type="button" onclick="addRDBMSTagField()">+</button>
+                </div>
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add RDBMS</button>
+                    <button type="button" onclick="hideOverlay('overlay')" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+
+    <!-- Add Tag Overlay -->
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content overlay-content"></div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="closeErrorModal()">X</button>
+            <h2 id="errorTitle">Error</h2>
+            <p id="errorMessage"></p>
+            <button onclick="closeErrorModal()">Close</button>
+        </div>
+    </div>
+
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">&#x1F4CB;</button>
+        </div>
+    </div>
+
+</body>
+
+<script>
+    // Basic Auth credentials from server
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    // Helper function to create fetch options with Basic Auth if credentials are set
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+
+        return fetchOptions;
+    }
+
+    // Override fetch to automatically include Basic Auth
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    function searchKeyword() {
+        let input = document.getElementById('searchInput');
+        let filter = input.value.toUpperCase().trim();
+
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        let table = document.getElementById('rdbms-table');
+        let tr = table.getElementsByTagName('tr');
+
+        for (let i = 1; i < tr.length; i++) {
+            let tds = tr[i].getElementsByTagName('td');
+            let rowVisible = false;
+
+            for (let j = 0; j < tds.length; j++) {
+                let td = tds[j];
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        td.classList.add('highlight');
+                        rowVisible = true;
+                    } else {
+                        td.classList.remove('highlight');
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        let input = document.getElementById('searchInput');
+        input.value = '';
+
+        let table = document.getElementById('rdbms-table');
+        let tr = table.getElementsByTagName('tr');
+
+        for (let i = 1; i < tr.length; i++) {
+            tr[i].style.display = '';
+            let tds = tr[i].getElementsByTagName('td');
+            for (let j = 0; j < tds.length; j++) {
+                tds[j].classList.remove('highlight');
+            }
+        }
+    }
+
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+
+        const startTime = Date.now();
+        const timerInterval = 500;
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId);
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
+    function showProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBarContainer.style.display = 'block';
+
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 100);
+    }
+
+    function hideProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = '';
+        }, 500);
+    }
+
+    function deleteSelectedRDBMSs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select RDBMSs to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected RDBMSs?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const rdbmsName = checkbox.value;
+            const data = {
+                ConnectionName: connConfig
+            };
+
+            return fetchWithProgress(`/spider/rdbms/${encodeURIComponent(rdbmsName)}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(deletePromises)
+            .then(() => location.reload())
+            .catch(error => {
+                alert("Error deleting RDBMSs: " + error.message);
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function validateForm() {
+        const rdbmsName = document.getElementById('rdbmsName').value.trim();
+        const vpcName = document.getElementById('vpcName').value.trim();
+        const dbEngine = document.getElementById('dbEngine').value.trim();
+        const dbEngineVersion = document.getElementById('dbEngineVersion').value.trim();
+        const dbInstanceSpec = document.getElementById('dbInstanceSpec').value.trim();
+        const storageSize = document.getElementById('storageSize').value.trim();
+        const masterUserName = document.getElementById('masterUserName').value.trim();
+        const masterUserPassword = document.getElementById('masterUserPassword').value.trim();
+
+        if (!rdbmsName || !vpcName || !dbEngine || !dbEngineVersion || !dbInstanceSpec || !storageSize || !masterUserName || !masterUserPassword) {
+            alert("Please fill in all required fields.");
+            return false;
+        }
+
+        return true;
+    }
+
+    function postRDBMS() {
+        if (!validateForm()) {
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+        const rdbmsName = String(document.getElementById('rdbmsName').value);
+        const vpcName = document.getElementById('vpcName').value;
+        const dbEngine = document.getElementById('dbEngine').value;
+        const dbEngineVersion = document.getElementById('dbEngineVersion').value;
+        const dbInstanceSpec = document.getElementById('dbInstanceSpec').value;
+        const storageSize = document.getElementById('storageSize').value;
+        const storageType = document.getElementById('storageType').value.trim();
+        const port = document.getElementById('port').value.trim();
+
+        const subnetNamesRaw = document.getElementById('subnetNames').value.trim();
+        const subnetNames = subnetNamesRaw ? subnetNamesRaw.split(',').map(s => s.trim()).filter(s => s) : [];
+
+        const sgNamesRaw = document.getElementById('sgNames').value.trim();
+        const sgNames = sgNamesRaw ? sgNamesRaw.split(',').map(s => s.trim()).filter(s => s) : [];
+
+        const masterUserName = document.getElementById('masterUserName').value;
+        const masterUserPassword = document.getElementById('masterUserPassword').value;
+        const databaseName = document.getElementById('databaseName').value.trim();
+
+        const highAvailability = document.getElementById('highAvailability').value === 'true';
+        const publicAccess = document.getElementById('publicAccess').value === 'true';
+        const encryption = document.getElementById('encryption').value === 'true';
+        const deletionProtection = document.getElementById('deletionProtection').value === 'true';
+        const backupRetentionDays = parseInt(document.getElementById('backupRetentionDays').value) || 0;
+        const backupTime = document.getElementById('backupTime').value.trim();
+
+        const tags = Array.from(document.querySelectorAll('.rdbms-tag-input')).map(tagInput => ({
+            Key: tagInput.querySelector('.rdbms-tag-key').value,
+            Value: tagInput.querySelector('.rdbms-tag-value').value
+        }));
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: rdbmsName,
+                VPCName: vpcName,
+                DBEngine: dbEngine,
+                DBEngineVersion: dbEngineVersion,
+                DBInstanceSpec: dbInstanceSpec,
+                StorageSize: storageSize,
+                StorageType: storageType || undefined,
+                Port: port || undefined,
+                SubnetNames: subnetNames.length > 0 ? subnetNames : undefined,
+                SecurityGroupNames: sgNames.length > 0 ? sgNames : undefined,
+                MasterUserName: masterUserName,
+                MasterUserPassword: masterUserPassword,
+                DatabaseName: databaseName || undefined,
+                HighAvailability: highAvailability,
+                PublicAccess: publicAccess,
+                Encryption: encryption,
+                DeletionProtection: deletionProtection,
+                BackupRetentionDays: backupRetentionDays,
+                BackupTime: backupTime || undefined,
+                TagList: tags.length > 0 ? tags : undefined
+            }
+        };
+
+        fetchWithProgress('/spider/rdbms', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            location.reload();
+        }).catch(error => {
+            showErrorModal("RDBMS Creation Error", `Error creating RDBMS: ${error.message}`);
+        });
+    }
+
+    function showErrorModal(title, message) {
+        document.getElementById('errorTitle').textContent = title;
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorModal').style.display = 'flex';
+        document.addEventListener('keydown', handleEscErrorModal);
+    }
+
+    function handleEscErrorModal(event) {
+        if (event.key === 'Escape') {
+            closeErrorModal();
+        }
+    }
+
+    function closeErrorModal() {
+        document.getElementById('errorModal').style.display = 'none';
+        document.removeEventListener('keydown', handleEscErrorModal);
+    }
+
+    function showOverlay() {
+        loadVPCs().then(() => {
+            const region = '{{.RegionName}}';
+            const rdbmsNameInput = document.getElementById('rdbmsName');
+            rdbmsNameInput.value = `${region}-rdbms-${Math.random().toString(36).substring(2, 5)}`;
+
+            document.getElementById('overlay').style.display = 'flex';
+            document.addEventListener('keydown', handleEsc);
+        }).catch(error => {
+            console.error('Error loading VPCs:', error);
+        });
+    }
+
+    function clearFormFields() {
+        const region = '{{.RegionName}}';
+        document.getElementById('rdbmsName').value = `${region}-rdbms-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('dbEngine').value = 'mysql';
+        document.getElementById('dbEngineVersion').value = '';
+        document.getElementById('dbInstanceSpec').value = '';
+        document.getElementById('storageSize').value = '20';
+        document.getElementById('storageType').value = '';
+        document.getElementById('port').value = '';
+        document.getElementById('subnetNames').value = '';
+        document.getElementById('sgNames').value = '';
+        document.getElementById('masterUserName').value = '';
+        document.getElementById('masterUserPassword').value = '';
+        document.getElementById('databaseName').value = '';
+        document.getElementById('highAvailability').value = 'false';
+        document.getElementById('publicAccess').value = 'false';
+        document.getElementById('encryption').value = 'false';
+        document.getElementById('deletionProtection').value = 'false';
+        document.getElementById('backupRetentionDays').value = '0';
+        document.getElementById('backupTime').value = '';
+        document.querySelectorAll('.rdbms-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function hideOverlay(pos) {
+        const overlayId = pos || 'overlay';
+        document.getElementById(overlayId).style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function loadVPCs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const url = `/spider/vpc?ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        return fetchWithProgress(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const vpcSelect = document.getElementById('vpcName');
+            vpcSelect.innerHTML = '';
+            if (data.vpc && data.vpc.length > 0) {
+                data.vpc.forEach((vpc, index) => {
+                    const option = document.createElement('option');
+                    option.value = vpc.IId.NameId;
+                    option.text = `${vpc.IId.NameId} (${vpc.IPv4_CIDR})`;
+                    vpcSelect.appendChild(option);
+                    if (index === 0) {
+                        vpcSelect.value = vpc.IId.NameId;
+                    }
+                });
+            } else {
+                const option = document.createElement('option');
+                option.value = "";
+                option.text = "No VPCs. Create one.";
+                vpcSelect.appendChild(option);
+                vpcSelect.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading VPCs:', error);
+            throw error;
+        });
+    }
+
+    function addRDBMSTagField() {
+        const tagContainer = document.getElementById('rdbms-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'rdbms-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="rdbms-tag-key" placeholder="Key" required>
+            <input type="text" class="rdbms-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function showMiscOverlay(button) {
+        const miscContent = button.previousElementSibling.innerHTML;
+        const overlayDarkBackground = document.createElement('div');
+        overlayDarkBackground.className = 'overlay-dark-background';
+        document.body.appendChild(overlayDarkBackground);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'misc-overlay';
+        overlay.innerHTML = `
+            <button class="overlay-close-btn" onclick="this.parentElement.remove(); document.querySelector('.overlay-dark-background').remove();">X</button>
+            <div class="misc-overlay-content" tabindex="0">${miscContent}</div>
+        `;
+
+        document.body.appendChild(overlay);
+        overlayDarkBackground.style.display = 'block';
+        overlay.style.display = 'block';
+
+        const overlayContent = overlay.querySelector('.misc-overlay-content');
+        overlayContent.focus();
+
+        function closeMiscOverlay() {
+            if (overlay) overlay.remove();
+            if (overlayDarkBackground) overlayDarkBackground.remove();
+            document.removeEventListener('keydown', handleEscKey);
+            overlayDarkBackground.removeEventListener('click', handleClickOutside);
+        }
+
+        function handleEscKey(event) {
+            if (event.key === 'Escape') {
+                closeMiscOverlay();
+            }
+        }
+
+        function handleClickOutside(event) {
+            if (event.target === overlayDarkBackground) {
+                closeMiscOverlay();
+            }
+        }
+
+        document.addEventListener('keydown', handleEscKey);
+        overlayDarkBackground.addEventListener('click', handleClickOutside);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const miscCells = document.querySelectorAll('.misc-cell');
+
+        miscCells.forEach(cell => {
+            const content = cell.querySelector('.misc-content');
+            const button = cell.querySelector('.more-btn');
+
+            if (content.scrollHeight > content.clientHeight) {
+                button.style.display = 'inline-block';
+            } else {
+                button.style.display = 'none';
+            }
+        });
+    });
+
+    function showTagOverlay(event, tag, resourceType, resourceName) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = document.querySelector('.tag-overlay-content');
+        tagOverlayContent.innerHTML = `
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
+            <p>${tag}</p>
+            <div class="button-group">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+        tagOverlay.style.display = 'block';
+        tagOverlay.style.top = `${event.clientY}px`;
+        tagOverlay.style.left = `${event.clientX}px`;
+        document.addEventListener('click', handleClickOutsideOverlay);
+        document.addEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function deleteTag(tag, resourceType, resourceName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const [tagKey, tagValue] = tag.split(': ');
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetchWithProgress(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showErrorModal("Tag Deletion Error", "Error deleting tag from " + resourceName + ": " + error.message);
+        });
+    }
+
+    function closeTagOverlay() {
+        const tagOverlay = document.getElementById('tag-overlay');
+        tagOverlay.style.display = 'none';
+        document.removeEventListener('click', handleClickOutsideOverlay);
+        document.removeEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function handleEscTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeTagOverlay();
+        }
+    }
+
+    function handleClickOutsideOverlay(event) {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (!tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    }
+
+    function showAddTagOverlay(rdbmsName) {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <button type="button" class="overlay-close-btn" onclick="closeAddTagOverlay()">X</button>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagKey">Tag Key:</label>
+                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
+            </div>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagValue">Tag Value:</label>
+                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
+            </div>
+            <div class="tag-overlay-button-group">
+                <button onclick="addTag('${rdbmsName}')">Add</button>
+                <button onclick="closeAddTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function closeAddTagOverlay() {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function handleEscAddTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddTagOverlay();
+        }
+    }
+
+    function addTag(rdbmsName) {
+        const tagKey = document.getElementById('tagOverlayTagKey').value;
+        const tagValue = document.getElementById('tagOverlayTagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+        if (!tagKey) {
+            alert("Please enter Tag Key.");
+            return;
+        }
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'RDBMS',
+                ResourceName: rdbmsName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+        fetchWithProgress('/spider/tag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeAddTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showErrorModal("Tag Addition Error", "Error adding tag to RDBMS '" + rdbmsName + "': " + error.message);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const timeElements = document.querySelectorAll('.rdbms-created-time');
+
+        timeElements.forEach(function(element) {
+            const originalTime = element.getAttribute('data-time');
+            if (originalTime) {
+                const formattedTime = formatTime(originalTime);
+                element.innerHTML = '&nbsp;• ' + formattedTime;
+            }
+        });
+
+        function formatTime(originalTime) {
+            const parts = originalTime.split(" ");
+            if (parts.length >= 4) {
+                const date = parts[0];
+                const time = parts[1].slice(0, 5);
+                const timezone = parts[3];
+                return `${date} ${time} ${timezone}`;
+            }
+            return originalTime;
+        }
+    });
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        fullSystemIdElement.textContent = systemId;
+
+        overlay.style.display = 'block';
+        document.addEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function closeSystemIdOverlay() {
+        const overlay = document.getElementById('system-id-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function handleEscSystemIdOverlay(event) {
+        if (event.key === "Escape") {
+            closeSystemIdOverlay();
+        }
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+
+        selection.removeAllRanges();
+    }
+
+    // ==================== DB Detail Panel ====================
+    let currentRDBMS = null;
+    let currentDBPassword = null;
+    let currentDBName = null;
+    let currentTable = null;
+    let currentTableColumns = [];
+
+    function showDBPanel(rdbmsName) {
+        currentRDBMS = rdbmsName;
+        currentDBPassword = null;
+        currentDBName = null;
+        currentTable = null;
+        currentTableColumns = [];
+
+        // Clear previous selection
+        document.querySelectorAll('tr.selected-rdbms').forEach(el => el.classList.remove('selected-rdbms'));
+
+        // Highlight selected row
+        const table = document.getElementById('rdbms-table');
+        const rows = table.getElementsByTagName('tr');
+        for (let i = 1; i < rows.length; i++) {
+            const nameCell = rows[i].querySelector('.rdbms-name');
+            if (nameCell && nameCell.textContent.trim().startsWith(rdbmsName)) {
+                rows[i].classList.add('selected-rdbms');
+                break;
+            }
+        }
+
+        // Show panel
+        const panel = document.getElementById('db-panel');
+        panel.style.display = 'block';
+
+        // Update title
+        document.getElementById('db-panel-title').innerHTML =
+            '<span style="background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 4px;">🗄️ ' + rdbmsName + '</span>';
+
+        // Reset state
+        document.getElementById('dbPassword').value = '';
+        document.getElementById('dbConnectStatus').textContent = '';
+        document.getElementById('dbConnectStatus').className = 'db-connect-status';
+        document.getElementById('db-database-panel').style.display = 'none';
+        document.getElementById('db-table-panel').style.display = 'none';
+        document.getElementById('db-row-panel').style.display = 'none';
+
+        // Scroll to panel
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Auto-focus password input
+        setTimeout(function() { document.getElementById('dbPassword').focus(); }, 100);
+    }
+
+    function hideDBPanel() {
+        document.getElementById('db-panel').style.display = 'none';
+        document.querySelectorAll('tr.selected-rdbms').forEach(el => el.classList.remove('selected-rdbms'));
+        currentRDBMS = null;
+        currentDBPassword = null;
+        currentTable = null;
+    }
+
+    function connectToDB() {
+        const password = document.getElementById('dbPassword').value;
+        if (!password) {
+            alert('Please enter the database password.');
+            return;
+        }
+        if (!currentRDBMS) {
+            alert('No RDBMS selected.');
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+        const statusEl = document.getElementById('dbConnectStatus');
+        statusEl.textContent = 'Connecting...';
+        statusEl.className = 'db-connect-status';
+
+        showLoading();
+        // Connect without specifying a database to test connectivity
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/connect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, Password: password, DatabaseName: '' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                statusEl.textContent = '✗ ' + data.error;
+                statusEl.className = 'db-connect-status error';
+                return;
+            }
+            currentDBPassword = password;
+            currentDBName = null;
+            statusEl.textContent = '✓ Connected — Select a database below';
+            statusEl.className = 'db-connect-status connected';
+
+            // Show database list panel
+            document.getElementById('db-database-panel').style.display = 'block';
+            document.getElementById('db-table-panel').style.display = 'none';
+            document.getElementById('db-row-panel').style.display = 'none';
+            loadDatabases();
+        })
+        .catch(error => {
+            hideLoading();
+            statusEl.textContent = '✗ ' + error.message;
+            statusEl.className = 'db-connect-status error';
+        });
+    }
+
+    function disconnectDB() {
+        currentDBPassword = null;
+        currentDBName = null;
+        currentTable = null;
+        document.getElementById('dbConnectStatus').textContent = 'Disconnected';
+        document.getElementById('dbConnectStatus').className = 'db-connect-status';
+        document.getElementById('db-database-panel').style.display = 'none';
+        document.getElementById('db-table-panel').style.display = 'none';
+        document.getElementById('db-row-panel').style.display = 'none';
+    }
+
+    function loadDatabases() {
+        const connConfig = document.getElementById('connConfig').value;
+
+        document.getElementById('db-database-breadcrumb').innerHTML =
+            `<span style="background: #e3f2fd; color: #1976d2; padding: 3px 8px; border-radius: 4px; font-weight: bold;">🗄️ ${escapeHtml(currentRDBMS)}</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="font-weight: bold;">Databases</span>`;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: '' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Database List Error', data.error);
+                return;
+            }
+
+            const databases = data.databases || [];
+            document.getElementById('db-database-count').textContent = `${databases.length} database(s)`;
+            const body = document.getElementById('db-database-list-body');
+            body.innerHTML = '';
+
+            if (databases.length === 0) {
+                body.innerHTML = '<tr><td colspan="3" style="text-align: center;">No databases found.</td></tr>';
+                return;
+            }
+
+            databases.forEach((db, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td style="cursor: pointer; color: #0066cc; font-weight: bold;" onclick="selectDatabase('${escapeHtml(db)}')">${escapeHtml(db)}</td>
+                    <td style="text-align: center;">
+                        <button onclick="dropDatabase('${escapeHtml(db)}')" style="color: red; font-size: 11px;">Drop</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Database List Error', error.message);
+        });
+    }
+
+    function selectDatabase(dbName) {
+        currentDBName = dbName;
+        currentTable = null;
+
+        // Update connection status
+        document.getElementById('dbConnectStatus').textContent = '✓ Connected (' + dbName + ')';
+
+        // Show table panel, hide row panel
+        document.getElementById('db-table-panel').style.display = 'block';
+        document.getElementById('db-row-panel').style.display = 'none';
+        loadTables();
+    }
+
+    function backToDatabases() {
+        currentDBName = null;
+        currentTable = null;
+        document.getElementById('dbConnectStatus').textContent = '✓ Connected — Select a database below';
+        document.getElementById('db-table-panel').style.display = 'none';
+        document.getElementById('db-row-panel').style.display = 'none';
+        loadDatabases();
+    }
+
+    // --- Create / Drop Database ---
+    function showCreateDatabaseOverlay() {
+        document.getElementById('newDatabaseName').value = '';
+        document.getElementById('createDatabaseOverlay').style.display = 'flex';
+        setTimeout(function() { document.getElementById('newDatabaseName').focus(); }, 100);
+    }
+
+    function hideCreateDatabaseOverlay() {
+        document.getElementById('createDatabaseOverlay').style.display = 'none';
+    }
+
+    function createDatabase() {
+        const dbName = document.getElementById('newDatabaseName').value.trim();
+        if (!dbName) {
+            alert('Please enter a database name.');
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: dbName })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Create Database Error', data.error);
+                return;
+            }
+            hideCreateDatabaseOverlay();
+            loadDatabases();
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Create Database Error', error.message);
+        });
+    }
+
+    function dropDatabase(dbName) {
+        if (!confirm(`Are you sure you want to DROP database "${dbName}"? This will delete all tables and data. This cannot be undone.`)) {
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases/${encodeURIComponent(dbName)}/drop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Drop Database Error', data.error);
+                return;
+            }
+            // If the dropped database was the current one, reset to database list
+            if (currentDBName === dbName) {
+                currentDBName = null;
+                currentTable = null;
+                document.getElementById('dbConnectStatus').textContent = '✓ Connected — Select a database below';
+                document.getElementById('db-table-panel').style.display = 'none';
+                document.getElementById('db-row-panel').style.display = 'none';
+            }
+            loadDatabases();
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Drop Database Error', error.message);
+        });
+    }
+
+    function loadTables() {
+        const connConfig = document.getElementById('connConfig').value;
+
+        updateBreadcrumb();
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/tables`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbRequestBody())
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Table List Error', data.error);
+                return;
+            }
+
+            const tables = data.tables || [];
+            document.getElementById('db-table-count').textContent = `${tables.length} table(s)`;
+            const body = document.getElementById('db-table-list-body');
+            body.innerHTML = '';
+
+            if (tables.length === 0) {
+                body.innerHTML = '<tr><td colspan="3" style="text-align: center;">No tables found.</td></tr>';
+                return;
+            }
+
+            tables.forEach((t, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td style="cursor: pointer; color: #0066cc; font-weight: bold;" onclick="selectTable('${escapeHtml(t)}')">${escapeHtml(t)}</td>
+                    <td style="text-align: center;">
+                        <button onclick="dropTable('${escapeHtml(t)}')" style="color: red; font-size: 11px;">Drop</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Table List Error', error.message);
+        });
+    }
+
+    function selectTable(tableName) {
+        currentTable = tableName;
+        document.getElementById('db-row-panel').style.display = 'block';
+
+        updateRowBreadcrumb();
+        loadRows(tableName);
+    }
+
+    function loadRows(tableName) {
+        const connConfig = document.getElementById('connConfig').value;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/tables/${encodeURIComponent(tableName)}/rows`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbRequestBody())
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Row List Error', data.error);
+                return;
+            }
+
+            const columns = data.columns || [];
+            const rows = data.rows || [];
+            currentTableColumns = columns;
+
+            document.getElementById('db-row-count').textContent = `${data.count} row(s) (max 200)`;
+
+            // Build header
+            const thead = document.getElementById('db-row-table-head');
+            let headerHtml = '<tr><th style="width: 4%;">#</th>';
+            columns.forEach(col => {
+                headerHtml += `<th>${escapeHtml(col)}</th>`;
+            });
+            headerHtml += '<th style="width: 6%;">Actions</th></tr>';
+            thead.innerHTML = headerHtml;
+
+            // Build rows
+            const tbody = document.getElementById('db-row-table-body');
+            tbody.innerHTML = '';
+
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${columns.length + 2}" style="text-align: center;">No rows found.</td></tr>`;
+                return;
+            }
+
+            rows.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                let html = `<td style="text-align: center;">${idx + 1}</td>`;
+                columns.forEach(col => {
+                    const val = row[col];
+                    const display = val === null ? '<em style="color: #999;">NULL</em>' : escapeHtml(String(val));
+                    html += `<td>${display}</td>`;
+                });
+
+                // Build where clause from row data for delete
+                const whereData = {};
+                columns.forEach(col => {
+                    if (row[col] !== null) {
+                        whereData[col] = String(row[col]);
+                    }
+                });
+                const whereStr = btoa(JSON.stringify(whereData));
+
+                html += `<td style="text-align: center;"><button onclick="deleteRow('${whereStr}')" style="color: red; font-size: 11px;">Del</button></td>`;
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Row List Error', error.message);
+        });
+    }
+
+    function updateBreadcrumb() {
+        document.getElementById('db-breadcrumb').innerHTML =
+            `<span style="background: #e3f2fd; color: #1976d2; padding: 3px 8px; border-radius: 4px; font-weight: bold; cursor: pointer;" onclick="backToDatabases()">🗄️ ${escapeHtml(currentRDBMS)}</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="cursor: pointer; color: #0066cc; font-weight: bold;" onclick="backToDatabases()">Databases</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="font-weight: bold;">📁 ${escapeHtml(currentDBName)}</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="font-weight: bold;">Tables</span>`;
+    }
+
+    function updateRowBreadcrumb() {
+        document.getElementById('db-row-breadcrumb').innerHTML =
+            `<span style="background: #e3f2fd; color: #1976d2; padding: 3px 8px; border-radius: 4px; font-weight: bold; cursor: pointer;" onclick="backToDatabases()">🗄️ ${escapeHtml(currentRDBMS)}</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="cursor: pointer; color: #0066cc; font-weight: bold;" onclick="backToDatabases()">Databases</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="cursor: pointer; color: #0066cc; font-weight: bold;" onclick="backToTables()">📁 ${escapeHtml(currentDBName)}</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="cursor: pointer; color: #0066cc; font-weight: bold;" onclick="backToTables()">Tables</span>` +
+            `<span style="color: #666; margin: 0 5px;">/</span>` +
+            `<span style="font-weight: bold;">📋 ${escapeHtml(currentTable)}</span>`;
+    }
+
+    function backToTables() {
+        currentTable = null;
+        document.getElementById('db-row-panel').style.display = 'none';
+        loadTables();
+    }
+
+    // --- Create Table ---
+    function showCreateTableOverlay() {
+        document.getElementById('newTableName').value = '';
+        const colContainer = document.getElementById('createTableColumns');
+        colContainer.innerHTML = '';
+        addColumnField();
+        document.getElementById('createTableOverlay').style.display = 'flex';
+        setTimeout(function() { document.getElementById('newTableName').focus(); }, 100);
+    }
+
+    function hideCreateTableOverlay() {
+        document.getElementById('createTableOverlay').style.display = 'none';
+    }
+
+    function addColumnField() {
+        const container = document.getElementById('createTableColumns');
+        const div = document.createElement('div');
+        div.className = 'form-group create-table-col';
+        div.innerHTML = `
+            <input type="text" placeholder="Column Name" class="col-name" style="width: 25%;" required>
+            <select class="col-type" style="width: 25%;">
+                <option value="INT">INT</option>
+                <option value="BIGINT">BIGINT</option>
+                <option value="VARCHAR(255)" selected>VARCHAR(255)</option>
+                <option value="TEXT">TEXT</option>
+                <option value="BOOLEAN">BOOLEAN</option>
+                <option value="DATE">DATE</option>
+                <option value="DATETIME">DATETIME</option>
+                <option value="TIMESTAMP">TIMESTAMP</option>
+                <option value="FLOAT">FLOAT</option>
+                <option value="DOUBLE">DOUBLE</option>
+                <option value="DECIMAL(10,2)">DECIMAL(10,2)</option>
+            </select>
+            <label style="font-size: 11px;"><input type="checkbox" class="col-pk"> PK</label>
+            <label style="font-size: 11px;"><input type="checkbox" class="col-notnull"> NOT NULL</label>
+            <button type="button" onclick="this.parentElement.remove()">-</button>
+        `;
+        container.appendChild(div);
+    }
+
+    function createTable() {
+        const tableName = document.getElementById('newTableName').value.trim();
+        if (!tableName) {
+            alert('Please enter a table name.');
+            return;
+        }
+
+        const colDivs = document.querySelectorAll('.create-table-col');
+        const columns = [];
+        for (const div of colDivs) {
+            const name = div.querySelector('.col-name').value.trim();
+            const type = div.querySelector('.col-type').value;
+            const pk = div.querySelector('.col-pk').checked;
+            const notnull = div.querySelector('.col-notnull').checked;
+            if (!name) {
+                alert('Please fill in all column names.');
+                return;
+            }
+            columns.push({ Name: name, Type: type, PrimaryKey: pk, NotNull: notnull });
+        }
+
+        if (columns.length === 0) {
+            alert('At least one column is required.');
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/tables/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbRequestBody({ TableName: tableName, Columns: columns }))
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Create Table Error', data.error);
+                return;
+            }
+            hideCreateTableOverlay();
+            loadTables();
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Create Table Error', error.message);
+        });
+    }
+
+    function dropTable(tableName) {
+        if (!confirm(`Are you sure you want to DROP table "${tableName}"? This cannot be undone.`)) {
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/tables/${encodeURIComponent(tableName)}/drop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbRequestBody())
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Drop Table Error', data.error);
+                return;
+            }
+            // If the dropped table was the current one, hide row panel
+            if (currentTable === tableName) {
+                currentTable = null;
+                document.getElementById('db-row-panel').style.display = 'none';
+            }
+            loadTables();
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Drop Table Error', error.message);
+        });
+    }
+
+    // --- Insert/Delete Row ---
+    function showInsertRowOverlay() {
+        if (!currentTable || currentTableColumns.length === 0) {
+            // Need to describe table first to get columns
+            const connConfig = document.getElementById('connConfig').value;
+            fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/tables/${encodeURIComponent(currentTable)}/describe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dbRequestBody())
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showErrorModal('Describe Table Error', data.error);
+                    return;
+                }
+                buildInsertForm(data.columns || []);
+                document.getElementById('insertRowOverlay').style.display = 'flex';
+                setTimeout(function() { var f = document.querySelector('.insert-row-value'); if (f) f.focus(); }, 100);
+            })
+            .catch(error => {
+                showErrorModal('Describe Table Error', error.message);
+            });
+        } else {
+            // Use columns from the row data
+            buildInsertFormFromColumnNames(currentTableColumns);
+            document.getElementById('insertRowOverlay').style.display = 'flex';
+            setTimeout(function() { var f = document.querySelector('.insert-row-value'); if (f) f.focus(); }, 100);
+        }
+    }
+
+    function buildInsertForm(columns) {
+        const container = document.getElementById('insertRowFields');
+        container.innerHTML = `<p style="font-weight: bold; margin-bottom: 10px;">Table: ${escapeHtml(currentTable)}</p>`;
+        columns.forEach(col => {
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.innerHTML = `
+                <label title="${escapeHtml(col.Type)} ${col.Nullable === 'YES' ? '(nullable)' : '(NOT NULL)'} ${col.Key === 'PRI' ? '[PK]' : ''}">${escapeHtml(col.Name)}:</label>
+                <input type="text" class="insert-row-value" data-column="${escapeHtml(col.Name)}" placeholder="${escapeHtml(col.Type)}" style="width: 65%;">
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function buildInsertFormFromColumnNames(columns) {
+        const container = document.getElementById('insertRowFields');
+        container.innerHTML = `<p style="font-weight: bold; margin-bottom: 10px;">Table: ${escapeHtml(currentTable)}</p>`;
+        columns.forEach(col => {
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.innerHTML = `
+                <label>${escapeHtml(col)}:</label>
+                <input type="text" class="insert-row-value" data-column="${escapeHtml(col)}" style="width: 65%;">
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function hideInsertRowOverlay() {
+        document.getElementById('insertRowOverlay').style.display = 'none';
+    }
+
+    function insertRow() {
+        const inputs = document.querySelectorAll('.insert-row-value');
+        const values = {};
+        let hasValue = false;
+        inputs.forEach(input => {
+            const col = input.getAttribute('data-column');
+            const val = input.value;
+            if (val !== '') {
+                values[col] = val;
+                hasValue = true;
+            }
+        });
+
+        if (!hasValue) {
+            alert('Please enter at least one value.');
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/tables/${encodeURIComponent(currentTable)}/rows/insert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbRequestBody({ Values: values }))
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Insert Row Error', data.error);
+                return;
+            }
+            hideInsertRowOverlay();
+            loadRows(currentTable);
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Insert Row Error', error.message);
+        });
+    }
+
+    function deleteRow(whereBase64) {
+        if (!confirm('Are you sure you want to delete this row?')) {
+            return;
+        }
+
+        const whereData = JSON.parse(atob(whereBase64));
+        const connConfig = document.getElementById('connConfig').value;
+
+        showLoading();
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/tables/${encodeURIComponent(currentTable)}/rows/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbRequestBody({ Where: whereData }))
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.error) {
+                showErrorModal('Delete Row Error', data.error);
+                return;
+            }
+            loadRows(currentTable);
+        })
+        .catch(error => {
+            hideLoading();
+            showErrorModal('Delete Row Error', error.message);
+        });
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // Helper to build common request body with connection info
+    function dbRequestBody(extra = {}) {
+        const connConfig = document.getElementById('connConfig').value;
+        return Object.assign({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: currentDBName || '' }, extra);
+    }
+
+    // --- Loading Spinner ---
+    function showLoading() {
+        document.getElementById('loadingOverlay').classList.add('active');
+    }
+    function hideLoading() {
+        document.getElementById('loadingOverlay').classList.remove('active');
+    }
+
+    // --- Auto-select first RDBMS on page load ---
+    document.addEventListener('DOMContentLoaded', function() {
+        var firstRow = document.querySelector('#rdbms-table tr[id^="rdbms-row-"]');
+        if (firstRow) {
+            var nameCell = firstRow.querySelector('.rdbms-name');
+            if (nameCell) {
+                var rdbmsName = nameCell.textContent.trim().split('\n')[0].trim();
+                if (rdbmsName) {
+                    showDBPanel(rdbmsName);
+                }
+            }
+        }
+    });
+
+    // --- Enter key on password triggers Connect ---
+    document.addEventListener('DOMContentLoaded', function() {
+        var pwField = document.getElementById('dbPassword');
+        if (pwField) {
+            pwField.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    connectToDB();
+                }
+            });
+        }
+    });
+
+</script>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <span class="loading-text">Loading...</span>
+</div>
+
+</html>

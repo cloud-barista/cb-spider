@@ -1,0 +1,11 @@
+{{template "base.html" .}}
+
+{{define "title"}}Error{{end}}
+
+{{define "content"}}
+<div class="empty-state">
+  <div class="empty-icon">⚠️</div>
+  <p>{{.Message}}</p>
+  <a href="/" class="btn btn-primary">Back to Dashboard</a>
+</div>
+{{end}}

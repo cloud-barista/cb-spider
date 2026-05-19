@@ -1778,6 +1778,12 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 	for _, policyID := range policyIDs {
 		result := rules.Delete(vmHandler.NetworkClient, policyID)
 		if result.Err != nil {
+			errMsg := result.Err.Error()
+			// 404 means the rule is already gone — treat as success (idempotent delete).
+			if strings.Contains(errMsg, "404") || strings.Contains(errMsg, "Resource not found") || strings.Contains(errMsg, "Not Found") {
+				cblogger.Warnf("Firewall rule (PolicyID: %s) already deleted (404), skipping", policyID)
+				continue
+			}
 			newErr := fmt.Errorf("Failed to delete firewall rule (PolicyID: %s): %v", policyID, result.Err)
 			cblogger.Error(newErr.Error())
 			return false, newErr

@@ -1154,6 +1154,174 @@ definitions:
     - Unit
     - Used
     type: object
+  spider.RDBMSInfo:
+    description: Relational Database (RDBMS) Information
+    properties:
+      BackupRetentionDays:
+        description: Backup
+        example: 7
+        type: integer
+      BackupTime:
+        description: Preferred backup time (HH:MM in UTC)
+        example: "03:00"
+        type: string
+      CreatedTime:
+        type: string
+      DBEngine:
+        description: DB Engine
+        example: mysql
+        type: string
+      DBEngineVersion:
+        description: e.g., "8.0", "10.6", "15"
+        example: "8.0"
+        type: string
+      DBInstanceSpec:
+        description: Instance Spec
+        example: db.t3.medium
+        type: string
+      DBInstanceType:
+        description: Primary | ReadReplica (for response)
+        example: Primary
+        type: string
+      DatabaseName:
+        description: Database
+        example: mydb
+        type: string
+      DeletionProtection:
+        default: false
+        description: Protection
+        type: boolean
+      Encryption:
+        default: false
+        description: Encryption
+        type: boolean
+      Endpoint:
+        description: Connection endpoint (for response)
+        type: string
+      HighAvailability:
+        default: false
+        description: High Availability & Replication
+        type: boolean
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MasterUserName:
+        description: Authentication
+        example: admin
+        type: string
+      MasterUserPassword:
+        description: Master user password (for Create request only)
+        type: string
+      Port:
+        description: DB listen port
+        example: "3306"
+        type: string
+      PublicAccess:
+        default: false
+        description: Access
+        type: boolean
+      ReplicationType:
+        description: async | semi-sync | sync (for response)
+        example: async
+        type: string
+      SecurityGroupIIDs:
+        description: Associated Security Groups
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.RDBMSStatus'
+        description: Status (for response)
+        example: Available
+      StorageSize:
+        description: in GB
+        example: "100"
+        type: string
+      StorageType:
+        description: Storage
+        example: gp2
+        type: string
+      SubnetIIDs:
+        description: Network
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      VpcIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: Owner VPC IID
+    required:
+    - DBEngine
+    - DBEngineVersion
+    - DBInstanceSpec
+    - IId
+    - MasterUserName
+    - Status
+    - StorageSize
+    - VpcIID
+    type: object
+  spider.RDBMSMetaInfo:
+    description: RDBMS Meta Information for CSP-specific capabilities
+    properties:
+      StorageSizeRange:
+        allOf:
+        - $ref: '#/definitions/spider.StorageSizeRange'
+        description: Min/Max storage size in GB
+      StorageTypeOptions:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: 'Available storage types per engine. e.g., {"mysql": ["gp2",
+          "gp3", "io1"]}'
+        type: object
+      SupportedEngines:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: filled by the cloud driver
+        type: object
+      SupportsBackup:
+        description: true if managed automatic backup is supported
+        type: boolean
+      SupportsDeletionProtection:
+        description: true if deletion protection is available
+        type: boolean
+      SupportsEncryption:
+        description: true if storage encryption is available
+        type: boolean
+      SupportsHighAvailability:
+        description: true if HA/Multi-AZ can be configured
+        type: boolean
+      SupportsPublicAccess:
+        description: true if public access can be toggled
+        type: boolean
+    type: object
+  spider.RDBMSStatus:
+    enum:
+    - Creating
+    - Available
+    - Deleting
+    - Stopped
+    - Error
+    type: string
+    x-enum-varnames:
+    - RDBMSCreating
+    - RDBMSAvailable
+    - RDBMSDeleting
+    - RDBMSStopped
+    - RDBMSError
   spider.RSType:
     enum:
     - all
@@ -1163,12 +1331,14 @@ definitions:
     - sg
     - keypair
     - vm
+    - vmmonitoring
     - nlb
     - disk
     - myimage
     - cluster
     - nodegroup
     - filesystem
+    - rdbms
     type: string
     x-enum-varnames:
     - ALL
@@ -1178,12 +1348,14 @@ definitions:
     - SG
     - KEY
     - VM
+    - VMMONITORING
     - NLB
     - DISK
     - MYIMAGE
     - CLUSTER
     - NODEGROUP
     - FILESYSTEM
+    - RDBMS
   spider.RegionInfo:
     properties:
       Region:
@@ -1273,6 +1445,17 @@ definitions:
     - FromPort
     - IPProtocol
     - ToPort
+    type: object
+  spider.StorageSizeRange:
+    properties:
+      Max:
+        description: Maximum storage in GB
+        example: 65536
+        type: integer
+      Min:
+        description: Minimum storage in GB
+        example: 20
+        type: integer
     type: object
   spider.SubnetInfo:
     properties:
@@ -1888,18 +2071,53 @@ definitions:
     required:
     - Result
     type: object
-  spider.Bucket:
+  spider.BucketIID:
+    properties:
+      NameId:
+        example: my-bucket
+        type: string
+      SystemId:
+        example: my-bucket
+        type: string
+    required:
+    - NameId
+    - SystemId
+    type: object
+  spider.BucketJSON:
     properties:
       CreationDate:
+        example: "2025-09-04T16:15:25Z"
         type: string
-      Name:
-        type: string
+      IId:
+        $ref: '#/definitions/spider.BucketIID'
+    required:
+    - CreationDate
+    - IId
     type: object
-  spider.Buckets:
+  spider.BucketUsageJSON:
+    properties:
+      CurrentSize:
+        example: 524288
+        type: integer
+      DeletedVersionsSize:
+        example: 524288
+        type: integer
+      IId:
+        $ref: '#/definitions/spider.BucketIID'
+      TotalSize:
+        example: 1048576
+        type: integer
+    required:
+    - CurrentSize
+    - DeletedVersionsSize
+    - IId
+    - TotalSize
+    type: object
+  spider.BucketsJSON:
     properties:
       Bucket:
         items:
-          $ref: '#/definitions/spider.Bucket'
+          $ref: '#/definitions/spider.BucketJSON'
         type: array
     type: object
   spider.CORSConfiguration:
@@ -2352,6 +2570,9 @@ definitions:
       quotaInfoHandler:
         description: 'support: true, do not support: false'
         type: boolean
+      rdbmshandler:
+        description: 'support: true, do not support: false'
+        type: boolean
       regionZoneHandler:
         description: Metadata Handler
         type: boolean
@@ -2452,6 +2673,30 @@ definitions:
     required:
     - image
     type: object
+  spider.InitiateMultipartUploadResultJSON:
+    properties:
+      IId:
+        $ref: '#/definitions/spider.BucketIID'
+      Key:
+        example: my-object.bin
+        type: string
+      UploadId:
+        example: bpV9AokiRqAUEYA2z9mhMf...
+        type: string
+    required:
+    - IId
+    - Key
+    - UploadId
+    type: object
+  spider.InitiatorJSON:
+    properties:
+      DisplayName:
+        example: aws-config01
+        type: string
+      ID:
+        example: aws-config01
+        type: string
+    type: object
   spider.KeyPairCreateRequest:
     properties:
       ConnectionName:
@@ -2505,12 +2750,38 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
-  spider.ListAllMyBucketsResult:
+  spider.ListAllMyBucketsResultJSON:
     properties:
       Buckets:
-        $ref: '#/definitions/spider.Buckets'
+        $ref: '#/definitions/spider.BucketsJSON'
       Owner:
         $ref: '#/definitions/spider.Owner'
+    required:
+    - Buckets
+    - Owner
+    type: object
+  spider.ListBucketResultJSON:
+    properties:
+      Contents:
+        items:
+          $ref: '#/definitions/spider.S3ObjectXML'
+        type: array
+      IId:
+        $ref: '#/definitions/spider.BucketIID'
+      IsTruncated:
+        example: false
+        type: boolean
+      Marker:
+        example: ""
+        type: string
+      MaxKeys:
+        example: 1000
+        type: integer
+      Prefix:
+        example: ""
+        type: string
+    required:
+    - IId
     type: object
   spider.ListCloudDriverResponse:
     properties:
@@ -2550,6 +2821,45 @@ definitions:
         type: array
     required:
     - credential
+    type: object
+  spider.ListPartsResultJSON:
+    properties:
+      IId:
+        $ref: '#/definitions/spider.BucketIID'
+      Initiator:
+        $ref: '#/definitions/spider.InitiatorJSON'
+      IsTruncated:
+        example: false
+        type: boolean
+      Key:
+        example: my-object.bin
+        type: string
+      MaxParts:
+        example: 1000
+        type: integer
+      NextPartNumberMarker:
+        example: 0
+        type: integer
+      Owner:
+        $ref: '#/definitions/spider.Owner'
+      PartNumberMarker:
+        example: 0
+        type: integer
+      Parts:
+        items:
+          $ref: '#/definitions/spider.PartInfoJSON'
+        type: array
+      StorageClass:
+        example: STANDARD
+        type: string
+      UploadId:
+        example: bpV9AokiRqAUEYA2z9mhMf...
+        type: string
+    required:
+    - IId
+    - Key
+    - Owner
+    - UploadId
     type: object
   spider.ListRegionResponse:
     properties:
@@ -2855,9 +3165,32 @@ definitions:
   spider.Owner:
     properties:
       DisplayName:
+        example: aws-config01
         type: string
       ID:
+        example: aws-config01
         type: string
+    required:
+    - ID
+    type: object
+  spider.PartInfoJSON:
+    properties:
+      ETag:
+        example: '"d8e8fca2dc0f896fd7cb4cb0031ba249"'
+        type: string
+      LastModified:
+        type: string
+      PartNumber:
+        example: 1
+        type: integer
+      Size:
+        example: 5242880
+        type: integer
+    required:
+    - ETag
+    - LastModified
+    - PartNumber
+    - Size
     type: object
   spider.PriceInfoResponse:
     properties:
@@ -2930,6 +3263,133 @@ definitions:
     required:
     - ServiceTypes
     type: object
+  spider.RDBMSCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          BackupRetentionDays:
+            example: 7
+            type: integer
+          BackupTime:
+            example: "03:00"
+            type: string
+          DBEngine:
+            example: mysql
+            type: string
+          DBEngineVersion:
+            example: "8.0"
+            type: string
+          DBInstanceSpec:
+            example: db.t3.medium
+            type: string
+          DatabaseName:
+            example: mydb
+            type: string
+          DeletionProtection:
+            default: false
+            type: boolean
+          Encryption:
+            default: false
+            type: boolean
+          HighAvailability:
+            default: false
+            type: boolean
+          MasterUserName:
+            example: admin
+            type: string
+          MasterUserPassword:
+            example: password123!
+            type: string
+          Name:
+            example: rdbms-01
+            type: string
+          Port:
+            example: "3306"
+            type: string
+          PublicAccess:
+            default: false
+            type: boolean
+          SecurityGroupNames:
+            example:
+            - sg-01
+            items:
+              type: string
+            type: array
+          StorageSize:
+            description: in GB
+            example: "100"
+            type: string
+          StorageType:
+            example: gp2
+            type: string
+          SubnetNames:
+            example:
+            - subnet-01
+            items:
+              type: string
+            type: array
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - DBEngine
+        - DBEngineVersion
+        - DBInstanceSpec
+        - MasterUserName
+        - MasterUserPassword
+        - Name
+        - StorageSize
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.RDBMSListResponse:
+    properties:
+      rdbms:
+        items:
+          $ref: '#/definitions/spider.RDBMSInfo'
+        type: array
+    required:
+    - rdbms
+    type: object
+  spider.RDBMSRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-rdbms-1234
+            type: string
+          Name:
+            example: rdbms-01
+            type: string
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
   spider.RegionZoneListResponse:
     properties:
       regionzone:
@@ -2981,26 +3441,72 @@ definitions:
   spider.S3Error:
     properties:
       Code:
+        example: NoSuchBucket
         type: string
       Message:
+        example: The specified bucket does not exist
         type: string
       RequestId:
+        example: tx000000000000000001
         type: string
       Resource:
+        example: /my-bucket
+        type: string
+    required:
+    - Code
+    - Message
+    type: object
+  spider.S3ObjectXML:
+    properties:
+      ETag:
+        type: string
+      Key:
+        type: string
+      LastModified:
+        type: string
+      Owner:
+        $ref: '#/definitions/spider.Owner'
+      Size:
+        type: integer
+      StorageClass:
         type: string
     type: object
-  spider.S3PresignedURLXML:
+  spider.S3PresignedURL:
     properties:
       Expires:
+        example: 3600
         type: integer
       Method:
+        example: GET
         type: string
       PresignedURL:
+        example: https://bucket.s3.region.amazonaws.com/object?X-Amz-Algorithm=...
         type: string
+    required:
+    - Expires
+    - Method
+    - PresignedURL
+    type: object
+  spider.S3PresignedURLUpload:
+    properties:
+      Expires:
+        example: 3600
+        type: integer
+      Method:
+        example: PUT
+        type: string
+      PresignedURL:
+        example: https://bucket.s3.region.amazonaws.com/object?X-Amz-Algorithm=...
+        type: string
+    required:
+    - Expires
+    - Method
+    - PresignedURL
     type: object
   spider.S3UploadInfo:
     properties:
       Bucket:
+        example: my-bucket
         type: string
       ChecksumCRC32:
         type: string
@@ -3015,21 +3521,31 @@ definitions:
       ChecksumSHA256:
         type: string
       ETag:
+        example: '"d8e8fca2dc0f896fd7cb4cb0031ba249"'
         type: string
       Expiration:
         type: string
       ExpirationRuleID:
         type: string
       Key:
+        example: my-object.txt
         type: string
       LastModified:
         type: string
       Location:
+        example: /my-bucket/my-object.txt
         type: string
       Size:
+        example: 1024
         type: integer
       VersionID:
         type: string
+    required:
+    - Bucket
+    - ETag
+    - Key
+    - LastModified
+    - Size
     type: object
   spider.SecurityGroupCreateRequest:
     properties:
@@ -3876,6 +4392,65 @@ paths:
       summary: List All NLB Info
       tags:
       - '[NLB Management]'
+  /allrdbms:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all RDBMS instances associated
+        with a specific connection, <br> including those mapped between CB-Spider
+        and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
+      operationId: list-all-rdbms
+      parameters:
+      - description: The name of the Connection to list RDBMS for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all RDBMS instances within the specified connection,
+            including RDBMS in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All RDBMS in a Connection
+      tags:
+      - '[RDBMS Management]'
+  /allrdbmsinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all RDBMS information associated with all connections.
+      operationId: list-all-rdbms-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all RDBMS information across all connections
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All RDBMS Info
+      tags:
+      - '[RDBMS Management]'
   /allsecuritygroup:
     get:
       consumes:
@@ -5082,6 +5657,48 @@ paths:
       summary: Count NLBs by Connection
       tags:
       - '[NLB Management]'
+  /countrdbms:
+    get:
+      description: Get the total number of RDBMS instances across all connections.
+      operationId: count-all-rdbms
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of RDBMS instances
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /countrdbms/{ConnectionName}:
+    get:
+      description: Get the total number of RDBMS instances for a specific connection.
+      operationId: count-rdbms-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of RDBMS instances for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count RDBMS by Connection
+      tags:
+      - '[RDBMS Management]'
   /counts3/{ConnectionName}:
     get:
       description: Get the total number of S3 buckets for a specific connection.
@@ -5588,6 +6205,47 @@ paths:
       summary: Delete CSP NLB
       tags:
       - '[NLB Management]'
+  /csprdbms/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP RDBMS.
+      operationId: delete-csp-rdbms
+      parameters:
+      - description: Request body for deleting a CSP RDBMS
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP RDBMS ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP RDBMS
+      tags:
+      - '[RDBMS Management]'
   /cspsecuritygroup/{Id}:
     delete:
       consumes:
@@ -6478,6 +7136,41 @@ paths:
       summary: Get NLB Owner VPC
       tags:
       - '[NLB Management]'
+  /getrdbmsowner:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the Owner VPC of a given RDBMS CSP ID.
+      operationId: get-rdbms-owner-vpc
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The CSP RDBMS ID
+        in: query
+        name: CSPId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Owner VPC IID
+          schema:
+            $ref: '#/definitions/spider.IID'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS Owner VPC
+      tags:
+      - '[RDBMS Management]'
   /getsecuritygroupowner:
     post:
       consumes:
@@ -7898,6 +8591,190 @@ paths:
       summary: List Quota Service Types
       tags:
       - '[Cloud Metadata] Quota Info'
+  /rdbms:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of RDBMS instances associated with a specific connection.
+      operationId: list-rdbms
+      parameters:
+      - description: The name of the Connection to list RDBMS for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of RDBMS instances
+          schema:
+            $ref: '#/definitions/spider.RDBMSListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List RDBMS
+      tags:
+      - '[RDBMS Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Relational Database (RDBMS) with the specified configuration.
+      operationId: create-rdbms
+      parameters:
+      - description: Request body for creating an RDBMS
+        in: body
+        name: RDBMSCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created RDBMS
+          schema:
+            $ref: '#/definitions/spider.RDBMSInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbms/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified RDBMS instance.
+      operationId: delete-rdbms
+      parameters:
+      - description: Request body for deleting an RDBMS
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the RDBMS to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: 'Force delete the RDBMS. ex) true or false(default: false)'
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete RDBMS
+      tags:
+      - '[RDBMS Management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific RDBMS instance.
+      operationId: get-rdbms
+      parameters:
+      - description: The name of the Connection to get an RDBMS for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the RDBMS to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the RDBMS
+          schema:
+            $ref: '#/definitions/spider.RDBMSInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbmsmetainfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve CSP-specific RDBMS capability information (supported engines,
+        features, storage options).
+      operationId: get-rdbms-metainfo
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: RDBMS MetaInfo for the CSP
+          schema:
+            $ref: '#/definitions/spider.RDBMSMetaInfo'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS Meta Information
+      tags:
+      - '[RDBMS Management]'
   /readyz:
     get:
       consumes:
@@ -8490,6 +9367,83 @@ paths:
       summary: Unregister NLB
       tags:
       - '[NLB Management]'
+  /regrdbms:
+    post:
+      consumes:
+      - application/json
+      description: Register a new RDBMS with the specified name and CSP ID.
+      operationId: register-rdbms
+      parameters:
+      - description: Request body for registering an RDBMS
+        in: body
+        name: RDBMSRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered RDBMS
+          schema:
+            $ref: '#/definitions/spider.RDBMSInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /regrdbms/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister an RDBMS with the specified name.
+      operationId: unregister-rdbms
+      parameters:
+      - description: Request body for unregistering an RDBMS
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the RDBMS to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister RDBMS
+      tags:
+      - '[RDBMS Management]'
   /regsecuritygroup:
     post:
       consumes:
@@ -8803,7 +9757,6 @@ paths:
   /s3:
     get:
       consumes:
-      - text/xml
       - application/json
       description: Returns a list of all buckets owned by the authenticated sender
         of the request. To list buckets, you must have the ConnectionName parameter.
@@ -8815,13 +9768,12 @@ paths:
         required: true
         type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
           description: List of buckets
           schema:
-            $ref: '#/definitions/spider.ListAllMyBucketsResult'
+            $ref: '#/definitions/spider.ListAllMyBucketsResultJSON'
         "400":
           description: Bad Request - Missing ConnectionName
           schema:
@@ -8836,7 +9788,6 @@ paths:
   /s3/{BucketName}:
     delete:
       consumes:
-      - text/xml
       - application/json
       description: |-
         Deletes an S3 bucket or specific bucket configuration based on query parameters.
@@ -8870,16 +9821,7 @@ paths:
         in: query
         name: force
         type: string
-      - description: Safety header for force empty (required with ?empty)
-        in: header
-        name: X-Force-Empty
-        type: string
-      - description: Safety header for force delete (required with ?force)
-        in: header
-        name: X-Force-Delete
-        type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
@@ -8907,12 +9849,20 @@ paths:
       - '[S3 Object Storage Management]'
     get:
       consumes:
-      - text/xml
       - application/json
-      description: 'List objects in bucket or get bucket configuration based on query
-        parameters. Query parameters: ?location (bucket location), ?versioning (versioning
-        status), ?cors (CORS config), ?versions (object versions), ?uploads (multipart
-        uploads). Without query params, lists objects in bucket.'
+      description: |-
+        List objects in bucket or get bucket configuration. **Response type varies by query parameter:**
+
+        | Query Parameter | Response Schema | Description |
+        |---|---|---|
+        | *(none)* | `ListBucketResultJSON` | List objects in bucket (default) |
+        | `?location` | `{"LocationConstraint": "ap-northeast-2"}` | Bucket region/location |
+        | `?versioning` | `VersioningConfiguration` | Versioning status: Enabled / Suspended / "" |
+        | `?cors` | `CORSConfiguration` | CORS configuration rules |
+        | `?versions` | `ListVersionsResultJSON` | Object version history |
+        | `?uploads` | `ListMultipartUploadsResultJSON` | In-progress multipart uploads |
+
+        **Note**: The example value below shows the default (no query params) `ListBucketResultJSON` response.
       operationId: get-s3-bucket-get
       parameters:
       - description: Connection name
@@ -8925,34 +9875,35 @@ paths:
         name: BucketName
         required: true
         type: string
-      - description: Get bucket location
+      - description: 'Get bucket location. Returns: LocationConstraint object (e.g.
+          ap-northeast-2)'
         in: query
         name: location
         type: string
-      - description: Get versioning status
+      - description: 'Get versioning status. Returns: VersioningConfiguration'
         in: query
         name: versioning
         type: string
-      - description: Get CORS configuration
+      - description: 'Get CORS configuration. Returns: CORSConfiguration'
         in: query
         name: cors
         type: string
-      - description: List object versions
+      - description: 'List object versions. Returns: ListVersionsResultJSON'
         in: query
         name: versions
         type: string
-      - description: List multipart uploads
+      - description: 'List multipart uploads. Returns: ListMultipartUploadsResultJSON'
         in: query
         name: uploads
         type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
-          description: Bucket information or object list
+          description: 'Default response (no query params): object list. See description
+            table for other query param responses.'
           schema:
-            type: object
+            $ref: '#/definitions/spider.ListBucketResultJSON'
         "404":
           description: Bucket not found
           schema:
@@ -8966,7 +9917,6 @@ paths:
       - '[S3 Object Storage Management]'
     head:
       consumes:
-      - text/xml
       - application/json
       description: Check if a bucket exists using HEAD request. Returns 200 if exists,
         404 if not found.
@@ -8983,7 +9933,6 @@ paths:
         required: true
         type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
@@ -8998,29 +9947,13 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      - application/xml
       - application/json
       description: |-
         Uploads a file using HTML form (multipart/form-data) or deletes multiple objects based on query parameters.
 
         **Operations:**
         - No query params: Upload object via form (requires 'key' and 'file' fields, Content-Type: multipart/form-data)
-        - ?delete: Delete multiple objects (requires XML/JSON body, Content-Type: application/xml or application/json)
-
-        **XML Body Example for Delete Multiple Objects:**
-        ```xml
-        <Delete>
-        <Object>
-        <Key>file1.txt</Key>
-        </Object>
-        <Object>
-        <Key>file2.txt</Key>
-        </Object>
-        <Object>
-        <Key>folder/file3.txt</Key>
-        </Object>
-        </Delete>
-        ```
+        - ?delete: Delete multiple objects (requires JSON body, Content-Type: application/json)
 
         **JSON Body Example for Delete Multiple Objects:**
         ```json
@@ -9050,7 +9983,7 @@ paths:
         in: query
         name: delete
         type: string
-      - description: XML/JSON body for delete operation (only when ?delete is specified)
+      - description: JSON body for delete operation (only when ?delete is specified)
         in: body
         name: body
         schema:
@@ -9064,7 +9997,6 @@ paths:
         name: file
         type: file
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
@@ -9088,7 +10020,6 @@ paths:
       - '[S3 Object Storage Management]'
     put:
       consumes:
-      - text/xml
       - application/json
       description: |-
         Creates a new S3 bucket or sets bucket configuration based on query parameters.
@@ -9146,7 +10077,6 @@ paths:
         schema:
           $ref: '#/definitions/spider.CORSConfiguration'
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
@@ -9169,7 +10099,6 @@ paths:
   /s3/{BucketName}/{ObjectKey}:
     delete:
       consumes:
-      - text/xml
       - application/json
       description: |-
         Deletes an object or aborts a multipart upload based on query parameters.
@@ -9204,7 +10133,6 @@ paths:
         name: uploadId
         type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "204":
@@ -9222,15 +10150,18 @@ paths:
       - '[S3 Object Storage Management]'
     get:
       consumes:
-      - text/xml
       - application/json
       description: |-
-        Downloads an object from S3 or lists parts of a multipart upload based on query parameters.
+        Downloads an object from S3 or lists parts of a multipart upload. **Response type varies by query parameter:**
 
-        **Operations:**
-        - No query params: Download object
-        - ?versionId={id}: Download specific version of object
-        - ?uploadId={id}&list-type=parts: List parts of multipart upload
+        | Query Parameter | Response | Description |
+        |---|---|---|
+        | *(none)* | `application/octet-stream` (binary) | Download object content |
+        | `?versionId={id}` | `application/octet-stream` (binary) | Download specific object version |
+        | `?uploadId={id}&list-type=parts` | `ListPartsResultJSON` | List parts of in-progress multipart upload |
+
+        **Note**: The example value below shows the `?uploadId&list-type=parts` (list parts JSON) response.
+        For binary downloads, the response body is the raw file content.
 
         **List Parts Example (verify uploaded parts):**
         - uploadId: Use UploadId from initiate response
@@ -9254,11 +10185,12 @@ paths:
         name: ObjectKey
         required: true
         type: string
-      - description: Version ID for versioned object
+      - description: Version ID for versioned object (binary download)
         in: query
         name: versionId
         type: string
-      - description: Upload ID for listing parts
+      - description: 'Upload ID for listing parts (use with list-type=parts). Returns:
+          ListPartsResultJSON'
         in: query
         name: uploadId
         type: string
@@ -9268,11 +10200,14 @@ paths:
         type: string
       produces:
       - application/octet-stream
-      - application/xml
       - application/json
       responses:
         "200":
-          description: Object content or parts list
+          description: ?uploadId&list-type=parts → ListPartsResultJSON. No params
+            / ?versionId → binary file download (application/octet-stream). See description
+            table.
+          schema:
+            $ref: '#/definitions/spider.ListPartsResultJSON'
         "404":
           description: Object not found
           schema:
@@ -9286,7 +10221,6 @@ paths:
       - '[S3 Object Storage Management]'
     head:
       consumes:
-      - text/xml
       - application/json
       description: |-
         Returns metadata about an object without returning the object itself.
@@ -9334,10 +10268,16 @@ paths:
       - '[S3 Object Storage Management]'
     post:
       consumes:
-      - text/xml
       - application/json
       description: |-
-        Object-level POST operations: (1) Initiate multipart upload with ?uploads, (2) Complete multipart upload with ?uploadId
+        Object-level POST operations. **Response type varies by query parameter:**
+
+        | Query Parameter | Response Schema | Description |
+        |---|---|---|
+        | `?uploads` | `InitiateMultipartUploadResultJSON` | Initiate multipart upload (returns UploadId) |
+        | `?uploadId={id}` | `CompleteMultipartUploadResultJSON` | Complete multipart upload |
+
+        **Note**: The example value below shows the `?uploads` (initiate) response.
 
         **Multipart Upload Testing Guide (Swagger UI):**
 
@@ -9359,22 +10299,8 @@ paths:
         **Step 4: Complete Upload**
         - Use POST /s3/{BucketName}/{ObjectKey}?uploadId={saved_uploadId}
         - IMPORTANT: Enter uploadId in query parameter field (not in the parameter table below)
-        - Body XML (required): Provide XML with all uploaded parts
-        - Note: ETag values must include double quotes, e.g., "abc123" not abc123
-
-        **Body XML Example:**
-        ```xml
-        <CompleteMultipartUpload>
-        <Part>
-        <PartNumber>1</PartNumber>
-        <ETag>"ETag_value_from_Step2_part1"</ETag>
-        </Part>
-        <Part>
-        <PartNumber>2</PartNumber>
-        <ETag>"ETag_value_from_Step2_part2"</ETag>
-        </Part>
-        </CompleteMultipartUpload>
-        ```
+        - Body (required): Provide parts list with PartNumber and ETag for each uploaded part
+        - Note: ETag values must include double quotes, e.g., "abc123" (with surrounding double quotes)
       operationId: handle-s3-object-post
       parameters:
       - description: Connection name
@@ -9393,29 +10319,29 @@ paths:
         required: true
         type: string
       - description: 'Initiate multipart upload: leave empty or set any value (e.g.,
-          ''uploads'')'
+          ''uploads''). Returns: InitiateMultipartUploadResultJSON'
         in: query
         name: uploads
         type: string
       - description: 'Complete multipart upload: Upload ID from Step 1 response (paste
-          UploadId here)'
+          UploadId here). Returns: CompleteMultipartUploadResultJSON'
         in: query
         name: uploadId
         type: string
-      - description: XML body for complete operation (required when uploadId is set)
-        example: <CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>"abc123"</ETag></Part></CompleteMultipartUpload>
+      - description: Request body for complete multipart upload operation (required
+          when uploadId is set)
         in: body
         name: body
         schema:
           type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
-          description: Operation result (InitiateMultipartUploadResult or CompleteMultipartUploadResult)
+          description: ?uploads → InitiateMultipartUploadResultJSON. ?uploadId → CompleteMultipartUploadResultJSON.
+            See description table.
           schema:
-            type: object
+            $ref: '#/definitions/spider.InitiateMultipartUploadResultJSON'
         "400":
           description: Bad Request
           schema:
@@ -9479,7 +10405,6 @@ paths:
         schema:
           type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
@@ -9502,41 +10427,14 @@ paths:
   /s3/{BucketName}/usage:
     get:
       consumes:
-      - text/xml
       - application/json
       description: |-
         Returns the total size (in bytes) of all objects stored in an S3 bucket.
-
-        **Response Format:**
-        - Supports both XML and JSON formats based on Accept header
-        - Default: XML format
-        - JSON: Set Accept header to "application/json"
 
         **Response Fields:**
         - CurrentSize: Size of current (latest) objects in bytes
         - DeletedVersionsSize: Size of non-current versions in bytes
         - TotalSize: Total bucket size (CurrentSize + DeletedVersionsSize)
-
-        **XML Response Example:**
-        ```xml
-        <?xml version="1.0" encoding="UTF-8"?>
-        <BucketUsage>
-        <BucketName>my-bucket</BucketName>
-        <CurrentSize>524288</CurrentSize>
-        <DeletedVersionsSize>524288</DeletedVersionsSize>
-        <TotalSize>1048576</TotalSize>
-        </BucketUsage>
-        ```
-
-        **JSON Response Example:**
-        ```json
-        {
-        "BucketName": "my-bucket",
-        "CurrentSize": 524288,
-        "DeletedVersionsSize": 524288,
-        "TotalSize": 1048576
-        }
-        ```
       operationId: get-s3-bucket-usage
       parameters:
       - description: Connection name
@@ -9550,13 +10448,12 @@ paths:
         required: true
         type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
           description: Bucket usage information
           schema:
-            type: object
+            $ref: '#/definitions/spider.BucketUsageJSON'
         "404":
           description: Bucket not found
           schema:
@@ -9571,7 +10468,6 @@ paths:
   /s3/presigned/download/{BucketName}/{ObjectKey}:
     get:
       consumes:
-      - text/xml
       - application/json
       description: Generates a presigned URL that can be used to download an object
         from S3 without requiring AWS credentials. This is a CB-Spider special feature.
@@ -9605,13 +10501,12 @@ paths:
         name: response-content-disposition
         type: string
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
           description: Presigned URL for download
           schema:
-            $ref: '#/definitions/spider.S3PresignedURLXML'
+            $ref: '#/definitions/spider.S3PresignedURL'
         "404":
           description: Bucket not found
           schema:
@@ -9626,7 +10521,6 @@ paths:
   /s3/presigned/upload/{BucketName}/{ObjectKey}:
     get:
       consumes:
-      - text/xml
       - application/json
       description: Generates a presigned URL that can be used to upload an object
         to S3 without requiring AWS credentials. This is a CB-Spider special feature.
@@ -9652,13 +10546,12 @@ paths:
         name: expires
         type: integer
       produces:
-      - text/xml
       - application/json
       responses:
         "200":
           description: Presigned URL for upload
           schema:
-            $ref: '#/definitions/spider.S3PresignedURLXML'
+            $ref: '#/definitions/spider.S3PresignedURLUpload'
         "404":
           description: Bucket not found
           schema:

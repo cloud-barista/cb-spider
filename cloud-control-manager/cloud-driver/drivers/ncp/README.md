@@ -172,6 +172,15 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
    - HealthChecker Interval 값 범위 : 5 ~ 300 (seconds). '-1' 입력시, default 값 '30' (seconds) 입력됨.
    - HealthChecker Threshold 값 범위 : 2 ~ 10. '-1' 입력시, default 값 '2' 입력됨.
 
+  O NCP VPC driver를 이용해 Shared FileSystem volume (NCP NAS 서비스) 사용시 다음 사항을 참고
+   - Volume 이름 지정시, '영문 또는 숫자' 혹은 '영문+숫자' 조합으로 가능하며 최소 3자 ~ 최대 20자 까지 입력 가능함.(주의 : '-'를 포함한 특수문자를 추가할 수 없음)
+   - NCP는 NFS verson으로 '3.0'을 지원함.
+   - 지원하는 volume 용량은 500GB ~ 20,000GB이며, 100GB 단위로 지정할 수 있음.
+   - NFS protocol 사용으로 CentOS, Ubuntu 등 Linix VM에서 mount 가능. (MS Windows VM 미지원)
+    - CB-Spider는 shared filesystem volume protocol type으로 NFS만을 지원하고, MS Windows VM을 지원하는 CIFS protocol type은 지원하지 않음
+   - Linux 계열 VM에서 mount 시 아래의 guide 문서 참고
+    - https://guide.ncloud-docs.com/docs/nas-use-linux-vpc
+    
 ​	O NCP CSP 정책상, 생성되는 public IP 개수가 VM instance 수를 초과할 수 없으므로 다음 사항을 주의
    - 만약, NCP VPC console에서 수동으로 VM을 반납(termination) 할 경우에는 반드시 public IP도 반납하는것으로 체크 후 반납 필요
      - Public IP를 반납하지 않으면, NCP VPC driver를 통해 VM instance 신규 생성 요청시, driver에서 public IP를 추가 생성할때 public IP 수가 instance 개수보다 많게 되어 error를 return 하게됨.

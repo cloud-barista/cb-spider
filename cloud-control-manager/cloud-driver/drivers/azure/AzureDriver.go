@@ -12,6 +12,7 @@ package azure
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"time"
 
@@ -20,12 +21,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
+	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -42,6 +44,25 @@ var cblog *logrus.Logger
 
 func init() {
 	cblog = cblogger.GetLogger("CLOUD-BARISTA")
+}
+
+// newArmClientOptions returns arm.ClientOptions with a fresh http.Transport per call.
+//
+// Azure ARM sends HTTP/2 GOAWAY frames periodically (~60s) to recycle connections.
+// When all SDK clients share http.DefaultTransport, a single GOAWAY simultaneously
+// cancels every in-flight stream across all concurrent VM operations. By giving each
+// ConnectCloud() call its own transport, each concurrent operation has an isolated
+// HTTP/2 connection — a GOAWAY on one connection only affects that one operation.
+func newArmClientOptions(extraPolicies ...policy.Policy) *arm.ClientOptions {
+	opts := &arm.ClientOptions{
+		ClientOptions: azcore.ClientOptions{
+			Transport: &http.Client{Transport: &http.Transport{}},
+		},
+	}
+	if len(extraPolicies) > 0 {
+		opts.ClientOptions.PerCallPolicies = extraPolicies
+	}
+	return opts
 }
 
 type AzureDriver struct{}
@@ -89,7 +110,7 @@ func getResourceGroupsClient(credential idrv.CredentialInfo) (context.Context, *
 	if err != nil {
 		return nil, nil, err
 	}
-	resourceGroupsClient, err := armresources.NewResourceGroupsClient(credential.SubscriptionId, cred, nil)
+	resourceGroupsClient, err := armresources.NewResourceGroupsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -272,6 +293,14 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, mysqlServersClient, err := getMySQLServersClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	Ctx, mysqlFirewallRulesClient, err := getMySQLFirewallRulesClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -305,6 +334,8 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		DnsZoneClient:                   dnsZoneClient,
 		FileShareClient:                 fileShareClient,
 		AccountsClient:                  accountsClient,
+		MySQLServersClient:              mysqlServersClient,
+		MySQLFirewallRulesClient:        mysqlFirewallRulesClient,
 	}
 
 	return &iConn, nil
@@ -325,7 +356,7 @@ func getSubscriptionClient(credential idrv.CredentialInfo) (context.Context, *ar
 		return nil, nil, err
 	}
 
-	subscriptionsClient, err := armsubscription.NewSubscriptionsClient(cred, nil)
+	subscriptionsClient, err := armsubscription.NewSubscriptionsClient(cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -340,19 +371,12 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *armcompute.V
 		return nil, nil, err
 	}
 
-	var clientOptions *arm.ClientOptions
-
-	if os.Getenv("CALL_COUNT") != "" {
-		clientOptions = &arm.ClientOptions{
-			ClientOptions: azcore.ClientOptions{
-				PerCallPolicies: []policy.Policy{profile.NewCountingPolicy()},
-			},
+	vmClient, err := armcompute.NewVirtualMachinesClient(credential.SubscriptionId, cred, func() *arm.ClientOptions {
+		if os.Getenv("CALL_COUNT") != "" {
+			return newArmClientOptions(profile.NewCountingPolicy())
 		}
-	} else {
-		clientOptions = &arm.ClientOptions{}
-	}
-
-	vmClient, err := armcompute.NewVirtualMachinesClient(credential.SubscriptionId, cred, clientOptions)
+		return newArmClientOptions()
+	}())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -368,7 +392,7 @@ func getImageClient(credential idrv.CredentialInfo) (context.Context, *armcomput
 		return nil, nil, err
 	}
 
-	imageClient, err := armcompute.NewImagesClient(credential.SubscriptionId, cred, nil)
+	imageClient, err := armcompute.NewImagesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -383,7 +407,7 @@ func getPublicIPClient(credential idrv.CredentialInfo) (context.Context, *armnet
 		return nil, nil, err
 	}
 
-	publicIPClient, err := armnetwork.NewPublicIPAddressesClient(credential.SubscriptionId, cred, nil)
+	publicIPClient, err := armnetwork.NewPublicIPAddressesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -398,7 +422,7 @@ func getSecurityGroupClient(credential idrv.CredentialInfo) (context.Context, *a
 		return nil, nil, err
 	}
 
-	sgClient, err := armnetwork.NewSecurityGroupsClient(credential.SubscriptionId, cred, nil)
+	sgClient, err := armnetwork.NewSecurityGroupsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -413,7 +437,7 @@ func getSecurityGroupRuleClient(credential idrv.CredentialInfo) (context.Context
 		return nil, nil, err
 	}
 
-	sgClient, err := armnetwork.NewSecurityRulesClient(credential.SubscriptionId, cred, nil)
+	sgClient, err := armnetwork.NewSecurityRulesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -428,7 +452,7 @@ func getVNetworkClient(credential idrv.CredentialInfo) (context.Context, *armnet
 		return nil, nil, err
 	}
 
-	vNetClient, err := armnetwork.NewVirtualNetworksClient(credential.SubscriptionId, cred, nil)
+	vNetClient, err := armnetwork.NewVirtualNetworksClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -443,7 +467,7 @@ func getVNicClient(credential idrv.CredentialInfo) (context.Context, *armnetwork
 		return nil, nil, err
 	}
 
-	vNicClient, err := armnetwork.NewInterfacesClient(credential.SubscriptionId, cred, nil)
+	vNicClient, err := armnetwork.NewInterfacesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -458,7 +482,7 @@ func getIPConfigClient(credential idrv.CredentialInfo) (context.Context, *armnet
 		return nil, nil, err
 	}
 
-	ipConfigClient, err := armnetwork.NewInterfaceIPConfigurationsClient(credential.SubscriptionId, cred, nil)
+	ipConfigClient, err := armnetwork.NewInterfaceIPConfigurationsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -473,7 +497,7 @@ func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *armnetwo
 		return nil, nil, err
 	}
 
-	subnetClient, err := armnetwork.NewSubnetsClient(credential.SubscriptionId, cred, nil)
+	subnetClient, err := armnetwork.NewSubnetsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -488,7 +512,7 @@ func getSshKeyClient(credential idrv.CredentialInfo) (context.Context, *armcompu
 		return nil, nil, err
 	}
 
-	sshClientClient, err := armcompute.NewSSHPublicKeysClient(credential.SubscriptionId, cred, nil)
+	sshClientClient, err := armcompute.NewSSHPublicKeysClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -503,7 +527,7 @@ func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *armcomp
 		return nil, nil, err
 	}
 
-	vmImageClient, err := armcompute.NewVirtualMachineImagesClient(credential.SubscriptionId, cred, nil)
+	vmImageClient, err := armcompute.NewVirtualMachineImagesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -518,7 +542,7 @@ func getDiskClient(credential idrv.CredentialInfo) (context.Context, *armcompute
 		return nil, nil, err
 	}
 
-	diskClient, err := armcompute.NewDisksClient(credential.SubscriptionId, cred, nil)
+	diskClient, err := armcompute.NewDisksClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -533,7 +557,7 @@ func getVmSpecClient(credential idrv.CredentialInfo) (context.Context, *armcompu
 		return nil, nil, err
 	}
 
-	vmSpecClient, err := armcompute.NewVirtualMachineSizesClient(credential.SubscriptionId, cred, nil)
+	vmSpecClient, err := armcompute.NewVirtualMachineSizesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -548,7 +572,7 @@ func getNLBClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.
 		return nil, nil, err
 	}
 
-	nlbClient, err := armnetwork.NewLoadBalancersClient(credential.SubscriptionId, cred, nil)
+	nlbClient, err := armnetwork.NewLoadBalancersClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -563,7 +587,7 @@ func getNLBBackendAddressPoolsClient(credential idrv.CredentialInfo) (context.Co
 		return nil, nil, err
 	}
 
-	nlbBackendAddressPoolsClient, err := armnetwork.NewLoadBalancerBackendAddressPoolsClient(credential.SubscriptionId, cred, nil)
+	nlbBackendAddressPoolsClient, err := armnetwork.NewLoadBalancerBackendAddressPoolsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -578,7 +602,7 @@ func getLoadBalancingRulesClient(credential idrv.CredentialInfo) (context.Contex
 		return nil, nil, err
 	}
 
-	nlbBackendAddressPoolsClient, err := armnetwork.NewLoadBalancerLoadBalancingRulesClient(credential.SubscriptionId, cred, nil)
+	nlbBackendAddressPoolsClient, err := armnetwork.NewLoadBalancerLoadBalancingRulesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -607,7 +631,7 @@ func getManagedClustersClient(credential idrv.CredentialInfo) (context.Context, 
 	if err != nil {
 		return nil, nil, err
 	}
-	managedClustersClient, err := armcontainerservice.NewManagedClustersClient(credential.SubscriptionId, cred, nil)
+	managedClustersClient, err := armcontainerservice.NewManagedClustersClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -621,7 +645,7 @@ func getAgentPoolsClient(credential idrv.CredentialInfo) (context.Context, *armc
 	if err != nil {
 		return nil, nil, err
 	}
-	agentPoolsClient, err := armcontainerservice.NewAgentPoolsClient(credential.SubscriptionId, cred, nil)
+	agentPoolsClient, err := armcontainerservice.NewAgentPoolsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -635,7 +659,7 @@ func getVirtualMachineScaleSetsClient(credential idrv.CredentialInfo) (context.C
 	if err != nil {
 		return nil, nil, err
 	}
-	virtualMachineScaleSetsClient, err := armcompute.NewVirtualMachineScaleSetsClient(credential.SubscriptionId, cred, nil)
+	virtualMachineScaleSetsClient, err := armcompute.NewVirtualMachineScaleSetsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -649,7 +673,7 @@ func getVirtualMachineScaleSetVMsClient(credential idrv.CredentialInfo) (context
 	if err != nil {
 		return nil, nil, err
 	}
-	virtualMachineScaleSetVMsClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(credential.SubscriptionId, cred, nil)
+	virtualMachineScaleSetVMsClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -663,7 +687,7 @@ func getVirtualMachineRunCommandClient(credential idrv.CredentialInfo) (context.
 	if err != nil {
 		return nil, nil, err
 	}
-	virtualMachineRunCommandsClient, err := armcompute.NewVirtualMachineRunCommandsClient(credential.SubscriptionId, cred, nil)
+	virtualMachineRunCommandsClient, err := armcompute.NewVirtualMachineRunCommandsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -677,7 +701,7 @@ func getResourceSKUsClient(credential idrv.CredentialInfo) (context.Context, *ar
 	if err != nil {
 		return nil, nil, err
 	}
-	resourceSKUsClient, err := armcompute.NewResourceSKUsClient(credential.SubscriptionId, cred, nil)
+	resourceSKUsClient, err := armcompute.NewResourceSKUsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -691,7 +715,7 @@ func getTagsClient(credential idrv.CredentialInfo) (context.Context, *armresourc
 		return nil, nil, err
 	}
 
-	tagsClient, err := armresources.NewTagsClient(credential.SubscriptionId, cred, nil)
+	tagsClient, err := armresources.NewTagsClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -706,7 +730,7 @@ func getDnsZoneClient(credential idrv.CredentialInfo) (context.Context, *armdns.
 		return nil, nil, err
 	}
 
-	dnsZoneClient, err := armdns.NewZonesClient(credential.SubscriptionId, cred, nil)
+	dnsZoneClient, err := armdns.NewZonesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -721,7 +745,7 @@ func getFileShareClient(credential idrv.CredentialInfo) (context.Context, *armst
 		return nil, nil, err
 	}
 
-	fileShareClient, err := armstorage.NewFileSharesClient(credential.SubscriptionId, cred, &arm.ClientOptions{})
+	fileShareClient, err := armstorage.NewFileSharesClient(credential.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -735,7 +759,33 @@ func getAccountsClient(credInfo idrv.CredentialInfo) (context.Context, *armstora
 	if err != nil {
 		return nil, nil, err
 	}
-	client, err := armstorage.NewAccountsClient(credInfo.SubscriptionId, cred, &arm.ClientOptions{})
+	client, err := armstorage.NewAccountsClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, client, nil
+}
+
+func getMySQLServersClient(credInfo idrv.CredentialInfo) (context.Context, *armmysqlfs.ServersClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := armmysqlfs.NewServersClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, client, nil
+}
+
+func getMySQLFirewallRulesClient(credInfo idrv.CredentialInfo) (context.Context, *armmysqlfs.FirewallRulesClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := armmysqlfs.NewFirewallRulesClient(credInfo.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, nil, err
 	}

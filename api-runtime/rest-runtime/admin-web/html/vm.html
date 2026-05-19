@@ -346,7 +346,7 @@ THE SOFTWARE.
         text-align: right;
         margin-right: 10px;
     }
-    .form-group input, .form-group textarea {
+    .form-group input, .form-group textarea, .form-group select {
         flex: 2;
     }
     .form-group button {
@@ -1635,7 +1635,9 @@ THE SOFTWARE.
                 <div class="form-group-container">
                     <div class="form-group">
                         <label for="rootDiskType">Root Disk Type:</label>
-                        <input type="text" id="rootDiskType" name="rootDiskType" value="default" required>
+                        <select id="rootDiskType" name="rootDiskType" required>
+                            <option value="default" selected>default</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -2715,11 +2717,34 @@ THE SOFTWARE.
                     mockButtonsContainer.appendChild(button10);
                     mockButtonsContainer.appendChild(button50);
                 }
+                loadRootDiskTypes(currentProvider);
             })
             .catch(error => {
                 showError("Error loading connection configuration: " + error.message, "Connection Config Error");
             });
     });
+
+    function loadRootDiskTypes(providerName) {
+        const select = document.getElementById('rootDiskType');
+        fetch(`/spider/cloudos/metainfo/${providerName}`)
+            .then(response => response.json())
+            .then(metaInfo => {
+                const types = (metaInfo.RootDiskType || []).filter(t => t && t.trim() !== '');
+                // Remove existing options except 'default'
+                while (select.options.length > 1) {
+                    select.remove(1);
+                }
+                types.forEach(t => {
+                    const option = document.createElement('option');
+                    option.value = t;
+                    option.textContent = t;
+                    select.appendChild(option);
+                });
+            })
+            .catch(err => {
+                console.warn('Failed to load root disk types:', err);
+            });
+    }
 
     function createMultipleVMs(count) {
         const connConfigElement = document.getElementById('connConfig').value;
@@ -3587,7 +3612,7 @@ THE SOFTWARE.
         const rootDiskSizeField = document.getElementById('rootDiskSize');
         
         if (imageType === 'MyImage') {
-            rootDiskTypeField.value = '';
+            rootDiskTypeField.value = 'default';
             rootDiskSizeField.value = '';
             rootDiskTypeField.disabled = true;
             rootDiskSizeField.disabled = true;
@@ -3596,6 +3621,7 @@ THE SOFTWARE.
             rootDiskTypeField.value = 'default';
             rootDiskTypeField.disabled = false;
             rootDiskSizeField.disabled = false;
+            rootDiskSizeField.value = '';
             imageNameField.innerHTML = `
                 <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6; flex: 1; border: 1px solid #767676; padding: 2px;" readonly>
                 <button type="button" onclick="showImageSelectionOverlay()" style="margin-left: 5px; min-width: 26px; height: 22px; padding: 0 4px; font-size: 12px; line-height: 1;">🔍</button>

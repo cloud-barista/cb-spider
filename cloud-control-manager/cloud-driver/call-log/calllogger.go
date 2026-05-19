@@ -59,12 +59,16 @@ const (
 	MYIMAGE       RES_TYPE = "MYIMAGE"
 	NLB           RES_TYPE = "NETWORKLOADBALANCER"
 	TAG           RES_TYPE = "TAG"
+	MONITORING    RES_TYPE = "MONITORING"
 
 	//=========== PMKS: Provider-Managed K8S
 	CLUSTER RES_TYPE = "CLUSTER"
 
 	//=========== FileSystem
 	FILESYSTEM RES_TYPE = "FILESYSTEM"
+
+	//=========== RDBMS
+	RDBMS RES_TYPE = "RDBMS"
 )
 
 type CALLLogger struct {

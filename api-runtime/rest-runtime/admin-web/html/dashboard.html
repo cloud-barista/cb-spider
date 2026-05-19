@@ -283,6 +283,7 @@
                 <th>NLBs</th>
                 <th>Clusters</th>
                 <th>S3 Buckets</th>
+                <th>RDBMS</th>
             </tr>
             {{if index $.ResourceCounts $provider}}
                 {{range $count := index $.ResourceCounts $provider}}
@@ -300,11 +301,12 @@
                     <td class="{{if gt $count.NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{$count.ConnectionName}}'); return false;">{{$count.NetworkLoadBalancers}}</a></td>
                     <td class="{{if gt $count.Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{$count.ConnectionName}}'); return false;">{{$count.Clusters}}</a></td>
                     <td class="{{if gt $count.S3Buckets 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/s3/{{$count.ConnectionName}}'); return false;">{{$count.S3Buckets}}</a></td>
+                    <td class="{{if gt $count.RDBMSInstances 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/rdbms/{{$count.ConnectionName}}'); return false;">{{$count.RDBMSInstances}}</a></td>
                 </tr>
                 {{end}}
             {{else}}
             <tr>
-                <td colspan="10">No connections found for {{$provider}}</td>
+                <td colspan="12">No connections found for {{$provider}}</td>
             </tr>
             {{end}}
         </table>
