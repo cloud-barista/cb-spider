@@ -59,17 +59,6 @@ const (
 	httpPutResponseHopLimitIs2 = 2
 )
 
-// AMIInfo holds AMI metadata for EKS AMI Type mapping
-type AMIInfo struct {
-	ImageId         string
-	Name            string
-	Description     string
-	Architecture    string // "x86_64" or "arm64"
-	PlatformDetails string // "Linux/UNIX", "Windows", etc.
-	OwnerId         string // AWS account ID that owns the AMI
-	OSType          string // "amazon-linux-2", "amazon-linux-2023", "bottlerocket", "windows"
-}
-
 // getServerAddress returns the Spider server address from SERVER_ADDRESS env variable
 func getServerAddress() string {
 	hostEnv := os.Getenv("SERVER_ADDRESS")
@@ -94,8 +83,8 @@ func getServerAddress() string {
 //------ Cluster Management
 
 /*
-	AWS Cluster는 Role이 필수임.
-	우선, roleName=spider-eks-role로 설정, 생성 시 Role의 ARN을 조회하여 사용
+	AWS Cluster requires a Role as a prerequisite.
+	For now, roleName is set to spider-eks-role; the Role's ARN is looked up at creation time.
 */
 
 //------ AMI Analysis Helper Functions
@@ -125,8 +114,7 @@ var eksAMITypes = []string{
 // isValidEKSAMIType reports whether s is a known EKS AMI Type string.
 // EKS AMI Types are predefined constants (e.g. AL2023_x86_64_STANDARD) and must
 // NOT be confused with EC2 AMI IDs (ami-xxxxxxxxxxxxxxxxx).
-// When a caller passes an EKS AMI Type directly, we skip the analyzeAMI step and
-// forward the value to AWS EKS as-is.
+// When a caller passes an EKS AMI Type directly, it is forwarded to AWS EKS as-is.
 func isValidEKSAMIType(s string) bool {
 	for _, t := range eksAMITypes {
 		if t == s {
@@ -134,6 +122,23 @@ func isValidEKSAMIType(s string) bool {
 		}
 	}
 	return false
+}
+
+// isEC2LaunchTemplateID reports whether s is an EC2 Launch Template ID (lt-[0-9a-f]{17}).
+func isEC2LaunchTemplateID(s string) bool {
+	if !strings.HasPrefix(s, "lt-") {
+		return false
+	}
+	suffix := s[3:]
+	if len(suffix) != 17 {
+		return false
+	}
+	for _, c := range suffix {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
 }
 
 // getAvailableAMITypesMessage returns a human-readable list of supported EKS AMI Types.
@@ -145,221 +150,6 @@ func getAvailableAMITypesMessage() string {
 	msg += "\n- For Windows workloads, use WINDOWS_* types"
 	msg += "\n\nRefer to AWS EKS documentation for detailed compatibility."
 	return msg
-}
-
-// analyzeAMI analyzes received AMI ID and extracts metadata
-func (h *AwsClusterHandler) analyzeAMI(amiID string) (*AMIInfo, error) {
-	// Skip if empty (use default)
-	if amiID == "" {
-		cblogger.Info("No AMI specified, will use default")
-		return nil, nil
-	}
-
-	cblogger.Infof("Analyzing received AMI: %s", amiID)
-
-	input := &ec2.DescribeImagesInput{
-		ImageIds: []*string{aws.String(amiID)},
-	}
-
-	result, err := h.EC2Client.DescribeImages(input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to describe AMI %s: %w", amiID, err)
-	}
-
-	if len(result.Images) == 0 {
-		return nil, fmt.Errorf("AMI %s not found", amiID)
-	}
-
-	image := result.Images[0]
-
-	amiInfo := &AMIInfo{
-		ImageId:         aws.StringValue(image.ImageId),
-		Name:            aws.StringValue(image.Name),
-		Description:     aws.StringValue(image.Description),
-		Architecture:    aws.StringValue(image.Architecture),
-		PlatformDetails: aws.StringValue(image.PlatformDetails),
-		OwnerId:         aws.StringValue(image.OwnerId),
-	}
-
-	// Detect OS type from name/description
-	amiInfo.OSType = amiInfo.detectOSType()
-
-	cblogger.Infof("AMI Analysis: arch=%s, platform=%s, osType=%s",
-		amiInfo.Architecture, amiInfo.PlatformDetails, amiInfo.OSType)
-
-	return amiInfo, nil
-}
-
-// detectOSType detects OS type from AMI name and description
-func (info *AMIInfo) detectOSType() string {
-	combined := strings.ToLower(info.Name + " " + info.Description)
-
-	// Priority order matters!
-
-	// 1. Windows (highest priority - check platform)
-	if strings.Contains(strings.ToLower(info.PlatformDetails), "windows") {
-		return "windows"
-	}
-
-	// 2. Bottlerocket
-	if strings.Contains(combined, "bottlerocket") {
-		return "bottlerocket"
-	}
-
-	// 3. Amazon Linux 2023
-	if strings.Contains(combined, "2023") || strings.Contains(combined, "al2023") {
-		return "amazon-linux-2023"
-	}
-
-	// 4. Amazon Linux 2 (default)
-	if strings.Contains(combined, "amzn") ||
-		strings.Contains(combined, "amazon linux") ||
-		strings.Contains(combined, "al2") {
-		return "amazon-linux-2"
-	}
-
-	// 5. Others (Ubuntu, etc.)
-	if strings.Contains(combined, "ubuntu") {
-		return "ubuntu"
-	}
-
-	// Default: assume Amazon Linux 2
-	return "amazon-linux-2"
-}
-
-// isPublicAMI checks if the AMI is from a well-known public AMI provider
-// Returns true for AWS official and major distribution AMIs that can be auto-mapped
-func (info *AMIInfo) isPublicAMI() bool {
-	// Well-known public AMI owner IDs
-	// - 602401143452: AWS EKS team
-	// - amazon: Amazon official
-	// - 099720109477: Canonical (Ubuntu)
-	// - 136693071363: Debian
-	// - 125523088429: Fedora
-	// - 013907871322: SUSE
-	publicOwners := []string{
-		"602401143452", // AWS EKS
-		"amazon",       // Amazon
-		"099720109477", // Canonical (Ubuntu)
-		"136693071363", // Debian
-		"125523088429", // Fedora
-		"013907871322", // SUSE
-	}
-
-	for _, owner := range publicOwners {
-		if info.OwnerId == owner {
-			return true
-		}
-	}
-
-	return false
-}
-
-// isGPUInstanceType checks if instance type requires GPU support
-func (h *AwsClusterHandler) isGPUInstanceType(instanceType string) bool {
-	gpuPrefixes := []string{"p2.", "p3.", "p4.", "p5.", "g3.", "g4.", "g5."}
-
-	for _, prefix := range gpuPrefixes {
-		if strings.HasPrefix(instanceType, prefix) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// mapToEKSAMIType maps AMI info to EKS AMI Type
-func (h *AwsClusterHandler) mapToEKSAMIType(amiInfo *AMIInfo, instanceType string) string {
-	// Default: AL2023 x86_64 (K8s 1.30+ compatible)
-	if amiInfo == nil {
-		cblogger.Info("No AMI info, using default: AL2023_x86_64_STANDARD")
-		return "AL2023_x86_64_STANDARD"
-	}
-
-	osType := amiInfo.OSType
-	isARM := amiInfo.Architecture == "arm64"
-	isGPU := h.isGPUInstanceType(instanceType)
-
-	cblogger.Infof("Mapping: osType=%s, arch=%s, gpu=%v", osType, amiInfo.Architecture, isGPU)
-
-	// Priority 1: Windows
-	if osType == "windows" {
-		return h.selectWindowsAMIType(amiInfo.Name)
-	}
-
-	// Priority 2: Bottlerocket
-	if osType == "bottlerocket" {
-		if isGPU && isARM {
-			cblogger.Info("Mapped to: BOTTLEROCKET_ARM_64_NVIDIA")
-			return "BOTTLEROCKET_ARM_64_NVIDIA"
-		}
-		if isGPU {
-			cblogger.Info("Mapped to: BOTTLEROCKET_x86_64_NVIDIA")
-			return "BOTTLEROCKET_x86_64_NVIDIA"
-		}
-		if isARM {
-			cblogger.Info("Mapped to: BOTTLEROCKET_ARM_64")
-			return "BOTTLEROCKET_ARM_64"
-		}
-		cblogger.Info("Mapped to: BOTTLEROCKET_x86_64")
-		return "BOTTLEROCKET_x86_64"
-	}
-
-	// Priority 3: Amazon Linux 2023
-	if osType == "amazon-linux-2023" {
-		if isARM {
-			cblogger.Info("Mapped to: AL2023_ARM_64_STANDARD")
-			return "AL2023_ARM_64_STANDARD"
-		}
-		cblogger.Info("Mapped to: AL2023_x86_64_STANDARD")
-		return "AL2023_x86_64_STANDARD"
-	}
-
-	// Priority 4: GPU instances (use Bottlerocket for GPU - AL2023 has no GPU variant yet)
-	if isGPU {
-		if isARM {
-			cblogger.Info("Mapped to: BOTTLEROCKET_ARM_64_NVIDIA (GPU + ARM64)")
-			return "BOTTLEROCKET_ARM_64_NVIDIA"
-		}
-		cblogger.Info("Mapped to: BOTTLEROCKET_x86_64_NVIDIA (GPU)")
-		return "BOTTLEROCKET_x86_64_NVIDIA"
-	}
-
-	// Priority 5: ARM64 (use AL2023 for K8s 1.30+ compatibility)
-	if isARM {
-		cblogger.Info("Mapped to: AL2023_ARM_64_STANDARD")
-		return "AL2023_ARM_64_STANDARD"
-	}
-
-	// Priority 6: Default x86_64 (use AL2023 for K8s 1.30+ compatibility)
-	cblogger.Info("Mapped to: AL2023_x86_64_STANDARD (default)")
-	return "AL2023_x86_64_STANDARD"
-}
-
-// selectWindowsAMIType selects Windows AMI type based on version and edition
-func (h *AwsClusterHandler) selectWindowsAMIType(amiName string) string {
-	nameLower := strings.ToLower(amiName)
-
-	// Detect Windows Server version and edition
-	is2022 := strings.Contains(nameLower, "2022")
-	isCore := strings.Contains(nameLower, "core")
-
-	if is2022 {
-		if isCore {
-			cblogger.Info("Mapped to: WINDOWS_CORE_2022_x86_64")
-			return "WINDOWS_CORE_2022_x86_64"
-		}
-		cblogger.Info("Mapped to: WINDOWS_FULL_2022_x86_64")
-		return "WINDOWS_FULL_2022_x86_64"
-	}
-
-	// Default to 2019
-	if isCore {
-		cblogger.Info("Mapped to: WINDOWS_CORE_2019_x86_64")
-		return "WINDOWS_CORE_2019_x86_64"
-	}
-	cblogger.Info("Mapped to: WINDOWS_FULL_2019_x86_64")
-	return "WINDOWS_FULL_2019_x86_64"
 }
 
 // ------ Cluster Management
@@ -378,14 +168,14 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		subnetIds = append(subnetIds, aws.String(subnetIID.SystemId))
 	}
 
-	//AWS의 경우 사전에 Role의 생성이 필요하며, 현재는 role 이름을 다음 이름으로 일치 시킨다.(추후 개선)
-	//예시) cluster : cloud-barista-eks-cluster-role, Node : cloud-barista-eks-nodegroup-role
+	// AWS requires a pre-created Role. The role name is currently fixed as follows (to be improved later).
+	// Example) cluster: cloud-barista-eks-cluster-role, Node: cloud-barista-eks-nodegroup-role
 	eksRoleName := "cloud-barista-eks-cluster-role"
 	// get or create Role Arn
 	eksRole, err := ClusterHandler.getOrCreateEKSClusterRole(eksRoleName)
 	if err != nil {
 		cblogger.Error(err)
-		// role 은 required 임.
+		// role is required.
 		return irs.ClusterInfo{}, fmt.Errorf("failed to get or create EKS cluster role: %w", err)
 	}
 	roleArn := eksRole.Role.Arn
@@ -410,15 +200,15 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		Tags:    tagsMap,
 	}
 
-	//EKS버전 처리(Spider 입력 값 형태 : "1.23.4" / AWS 버전 형태 : "1.23")
+	// EKS version handling (Spider input format: "1.23.4" / AWS format: "1.23")
 	if reqK8sVersion != "" {
 		arrVer := strings.Split(reqK8sVersion, ".")
 		switch len(arrVer) {
-		case 2: // 그대로 적용
+		case 2: // use as-is
 			input.Version = aws.String(reqK8sVersion)
-		case 3: // 앞의 2자리만 취함. (정상적인 입력 형태)
+		case 3: // take only the first two parts (normal input format)
 			input.Version = aws.String(arrVer[0] + "." + arrVer[1])
-		default: // 위 2가지 외에는 CSP의 기본값(최신버전)을 적용 함.
+		default: // for other cases, the CSP default (latest version) is applied
 		}
 	}
 
@@ -472,8 +262,8 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	cblogger.Debug(result)
 
-	/*// Sync Call에서 Async Call로 변경 - 이슈:#716
-	//----- wait until Status=COMPLETE -----//  :  cluster describe .status 로 확인
+	/*// Changed from Sync Call to Async Call - Issue:#716
+	//----- wait until Status=COMPLETE -----//  :  check via cluster describe .status
 	errWait := ClusterHandler.WaitUntilClusterActive(result.Cluster.Identity.String())
 	if errWait != nil {
 		cblogger.Error(errWait)
@@ -482,7 +272,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	*/
 
 	/*
-		//노드그룹 추가
+		// add node groups
 		clusterIID := irs.IID{NameId: clusterReqInfo.IId.NameId, SystemId: result.Cluster.Identity.String()}
 		nodeGroupInfoList := clusterReqInfo.NodeGroupList
 		for _, nodeGroupInfo := range nodeGroupInfoList {
@@ -492,7 +282,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			}
 			cblogger.Debug(resultNodeGroupInfo)
 
-		//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회
+		//----- wait until Status=COMPLETE -----//  :  query after all Nodegroups are created
 	*/
 
 	clusterReqInfo.IId.SystemId = *result.Cluster.Name
@@ -507,7 +297,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	//--- install CSI driver and pod identity agent for EBS
 	csiagenterr := ClusterHandler.InstallEBSCSIDriverAndPodIdentityAgentIfNotExists(clusterInfo.IId.SystemId)
 	if csiagenterr != nil {
-		cblogger.Errorf("Failed to install EBS CSI Driver and pod identity agent: %w", csiagenterr)
+		cblogger.Errorf("Failed to install EBS CSI Driver and pod identity agent: %v", csiagenterr)
 		return irs.ClusterInfo{}, csiagenterr
 	}
 	//--- end of install CSI driver for EBS
@@ -515,7 +305,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	return clusterInfo, nil
 }
 
-// Nodegroup이 Activty 상태일때까지 대기함.
+// WaitUntilNodegroupActive waits until the Nodegroup reaches Active state.
 func (ClusterHandler *AwsClusterHandler) WaitUntilNodegroupActive(clusterName string, nodegroupName string) error {
 	cblogger.Debugf("Cluster Name : [%s] / NodegroupName : [%s]", clusterName, nodegroupName)
 	input := &eks.DescribeNodegroupInput{
@@ -528,18 +318,18 @@ func (ClusterHandler *AwsClusterHandler) WaitUntilNodegroupActive(clusterName st
 		cblogger.Errorf("failed to wait until Nodegroup Active : %v", err)
 		return err
 	}
-	cblogger.Debug("=========WaitUntilNodegroupActive() 종료")
+	cblogger.Debug("=========WaitUntilNodegroupActive() done")
 	return nil
 }
 
-// Cluster가 Activty 상태일때까지 대기함.
+// WaitUntilClusterActive waits until the Cluster reaches Active state.
 func (ClusterHandler *AwsClusterHandler) WaitUntilClusterActive(clusterName string) error {
 	cblogger.Debugf("Cluster Name : [%s]", clusterName)
 	input := &eks.DescribeClusterInput{
 		Name: aws.String(clusterName),
 	}
 
-	// AWS SDK의 WaitUntilClusterActive 함수는 내부적으로 폴링(polling) 메커니즘을 구현
+	// The AWS SDK's WaitUntilClusterActive internally implements a polling mechanism.
 	err := ClusterHandler.Client.WaitUntilClusterActive(input)
 	if err != nil {
 		cblogger.Errorf("failed to wait until cluster Active: %v", err)
@@ -613,7 +403,7 @@ func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 		clusterInfo, err := ClusterHandler.GetCluster(irs.IID{SystemId: *clusterName})
 		if err != nil {
 			cblogger.Error(err)
-			continue //	에러가 나면 일단 skip시킴.
+			continue // skip on error and proceed with remaining clusters
 		}
 		clusterList = append(clusterList, &clusterInfo)
 
@@ -693,7 +483,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig).IsNil() {
 		clusterInfo.Network.VpcIID = irs.IID{SystemId: *result.Cluster.ResourcesVpcConfig.VpcId}
 
-		//서브넷 처리
+		// Subnet handling
 		//SubnetIds: ["subnet-0d30ee6b367974a39","subnet-06d5c04b32019b81f","subnet-05c5d26bd2f014591"],
 		if len(result.Cluster.ResourcesVpcConfig.SubnetIds) > 0 {
 			for _, curSubnetId := range result.Cluster.ResourcesVpcConfig.SubnetIds {
@@ -701,9 +491,9 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 			}
 		}
 
-		//클러스터 보안그룹 처리
+		// Cluster security group handling
 		// ClusterSecurityGroupId: "sg-0bb02bf07fe5f42f0",
-		//@TODO - 클러스터 생성시 자동으로 추가되는 보안 그룹이라서 일단 CB보안그룹 목록에 포함은 시키지 않았음.
+		//@TODO - This security group is auto-created at cluster creation time, so it is intentionally excluded from the CB security group list for now.
 		if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId).IsNil() {
 			//if *result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId != "" {
 			/*
@@ -713,7 +503,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 			*/
 		}
 
-		//보안그룹 처리 : "추가 보안 그룹"에 해당하는 듯
+		// Security group handling: corresponds to "additional security groups"
 		if len(result.Cluster.ResourcesVpcConfig.SecurityGroupIds) > 0 {
 			for _, curSecurityGroupId := range result.Cluster.ResourcesVpcConfig.SecurityGroupIds {
 				clusterInfo.Network.SecurityGroupIIDs = append(clusterInfo.Network.SecurityGroupIIDs, irs.IID{SystemId: *curSecurityGroupId})
@@ -727,13 +517,13 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	// 	{Key: "RoleArn", Value: *result.Cluster.RoleArn},
 	// }
 	// clusterInfo.KeyValueList = keyValueList
-	// irs.StructToKeyValueList() 함수 사용
+	// Using irs.StructToKeyValueList()
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(result.Cluster)
 	clusterInfo.Network.KeyValueList = irs.StructToKeyValueList(result.Cluster.ResourcesVpcConfig)
 
 	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
-	//노드 그룹 처리
+	// Node group handling
 	resNodeGroupList, errNodeGroup := ClusterHandler.ListNodeGroup(clusterInfo.IId)
 	if errNodeGroup != nil {
 		cblogger.Error(errNodeGroup)
@@ -742,14 +532,14 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 
 	cblogger.Debug(resNodeGroupList)
 
-	//노드 그룹 타입 변환
+	// Node group type conversion
 	for _, curNodeGroup := range resNodeGroupList {
 		cblogger.Debugf("Node Group : [%s]", curNodeGroup.IId.NameId)
 		curNodeGroup.KeyValueList = irs.StructToKeyValueList(curNodeGroup)
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
 	}
 
-	// Addons 처리
+	// Addons handling
 	addons, err := ClusterHandler.ListAddons(clusterIID)
 	if err != nil {
 		cblogger.Error(err)
@@ -1009,14 +799,14 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 // ------ NodeGroup Management
 
 /*
-Cluster.NetworkInfo 설정과 동일 서브넷으로 설정
-NodeGroup 추가시에는 대상 Cluster 정보 획득하여 설정
-NodeGroup에 다른 Subnet 설정이 꼭 필요시 추후 재논의
+Uses the same subnets as Cluster.NetworkInfo.
+On AddNodeGroup, the target Cluster info is retrieved and applied.
+If a different Subnet is required for a NodeGroup, discuss separately.
 //https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API
 */
 func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	// validation check
-	if nodeGroupReqInfo.MaxNodeSize < 1 { // nodeGroupReqInfo.MaxNodeSize 는 최소가 1이다.
+	if nodeGroupReqInfo.MaxNodeSize < 1 { // MaxNodeSize must be at least 1
 		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The MaxNodeSize value must be greater than or equal to 1.", nil)
 	}
 
@@ -1025,7 +815,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	eksRole, err := ClusterHandler.getOrCreateEKSNodeGroupRole(eksRoleName)
 	if err != nil {
 		cblogger.Error(err)
-		// role 은 required 임.
+		// role is required.
 		return irs.NodeGroupInfo{}, fmt.Errorf("failed to get or create EKS node group role: %w", err)
 	}
 	roleArn := eksRole.Role.Arn
@@ -1039,12 +829,12 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	networkInfo := clusterInfo.Network
 	var subnetList []*string
 	for _, subnet := range networkInfo.SubnetIIDs {
-		subnetId := subnet.SystemId // 포인터라서 subnet.SystemId를 직접 Append하면 안 됨.
+		subnetId := subnet.SystemId // copy to a local variable; appending subnet.SystemId directly would capture the loop pointer
 		subnetList = append(subnetList, &subnetId)
 	}
 
 	cblogger.Debug("Final Subnet List")
-	// 이 부분에서 VPC subnet ID 를 바탕으로 리스트 순회하며 ModifySubnetAttribute 를 통해 Auto-assign public IPv4 address를 활성화
+	// Iterate over subnet IDs and enable Auto-assign public IPv4 address via ModifySubnetAttribute.
 	for _, subnetIdPtr := range subnetList {
 		input := &ec2.ModifySubnetAttributeInput{
 			MapPublicIpOnLaunch: &ec2.AttributeBooleanValue{
@@ -1057,7 +847,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 			errmsg := "error during ModifySubnetAttribute to MapPublicIpOnLaunch=TRUE on subnet : " + *subnetIdPtr
 			cblogger.Error(err)
 			cblogger.Error(errmsg)
-			// return irs.NodeGroupInfo{}, errors.New(errmsg) // 서브넷 순회 이므로 나머지 서브넷은 진행하도록 주석처리함.
+			// return irs.NodeGroupInfo{}, errors.New(errmsg) // commented out to continue processing remaining subnets in the loop
 		}
 	}
 
@@ -1073,56 +863,44 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	// AMI Analysis & EKS AMI Type Mapping
 	// ============================================================
 
-	// Received from Tumblebug (CspImageName from PostgreSQL)
 	receivedImageName := nodeGroupReqInfo.ImageIID.SystemId
-	cblogger.Infof("Received ImageName from Tumblebug: '%s'", receivedImageName)
+	cblogger.Infof("Received ImageIID.SystemId: '%s'", receivedImageName)
 
 	var amiType string
+	var useLaunchTemplate bool
+	var launchTemplateID *string
+	var launchTemplateVersion *string
 
 	if receivedImageName == "" || strings.EqualFold(receivedImageName, "default") {
-		// No AMI specified, use default (K8s 1.30+ compatible)
+		// Preserve existing behavior.
 		cblogger.Info("No ImageName provided (empty or 'default'), using default: AL2023_x86_64_STANDARD")
 		amiType = "AL2023_x86_64_STANDARD"
 	} else if isValidEKSAMIType(receivedImageName) {
-		// EKS AMI Type string passed directly (e.g. AL2023_x86_64_STANDARD).
-		// Use it as-is — no EC2 DescribeImages call needed.
+		// Preserve existing behavior.
 		cblogger.Infof("EKS AMI Type directly specified: %s", receivedImageName)
 		amiType = receivedImageName
+	} else if isEC2LaunchTemplateID(receivedImageName) {
+		// Launch Template ID provided directly — reference as-is without creating a new one.
+		// The Launch Template must include bootstrap UserData; cb-spider does not create or modify it.
+		cblogger.Infof("Launch Template ID detected: %s — referencing directly", receivedImageName)
+		amiType = "CUSTOM"
+		useLaunchTemplate = true
+		launchTemplateID = aws.String(receivedImageName)
+		launchTemplateVersion = aws.String("$Latest")
 	} else {
-		// Treat as EC2 AMI ID: analyze and auto-map to EKS AMI Type.
-		// Step 1: Analyze received AMI
-		cblogger.Infof("Analyzing AMI: %s", receivedImageName)
-		amiInfo, err := ClusterHandler.analyzeAMI(receivedImageName)
-		if err != nil {
-			// Return error with available AMI types list
-			return irs.NodeGroupInfo{}, fmt.Errorf(
-				"failed to analyze AMI '%s': %w\n\n%s",
-				receivedImageName, err, getAvailableAMITypesMessage())
-		}
-
-		// Check if it's a public AMI (not user's custom AMI)
-		if !amiInfo.isPublicAMI() {
-			return irs.NodeGroupInfo{}, fmt.Errorf(
-				"custom AMI '%s' (Owner: %s) is not supported. Only public AMIs from AWS/Canonical/Debian can be auto-mapped to AMI Types. Custom AMIs require Launch Template (not yet implemented).\n\n%s",
-				receivedImageName, amiInfo.OwnerId, getAvailableAMITypesMessage())
-		}
-
-		// Public AMI detected - will be auto-mapped
-		cblogger.Infof("✓ Public AMI detected: %s (Owner: %s, OS: %s)",
-			receivedImageName, amiInfo.OwnerId, amiInfo.OSType)
-
-		// Step 2: Map to EKS AMI Type
-		instanceType := nodeGroupReqInfo.VMSpecName
-		if instanceType == "" {
-			instanceType = "t3.medium" // default
-		}
-
-		amiType = ClusterHandler.mapToEKSAMIType(amiInfo, instanceType)
-
-		// Important warning: original AMI will NOT be used
-		cblogger.Warnf("⚠️  AMI auto-mapping: Original AMI '%s' will NOT be used. AWS will select the latest EKS-optimized AMI for type '%s'",
-			receivedImageName, amiType)
-		cblogger.Infof("Final EKS AMI Type: %s", amiType)
+		// Unsupported format: raw AMI ID (ami-xxx) or unrecognized string.
+		// Automatic mapping from AMI ID to EKS AMI type has been removed.
+		// Direct AMI ID usage via Launch Template auto-creation is planned as a separate issue.
+		return irs.NodeGroupInfo{}, fmt.Errorf(
+			"unsupported ImageIID value: '%s'.\n\n"+
+				"Supported formats:\n"+
+				"  1. EKS AMI Type identifier (e.g. AL2023_x86_64_STANDARD)\n"+
+				"  2. EC2 Launch Template ID (e.g. lt-0123456789abcdef0)\n"+
+				"  3. Empty string or 'default' (uses AL2023_x86_64_STANDARD)\n\n"+
+				"Raw EC2 AMI IDs (ami-xxx) are not directly supported.\n"+
+				"To use a custom AMI, create an EC2 Launch Template with the AMI ID\n"+
+				"and bootstrap UserData, then pass its ID as ImageIID.SystemId.\n\n%s",
+			receivedImageName, getAvailableAMITypesMessage())
 	}
 
 	cblogger.Infof("Creating NodeGroup with AmiType: %s", amiType)
@@ -1178,10 +956,19 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		//Version: ""
 	}
 
-	// 필수 외에 넣을 항목들 set
+	// Set optional fields beyond the required ones
 	rootDiskSize, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
 	if rootDiskSize > 0 {
 		input.DiskSize = aws.Int64(rootDiskSize)
+	}
+
+	if useLaunchTemplate {
+		input.LaunchTemplate = &eks.LaunchTemplateSpecification{
+			Id:      launchTemplateID,
+			Version: launchTemplateVersion,
+		}
+		// DiskSize cannot be combined with LaunchTemplate.
+		input.DiskSize = nil
 	}
 
 	if !strings.EqualFold(nodeGroupReqInfo.VMSpecName, "") {
@@ -1192,7 +979,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	cblogger.Debug(input)
 
-	result, err := ClusterHandler.Client.CreateNodegroup(input) // 비동기
+	result, err := ClusterHandler.Client.CreateNodegroup(input) // async
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -1261,7 +1048,7 @@ func (ClusterHandler *AwsClusterHandler) InstallEBSCSIDriverAndPodIdentityAgentI
 	if csiDriverExists == false {
 		errCsiDriver = ClusterHandler.installEBSCSIDriver(clusterID)
 		if errCsiDriver != nil {
-			cblogger.Errorf("Failed to install EBS CSI driver: %w", errCsiDriver)
+			cblogger.Errorf("Failed to install EBS CSI driver: %v", errCsiDriver)
 		}
 	}
 
@@ -1269,7 +1056,7 @@ func (ClusterHandler *AwsClusterHandler) InstallEBSCSIDriverAndPodIdentityAgentI
 	if podIdentityAgentExists == false {
 		errPodIdentityAgent = ClusterHandler.installPodIdentityAgent(clusterID)
 		if errPodIdentityAgent != nil {
-			cblogger.Errorf("Failed to install pod identity agent: %w", errPodIdentityAgent)
+			cblogger.Errorf("Failed to install pod identity agent: %v", errPodIdentityAgent)
 		}
 	}
 
@@ -1294,7 +1081,7 @@ func (ClusterHandler *AwsClusterHandler) installEBSCSIDriver(clusterID string) e
 
 	_, err := ClusterHandler.Client.CreateAddonWithContext(ctx, input)
 	if err != nil {
-		cblogger.Errorf("Failed to install EBS CSI Driver: %w", err)
+		cblogger.Errorf("Failed to install EBS CSI Driver: %v", err)
 		return err
 	}
 	return nil
@@ -1314,7 +1101,7 @@ func (ClusterHandler *AwsClusterHandler) installPodIdentityAgent(clusterID strin
 
 	_, err := ClusterHandler.Client.CreateAddonWithContext(ctx, input)
 	if err != nil {
-		cblogger.Errorf("Failed to install pod identity agent: %w", err)
+		cblogger.Errorf("Failed to install pod identity agent: %v", err)
 		return err
 	}
 	return nil
@@ -1416,7 +1203,7 @@ func (ClusterHandler *AwsClusterHandler) GetAutoScalingGroups(autoScalingGroupNa
 }
 
 /*
-AutoScaling 이라는 별도의 메뉴가 있음.
+There is a separate menu for AutoScaling.
 */
 func (ClusterHandler *AwsClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
 	return false, nil
@@ -1426,11 +1213,11 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (irs.NodeGroupInfo, error) {
 	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s] / DesiredNodeSize : [%d] / MinNodeSize : [%d] / MaxNodeSize : [%d]", clusterIID.SystemId, nodeGroupIID.SystemId, DesiredNodeSize, MinNodeSize, MaxNodeSize)
 
-	// clusterIID로 cluster 정보를 조회
-	// nodeGroupIID로 nodeGroup 정보를 조회
-	// 		nodeGroup에 AutoScaling 그룹 이름이 있음.
+	// Retrieve cluster info by clusterIID
+	// Retrieve nodeGroup info by nodeGroupIID
+	// 		nodeGroup contains the AutoScaling group name
 
-	// TODO : 공통으로 뺄 것
+	// TODO : refactor into a shared helper
 	input := &eks.DescribeNodegroupInput{
 		ClusterName:   aws.String(clusterIID.SystemId),   //required
 		NodegroupName: aws.String(nodeGroupIID.SystemId), // required
@@ -1489,11 +1276,11 @@ func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 	return true, nil
 }
 
-// Control Plane 과 Node Group(worked node)의 K8s 버전 업그레이드드
+// UpgradeCluster upgrades the K8s version of both the Control Plane and Node Groups (worker nodes).
 func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
 	cblogger.Infof("Cluster SystemId : [%s] / Request New Version : [%s]", clusterIID.SystemId, newVersion)
 
-	// 현재 클러스터 정보 조회 및 버전 비교
+	// Retrieve current cluster info and compare versions
 	currentClusterInfo, err := ClusterHandler.GetCluster(clusterIID)
 	if err != nil {
 		cblogger.Errorf("Failed to get current cluster info: %v", err)
@@ -1503,20 +1290,20 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 	currentVersion := currentClusterInfo.Version
 	cblogger.Infof("Current cluster version: %s, Target version: %s", currentVersion, newVersion)
 
-	// Control Plane이 업그레이드 필요한지 확인
+	// Check whether the Control Plane needs an upgrade
 	needsControlPlaneUpgrade := currentVersion != newVersion
 
-	// 업그레이드가 필요한 Node Group이 있는지 확인하기 위해 모든 Node Group 조회
+	// List all Node Groups to determine which ones need an upgrade
 	nodeGroups, err := ClusterHandler.ListNodeGroup(clusterIID)
 	if err != nil {
 		cblogger.Errorf("Failed to list node groups: %v", err)
 		return irs.ClusterInfo{}, err
 	}
 
-	// Node Group 업그레이드 필요 여부 확인
+	// Determine whether each Node Group needs an upgrade
 	needsNodeGroupUpgrade := false
 	for _, nodeGroup := range nodeGroups {
-		// Node Group 버전을 확인
+		// Check the Node Group version
 		nodeGroupVersion := ""
 		for _, kv := range nodeGroup.KeyValueList {
 			if kv.Key == "Version" {
@@ -1525,7 +1312,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			}
 		}
 
-		// 버전을 결정할 수 없거나 대상 버전과 다른 경우
+		// If the version cannot be determined or differs from the target version
 		if nodeGroupVersion == "" || nodeGroupVersion != newVersion {
 			needsNodeGroupUpgrade = true
 			cblogger.Infof("Node group %s needs upgrade from version %s to %s",
@@ -1533,7 +1320,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		}
 	}
 
-	// 업그레이드가 필요 없는 경우 조기 반환
+	// Early return if no upgrade is needed
 	if !needsControlPlaneUpgrade && !needsNodeGroupUpgrade {
 		cblogger.Info("Both control plane and all node groups are already at target version. No upgrade needed.")
 		return currentClusterInfo, nil
@@ -1545,7 +1332,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		cblogger.Info("Control plane is already at target version. Only node groups will be upgraded.")
 	}
 
-	// Control Plane 업그레이드
+	// Upgrade the Control Plane
 	if needsControlPlaneUpgrade {
 		input := &eks.UpdateClusterVersionInput{
 			Name:    aws.String(clusterIID.SystemId),
@@ -1597,21 +1384,21 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		callogger.Info(call.String(callLogInfo))
 		cblogger.Infof("Control plane upgrade initiated: %s", *result.Update.Id)
 
-		// Control Plane 업그레이드 완료 대기
+		// Wait for Control Plane upgrade to complete
 		cblogger.Info("Waiting for control plane upgrade to complete...")
 		errWait := ClusterHandler.WaitUntilClusterActive(clusterIID.SystemId)
 		if errWait != nil {
 			cblogger.Errorf("Failed to wait for cluster to become active after control plane upgrade: %v", errWait)
-			// Control Plane 대기 실패해도 Node Group 업그레이드 계속 진행
+			// Continue with Node Group upgrades even if waiting for Control Plane fails
 		} else {
 			cblogger.Info("Control plane upgrade completed successfully")
 		}
 
-		// [추가] Control Plane 업그레이드 후 추가 대기 시간
+		// Additional wait time after Control Plane upgrade
 		cblogger.Info("Control plane marked as ACTIVE, waiting additional time for version propagation...")
-		time.Sleep(120 * time.Second) // 2분 대기
+		time.Sleep(120 * time.Second) // wait 2 minutes
 
-		// [추가] Control Plane 버전 재확인
+		// Re-verify Control Plane version
 		checkInput := &eks.DescribeClusterInput{
 			Name: aws.String(clusterIID.SystemId),
 		}
@@ -1623,27 +1410,27 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			if *checkResult.Cluster.Version != newVersion {
 				cblogger.Warnf("Control plane version mismatch: expected %s, found %s",
 					newVersion, *checkResult.Cluster.Version)
-				// 버전이 맞지 않더라도 진행은 함
+				// Proceed even if the version does not match
 			}
 		}
 	}
 
-	// Node Group 업그레이드 전 활성 작업 체크 및 백오프 재시도 로직 추가
+	// Check for active operations before Node Group upgrade and add exponential backoff retry logic
 	maxRetries := 10
 	retryInterval := 60 // seconds
 	backoffFactor := 1.5
 
 	currentInterval := retryInterval
 	for i := 0; i < maxRetries; i++ {
-		// 클러스터가 Node Group 업그레이드를 할 수 있는 상태인지 확인
+		// Check if the cluster is in a state ready for Node Group upgrade
 		clusterStatus, err := ClusterHandler.checkClusterOperationStatus(clusterIID)
 		if err != nil {
 			cblogger.Errorf("Error checking cluster status: %v", err)
-			break // 상태 확인 실패해도 Node Group 업그레이드 계속 진행
+			break // continue with Node Group upgrade even if status check fails
 		}
 
 		if clusterStatus == "ACTIVE" {
-			break // 노드 그룹 업그레이드 진행
+			break // proceed with node group upgrade
 		}
 
 		if i == maxRetries-1 {
@@ -1655,21 +1442,21 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			clusterStatus, currentInterval, i+1, maxRetries)
 		time.Sleep(time.Duration(currentInterval) * time.Second)
 
-		// 지수 백오프 적용
+		// Apply exponential backoff
 		currentInterval = int(float64(currentInterval) * backoffFactor)
 	}
 
-	// Node Group 업그레이드
+	// Upgrade Node Groups
 	if needsNodeGroupUpgrade {
 		cblogger.Info("Starting node group upgrades...")
 
-		// Node Group 업그레이드 실패 추적을 목록
+		// Track failed Node Group upgrades
 		upgradeFailures := []string{}
 
 		for _, nodeGroup := range nodeGroups {
 			cblogger.Infof("Upgrading node group: %s to version: %s", nodeGroup.IId.SystemId, newVersion)
 
-			// [추가] Node Group 업그레이드에 재시도 로직 추가
+			// Retry logic for Node Group upgrade
 			maxNodeGroupRetries := 3
 			var updateErr error
 			var nodeGroupUpdateResult *eks.UpdateNodegroupVersionOutput
@@ -1697,21 +1484,21 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 				nodeGroupCallLogInfo.ElapsedTime = call.Elapsed(nodeGroupCallLogStart)
 
 				if updateErr == nil {
-					// 업그레이드 요청 성공
+					// Upgrade request succeeded
 					callogger.Info(call.String(nodeGroupCallLogInfo))
 					cblogger.Infof("Node group update initiated for %s: %s",
 						nodeGroup.IId.SystemId, *nodeGroupUpdateResult.Update.Id)
 					break
 				}
 
-				// 에러 발생 시 로그 기록
+				// Log on error
 				nodeGroupCallLogInfo.ErrorMSG = updateErr.Error()
 				callogger.Info(call.String(nodeGroupCallLogInfo))
 				cblogger.Errorf("Attempt %d: Failed to upgrade node group %s: %v",
 					retry+1, nodeGroup.IId.SystemId, updateErr)
 
 				if retry < maxNodeGroupRetries-1 {
-					retryDelay := (retry + 1) * 60 // 점진적 증가: 60초, 120초, ...
+					retryDelay := (retry + 1) * 60 // progressive increase: 60s, 120s, ...
 					cblogger.Infof("Retrying node group upgrade in %d seconds (%d/%d)",
 						retryDelay, retry+1, maxNodeGroupRetries)
 					time.Sleep(time.Duration(retryDelay) * time.Second)
@@ -1719,16 +1506,16 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			}
 
 			if updateErr != nil {
-				// 모든 재시도 후에도 실패
+				// Failed after all retries
 				cblogger.Errorf("Failed to upgrade node group %s after %d attempts: %v",
 					nodeGroup.IId.SystemId, maxNodeGroupRetries, updateErr)
 				upgradeFailures = append(upgradeFailures,
 					fmt.Sprintf("NodeGroup %s: %v", nodeGroup.IId.SystemId, updateErr))
-				continue // 다른 Node Group은 업그레이드를 계속 진행
+				continue // continue upgrading remaining node groups
 			}
 
-			// 하나씩 순차적으로 Node Group 업그레이드를 진행 (병렬 처리 X)
-			// Control Plane보다 짧은 타임아웃을 설정하여 Node Group 업그레이드 처리
+			// Upgrade node groups sequentially one by one (no parallel processing)
+			// Use a shorter timeout than the Control Plane for Node Group upgrade
 			cblogger.Infof("Waiting for node group %s upgrade to complete...", nodeGroup.IId.SystemId)
 			errWaitNodeGroup := ClusterHandler.WaitUntilNodegroupActive(clusterIID.SystemId, nodeGroup.IId.SystemId)
 			if errWaitNodeGroup != nil {
@@ -1740,7 +1527,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			}
 		}
 
-		// 실패 정보 종합 로깅
+		// Aggregate and log upgrade failures
 		if len(upgradeFailures) > 0 {
 			cblogger.Warnf("Some node groups failed to upgrade: %s", strings.Join(upgradeFailures, "; "))
 		} else {
@@ -1750,7 +1537,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		cblogger.Info("No node groups need upgrading")
 	}
 
-	// 최종 상태를 확인하고 업데이트된 클러스터 정보를 반환
+	// Verify final state and return updated cluster info
 	cblogger.Info("Fetching updated cluster information")
 	updatedClusterInfo, err := ClusterHandler.GetCluster(clusterIID)
 	if err != nil {
@@ -1758,7 +1545,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		return irs.ClusterInfo{}, err
 	}
 
-	// 업그레이드 결과 확인
+	// Verify upgrade result
 	if needsControlPlaneUpgrade && updatedClusterInfo.Version != newVersion {
 		cblogger.Warnf("Control plane upgrade may not have completed. Expected version: %s, Actual version: %s",
 			newVersion, updatedClusterInfo.Version)
@@ -2033,7 +1820,7 @@ func (ClusterHandler *AwsClusterHandler) createEKSNodeGroupRole(roleName string)
 }
 
 /*
-EKS의 NodeGroup정보를 Spider의 NodeGroup으로 변경
+Convert EKS NodeGroup info to Spider NodeGroup
 */
 func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks.DescribeNodegroupOutput) (irs.NodeGroupInfo, error) {
 	nodeGroupInfo := irs.NodeGroupInfo{}
@@ -2049,15 +1836,15 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	nodeGroupInfo.Status = convertNodeGroupStatusToNodeGroupInfoStatus(aws.StringValue(nodeGroup.Status))
 	instanceTypeList := nodeGroup.InstanceTypes // spec
 
-	//nodes := nodeGroup.Health.Issues[0].ResourceIds // 문제 있는 node들만 있는것이 아닌지..
+	//nodes := nodeGroup.Health.Issues[0].ResourceIds // may only contain nodes with issues
 	rootDiskSize := nodeGroup.DiskSize
-	//nodeGroup.Taints// 미사용
+	//nodeGroup.Taints // unused
 	nodeGroupTagList := nodeGroup.Tags
 	scalingConfig := nodeGroup.ScalingConfig
 	//nodeGroup.RemoteAccess
 	nodeGroupName := nodeGroup.NodegroupName
 
-	//nodeGroup.LaunchTemplate //미사용
+	//nodeGroup.LaunchTemplate // unused
 	//clusterName := nodeGroup.ClusterName
 	//capacityType := nodeGroup.CapacityType // "ON_DEMAND"
 	nodeGroupInfo.ImageIID.NameId = *nodeGroup.AmiType // AL2_x86_64"
@@ -2066,8 +1853,8 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//labelList := nodeGroup.Labels
 	//nodeGroupArn := nodeGroup.NodegroupArn
 	//nodeGroupResources := nodeGroup.Resources
-	//nodeGroupResources.AutoScalingGroups// 미사용
-	//nodeGroupResources.RemoteAccessSecurityGroup// 미사용
+	//nodeGroupResources.AutoScalingGroups // unused
+	//nodeGroupResources.RemoteAccessSecurityGroup // unused
 
 	/*
 		nodes := []irs.IID{}
@@ -2081,9 +1868,9 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	*/
 
 	//=============
-	//VM 노드 조회
+	// Query VM nodes
 	//=============
-	// 오토스케일링 그룹 목록에서 VM 목록 정보 추출
+	// Extract VM list from Auto Scaling group list
 	//"Resources":{"AutoScalingGroups":[{"Name":"eks-cb-eks-nodegroup-test-fec135d9-c812-8862-e3b0-7b773ce70d2e"}],
 
 	if !reflect.ValueOf(nodeGroup.Resources).IsNil() {
@@ -2107,8 +1894,8 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
 
 	if nodeGroupTagList == nil {
-		nodeGroupTagList = make(map[string]*string)     // nil 체크 후 초기화
-		nodeGroupTagList[NODEGROUP_TAG] = nodeGroupName // 값이없으면 nodeGroupName이랑 같은값으로 set.
+		nodeGroupTagList = make(map[string]*string)     // initialize after nil check
+		nodeGroupTagList[NODEGROUP_TAG] = nodeGroupName // if no value, set to nodeGroupName
 	}
 	nodeGroupTag := ""
 	for key, val := range nodeGroupTagList {
@@ -2122,7 +1909,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	cblogger.Debug("nodeGroupName=", *nodeGroupName)
 	cblogger.Debug("tag=", nodeGroupTagList[NODEGROUP_TAG])
 	nodeGroupInfo.IId = irs.IID{
-		NameId:   nodeGroupTag, // TAG에 이름
+		NameId:   nodeGroupTag, // name from TAG
 		SystemId: *nodeGroupName,
 	}
 	nodeGroupInfo.VMSpecName = *instanceTypeList[0]
@@ -2138,7 +1925,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(aws.Int64Value(rootDiskSize), 10)
 
-	// TODO : node 목록 NodegroupArn 으로 조회해야하나??
+	// TODO : should node list be queried by NodegroupArn?
 	//nodeList := []irs.IID{}
 	//if nodeList != nil {
 	//	for _, nodeId := range nodes {
@@ -2183,11 +1970,11 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//arn:partition:service:region:account-id:resource-type/resource-id
 	//arn:partition:service:region:account-id:resource-type:resource-id
 
-	// irs.StructToKeyValueList() 함수 사용
+	// Using irs.StructToKeyValueList()
 	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodeGroup)
 
 	PrintToJson(nodeGroupInfo)
-	//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "추출 오류", nil)
+	//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "extraction error", nil)
 	return nodeGroupInfo, nil
 }
 
