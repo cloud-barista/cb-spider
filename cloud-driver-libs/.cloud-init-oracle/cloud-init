@@ -1,0 +1,9 @@
+#cloud-config
+users:
+  - default
+  - name: cb-user
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo, wheel
+    ssh_authorized_keys:
+      - *PUBLIC_KEY*

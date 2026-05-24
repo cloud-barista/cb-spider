@@ -80,6 +80,18 @@ IBM:
   idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 32 / 63 / 63
   defaultregiontoquery: us-south / us-south-1
 
+ORACLE:
+  region: Region / Zone
+  credential: TenantId / ClientId / ClientSecret / StsToken / ProjectID
+  credentialcsp: tenancy_ocid / user_ocid / private_key_pem / fingerprint / compartment_ocid
+  rootdisktype: default
+  rootdisksize: default|50|32768|GB
+  disktype: default
+  disksize: default|50|32768|GB
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem / RDBMS
+  idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255 / 0 / 0 / 255
+  defaultregiontoquery: ap-chuncheon-1 / PEGr:AP-CHUNCHEON-1-AD-1
+
 OPENSTACK:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
