@@ -22,6 +22,7 @@ import (
 	ibmdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
+	oracledrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/oracle"
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 
 	ktvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/kt"
@@ -64,6 +65,8 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cloudDriver = new(tencentdrv.TencentDriver)
 	case "IBM":
 		cloudDriver = new(ibmdrv.IbmCloudDriver)
+	case "ORACLE":
+		cloudDriver = new(oracledrv.OracleDriver)
 	case "NCP":
 		cloudDriver = new(ncpdrv.NcpVpcDriver)
 	case "NHN":
@@ -77,7 +80,7 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 
 	default:
 		errmsg := cldDrvInfo.ProviderName + " is not supported static Cloud Driver!!"
-		return cloudDriver, fmt.Errorf(errmsg)
+		return cloudDriver, fmt.Errorf("%s", errmsg)
 	}
 
 	return cloudDriver, nil

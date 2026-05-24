@@ -2541,6 +2541,8 @@ THE SOFTWARE.
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleOverlayEsc);
         clearFormFields();
+        loadVPCs();
+        loadKeyPairs();
     }
 
     function clearFormFields() {
@@ -2559,7 +2561,6 @@ THE SOFTWARE.
         const region = '{{.RegionName}}';
         const vmNameInput = document.getElementById('vmName');
         vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 5)}`;
-        loadSecurityGroups();
         const tagContainer = document.getElementById('vm-tag-container');
         while (tagContainer.firstChild) {
             tagContainer.removeChild(tagContainer.firstChild);
@@ -3785,6 +3786,7 @@ THE SOFTWARE.
     // OpenStack data cache (fetched from Spider API)
     let openstackAllImages = [];
     let openstackAllSpecs = [];
+    let spiderSpecsCacheKey = '';
     let currentImageData = []; // Store current page image data for selection
     let currentSpecData = []; // Store current page spec data for selection
     let selectedOSArch = ''; // Store selected OS architecture from image selection
@@ -4209,8 +4211,11 @@ THE SOFTWARE.
         return transformedImages;
     }
     
-    async function loadSpecsFromSpider(connectionName) {
-        const url = `/spider/vmspec?ConnectionName=${encodeURIComponent(connectionName)}`;
+    async function loadSpecsFromSpider(connectionName, imageName = '') {
+        let url = `/spider/vmspec?ConnectionName=${encodeURIComponent(connectionName)}`;
+        if (imageName) {
+            url += `&ImageName=${encodeURIComponent(imageName)}`;
+        }
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Spider API error: ${response.status}`);
@@ -4352,9 +4357,9 @@ THE SOFTWARE.
 
     function loadImages() {
         getCSPFromConnection().then(csp => {
-            // ==================== OPENSTACK & MOCK: USE SPIDER API ====================
-            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
-                // Hide MC-Insight badge for OpenStack and MOCK
+            // ==================== SPIDER API CSPs ====================
+            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock' || csp.toLowerCase() === 'oracle') {
+                // Hide MC-Insight badge for Spider API-backed CSPs
                 const badge = document.getElementById('image-mcinsight-badge');
                 if (badge) badge.style.display = 'none';
                 
@@ -4390,15 +4395,15 @@ THE SOFTWARE.
                             const pageImages = filteredImages.slice(startIdx, endIdx);
                             
                             displayImages(pageImages);
-                            updateImagePagination('Spider-OpenStack');
+                            updateImagePagination('Spider');
                             loadingOverlay.classList.remove('active');
                         })
                         .catch(error => {
-                            console.error('Error loading OpenStack images:', error);
+                            console.error('Error loading Spider images:', error);
                             loadingOverlay.classList.remove('active');
                             container.innerHTML = `
                                 <div class="no-data-message">
-                                    <p><strong>Error loading OpenStack images</strong></p>
+                                    <p><strong>Error loading Spider images</strong></p>
                                     <p style="font-size: 12px; color: #666;">${error.message}</p>
                                     <button class="select-btn" onclick="openstackAllImages = []; loadImages();" style="margin-top: 10px;">Retry</button>
                                 </div>
@@ -4415,7 +4420,7 @@ THE SOFTWARE.
                     const pageImages = filteredImages.slice(startIdx, endIdx);
                     
                     displayImages(pageImages);
-                    updateImagePagination('Spider-OpenStack');
+                    updateImagePagination('Spider');
                     loadingOverlay.classList.remove('active');
                 }
                 return;
@@ -5517,9 +5522,9 @@ THE SOFTWARE.
 
     function loadSpecs() {
         getCSPFromConnection().then(csp => {
-            // ==================== OPENSTACK & MOCK: USE SPIDER API ====================
-            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
-                // Hide MC-Insight badge for OpenStack and MOCK
+            // ==================== SPIDER API CSPs ====================
+            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock' || csp.toLowerCase() === 'oracle') {
+                // Hide MC-Insight badge for Spider API-backed CSPs
                 const badge = document.getElementById('spec-mcinsight-badge');
                 if (badge) badge.style.display = 'none';
                 
@@ -5535,12 +5540,15 @@ THE SOFTWARE.
                 
                 // Get current connection name
                 const connectionName = document.getElementById('connConfig').value;
+                const imageName = document.getElementById('imageName')?.value?.trim() || '';
+                const specsCacheKey = `${csp.toLowerCase()}|${connectionName}|${imageName}`;
                 
                 // Load specs from Spider API (only once, then cache)
-                if (openstackAllSpecs.length === 0) {
-                    loadSpecsFromSpider(connectionName)
+                if (openstackAllSpecs.length === 0 || spiderSpecsCacheKey !== specsCacheKey) {
+                    loadSpecsFromSpider(connectionName, imageName)
                         .then(specs => {
                             openstackAllSpecs = specs;
+                            spiderSpecsCacheKey = specsCacheKey;
                             
                             // Apply filters and sorting
                             let filteredSpecs = filterOpenStackSpecs(openstackAllSpecs, specFilters);
@@ -5555,17 +5563,17 @@ THE SOFTWARE.
                             const pageSpecs = filteredSpecs.slice(startIdx, endIdx);
                             
                             displaySpecs(pageSpecs);
-                            updateSpecPagination('Spider-OpenStack');
+                            updateSpecPagination('Spider');
                             loadingOverlay.classList.remove('active');
                         })
                         .catch(error => {
-                            console.error('Error loading OpenStack specs:', error);
+                            console.error('Error loading Spider specs:', error);
                             loadingOverlay.classList.remove('active');
                             container.innerHTML = `
                                 <div class="no-data-message">
-                                    <p><strong>Error loading OpenStack specs</strong></p>
+                                    <p><strong>Error loading Spider specs</strong></p>
                                     <p style="font-size: 12px; color: #666;">${error.message}</p>
-                                    <button class="select-btn" onclick="openstackAllSpecs = []; loadSpecs();" style="margin-top: 10px;">Retry</button>
+                                    <button class="select-btn" onclick="openstackAllSpecs = []; spiderSpecsCacheKey = ''; loadSpecs();" style="margin-top: 10px;">Retry</button>
                                 </div>
                             `;
                         });
@@ -5580,7 +5588,7 @@ THE SOFTWARE.
                     const pageSpecs = filteredSpecs.slice(startIdx, endIdx);
                     
                     displaySpecs(pageSpecs);
-                    updateSpecPagination('Spider-OpenStack');
+                    updateSpecPagination('Spider');
                     loadingOverlay.classList.remove('active');
                 }
                 return;
