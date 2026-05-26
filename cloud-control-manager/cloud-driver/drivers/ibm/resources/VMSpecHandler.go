@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -35,15 +37,32 @@ func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		return nil, getErr
 	}
 
-	for _, profile := range profiles.Profiles {
-		vmSpecInfo, err := setVmSpecInfo(profile, vmSpecHandler.Region.Region)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return nil, getErr
+	for {
+		for _, profile := range profiles.Profiles {
+			vmSpecInfo, err := setVmSpecInfo(profile, vmSpecHandler.Region.Region)
+			if err != nil {
+				getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
+			}
+			specList = append(specList, &vmSpecInfo)
 		}
-		specList = append(specList, &vmSpecInfo)
+		nextStr, _ := getSpecNextHref(profiles.Next)
+		if nextStr != "" {
+			options = &vpcv1.ListInstanceProfilesOptions{
+				Start: core.StringPtr(nextStr),
+			}
+			profiles, _, err = vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
+			if err != nil {
+				getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return nil, getErr
+			}
+		} else {
+			break
+		}
 	}
 	LoggingInfo(hiscallInfo, start)
 	return specList, nil
@@ -90,15 +109,32 @@ func (vmSpecHandler *IbmVmSpecHandler) ListOrgVMSpec() (string, error) {
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
 	}
-	for _, profile := range profiles.Profiles {
-		vmSpecInfo, err := setVmSpecInfo(profile, vmSpecHandler.Region.Region)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return "", getErr
+	for {
+		for _, profile := range profiles.Profiles {
+			vmSpecInfo, err := setVmSpecInfo(profile, vmSpecHandler.Region.Region)
+			if err != nil {
+				getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return "", getErr
+			}
+			specList = append(specList, &vmSpecInfo)
 		}
-		specList = append(specList, &vmSpecInfo)
+		nextStr, _ := getSpecNextHref(profiles.Next)
+		if nextStr != "" {
+			options = &vpcv1.ListInstanceProfilesOptions{
+				Start: core.StringPtr(nextStr),
+			}
+			profiles, _, err = vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
+			if err != nil {
+				getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return "", getErr
+			}
+		} else {
+			break
+		}
 	}
 	jsonBytes, err := json.Marshal(specList)
 	if err != nil {
@@ -147,10 +183,18 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Name string) (string, error)
 }
 
 func getGpuMfr(name string) string {
-	if strings.HasPrefix(name, "gx2") || strings.HasPrefix(name, "gx3") {
-		return "NVIDIA"
+	if !strings.HasPrefix(name, "gx") {
+		return "NA"
 	}
-	return "NA"
+	// Determine manufacturer from GPU model suffix (e.g., gaudi3 → Intel, mi300x → AMD)
+	model := strings.ToLower(getGpuModel(name))
+	if strings.HasPrefix(model, "gaudi") {
+		return "Intel"
+	}
+	if strings.HasPrefix(model, "mi") {
+		return "AMD"
+	}
+	return "NVIDIA"
 }
 
 func getGpuCount(name string) string {
@@ -194,7 +238,6 @@ func getGpuModel(name string) string {
 }
 
 func getGpuInfo(name string) (string, string, string) {
-	//check NVIDIA gpu
 	mfr := getGpuMfr(name)
 	if mfr == "NA" {
 		return mfr, "-1", "NA"
@@ -257,6 +300,23 @@ func setVmSpecInfoWithVMSpecName(Name string, region string) (irs.VMSpecInfo, er
 	}
 
 	return vmSpecInfo, nil
+}
+
+func getSpecNextHref(next *vpcv1.PageLink) (string, error) {
+	if next != nil {
+		href := *next.Href
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", err
+		}
+		paramMap, _ := url.ParseQuery(u.RawQuery)
+		if paramMap != nil {
+			if safe := paramMap["start"]; len(safe) > 0 {
+				return safe[0], nil
+			}
+		}
+	}
+	return "", errors.New("NOT NEXT")
 }
 
 func getRawSpec(specName string, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.InstanceProfile, error) {
