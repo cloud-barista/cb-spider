@@ -442,34 +442,55 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		NameId:   *createInstance.Name,
 		SystemId: *createInstance.ID,
 	}
+	const pollIntervalSec = 5
+	const maxWaitSec = 600 // IBM GPU instances (gx3*) can take 5-10 min
 	curRetryCnt := 0
-	maxRetryCnt := 120
+	maxRetryCnt := maxWaitSec / pollIntervalSec
 	for {
 		finalInstance, err := getRawInstance(createInstanceIId, vmHandler.VpcService, vmHandler.Ctx)
 		if err != nil {
 			removeFloatingIpsErr := removeFloatingIps(finalInstance, vmHandler.VpcService, vmHandler.Ctx)
-			// 생성 완료후 running 기다리는중 에러.
-			// 제거 로직을 위해 removeFloatingIp
 			if removeFloatingIpsErr != nil {
-				// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
-				newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
-				err = errors.New(newErrText)
+				err = errors.New(err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM")
 				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
 				LoggingError(hiscallInfo, createErr)
 				return irs.VMInfo{}, createErr
 			}
-			// 제거 로직을 위해 deleteInstance
 			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 			if deleteErr != nil {
-				newErrText := err.Error() + deleteErr.Error()
-				err = errors.New(newErrText)
+				err = errors.New(err.Error() + deleteErr.Error())
+			}
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		if *finalInstance.Status == "failed" {
+			// IBM instance entered failed state — collect StatusReasons for diagnosis
+			var reasonParts []string
+			for _, r := range finalInstance.StatusReasons {
+				if r.Code != nil && r.Message != nil {
+					reasonParts = append(reasonParts, fmt.Sprintf("%s: %s", *r.Code, *r.Message))
+				}
+			}
+			reason := "IBM instance entered failed status"
+			if len(reasonParts) > 0 {
+				reason += " (" + strings.Join(reasonParts, "; ") + ")"
+			}
+			err = errors.New(reason)
+			removeFloatingIpsErr := removeFloatingIps(finalInstance, vmHandler.VpcService, vmHandler.Ctx)
+			if removeFloatingIpsErr != nil {
+				err = errors.New(err.Error() + "; cleanup error: " + removeFloatingIpsErr.Error())
 				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
 				LoggingError(hiscallInfo, createErr)
 				return irs.VMInfo{}, createErr
 			}
-			err = errors.New("failed to create VM")
+			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+			if deleteErr != nil {
+				err = errors.New(err.Error() + "; cleanup error: " + deleteErr.Error())
+			}
 			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
@@ -479,28 +500,17 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			finalInstanceInfo, err := vmHandler.setVmInfo(finalInstance)
 			if err != nil {
 				removeFloatingIpsErr := removeFloatingIps(finalInstance, vmHandler.VpcService, vmHandler.Ctx)
-				// 생성 완료후 running 기다리는중 에러.
-				// 제거 로직을 위해 removeFloatingIp
 				if removeFloatingIpsErr != nil {
-					// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
-					newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
-					err = errors.New(newErrText)
+					err = errors.New(err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM")
 					createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 					cblogger.Error(createErr.Error())
 					LoggingError(hiscallInfo, createErr)
 					return irs.VMInfo{}, createErr
 				}
-				// 제거 로직을 위해 deleteInstance
 				deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 				if deleteErr != nil {
-					newErrText := err.Error() + deleteErr.Error()
-					err = errors.New(newErrText)
-					createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-					cblogger.Error(createErr.Error())
-					LoggingError(hiscallInfo, createErr)
-					return irs.VMInfo{}, createErr
+					err = errors.New(err.Error() + deleteErr.Error())
 				}
-				err = errors.New("failed to create VM")
 				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
 				LoggingError(hiscallInfo, createErr)
@@ -513,32 +523,21 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			return finalInstanceInfo, nil
 		}
 		curRetryCnt++
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Duration(pollIntervalSec) * time.Second)
 		if curRetryCnt > maxRetryCnt {
-			err = errors.New(fmt.Sprintf("failed to create VM, exceeded maximum retry count %d", maxRetryCnt))
+			err = errors.New(fmt.Sprintf("IBM instance did not reach running status within %d seconds (last status: %s)", maxWaitSec, *finalInstance.Status))
 			removeFloatingIpsErr := removeFloatingIps(finalInstance, vmHandler.VpcService, vmHandler.Ctx)
-			// 생성 완료후 running 기다리는중 에러.
-			// 제거 로직을 위해 removeFloatingIp
 			if removeFloatingIpsErr != nil {
-				// 제거 로직을 위해 removeFloatingIp Error => instance에 대한 에러 + removeError + delete error
-				newErrText := err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM"
-				err = errors.New(newErrText)
+				err = errors.New(err.Error() + removeFloatingIpsErr.Error() + "and failed delete VM")
 				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
 				LoggingError(hiscallInfo, createErr)
 				return irs.VMInfo{}, createErr
 			}
-			// 제거 로직을 위해 deleteInstance
 			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 			if deleteErr != nil {
-				newErrText := err.Error() + deleteErr.Error()
-				err = errors.New(newErrText)
-				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
+				err = errors.New(err.Error() + deleteErr.Error())
 			}
-			err = errors.New("failed to create VM")
 			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
