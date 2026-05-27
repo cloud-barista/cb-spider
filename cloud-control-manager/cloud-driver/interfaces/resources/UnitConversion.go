@@ -2,6 +2,7 @@ package resources
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 )
 
@@ -30,8 +31,9 @@ func ConvertMiBToGB(mibStr string) (string, error) {
 }
 
 // ConvertMiBToGBInt64 converts MiB (int64) to a GB string (int string).
+// Uses rounding to avoid systematic undercount (e.g. 22888 MiB → 23.997 GB → 24, not 23).
 func ConvertMiBToGBInt64(mib int64) string {
-	gb := int(float64(mib) / 1024.0 * 1.073741824)
+	gb := int(math.Round(float64(mib) / 1024.0 * 1.073741824))
 	return strconv.Itoa(gb)
 }
 
