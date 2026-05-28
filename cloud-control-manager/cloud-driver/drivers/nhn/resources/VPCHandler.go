@@ -957,7 +957,7 @@ func (vpcHandler *NhnCloudVPCHandler) setInternetGateway(vpcId string) (string, 
 			}
 		}
 	} else {
-		newErr := fmt.Errorf("### No Default Routinng Rable on the VPC. [%s]", vpcId)
+		newErr := fmt.Errorf("### No Default Routing Table on the VPC. [%s]", vpcId)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
@@ -1358,14 +1358,14 @@ func (vpcHandler *NhnCloudVPCHandler) removeInternetGateway(vpcId string) (bool,
 			}
 		}
 	} else {
-		newErr := fmt.Errorf("### No Default Routinng Rable on the VPC. [%s]", vpcId)
+		newErr := fmt.Errorf("### No Default Routing Table on the VPC. [%s]", vpcId)
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
 
 	dettachErr := vpcHandler.detachGateway(defaultRoutingTableId)
 	if dettachErr != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC : [%v]", dettachErr)
+		newErr := fmt.Errorf("Failed to Detach the Internet Gateway : [%v]", dettachErr)
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
@@ -1379,7 +1379,7 @@ func (vpcHandler *NhnCloudVPCHandler) removeInternetGateway(vpcId string) (bool,
 			}
 		}
 	} else {
-		newErr := fmt.Errorf("### No Getway ID according to the Routinng Rable on the VPC. [%s]", vpcId)
+		newErr := fmt.Errorf("### No Gateway ID according to the Routing Table on the VPC. [%s]", vpcId)
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
@@ -1392,7 +1392,7 @@ func (vpcHandler *NhnCloudVPCHandler) removeInternetGateway(vpcId string) (bool,
 
 	deleteErr := vpcHandler.deleteInternetGateway(iGWId)
 	if deleteErr != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC : [%v]", deleteErr)
+		newErr := fmt.Errorf("Failed to Delete the Internet Gateway : [%v]", deleteErr)
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}

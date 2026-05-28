@@ -543,7 +543,18 @@ Loop:
 				cblogger.Info("Start CreateVPC() ...")
 				if vpcInfo, err := vpcHandler.CreateVPC(VPCReqInfo); err != nil {
 					cblogger.Error(err)
+					// Adopt an existing VPC with the same NameId so subsequent
+					// Get/Delete in the lifecycle has a usable SystemId.
+					if list, lerr := vpcHandler.ListVPC(); lerr == nil {
+						for _, v := range list {
+							if v.IId.NameId == vpcIID.NameId {
+								vpcIID = v.IId
+								break
+							}
+						}
+					}
 				} else {
+					vpcIID = vpcInfo.IId
 					spew.Dump(vpcInfo)
 				}
 				cblogger.Info("Finish CreateVPC()")
@@ -1483,7 +1494,7 @@ Loop:
 					})
 				}
 
-				if priceInfo, err := priceInfoHandler.GetPriceInfo(productFamiliy, region, filterList); err != nil {
+				if priceInfo, err := priceInfoHandler.GetPriceInfo(productFamiliy, region, filterList, false); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(priceInfo)
@@ -1532,7 +1543,7 @@ func testClusterHandler(config Config) {
 			SubnetIIDs:        []irs.IID{{NameId: "nhn-vpc-sb-01"}},
 			SecurityGroupIIDs: []irs.IID{{NameId: "nhn-sg-01"}},
 		},
-		Version: "v1.29.3",
+		Version: "v1.32.3",
 		// ImageIID
 		NodeGroupList: []irs.NodeGroupInfo{
 			{
