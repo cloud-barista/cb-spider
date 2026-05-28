@@ -1047,7 +1047,8 @@ func checkImageType(reqInfo *cres.VMReqInfo) error {
 	}
 	if reqInfo.ImageType == cres.MyImage {
 		// checking to change ther Root-Disk
-		if reqInfo.RootDiskType != "" || reqInfo.RootDiskSize != "" {
+		if (reqInfo.RootDiskType != "" && reqInfo.RootDiskType != "default") ||
+			(reqInfo.RootDiskSize != "" && reqInfo.RootDiskSize != "default") {
 			return errors.New("MyImage can not configure the Root-Disk!!")
 		}
 		// checking to add Data-Disks

@@ -18,11 +18,11 @@ func ListVMSpec(connectionName string) ([]*cres.VMSpecInfo, error) {
 	cblog.Info("call ListVMSpec()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -53,17 +53,17 @@ func GetVMSpec(connectionName string, nameID string) (*cres.VMSpecInfo, error) {
 	cblog.Info("call GetVMSpec()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
-        nameID, err = EmptyCheckAndTrim("nameID", nameID)
-        if err != nil {
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
 		cblog.Error(err)
-                return nil, err
-        }
+		return nil, err
+	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -89,11 +89,11 @@ func ListOrgVMSpec(connectionName string) (string, error) {
 	cblog.Info("call ListOrgVMSpec()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return "", err
-        }
+		return "", err
+	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -120,17 +120,17 @@ func GetOrgVMSpec(connectionName string, nameID string) (string, error) {
 	cblog.Info("call GetOrgVMSpec()")
 
 	// check empty and trim user inputs
-        connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
-        if err != nil {
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
 		cblog.Error(err)
-                return "", err
-        }
+		return "", err
+	}
 
-        nameID, err = EmptyCheckAndTrim("nameID", nameID)
-        if err != nil {
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
 		cblog.Error(err)
-                return "", err
-        }
+		return "", err
+	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {

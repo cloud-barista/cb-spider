@@ -16,6 +16,7 @@ cloudos:
   - ALIBABA
   - TENCENT
   - IBM
+  - ORACLE
   - OPENSTACK
   - NCP
   - NHN

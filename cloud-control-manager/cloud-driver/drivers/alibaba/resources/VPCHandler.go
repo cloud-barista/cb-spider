@@ -186,14 +186,22 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	callLogStart := call.Start()
 
 	response, err := VPCHandler.Client.CreateVSwitch(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
 	if err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.SubnetInfo{}, err
 	}
+	if err := VPCHandler.WaitForSubnetAvailable(response.VSwitchId); err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Error(call.String(callLogInfo))
+		cblogger.Error(err.Error())
+		return irs.SubnetInfo{}, err
+	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 	//cblogger.Debug(response)
 
@@ -309,7 +317,7 @@ func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
 		if strings.EqualFold(status, "Pending") {
 			curRetryCnt++
 			cblogger.Debug("Waiting for 1 second and then querying because the VPC status is not Available.")
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 3)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Error("Forcing termination as the VPC status remains unchanged as Available for a long time.")
 			}
@@ -320,6 +328,108 @@ func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
 				return errors.New("Unknown VPC Status value.")
 			}
 		}
+	}
+
+	return nil
+}
+
+func (VPCHandler *AlibabaVPCHandler) WaitForSubnetAvailable(vSwitchId string) error {
+	cblogger.Debugf("======> Waiting until VSwitch [%s] is available.", vSwitchId)
+
+	maxRetryCnt := 20
+	curRetryCnt := 0
+
+	request := vpc.CreateDescribeVSwitchesRequest()
+	request.Scheme = "https"
+	request.VSwitchId = vSwitchId
+
+	for {
+		result, err := VPCHandler.Client.DescribeVSwitches(request)
+		if err != nil {
+			return err
+		}
+
+		if len(result.VSwitches.VSwitch) < 1 {
+			return errors.New("VSwitch [" + vSwitchId + "] not found while waiting for Available status.")
+		}
+
+		status := result.VSwitches.VSwitch[0].Status
+		cblogger.Infof("===>VSwitch [%s] Status : %s", vSwitchId, status)
+		if strings.EqualFold(status, "Available") {
+			cblogger.Infof("VSwitch [%s] is now Available.", vSwitchId)
+			break
+		}
+
+		curRetryCnt++
+		if curRetryCnt > maxRetryCnt {
+			return errors.New("Timeout: VSwitch [" + vSwitchId + "] did not become Available within 1 minute.")
+		}
+		cblogger.Debugf("Waiting for VSwitch [%s] to become Available. (%d/%d)", vSwitchId, curRetryCnt, maxRetryCnt)
+		time.Sleep(time.Second * 3)
+	}
+
+	return nil
+}
+
+func (VPCHandler *AlibabaVPCHandler) WaitForSubnetDeleted(vSwitchId string) error {
+	cblogger.Debugf("======> Waiting until VSwitch [%s] is deleted.", vSwitchId)
+
+	maxRetryCnt := 20
+	curRetryCnt := 0
+
+	request := vpc.CreateDescribeVSwitchesRequest()
+	request.Scheme = "https"
+	request.VSwitchId = vSwitchId
+
+	for {
+		result, err := VPCHandler.Client.DescribeVSwitches(request)
+		if err != nil {
+			return err
+		}
+
+		if len(result.VSwitches.VSwitch) < 1 {
+			cblogger.Infof("VSwitch [%s] deletion confirmed.", vSwitchId)
+			break
+		}
+
+		curRetryCnt++
+		if curRetryCnt > maxRetryCnt {
+			return errors.New("Timeout: VSwitch [" + vSwitchId + "] deletion did not complete within 1 minute.")
+		}
+		cblogger.Debugf("Waiting for VSwitch [%s] deletion. (%d/%d)", vSwitchId, curRetryCnt, maxRetryCnt)
+		time.Sleep(time.Second * 3)
+	}
+
+	return nil
+}
+
+func (VPCHandler *AlibabaVPCHandler) WaitForVPCDeleted(vpcId string) error {
+	cblogger.Debugf("======> Waiting until VPC [%s] is deleted.", vpcId)
+
+	maxRetryCnt := 20
+	curRetryCnt := 0
+
+	request := vpc.CreateDescribeVpcsRequest()
+	request.Scheme = "https"
+	request.VpcId = vpcId
+
+	for {
+		result, err := VPCHandler.Client.DescribeVpcs(request)
+		if err != nil {
+			return err
+		}
+
+		if len(result.Vpcs.Vpc) < 1 {
+			cblogger.Infof("VPC [%s] deletion confirmed.", vpcId)
+			break
+		}
+
+		curRetryCnt++
+		if curRetryCnt > maxRetryCnt {
+			return errors.New("Timeout: VPC [" + vpcId + "] deletion did not complete within 1 minute.")
+		}
+		cblogger.Debugf("Waiting for VPC [%s] deletion. (%d/%d)", vpcId, curRetryCnt, maxRetryCnt)
+		time.Sleep(time.Second * 3)
 	}
 
 	return nil
@@ -448,15 +558,24 @@ func (VPCHandler *AlibabaVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	callLogStart := call.Start()
 
 	response, err := VPCHandler.Client.DeleteVpc(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
 	if err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
 		cblogger.Infof("[%s] VPC Delete fail", vpcIID.SystemId)
 		cblogger.Error(err.Error())
 		return false, err
 	}
+
+	if err := VPCHandler.WaitForVPCDeleted(vpcIID.SystemId); err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return false, err
+	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 	return true, nil
 }
@@ -481,15 +600,24 @@ func (VPCHandler *AlibabaVPCHandler) DeleteSubnet(subnetIID irs.IID) (bool, erro
 	}
 	callLogStart := call.Start()
 	response, err := VPCHandler.Client.DeleteVSwitch(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
 	if err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
 		cblogger.Infof("[%s] VSwitch Delete fail", subnetIID.SystemId)
 		cblogger.Error(err.Error())
 		return false, err
 	}
+
+	if err := VPCHandler.WaitForSubnetDeleted(subnetIID.SystemId); err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return false, err
+	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 	return true, nil
 }
