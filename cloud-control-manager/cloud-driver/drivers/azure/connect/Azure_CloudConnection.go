@@ -73,6 +73,7 @@ type AzureCloudConnection struct {
 	AccountsClient                  *armstorage.AccountsClient
 	MySQLServersClient              *armmysqlfs.ServersClient
 	MySQLFirewallRulesClient        *armmysqlfs.FirewallRulesClient
+	MySQLDatabasesClient            *armmysqlfs.DatabasesClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -318,6 +319,7 @@ func (cloudConn *AzureCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, e
 		Ctx:                 cloudConn.Ctx,
 		ServersClient:       cloudConn.MySQLServersClient,
 		FirewallRulesClient: cloudConn.MySQLFirewallRulesClient,
+		DatabasesClient:     cloudConn.MySQLDatabasesClient,
 	}
 	return &rdbmsHandler, nil
 }

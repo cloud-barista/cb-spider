@@ -162,25 +162,28 @@ func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.
 	// Create connection info object
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId"),
-			ClientSecret:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret"),
-			StsToken:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "StsToken"),
-			TenantId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "TenantId"),
-			SubscriptionId:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
-			IdentityEndpoint: KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
-			Username:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Username"),
-			Password:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Password"),
-			DomainName:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "DomainName"),
-			ProjectID:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ProjectID"),
-			AuthToken:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "AuthToken"),
-			ClientEmail:      KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail"),
-			PrivateKey:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey"),
-			Host:             KeyValueListGetValue(crdInfo.KeyValueInfoList, "Host"),
-			APIVersion:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			MockName:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "MockName"),
-			ApiKey:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "ApiKey"),
-			ClusterId:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
-			ConnectionName:   cloudConnectName,
+			ClientId:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId"),
+			ClientSecret:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+			StsToken:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "StsToken"),
+			TenantId:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "TenantId"),
+			SubscriptionId:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
+			IdentityEndpoint:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
+			Username:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "Username"),
+			Password:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "Password"),
+			DomainName:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "DomainName"),
+			ProjectID:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ProjectID"),
+			AuthToken:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "AuthToken"),
+			ClientEmail:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail"),
+			PrivateKey:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey"),
+			Host:               KeyValueListGetValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "APIVersion"),
+			MockName:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "MockName"),
+			ApiKey:             KeyValueListGetValue(crdInfo.KeyValueInfoList, "ApiKey"),
+			ClusterId:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
+			RDSUserAccessKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "User Access Key"),
+			RDSSecretAccessKey: KeyValueListGetValue(crdInfo.KeyValueInfoList, "Secret Access Key"),
+			RDSAppKey:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "appKey"),
+			ConnectionName:     cloudConnectName,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region:     regionName,
@@ -256,25 +259,28 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 		} `json:"CloudDriverInfo"`
 		ConnectionInfo struct {
 			CredentialInfo struct {
-				APIVersion       string `json:"APIVersion"`
-				ApiKey           string `json:"ApiKey"`
-				AuthToken        string `json:"AuthToken"`
-				ClientEmail      string `json:"ClientEmail"`
-				ClientId         string `json:"ClientId"`
-				ClientSecret     string `json:"ClientSecret"`
-				StsToken         string `json:"StsToken"`
-				ClusterId        string `json:"ClusterId"`
-				ConnectionName   string `json:"ConnectionName"`
-				DomainName       string `json:"DomainName"`
-				Host             string `json:"Host"`
-				IdentityEndpoint string `json:"IdentityEndpoint"`
-				MockName         string `json:"MockName"`
-				Password         string `json:"Password"`
-				PrivateKey       string `json:"PrivateKey"`
-				ProjectID        string `json:"ProjectID"`
-				SubscriptionId   string `json:"SubscriptionId"`
-				TenantId         string `json:"TenantId"`
-				Username         string `json:"Username"`
+				APIVersion         string `json:"APIVersion"`
+				ApiKey             string `json:"ApiKey"`
+				AuthToken          string `json:"AuthToken"`
+				ClientEmail        string `json:"ClientEmail"`
+				ClientId           string `json:"ClientId"`
+				ClientSecret       string `json:"ClientSecret"`
+				StsToken           string `json:"StsToken"`
+				ClusterId          string `json:"ClusterId"`
+				ConnectionName     string `json:"ConnectionName"`
+				DomainName         string `json:"DomainName"`
+				Host               string `json:"Host"`
+				IdentityEndpoint   string `json:"IdentityEndpoint"`
+				MockName           string `json:"MockName"`
+				Password           string `json:"Password"`
+				PrivateKey         string `json:"PrivateKey"`
+				ProjectID          string `json:"ProjectID"`
+				SubscriptionId     string `json:"SubscriptionId"`
+				TenantId           string `json:"TenantId"`
+				Username           string `json:"Username"`
+				RDSUserAccessKey   string `json:"RDSUserAccessKey"`
+				RDSSecretAccessKey string `json:"RDSSecretAccessKey"`
+				RDSAppKey          string `json:"RDSAppKey"`
 			} `json:"CredentialInfo"`
 			RegionInfo struct {
 				Region     string `json:"Region"`
@@ -300,25 +306,28 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 	// Construct ConnectionInfo
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:         apiResponse.ConnectionInfo.CredentialInfo.ClientId,
-			ClientSecret:     apiResponse.ConnectionInfo.CredentialInfo.ClientSecret,
-			StsToken:         apiResponse.ConnectionInfo.CredentialInfo.StsToken,
-			ConnectionName:   apiResponse.ConnectionInfo.CredentialInfo.ConnectionName,
-			APIVersion:       apiResponse.ConnectionInfo.CredentialInfo.APIVersion,
-			ApiKey:           apiResponse.ConnectionInfo.CredentialInfo.ApiKey,
-			AuthToken:        apiResponse.ConnectionInfo.CredentialInfo.AuthToken,
-			ClientEmail:      apiResponse.ConnectionInfo.CredentialInfo.ClientEmail,
-			ClusterId:        apiResponse.ConnectionInfo.CredentialInfo.ClusterId,
-			DomainName:       apiResponse.ConnectionInfo.CredentialInfo.DomainName,
-			Host:             apiResponse.ConnectionInfo.CredentialInfo.Host,
-			IdentityEndpoint: apiResponse.ConnectionInfo.CredentialInfo.IdentityEndpoint,
-			MockName:         apiResponse.ConnectionInfo.CredentialInfo.MockName,
-			Password:         apiResponse.ConnectionInfo.CredentialInfo.Password,
-			PrivateKey:       apiResponse.ConnectionInfo.CredentialInfo.PrivateKey,
-			ProjectID:        apiResponse.ConnectionInfo.CredentialInfo.ProjectID,
-			SubscriptionId:   apiResponse.ConnectionInfo.CredentialInfo.SubscriptionId,
-			TenantId:         apiResponse.ConnectionInfo.CredentialInfo.TenantId,
-			Username:         apiResponse.ConnectionInfo.CredentialInfo.Username,
+			ClientId:           apiResponse.ConnectionInfo.CredentialInfo.ClientId,
+			ClientSecret:       apiResponse.ConnectionInfo.CredentialInfo.ClientSecret,
+			StsToken:           apiResponse.ConnectionInfo.CredentialInfo.StsToken,
+			ConnectionName:     apiResponse.ConnectionInfo.CredentialInfo.ConnectionName,
+			APIVersion:         apiResponse.ConnectionInfo.CredentialInfo.APIVersion,
+			ApiKey:             apiResponse.ConnectionInfo.CredentialInfo.ApiKey,
+			AuthToken:          apiResponse.ConnectionInfo.CredentialInfo.AuthToken,
+			ClientEmail:        apiResponse.ConnectionInfo.CredentialInfo.ClientEmail,
+			ClusterId:          apiResponse.ConnectionInfo.CredentialInfo.ClusterId,
+			DomainName:         apiResponse.ConnectionInfo.CredentialInfo.DomainName,
+			Host:               apiResponse.ConnectionInfo.CredentialInfo.Host,
+			IdentityEndpoint:   apiResponse.ConnectionInfo.CredentialInfo.IdentityEndpoint,
+			MockName:           apiResponse.ConnectionInfo.CredentialInfo.MockName,
+			Password:           apiResponse.ConnectionInfo.CredentialInfo.Password,
+			PrivateKey:         apiResponse.ConnectionInfo.CredentialInfo.PrivateKey,
+			ProjectID:          apiResponse.ConnectionInfo.CredentialInfo.ProjectID,
+			SubscriptionId:     apiResponse.ConnectionInfo.CredentialInfo.SubscriptionId,
+			TenantId:           apiResponse.ConnectionInfo.CredentialInfo.TenantId,
+			Username:           apiResponse.ConnectionInfo.CredentialInfo.Username,
+			RDSUserAccessKey:   apiResponse.ConnectionInfo.CredentialInfo.RDSUserAccessKey,
+			RDSSecretAccessKey: apiResponse.ConnectionInfo.CredentialInfo.RDSSecretAccessKey,
+			RDSAppKey:          apiResponse.ConnectionInfo.CredentialInfo.RDSAppKey,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region:     apiResponse.ConnectionInfo.RegionInfo.Region,
@@ -363,24 +372,27 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 
 	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId"),
-			ClientSecret:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret"),
-			StsToken:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "StsToken"),
-			TenantId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "TenantId"),
-			SubscriptionId:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
-			IdentityEndpoint: KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
-			Username:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Username"),
-			Password:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Password"),
-			DomainName:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "DomainName"),
-			ProjectID:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ProjectID"),
-			AuthToken:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "AuthToken"),
-			ClientEmail:      KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail"),
-			PrivateKey:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey"),
-			Host:             KeyValueListGetValue(crdInfo.KeyValueInfoList, "Host"),
-			APIVersion:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			MockName:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "MockName"),
-			ApiKey:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "ApiKey"),
-			ClusterId:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
+			ClientId:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId"),
+			ClientSecret:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+			StsToken:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "StsToken"),
+			TenantId:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "TenantId"),
+			SubscriptionId:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
+			IdentityEndpoint:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
+			Username:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "Username"),
+			Password:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "Password"),
+			DomainName:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "DomainName"),
+			ProjectID:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ProjectID"),
+			AuthToken:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "AuthToken"),
+			ClientEmail:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail"),
+			PrivateKey:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey"),
+			Host:               KeyValueListGetValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "APIVersion"),
+			MockName:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "MockName"),
+			ApiKey:             KeyValueListGetValue(crdInfo.KeyValueInfoList, "ApiKey"),
+			ClusterId:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
+			RDSUserAccessKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "User Access Key"),
+			RDSSecretAccessKey: KeyValueListGetValue(crdInfo.KeyValueInfoList, "Secret Access Key"),
+			RDSAppKey:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "appKey"),
 		},
 	}
 

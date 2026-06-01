@@ -1004,11 +1004,15 @@
                 <h2 id="db-panel-title"></h2>
             </div>
 
+            <!-- Hidden provider name for JS logic -->
+            <input type="hidden" id="currentProviderName" value="{{.ProviderName}}">
+
             <!-- Connection Section -->
             <div class="db-connect-section">
-                <label>Password:</label>
+                <label id="dbPasswordLabel">Password:</label>
                 <input type="password" id="dbPassword" placeholder="Master user password" style="width: 200px;">
-                <button onclick="connectToDB()">Connect</button>
+                <span id="dbPasswordNotRequired" style="display:none; font-size:11px; color:#888; margin-left:6px;">DB management uses CSP API; needed for table operations</span>
+                <button id="dbConnectBtn" onclick="connectToDB()">Connect</button>
                 <button onclick="disconnectDB()">Disconnect</button>
                 <span id="dbConnectStatus" class="db-connect-status"></span>
             </div>
@@ -1983,6 +1987,15 @@
     let currentTable = null;
     let currentTableColumns = [];
 
+    // CSPs that manage databases via CSP-native API (DB create/list/drop uses CSP API, not SQL)
+    // SQL password is still needed for table/row operations on all CSPs.
+    const CSP_NATIVE_DB_PROVIDERS = ['NCP', 'NHN', 'GCP', 'ALIBABA', 'TENCENT', 'OPENSTACK', 'KT', 'AZURE'];
+
+    function isNativeDBProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return CSP_NATIVE_DB_PROVIDERS.indexOf(provider) >= 0;
+    }
+
     function showDBPanel(rdbmsName) {
         currentRDBMS = rdbmsName;
         currentDBPassword = null;
@@ -2020,10 +2033,14 @@
         document.getElementById('db-table-panel').style.display = 'none';
         document.getElementById('db-row-panel').style.display = 'none';
 
-        // Scroll to panel
-        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Show hint for native providers (DB management uses CSP API, but table ops need SQL password)
+        const notRequired = document.getElementById('dbPasswordNotRequired');
+        if (notRequired) {
+            notRequired.style.display = isNativeDBProvider() ? 'inline' : 'none';
+        }
 
-        // Auto-focus password input
+        // Scroll to panel, then focus password input
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(function() { document.getElementById('dbPassword').focus(); }, 100);
     }
 
@@ -2036,11 +2053,6 @@
     }
 
     function connectToDB() {
-        const password = document.getElementById('dbPassword').value;
-        if (!password) {
-            alert('Please enter the database password.');
-            return;
-        }
         if (!currentRDBMS) {
             alert('No RDBMS selected.');
             return;
@@ -2048,6 +2060,27 @@
 
         const connConfig = document.getElementById('connConfig').value;
         const statusEl = document.getElementById('dbConnectStatus');
+        const password = document.getElementById('dbPassword').value;
+
+        if (!password) {
+            alert('Please enter the database password.');
+            return;
+        }
+
+        // For CSP-native providers, skip SQL connect test (DB management uses CSP API).
+        // Password is still stored for table/row SQL operations.
+        if (isNativeDBProvider()) {
+            currentDBPassword = password;
+            currentDBName = null;
+            statusEl.textContent = '✓ Connected — Select a database below';
+            statusEl.className = 'db-connect-status connected';
+            document.getElementById('db-database-panel').style.display = 'block';
+            document.getElementById('db-table-panel').style.display = 'none';
+            document.getElementById('db-row-panel').style.display = 'none';
+            loadDatabases();
+            return;
+        }
+
         statusEl.textContent = 'Connecting...';
         statusEl.className = 'db-connect-status';
 
@@ -2696,7 +2729,7 @@
         var pwField = document.getElementById('dbPassword');
         if (pwField) {
             pwField.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !pwField.disabled) {
                     e.preventDefault();
                     connectToDB();
                 }

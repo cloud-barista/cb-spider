@@ -4,27 +4,35 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/utils/kubernetesserviceapiv1"
 	"strings"
 	"time"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/utils/kubernetesserviceapiv1"
+
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
+	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type IbmTagHandler struct {
-	Region         idrv.RegionInfo
-	CredentialInfo idrv.CredentialInfo
-	VpcService     *vpcv1.VpcV1
-	ClusterService *kubernetesserviceapiv1.KubernetesServiceApiV1
-	Ctx            context.Context
-	TaggingService *globaltaggingv1.GlobalTaggingV1
-	SearchService  *globalsearchv2.GlobalSearchV2
+	Region             idrv.RegionInfo
+	CredentialInfo     idrv.CredentialInfo
+	VpcService         *vpcv1.VpcV1
+	ClusterService     *kubernetesserviceapiv1.KubernetesServiceApiV1
+	Ctx                context.Context
+	ResourceController *resourcecontrollerv2.ResourceControllerV2
+	TaggingService     *globaltaggingv1.GlobalTaggingV1
+	SearchService      *globalsearchv2.GlobalSearchV2
 }
+
+// ibmMasterUserTagKey is the tag key used by cb-spider to store the RDBMS admin
+// username as an IBM resource tag. IBM always uses "admin" as the fixed database user,
+// but this tag is kept for filtering in TagHandler to avoid surfacing internal tags.
+const ibmMasterUserTagKey = "cb-spider-rdbms-master-user"
 
 type TagList struct {
 	TotalCount *int64 `json:"total_count"`
@@ -77,6 +85,8 @@ func rsTypeToIBMType(resType irs.RSType) string {
 		return "snapshot"
 	case irs.CLUSTER:
 		return "k8-cluster"
+	case irs.RDBMS:
+		return "resource-instance"
 	// NODEGROUP's Not Support
 	// case irs.NODEGROUP:
 	// 	return "instance-group"
@@ -107,10 +117,12 @@ func ibmTypeToRSType(ibmType string) (irs.RSType, error) {
 		return irs.MYIMAGE, nil
 	case "k8-cluster":
 		return irs.CLUSTER, nil
+	case "resource-instance":
+		return irs.RDBMS, nil
 	case "instance-group":
 		return irs.NODEGROUP, nil
 	default:
-		return "", errors.New(fmt.Sprintf("unsupport type %s", ibmType))
+		return "", fmt.Errorf("unsupport type %s", ibmType)
 	}
 }
 
@@ -150,7 +162,11 @@ func getTagFromResource(searchService *globalsearchv2.GlobalSearchV2, crn string
 
 			parts := strings.SplitN(tagStr, ":", 2)
 			if parts[0] == key {
-				return irs.KeyValue{Key: parts[0], Value: parts[1]}, nil
+				value := ""
+				if len(parts) > 1 {
+					value = parts[1]
+				}
+				return irs.KeyValue{Key: parts[0], Value: value}, nil
 			}
 		}
 	}
@@ -297,6 +313,21 @@ func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (stri
 		}
 
 		return rawCluster.Crn, nil
+	case irs.RDBMS:
+		if tagHandler.ResourceController == nil {
+			return "", errors.New("IBM Resource Controller service is not configured")
+		}
+		if resIID.SystemId == "" {
+			return "", errors.New("RDBMS SystemId is required to get CRN")
+		}
+		inst, _, err := tagHandler.ResourceController.GetResourceInstance(&resourcecontrollerv2.GetResourceInstanceOptions{ID: &resIID.SystemId})
+		if err != nil {
+			return "", err
+		}
+		if inst == nil || inst.CRN == nil || *inst.CRN == "" {
+			return "", errors.New("failed to get RDBMS CRN")
+		}
+		return *inst.CRN, nil
 	default:
 		return "", errors.New("invalid resource type")
 	}
@@ -375,7 +406,7 @@ func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 
 	err := tagValidation(tag)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		err = fmt.Errorf("Failed to add a tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyValue{}, err
@@ -383,7 +414,7 @@ func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 
 	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		err = fmt.Errorf("Failed to add a tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyValue{}, err
@@ -396,7 +427,7 @@ func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 
 	err = handleTagAddOrRemove(tagHandler, resType, crn, tag, "add")
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		err = fmt.Errorf("Failed to add a tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyValue{}, err
@@ -413,7 +444,7 @@ func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 	}
 
 	if !ok {
-		err = errors.New(fmt.Sprintf("Failed to add a tag. err = Complete wait timeout exceeded"))
+		err = errors.New("Failed to add a tag. err = Complete wait timeout exceeded")
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyValue{}, err
@@ -430,7 +461,7 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 
 	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to list tag. err = %s", err))
+		err = fmt.Errorf("Failed to list tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return []irs.KeyValue{}, err
@@ -449,7 +480,7 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 
 	scanResult, _, err := tagHandler.SearchService.Search(searchOptions)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to list tag. err = %s", err))
+		getErr := fmt.Errorf("Failed to list tag. err = %s", err)
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return tagList, err
@@ -475,9 +506,16 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 			}
 
 			parts := strings.SplitN(tagStr, ":", 2)
+			if parts[0] == ibmMasterUserTagKey {
+				continue
+			}
+			value := ""
+			if len(parts) > 1 {
+				value = parts[1]
+			}
 			tagList = append(tagList, irs.KeyValue{
 				Key:   parts[0],
-				Value: parts[1],
+				Value: value,
 			})
 		}
 	}
@@ -493,7 +531,7 @@ func (tagHandler *IbmTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 
 	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to get tag. err = %s", err))
+		err = fmt.Errorf("Failed to get tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyValue{}, err
@@ -501,7 +539,7 @@ func (tagHandler *IbmTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 
 	tag, err := getTagFromResource(tagHandler.SearchService, crn, key)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to get tag. err = %s", err))
+		err = fmt.Errorf("Failed to get tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return irs.KeyValue{}, err
@@ -518,7 +556,7 @@ func (tagHandler *IbmTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 
 	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = %s", err))
+		err = fmt.Errorf("Failed to remove a tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
@@ -526,7 +564,7 @@ func (tagHandler *IbmTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 
 	err = handleTagAddOrRemove(tagHandler, resType, crn, irs.KeyValue{Key: key}, "remove")
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = %s", err))
+		err = fmt.Errorf("Failed to remove a tag. err = %s", err)
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
@@ -543,7 +581,7 @@ func (tagHandler *IbmTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 	}
 
 	if !ok {
-		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = Complete wait timeout exceeded"))
+		err = errors.New("Failed to remove a tag. err = Complete wait timeout exceeded")
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
@@ -575,7 +613,7 @@ func (tagHandler *IbmTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 
 	scanResult, _, err := tagHandler.SearchService.Search(searchOptions)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to list tag. err = %s", err))
+		getErr := fmt.Errorf("Failed to list tag. err = %s", err)
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return tagInfo, err
@@ -616,9 +654,16 @@ func (tagHandler *IbmTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 					continue
 				}
 				parts := strings.SplitN(tagStr, ":", 2)
+				if parts[0] == ibmMasterUserTagKey {
+					continue
+				}
+				value := ""
+				if len(parts) > 1 {
+					value = parts[1]
+				}
 				tagKeyValue = append(tagKeyValue, irs.KeyValue{
 					Key:   parts[0],
-					Value: parts[1],
+					Value: value,
 				})
 			}
 

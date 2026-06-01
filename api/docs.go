@@ -6818,6 +6818,193 @@ const docTemplate = `{
                 }
             }
         },
+        "/rdbms/{Name}/databases": {
+            "get": {
+                "description": "List databases inside an RDBMS instance using the CSP-native API.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "List Databases in RDBMS",
+                "operationId": "list-rdbms-databases",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS instance",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ConnectionName",
+                        "name": "RDBMSDatabaseRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSDatabaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of databases",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSDatabaseListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Supported by driver",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/rdbms/{Name}/databases/create": {
+            "post": {
+                "description": "Create a database inside an RDBMS instance using the CSP-native API.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Create Database in RDBMS",
+                "operationId": "create-rdbms-database",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS instance",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ConnectionName and DatabaseName",
+                        "name": "RDBMSDatabaseRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSDatabaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Supported by driver",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/rdbms/{Name}/databases/{DBName}": {
+            "delete": {
+                "description": "Drop a database inside an RDBMS instance using the CSP-native API.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Delete Database in RDBMS",
+                "operationId": "delete-rdbms-database",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS instance",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the database to drop",
+                        "name": "DBName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ConnectionName",
+                        "name": "RDBMSDatabaseRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSDatabaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Supported by driver",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/rdbmsmetainfo": {
             "get": {
                 "description": "Retrieve CSP-specific RDBMS capability information (supported engines, features, storage options).",
@@ -6837,6 +7024,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "The name of the Connection",
                         "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
                         "in": "query",
                         "required": true
                     }
@@ -13348,8 +13542,13 @@ const docTemplate = `{
             "description": "RDBMS Meta Information for CSP-specific capabilities",
             "type": "object",
             "properties": {
+                "DBEngine": {
+                    "description": "Requested DB engine name. e.g., mysql, mariadb, postgresql",
+                    "type": "string",
+                    "example": "mysql"
+                },
                 "StorageSizeRange": {
-                    "description": "Min/Max storage size in GB",
+                    "description": "Min/Max storage size in GB for the requested DB engine",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.StorageSizeRange"
@@ -13357,24 +13556,27 @@ const docTemplate = `{
                     ]
                 },
                 "StorageTypeOptions": {
-                    "description": "Available storage types per engine. e.g., {\"mysql\": [\"gp2\", \"gp3\", \"io1\"]}",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
+                    "description": "Available storage types for the requested DB engine",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "gp2",
+                        "gp3",
+                        "io1"
+                    ]
                 },
-                "SupportedEngines": {
-                    "description": "filled by the cloud driver",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
+                "SupportedVersions": {
+                    "description": "Supported versions for the requested DB engine",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "8.0",
+                        "8.4"
+                    ]
                 },
                 "SupportsBackup": {
                     "description": "true if managed automatic backup is supported",
@@ -16263,6 +16465,39 @@ const docTemplate = `{
                             "example": "vpc-01"
                         }
                     }
+                }
+            }
+        },
+        "spider.RDBMSDatabaseListResponse": {
+            "type": "object",
+            "properties": {
+                "Databases": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "spider.RDBMSDatabaseRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "ncp-korea1-config"
+                },
+                "DatabaseName": {
+                    "description": "required only for create/delete",
+                    "type": "string",
+                    "example": "mydb"
+                },
+                "MasterUserPassword": {
+                    "description": "required when driver uses SQL (e.g. AWS, IBM)",
+                    "type": "string",
+                    "example": "P@ssw0rd"
                 }
             }
         },

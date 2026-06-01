@@ -11,8 +11,12 @@
 package resources
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -29,36 +33,225 @@ type GCPRDBMSHandler struct {
 	Client     *sqladmin.Service
 }
 
-func (handler *GCPRDBMSHandler) GetMetaInfo() (irs.RDBMSMetaInfo, error) {
+const gcpCloudSQLDiscoveryURL = "https://sqladmin.googleapis.com/$discovery/rest?version=v1beta4"
+
+func (handler *GCPRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo, error) {
 	cblogger.Debug("GCP Cloud SQL GetMetaInfo() called")
 
-	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "GetMetaInfo()")
+	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "CloudSQLDiscovery.DatabaseInstance.databaseVersion,Tiers.List()")
 	start := call.Start()
+	requestedEngine, err := irs.NormalizeRDBMSEngine(dbEngine)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
+	}
 
-	metaInfo := irs.RDBMSMetaInfo{
-		SupportedEngines: map[string][]string{
-			"mysql":      {"5.7", "8.0", "8.4"},
-			"postgresql": {"13", "14", "15", "16", "17"},
-		},
-		SupportsHighAvailability:   true,
-		SupportsBackup:             true,
-		SupportsPublicAccess:       true,
-		SupportsDeletionProtection: true,
-		SupportsEncryption:         true, // CMEK supported
-		StorageTypeOptions: map[string][]string{
-			"mysql":      {"PD_SSD", "PD_HDD"},
-			"postgresql": {"PD_SSD", "PD_HDD"},
-		},
-		StorageSizeRange: irs.StorageSizeRange{
-			Min: 10,
-			Max: 65536,
-		},
+	supportedEngines, storageTypeOptions, err := handler.fetchCloudSQLMetaOptions()
+	if err != nil {
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL meta options failed: %w", err)
+	}
+	storageSizeRange, err := handler.fetchCloudSQLStorageSizeRange()
+	if err != nil {
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL storage size range failed: %w", err)
+	}
+
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, true)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
 	}
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
 
 	return metaInfo, nil
+}
+
+func (handler *GCPRDBMSHandler) fetchCloudSQLMetaOptions() (map[string][]string, map[string][]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gcpCloudSQLDiscoveryURL, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build Cloud SQL discovery request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Cloud SQL discovery request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("Cloud SQL discovery API returned status %d", resp.StatusCode)
+	}
+
+	var discovery struct {
+		Schemas struct {
+			DatabaseInstance struct {
+				Properties struct {
+					DatabaseVersion struct {
+						Enum []string `json:"enum"`
+					} `json:"databaseVersion"`
+				} `json:"properties"`
+			} `json:"DatabaseInstance"`
+			Settings struct {
+				Properties struct {
+					DataDiskType struct {
+						Enum           []string `json:"enum"`
+						EnumDeprecated []bool   `json:"enumDeprecated"`
+					} `json:"dataDiskType"`
+				} `json:"properties"`
+			} `json:"Settings"`
+		} `json:"schemas"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&discovery); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse Cloud SQL discovery response: %w", err)
+	}
+
+	supportedEngines := map[string][]string{
+		"mysql":      {},
+		"postgresql": {},
+	}
+	versionSets := map[string]map[string]bool{
+		"mysql":      {},
+		"postgresql": {},
+	}
+
+	for _, dbVersion := range discovery.Schemas.DatabaseInstance.Properties.DatabaseVersion.Enum {
+		engine, version := cloudSQLDatabaseVersionToEngineVersion(dbVersion)
+		if engine == "" || version == "" {
+			continue
+		}
+		versionSets[engine][version] = true
+	}
+
+	for engine, versionSet := range versionSets {
+		for version := range versionSet {
+			supportedEngines[engine] = append(supportedEngines[engine], version)
+		}
+		sort.Slice(supportedEngines[engine], func(leftIndex, rightIndex int) bool {
+			return compareVersionStrings(supportedEngines[engine][leftIndex], supportedEngines[engine][rightIndex]) < 0
+		})
+	}
+
+	if len(supportedEngines["mysql"]) == 0 || len(supportedEngines["postgresql"]) == 0 {
+		return nil, nil, fmt.Errorf("Cloud SQL discovery response did not include required MySQL/PostgreSQL versions")
+	}
+
+	storageTypes := cloudSQLStorageTypesFromDiscovery(discovery.Schemas.Settings.Properties.DataDiskType.Enum, discovery.Schemas.Settings.Properties.DataDiskType.EnumDeprecated)
+	if len(storageTypes) == 0 {
+		return nil, nil, fmt.Errorf("Cloud SQL discovery response did not include supported storage types")
+	}
+
+	storageTypeOptions := map[string][]string{
+		"mysql":      append([]string(nil), storageTypes...),
+		"postgresql": append([]string(nil), storageTypes...),
+	}
+
+	return supportedEngines, storageTypeOptions, nil
+}
+
+func (handler *GCPRDBMSHandler) fetchCloudSQLStorageSizeRange() (irs.StorageSizeRange, error) {
+	projectID := handler.getProjectId()
+	if projectID == "" {
+		return irs.StorageSizeRange{}, fmt.Errorf("GCP project ID is empty")
+	}
+
+	resp, err := handler.Client.Tiers.List(projectID).Do()
+	if err != nil {
+		return irs.StorageSizeRange{}, fmt.Errorf("Cloud SQL Tiers.List failed: %w", err)
+	}
+
+	const bytesPerGiB = int64(1024 * 1024 * 1024)
+	maxStorageGB := int64(0)
+	for _, tier := range resp.Items {
+		if tier == nil || tier.DiskQuota <= 0 {
+			continue
+		}
+		if !cloudSQLTierSupportsRegion(tier, handler.Region.Region) {
+			continue
+		}
+		storageGB := tier.DiskQuota / bytesPerGiB
+		if storageGB > maxStorageGB {
+			maxStorageGB = storageGB
+		}
+	}
+	if maxStorageGB == 0 {
+		return irs.StorageSizeRange{}, fmt.Errorf("Cloud SQL Tiers.List returned no disk quota for region %s", handler.Region.Region)
+	}
+
+	return irs.StorageSizeRange{Min: 10, Max: maxStorageGB}, nil
+}
+
+func cloudSQLTierSupportsRegion(tier *sqladmin.Tier, region string) bool {
+	if region == "" || len(tier.Region) == 0 {
+		return true
+	}
+	for _, tierRegion := range tier.Region {
+		if tierRegion == region {
+			return true
+		}
+	}
+	return false
+}
+
+func cloudSQLDatabaseVersionToEngineVersion(dbVersion string) (string, string) {
+	switch {
+	case strings.HasPrefix(dbVersion, "MYSQL_"):
+		return "mysql", strings.ReplaceAll(strings.TrimPrefix(dbVersion, "MYSQL_"), "_", ".")
+	case strings.HasPrefix(dbVersion, "POSTGRES_"):
+		return "postgresql", strings.ReplaceAll(strings.TrimPrefix(dbVersion, "POSTGRES_"), "_", ".")
+	default:
+		return "", ""
+	}
+}
+
+func cloudSQLStorageTypesFromDiscovery(enumValues []string, enumDeprecated []bool) []string {
+	storageTypes := make([]string, 0, len(enumValues))
+	for index, storageType := range enumValues {
+		if storageType == "" || storageType == "SQL_DATA_DISK_TYPE_UNSPECIFIED" {
+			continue
+		}
+		if strings.HasPrefix(storageType, "OBSOLETE_") {
+			continue
+		}
+		if index < len(enumDeprecated) && enumDeprecated[index] {
+			continue
+		}
+		storageTypes = append(storageTypes, storageType)
+	}
+	sort.Strings(storageTypes)
+	return storageTypes
+}
+
+func compareVersionStrings(leftVersion, rightVersion string) int {
+	leftParts := strings.Split(leftVersion, ".")
+	rightParts := strings.Split(rightVersion, ".")
+	maxLen := len(leftParts)
+	if len(rightParts) > maxLen {
+		maxLen = len(rightParts)
+	}
+
+	for index := 0; index < maxLen; index++ {
+		leftValue := 0
+		if index < len(leftParts) {
+			leftValue, _ = strconv.Atoi(leftParts[index])
+		}
+		rightValue := 0
+		if index < len(rightParts) {
+			rightValue, _ = strconv.Atoi(rightParts[index])
+		}
+		if leftValue < rightValue {
+			return -1
+		}
+		if leftValue > rightValue {
+			return 1
+		}
+	}
+	return 0
 }
 
 func (handler *GCPRDBMSHandler) ListIID() ([]*irs.IID, error) {
@@ -502,4 +695,44 @@ func convertGCPStatusToRDBMSStatus(state string) irs.RDBMSStatus {
 	default:
 		return irs.RDBMSError
 	}
+}
+
+// ─── rdbmsDatabaseManager interface implementation ───────────────────────────
+
+// CreateDatabase creates a database in a GCP Cloud SQL instance.
+func (handler *GCPRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	ctx := context.Background()
+	projectId := handler.getProjectId()
+	db := &sqladmin.Database{Name: dbName}
+	op, err := handler.Client.Databases.Insert(projectId, rdbmsSystemId, db).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("GCP CreateDatabase: %w", err)
+	}
+	return handler.waitForOperation(projectId, op.Name)
+}
+
+// ListDatabases lists all user-created databases in a GCP Cloud SQL instance.
+func (handler *GCPRDBMSHandler) ListDatabases(rdbmsSystemId, dbEngine string) ([]string, error) {
+	ctx := context.Background()
+	projectId := handler.getProjectId()
+	resp, err := handler.Client.Databases.List(projectId, rdbmsSystemId).Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("GCP ListDatabases: %w", err)
+	}
+	var names []string
+	for _, db := range resp.Items {
+		names = append(names, db.Name)
+	}
+	return names, nil
+}
+
+// DeleteDatabase deletes a database from a GCP Cloud SQL instance.
+func (handler *GCPRDBMSHandler) DeleteDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	ctx := context.Background()
+	projectId := handler.getProjectId()
+	op, err := handler.Client.Databases.Delete(projectId, rdbmsSystemId, dbName).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("GCP DeleteDatabase: %w", err)
+	}
+	return handler.waitForOperation(projectId, op.Name)
 }

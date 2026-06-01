@@ -184,6 +184,6 @@ func (cloudConn *TencentCloudConnection) CreateMonitoringHandler() (irs.Monitori
 
 func (cloudConn *TencentCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	cblogger.Info("Tencent Cloud Driver: called CreateRDBMSHandler()!")
-	handler := trs.TencentRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.CDBClient}
+	handler := trs.TencentRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.CDBClient, VMClient: cloudConn.VMClient}
 	return &handler, nil
 }

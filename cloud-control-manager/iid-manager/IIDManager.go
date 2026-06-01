@@ -104,6 +104,16 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
+	// NCP-RDBMS: cloudMysqlServiceName / cloudPostgresqlServiceName MaxLength = 30, lower, number, '-'
+	// Always append a 5-char XID suffix for uniqueness: prefix(≤24) + "-" + XID(5) = ≤30 chars
+	if cccInfo.ProviderName == "NCP" && rsType == "rdbms" {
+		prefix := strings.ToLower(strings.ReplaceAll(uid, "_", "-"))
+		if len(prefix) > 24 {
+			prefix = prefix[:24]
+		}
+		return prefix + "-" + xid.New().String()[0:5], nil
+	}
+
 	// default length: 9 + 21 => 30 (NCP's ID Length, the shortest)
 	//   ex) AWS maxLen(VMID)=255, #234 + #1 + #20 <== "{UID}-{XID}", {XID} = #20
 	maxLength := 9

@@ -11,8 +11,10 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -33,39 +35,217 @@ type AwsRDBMSHandler struct {
 	TagHandler *AwsTagHandler
 }
 
+type awsRDBMSEngine struct {
+	cbName  string
+	awsName string
+}
+
 // GetMetaInfo returns metadata about AWS RDS capabilities.
-func (handler *AwsRDBMSHandler) GetMetaInfo() (irs.RDBMSMetaInfo, error) {
+// Supported engine versions are fetched dynamically via DescribeDBEngineVersions.
+func (handler *AwsRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo, error) {
 	cblogger.Debug("AWS RDS GetMetaInfo() called")
 
-	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "GetMetaInfo()")
+	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "DescribeDBEngineVersions()")
 	start := call.Start()
+	requestedEngine, err := irs.NormalizeRDBMSEngine(dbEngine)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
+	}
 
-	metaInfo := irs.RDBMSMetaInfo{
-		SupportedEngines: map[string][]string{
-			"mysql":      {"5.7", "8.0", "8.4"},
-			"mariadb":    {"10.4", "10.5", "10.6", "10.11"},
-			"postgresql": {"13", "14", "15", "16", "17"},
-		},
-		SupportsHighAvailability:   true,
-		SupportsBackup:             true,
-		SupportsPublicAccess:       true,
-		SupportsDeletionProtection: true,
-		SupportsEncryption:         true,
-		StorageTypeOptions: map[string][]string{
-			"mysql":      {"gp2", "gp3", "io1", "io2"},
-			"mariadb":    {"gp2", "gp3", "io1", "io2"},
-			"postgresql": {"gp2", "gp3", "io1", "io2"},
-		},
-		StorageSizeRange: irs.StorageSizeRange{
-			Min: 20,
-			Max: 65536,
-		},
+	// CB-Spider engine name → AWS API engine name
+	allEngineNames := []awsRDBMSEngine{
+		{"mysql", "mysql"},
+		{"mariadb", "mariadb"},
+		{"postgresql", "postgres"},
+	}
+	engineNames := make([]awsRDBMSEngine, 0, 1)
+	for _, eng := range allEngineNames {
+		if eng.cbName == requestedEngine {
+			engineNames = append(engineNames, eng)
+			break
+		}
+	}
+	if len(engineNames) == 0 {
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("DBEngine '%s' is not supported by AWS RDS", requestedEngine)
+	}
+
+	supportedEngines := map[string][]string{}
+	storageLookupVersions := map[string][]string{}
+
+	for _, eng := range engineNames {
+		input := &rds.DescribeDBEngineVersionsInput{
+			Engine: aws.String(eng.awsName),
+		}
+
+		majorSet := map[string]bool{}
+		latestVersionByMajor := map[string]string{}
+		err := handler.Client.DescribeDBEngineVersionsPages(input, func(page *rds.DescribeDBEngineVersionsOutput, lastPage bool) bool {
+			for _, v := range page.DBEngineVersions {
+				if v.EngineVersion == nil {
+					continue
+				}
+				major := awsRDBMSMajorVersion(eng.awsName, *v.EngineVersion)
+				if major != "" {
+					majorSet[major] = true
+					if latestVersionByMajor[major] == "" || awsCompareVersionStrings(*v.EngineVersion, latestVersionByMajor[major]) > 0 {
+						latestVersionByMajor[major] = *v.EngineVersion
+					}
+				}
+			}
+			return true
+		})
+		if err != nil {
+			hiscallInfo.ElapsedTime = call.Elapsed(start)
+			LoggingError(hiscallInfo, err)
+			return irs.RDBMSMetaInfo{}, fmt.Errorf("DescribeDBEngineVersions failed for engine %s: %w", eng.awsName, err)
+		}
+
+		versions := make([]string, 0, len(majorSet))
+		for v := range majorSet {
+			versions = append(versions, v)
+		}
+		// Sort semantically so "10.6" < "10.11"
+		sort.Slice(versions, func(i, j int) bool {
+			pi := strings.Split(versions[i], ".")
+			pj := strings.Split(versions[j], ".")
+			for k := 0; k < len(pi) && k < len(pj); k++ {
+				ni, _ := strconv.Atoi(pi[k])
+				nj, _ := strconv.Atoi(pj[k])
+				if ni != nj {
+					return ni < nj
+				}
+			}
+			return len(pi) < len(pj)
+		})
+		if len(versions) > 0 {
+			supportedEngines[eng.cbName] = versions
+		}
+
+		storageVersions := make([]string, 0, len(latestVersionByMajor))
+		for _, version := range latestVersionByMajor {
+			storageVersions = append(storageVersions, version)
+		}
+		sort.Slice(storageVersions, func(i, j int) bool {
+			return awsCompareVersionStrings(storageVersions[i], storageVersions[j]) < 0
+		})
+		storageLookupVersions[eng.awsName] = storageVersions
+	}
+	storageTypeOptions, storageSizeRange, err := handler.fetchRDBMSStorageOptions(engineNames, storageLookupVersions)
+	if err != nil {
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("DescribeOrderableDBInstanceOptions failed: %w", err)
+	}
+
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, true)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
 	}
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
 
 	return metaInfo, nil
+}
+
+func (handler *AwsRDBMSHandler) fetchRDBMSStorageOptions(engineNames []awsRDBMSEngine, storageLookupVersions map[string][]string) (map[string][]string, irs.StorageSizeRange, error) {
+	storageTypeOptions := map[string][]string{}
+	var minStorage int64
+	var maxStorage int64
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	for _, eng := range engineNames {
+		lookupVersions := storageLookupVersions[eng.awsName]
+		if len(lookupVersions) == 0 {
+			return nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s has no versions for storage lookup", eng.awsName)
+		}
+		storageSet := map[string]bool{}
+		for _, engineVersion := range lookupVersions {
+			input := &rds.DescribeOrderableDBInstanceOptionsInput{
+				Engine:        aws.String(eng.awsName),
+				EngineVersion: aws.String(engineVersion),
+				MaxRecords:    aws.Int64(100),
+			}
+			err := handler.Client.DescribeOrderableDBInstanceOptionsPagesWithContext(ctx, input, func(page *rds.DescribeOrderableDBInstanceOptionsOutput, lastPage bool) bool {
+				for _, option := range page.OrderableDBInstanceOptions {
+					if option.StorageType != nil && *option.StorageType != "" {
+						storageSet[*option.StorageType] = true
+					}
+					if option.MinStorageSize != nil && *option.MinStorageSize > 0 && (minStorage == 0 || *option.MinStorageSize < minStorage) {
+						minStorage = *option.MinStorageSize
+					}
+					if option.MaxStorageSize != nil && *option.MaxStorageSize > maxStorage {
+						maxStorage = *option.MaxStorageSize
+					}
+				}
+				return true
+			})
+			if err != nil {
+				return nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s version %s: %w", eng.awsName, engineVersion, err)
+			}
+		}
+
+		storageTypes := make([]string, 0, len(storageSet))
+		for storageType := range storageSet {
+			storageTypes = append(storageTypes, storageType)
+		}
+		sort.Strings(storageTypes)
+		if len(storageTypes) == 0 {
+			return nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s returned no storage types", eng.awsName)
+		}
+		storageTypeOptions[eng.cbName] = storageTypes
+	}
+
+	if minStorage == 0 || maxStorage == 0 {
+		return nil, irs.StorageSizeRange{}, fmt.Errorf("storage size range is empty")
+	}
+
+	return storageTypeOptions, irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
+}
+
+func awsCompareVersionStrings(leftVersion, rightVersion string) int {
+	leftParts := strings.Split(leftVersion, ".")
+	rightParts := strings.Split(rightVersion, ".")
+	maxLen := len(leftParts)
+	if len(rightParts) > maxLen {
+		maxLen = len(rightParts)
+	}
+
+	for index := 0; index < maxLen; index++ {
+		leftValue := 0
+		if index < len(leftParts) {
+			leftValue, _ = strconv.Atoi(leftParts[index])
+		}
+		rightValue := 0
+		if index < len(rightParts) {
+			rightValue, _ = strconv.Atoi(rightParts[index])
+		}
+		if leftValue < rightValue {
+			return -1
+		}
+		if leftValue > rightValue {
+			return 1
+		}
+	}
+	return 0
+}
+
+// awsRDBMSMajorVersion extracts the major version string from an AWS engine version string.
+// PostgreSQL uses a single-component major version (e.g., "14" from "14.5").
+// MySQL and MariaDB use a two-component major version (e.g., "8.0" from "8.0.32").
+func awsRDBMSMajorVersion(awsEngine, versionStr string) string {
+	parts := strings.SplitN(versionStr, ".", 3)
+	if awsEngine == "postgres" {
+		if len(parts) >= 1 && parts[0] != "" {
+			return parts[0]
+		}
+	} else {
+		if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
+			return parts[0] + "." + parts[1]
+		}
+	}
+	return ""
 }
 
 // ListIID returns a list of RDBMS IIDs.

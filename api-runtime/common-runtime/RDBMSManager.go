@@ -9,8 +9,14 @@
 package commonruntime
 
 import (
+	"database/sql"
 	"fmt"
+	"net"
 	"os"
+	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -21,7 +27,12 @@ import (
 // ====================================================================
 // type for GORM
 
-type RDBMSIIDInfo VPCDependentIIDInfo
+type RDBMSIIDInfo struct {
+	ConnectionName string `gorm:"primaryKey"` // ex) "ncp-korea1-config"
+	NameId         string `gorm:"primaryKey"` // ex) "my-rdbms-01"
+	SystemId       string // ID in CSP
+	OwnerVPCName   string `gorm:"primaryKey"` // ex) "vpc-01"
+}
 
 func (RDBMSIIDInfo) TableName() string {
 	return "rdbms_iid_infos"
@@ -127,12 +138,21 @@ func GetRDBMSOwnerVPC(connectionName string, cspID string) (ownerVPC cres.IID, e
 	return getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId}), nil
 }
 
-// GetRDBMSMetaInfo returns CSP's RDBMS meta information
-func GetRDBMSMetaInfo(connectionName string) (*cres.RDBMSMetaInfo, error) {
+// GetRDBMSMetaInfo returns CSP's RDBMS meta information for a requested DB engine.
+func GetRDBMSMetaInfo(connectionName string, dbEngine string) (*cres.RDBMSMetaInfo, error) {
 	cblog.Info("call GetRDBMSMetaInfo()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	dbEngine, err = EmptyCheckAndTrim("dbEngine", dbEngine)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if _, err := cres.NormalizeRDBMSEngine(dbEngine); err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
@@ -149,7 +169,7 @@ func GetRDBMSMetaInfo(connectionName string) (*cres.RDBMSMetaInfo, error) {
 		return nil, err
 	}
 
-	info, err := handler.GetMetaInfo()
+	info, err := handler.GetMetaInfo(dbEngine)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -868,4 +888,311 @@ func CountRDBMSByConnection(connectionName string) (int64, error) {
 	}
 
 	return count, nil
+}
+
+// -------- RDBMS Database Management (optional CSP-native API) --------
+// These functions use the optional RDBMSDatabaseManager interface when available.
+// If the driver does not implement the interface, ErrRDBMSDatabaseMgrNotSupported
+// is returned so that callers (e.g. AdminWeb) can fall back to direct SQL.
+
+// ErrRDBMSDatabaseMgrNotSupported is returned when the driver does not implement
+// the rdbmsDatabaseManager interface.
+var ErrRDBMSDatabaseMgrNotSupported = fmt.Errorf("driver does not support CSP-native database management")
+
+// openRDBMSSQLConn opens a direct SQL connection to the RDBMS instance using endpoint/port/user from info
+// and the supplied masterUserPassword. Returns the *sql.DB and the driver name ("mysql"/"postgres").
+func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB, string, error) {
+	if masterUserPassword == "" {
+		return nil, "", ErrRDBMSDatabaseMgrNotSupported
+	}
+	if info.Endpoint == "" {
+		return nil, "", fmt.Errorf("RDBMS endpoint is empty; instance may still be provisioning")
+	}
+
+	engine := strings.ToLower(string(info.DBEngine))
+	host := info.Endpoint
+	port := info.Port
+	user := info.MasterUserName
+
+	// Strip port embedded in endpoint ("host:port" form)
+	if idx := strings.LastIndex(host, ":"); idx > 0 {
+		hostPart := host[:idx]
+		portPart := host[idx+1:]
+		var p int
+		if _, err := fmt.Sscanf(portPart, "%d", &p); err == nil {
+			host = hostPart
+			if port == "" {
+				port = portPart
+			}
+		}
+	}
+
+	var driverName, dsn string
+	switch {
+	case engine == "mysql" || engine == "mariadb":
+		driverName = "mysql"
+		if port == "" {
+			port = "3306"
+		}
+		// Enable TLS for IBM Cloud MySQL (skip server cert verification)
+		tlsSuffix := ""
+		if strings.Contains(strings.ToLower(host), ".databases.appdomain.cloud") {
+			tlsSuffix = "?tls=skip-verify"
+		}
+		dsn = fmt.Sprintf("%s:%s@tcp(%s)/%s", user, masterUserPassword, net.JoinHostPort(host, port), tlsSuffix)
+	case engine == "postgresql" || engine == "postgres":
+		driverName = "postgres"
+		if port == "" {
+			port = "5432"
+		}
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=postgres sslmode=require connect_timeout=30",
+			host, port, user, masterUserPassword)
+	default:
+		return nil, "", fmt.Errorf("SQL fallback: unsupported DB engine %q", engine)
+	}
+
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		return nil, "", fmt.Errorf("SQL fallback open: %w", err)
+	}
+	db.SetMaxOpenConns(1)
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, "", fmt.Errorf("SQL fallback connect: %w", err)
+	}
+	return db, driverName, nil
+}
+
+// createDatabaseSQL creates a database via direct SQL (CREATE DATABASE).
+func createDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) error {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	var stmt string
+	if driverName == "postgres" {
+		stmt = `CREATE DATABASE "` + dbName + `"`
+	} else {
+		stmt = "CREATE DATABASE `" + dbName + "`"
+	}
+	if _, err := db.Exec(stmt); err != nil {
+		return fmt.Errorf("CREATE DATABASE %q: %w", dbName, err)
+	}
+	return nil
+}
+
+// listDatabasesSQL lists databases via direct SQL.
+func listDatabasesSQL(info *cres.RDBMSInfo, masterUserPassword string) ([]string, error) {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var query string
+	if driverName == "postgres" {
+		query = "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname"
+	} else {
+		query = "SHOW DATABASES"
+	}
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("listDatabases SQL: %w", err)
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("listDatabases SQL scan: %w", err)
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
+}
+
+// deleteDatabaseSQL drops a database via direct SQL (DROP DATABASE).
+func deleteDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) error {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	var stmt string
+	if driverName == "postgres" {
+		stmt = `DROP DATABASE "` + dbName + `"`
+	} else {
+		stmt = "DROP DATABASE `" + dbName + "`"
+	}
+	if _, err := db.Exec(stmt); err != nil {
+		return fmt.Errorf("DROP DATABASE %q: %w", dbName, err)
+	}
+	return nil
+}
+
+// rdbmsDatabaseManager is a private interface satisfied by RDBMS drivers that provide
+// CSP-native database CRUD without requiring direct SQL privileges.
+// This interface is NOT part of the public RDBMSHandler contract; drivers implement it
+// via Go structural (duck) typing so no existing driver needs to be changed.
+type rdbmsDatabaseManager interface {
+	CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error
+	ListDatabases(rdbmsSystemId, dbEngine string) ([]string, error)
+	DeleteDatabase(rdbmsSystemId, dbEngine, dbName string) error
+}
+
+func getRDBMSSystemId(connectionName, rdbmsName string) (string, string, error) {
+	var iidInfo RDBMSIIDInfo
+	err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, rdbmsName)
+	if err != nil {
+		return "", "", fmt.Errorf("RDBMS '%s' not found in connection '%s': %w", rdbmsName, connectionName, err)
+	}
+	return iidInfo.SystemId, iidInfo.NameId, nil
+}
+
+// CreateRDBMSDatabase creates a database in the named RDBMS instance.
+// If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
+// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
+func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword string) error {
+	cblog.Info("call CreateRDBMSDatabase()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		return err
+	}
+	rdbmsName, err = EmptyCheckAndTrim("rdbmsName", rdbmsName)
+	if err != nil {
+		return err
+	}
+	dbName, err = EmptyCheckAndTrim("dbName", dbName)
+	if err != nil {
+		return err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		return err
+	}
+
+	handler, err := cldConn.CreateRDBMSHandler()
+	if err != nil {
+		return err
+	}
+
+	systemId, _, err := getRDBMSSystemId(connectionName, rdbmsName)
+	if err != nil {
+		return err
+	}
+
+	driverIId := getDriverIID(cres.IID{NameId: rdbmsName, SystemId: systemId})
+
+	info, err := handler.GetRDBMS(driverIId)
+	if err != nil {
+		return err
+	}
+
+	if dbMgr, ok := handler.(rdbmsDatabaseManager); ok {
+		return dbMgr.CreateDatabase(driverIId.SystemId, string(info.DBEngine), dbName)
+	}
+
+	// SQL fallback (for drivers without CSP-native DB management API, e.g. AWS, IBM)
+	return createDatabaseSQL(&info, masterUserPassword, dbName)
+}
+
+// ListRDBMSDatabases lists databases in the named RDBMS instance.
+// If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
+// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
+func ListRDBMSDatabases(connectionName, rdbmsName, masterUserPassword string) ([]string, error) {
+	cblog.Info("call ListRDBMSDatabases()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		return nil, err
+	}
+	rdbmsName, err = EmptyCheckAndTrim("rdbmsName", rdbmsName)
+	if err != nil {
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateRDBMSHandler()
+	if err != nil {
+		return nil, err
+	}
+
+	systemId, _, err := getRDBMSSystemId(connectionName, rdbmsName)
+	if err != nil {
+		return nil, err
+	}
+
+	driverIId := getDriverIID(cres.IID{NameId: rdbmsName, SystemId: systemId})
+
+	info, err := handler.GetRDBMS(driverIId)
+	if err != nil {
+		return nil, err
+	}
+
+	if dbMgr, ok := handler.(rdbmsDatabaseManager); ok {
+		return dbMgr.ListDatabases(driverIId.SystemId, string(info.DBEngine))
+	}
+
+	// SQL fallback
+	return listDatabasesSQL(&info, masterUserPassword)
+}
+
+// DeleteRDBMSDatabase drops a database from the named RDBMS instance.
+// If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
+// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
+func DeleteRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword string) error {
+	cblog.Info("call DeleteRDBMSDatabase()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		return err
+	}
+	rdbmsName, err = EmptyCheckAndTrim("rdbmsName", rdbmsName)
+	if err != nil {
+		return err
+	}
+	dbName, err = EmptyCheckAndTrim("dbName", dbName)
+	if err != nil {
+		return err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		return err
+	}
+
+	handler, err := cldConn.CreateRDBMSHandler()
+	if err != nil {
+		return err
+	}
+
+	systemId, _, err := getRDBMSSystemId(connectionName, rdbmsName)
+	if err != nil {
+		return err
+	}
+
+	driverIId := getDriverIID(cres.IID{NameId: rdbmsName, SystemId: systemId})
+
+	info, err := handler.GetRDBMS(driverIId)
+	if err != nil {
+		return err
+	}
+
+	if dbMgr, ok := handler.(rdbmsDatabaseManager); ok {
+		return dbMgr.DeleteDatabase(driverIId.SystemId, string(info.DBEngine), dbName)
+	}
+
+	// SQL fallback
+	return deleteDatabaseSQL(&info, masterUserPassword, dbName)
 }

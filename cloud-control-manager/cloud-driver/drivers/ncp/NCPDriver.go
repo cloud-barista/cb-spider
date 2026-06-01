@@ -24,11 +24,11 @@ import (
 	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
 	vmysql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vmysql"
+	vnas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnas"
 	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vpostgresql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpostgresql"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-	vnas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnas"
 
 	// ncpcon "github.com/cloud-barista/ncp/ncp/connect"	// For local testing
 	ncpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/connect"

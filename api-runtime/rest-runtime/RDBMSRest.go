@@ -421,6 +421,7 @@ func DeleteCSPRDBMS(c echo.Context) error {
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection"
+// @Param DBEngine query string true "DB engine name: mysql, mariadb, or postgresql"
 // @Success 200 {object} cres.RDBMSMetaInfo "RDBMS MetaInfo for the CSP"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -429,11 +430,12 @@ func GetRDBMSMetaInfo(c echo.Context) error {
 	cblog.Info("call GetRDBMSMetaInfo()")
 
 	connectionName := c.QueryParam("ConnectionName")
+	dbEngine := c.QueryParam("DBEngine")
 
 	// Call common-runtime API
-	result, err := cmrt.GetRDBMSMetaInfo(connectionName)
+	result, err := cmrt.GetRDBMSMetaInfo(connectionName, dbEngine)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -510,4 +512,130 @@ func CountRDBMSByConnection(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, jsonResult)
+}
+
+//================ RDBMS Database Management (CSP-native API)
+
+// RDBMSDatabaseRequest is used for database create/list/delete via CSP-native API.
+type RDBMSDatabaseRequest struct {
+	ConnectionName     string `json:"ConnectionName" validate:"required" example:"ncp-korea1-config"`
+	DatabaseName       string `json:"DatabaseName,omitempty" example:"mydb"`           // required only for create/delete
+	MasterUserPassword string `json:"MasterUserPassword,omitempty" example:"P@ssw0rd"` // required when driver uses SQL (e.g. AWS, IBM)
+}
+
+// RDBMSDatabaseListResponse wraps the list of databases returned by CSP API.
+type RDBMSDatabaseListResponse struct {
+	Databases []string `json:"Databases"`
+}
+
+// createRDBMSDatabase godoc
+// @ID create-rdbms-database
+// @Summary Create Database in RDBMS
+// @Description Create a database inside an RDBMS instance using the CSP-native API.
+// @Tags [RDBMS Management]
+// @Accept  json
+// @Produce  json
+// @Param Name path string true "The name of the RDBMS instance"
+// @Param RDBMSDatabaseRequest body restruntime.RDBMSDatabaseRequest true "ConnectionName and DatabaseName"
+// @Success 200 {object} SimpleMsg "Created"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 501 {object} SimpleMsg "Not Supported by driver"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /rdbms/{Name}/databases/create [post]
+func CreateRDBMSDatabase(c echo.Context) error {
+	cblog.Info("call CreateRDBMSDatabase()")
+
+	var req RDBMSDatabaseRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if req.ConnectionName == "" || req.DatabaseName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and DatabaseName are required")
+	}
+
+	err := cmrt.CreateRDBMSDatabase(req.ConnectionName, c.Param("Name"), req.DatabaseName, req.MasterUserPassword)
+	if err != nil {
+		if err == cmrt.ErrRDBMSDatabaseMgrNotSupported {
+			return echo.NewHTTPError(http.StatusNotImplemented, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &SimpleMsg{Message: "created"})
+}
+
+// listRDBMSDatabases godoc
+// @ID list-rdbms-databases
+// @Summary List Databases in RDBMS
+// @Description List databases inside an RDBMS instance using the CSP-native API.
+// @Tags [RDBMS Management]
+// @Accept  json
+// @Produce  json
+// @Param Name path string true "The name of the RDBMS instance"
+// @Param RDBMSDatabaseRequest body restruntime.RDBMSDatabaseRequest true "ConnectionName"
+// @Success 200 {object} restruntime.RDBMSDatabaseListResponse "List of databases"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 501 {object} SimpleMsg "Not Supported by driver"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /rdbms/{Name}/databases [get]
+func ListRDBMSDatabases(c echo.Context) error {
+	cblog.Info("call ListRDBMSDatabases()")
+
+	var req RDBMSDatabaseRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if req.ConnectionName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName is required")
+	}
+
+	databases, err := cmrt.ListRDBMSDatabases(req.ConnectionName, c.Param("Name"), req.MasterUserPassword)
+	if err != nil {
+		if err == cmrt.ErrRDBMSDatabaseMgrNotSupported {
+			return echo.NewHTTPError(http.StatusNotImplemented, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	if databases == nil {
+		databases = []string{}
+	}
+	return c.JSON(http.StatusOK, &RDBMSDatabaseListResponse{Databases: databases})
+}
+
+// deleteRDBMSDatabase godoc
+// @ID delete-rdbms-database
+// @Summary Delete Database in RDBMS
+// @Description Drop a database inside an RDBMS instance using the CSP-native API.
+// @Tags [RDBMS Management]
+// @Accept  json
+// @Produce  json
+// @Param Name path string true "The name of the RDBMS instance"
+// @Param DBName path string true "The name of the database to drop"
+// @Param RDBMSDatabaseRequest body restruntime.RDBMSDatabaseRequest true "ConnectionName"
+// @Success 200 {object} SimpleMsg "Deleted"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 501 {object} SimpleMsg "Not Supported by driver"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /rdbms/{Name}/databases/{DBName} [delete]
+func DeleteRDBMSDatabase(c echo.Context) error {
+	cblog.Info("call DeleteRDBMSDatabase()")
+
+	var req RDBMSDatabaseRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if req.ConnectionName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName is required")
+	}
+
+	err := cmrt.DeleteRDBMSDatabase(req.ConnectionName, c.Param("Name"), c.Param("DBName"), req.MasterUserPassword)
+	if err != nil {
+		if err == cmrt.ErrRDBMSDatabaseMgrNotSupported {
+			return echo.NewHTTPError(http.StatusNotImplemented, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &SimpleMsg{Message: "deleted"})
 }

@@ -211,13 +211,14 @@ func (cloudConn *IbmCloudConnection) CreateFileSystemHandler() (irs.FileSystemHa
 func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateTagHandler()!")
 	TagHandler := ibmrs.IbmTagHandler{
-		Region:         cloudConn.Region,
-		CredentialInfo: cloudConn.CredentialInfo,
-		VpcService:     cloudConn.VpcService,
-		ClusterService: cloudConn.ClusterService,
-		Ctx:            cloudConn.Ctx,
-		TaggingService: cloudConn.TaggingService,
-		SearchService:  cloudConn.SearchService,
+		Region:             cloudConn.Region,
+		CredentialInfo:     cloudConn.CredentialInfo,
+		VpcService:         cloudConn.VpcService,
+		ClusterService:     cloudConn.ClusterService,
+		Ctx:                cloudConn.Ctx,
+		ResourceController: cloudConn.ResourceController,
+		TaggingService:     cloudConn.TaggingService,
+		SearchService:      cloudConn.SearchService,
 	}
 	return &TagHandler, nil
 }
@@ -237,6 +238,7 @@ func (cloudConn *IbmCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, err
 		Region:             cloudConn.Region,
 		Ctx:                cloudConn.Ctx,
 		ResourceController: cloudConn.ResourceController,
+		TaggingService:     cloudConn.TaggingService,
 		CloudDBService:     cloudConn.CloudDBService,
 	}
 	return &rdbmsHandler, nil

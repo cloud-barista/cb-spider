@@ -75,7 +75,7 @@ func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 	drvCapabilityInfo.SINGLE_VPC = true
 
-	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.RDBMSHandler = false
 
 	return drvCapabilityInfo
 }
@@ -126,11 +126,6 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 		return nil, err
 	}
 
-	DBClient, err := getDBClient(providerClient, connInfo)
-	if err != nil {
-		cblogger.Warnf("KT Cloud VPC Driver: failed to create DB(Trove) client: %v", err)
-	}
-
 	iConn := ktvpccon.KTCloudVpcConnection{
 		RegionInfo:    connInfo.RegionInfo,
 		VMClient:      VMClient,
@@ -139,7 +134,6 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 		VolumeClient:  VolumeClient,
 		NLBClient:     NLBClient,
 		NASClient:     NASClient,
-		DBClient:      DBClient,
 	}
 	return &iConn, nil
 }
@@ -213,17 +207,6 @@ func getNLBClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.Connect
 
 func getNASClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*ktvpcsdk.ServiceClient, error) {
 	client, err := ostack.NewSharedFileSystemV2(providerClient, ktvpcsdk.EndpointOpts{
-		Region: connInfo.RegionInfo.Zone,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return client, err
-}
-
-func getDBClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*ktvpcsdk.ServiceClient, error) {
-	client, err := ostack.NewDBV1(providerClient, ktvpcsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Zone,
 	})
 	if err != nil {
