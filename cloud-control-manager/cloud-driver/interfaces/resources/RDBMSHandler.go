@@ -10,7 +10,11 @@
 
 package resources
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // -------- Const
 type RDBMSStatus string
@@ -29,17 +33,51 @@ const (
 // Use GetMetaInfo() to discover what each CSP supports before creating an RDBMS instance.
 // @description RDBMS Meta Information for CSP-specific capabilities
 type RDBMSMetaInfo struct {
-	// filled by the cloud driver
-	SupportedEngines map[string][]string `json:"SupportedEngines"` // Supported DB engine names → versions. e.g., {"mysql": ["8.0", "8.4"], "postgresql": ["15", "16"]}
+	DBEngine           string           `json:"DBEngine" example:"mysql"`                           // Requested DB engine name. e.g., mysql, mariadb, postgresql
+	SupportedVersions  []string         `json:"SupportedVersions" example:"8.0,8.4"`                // Supported versions for the requested DB engine
+	StorageTypeOptions []string         `json:"StorageTypeOptions,omitempty" example:"gp2,gp3,io1"` // Available storage types for the requested DB engine
+	StorageSizeRange   StorageSizeRange `json:"StorageSizeRange,omitempty"`                         // Min/Max storage size in GB for the requested DB engine
 
 	SupportsHighAvailability   bool `json:"SupportsHighAvailability"`   // true if HA/Multi-AZ can be configured
 	SupportsBackup             bool `json:"SupportsBackup"`             // true if managed automatic backup is supported
 	SupportsPublicAccess       bool `json:"SupportsPublicAccess"`       // true if public access can be toggled
 	SupportsDeletionProtection bool `json:"SupportsDeletionProtection"` // true if deletion protection is available
 	SupportsEncryption         bool `json:"SupportsEncryption"`         // true if storage encryption is available
+}
 
-	StorageTypeOptions map[string][]string `json:"StorageTypeOptions,omitempty"` // Available storage types per engine. e.g., {"mysql": ["gp2", "gp3", "io1"]}
-	StorageSizeRange   StorageSizeRange    `json:"StorageSizeRange,omitempty"`   // Min/Max storage size in GB
+func NormalizeRDBMSEngine(dbEngine string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(dbEngine))
+	switch normalized {
+	case "mysql", "mariadb", "postgresql":
+		return normalized, nil
+	default:
+		return "", fmt.Errorf("unsupported DBEngine '%s'; valid values are mysql, mariadb, postgresql", dbEngine)
+	}
+}
+
+func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool) (RDBMSMetaInfo, error) {
+	normalizedEngine, err := NormalizeRDBMSEngine(dbEngine)
+	if err != nil {
+		return RDBMSMetaInfo{}, err
+	}
+
+	versions := append([]string(nil), supportedEngines[normalizedEngine]...)
+	if len(versions) == 0 {
+		return RDBMSMetaInfo{}, fmt.Errorf("DBEngine '%s' is not supported", normalizedEngine)
+	}
+
+	storageTypes := append([]string(nil), storageTypeOptions[normalizedEngine]...)
+	return RDBMSMetaInfo{
+		DBEngine:                   normalizedEngine,
+		SupportedVersions:          versions,
+		StorageTypeOptions:         storageTypes,
+		StorageSizeRange:           storageSizeRange,
+		SupportsHighAvailability:   supportsHighAvailability,
+		SupportsBackup:             supportsBackup,
+		SupportsPublicAccess:       supportsPublicAccess,
+		SupportsDeletionProtection: supportsDeletionProtection,
+		SupportsEncryption:         supportsEncryption,
+	}, nil
 }
 
 // StorageSizeRange represents the minimum and maximum storage size in GB.
@@ -117,7 +155,7 @@ type RDBMSInfo struct {
 type RDBMSHandler interface {
 
 	// Meta API
-	GetMetaInfo() (RDBMSMetaInfo, error)
+	GetMetaInfo(dbEngine string) (RDBMSMetaInfo, error)
 
 	//------ RDBMS Management
 	ListIID() ([]*IID, error)

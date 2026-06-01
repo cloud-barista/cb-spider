@@ -228,6 +228,9 @@ func (cloudConn *OpenStackCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandle
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		DBClient:       cloudConn.DBClient,
+		VolumeClient:   cloudConn.Volume3Client,
+		ComputeClient:  cloudConn.ComputeClient, // for flavor name→UUID resolution
+		NetworkClient:  cloudConn.NetworkClient, // for floating IP management
 	}
 	return &rdbmsHandler, nil
 }

@@ -181,8 +181,9 @@ func (cloudConn *NhnCloudConnection) CreateMonitoringHandler() (irs.MonitoringHa
 func (cloudConn *NhnCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	cblogger.Info("NHN Cloud Driver: called CreateRDBMSHandler()!")
 	rdbmsHandler := nhnrs.NhnCloudRDBMSHandler{
-		RegionInfo: cloudConn.RegionInfo,
-		DBClient:   cloudConn.DBClient,
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		DBClient:       cloudConn.DBClient,
 	}
 	return &rdbmsHandler, nil
 }

@@ -19,6 +19,7 @@ import (
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vmysql"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpostgresql"
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -26,42 +27,125 @@ import (
 )
 
 type NcpVpcRDBMSHandler struct {
+	CredentialInfo idrv.CredentialInfo
 	RegionInfo     idrv.RegionInfo
 	MysqlClient    *vmysql.APIClient
 	PostgresClient *vpostgresql.APIClient
+	VServerClient  *vserver.APIClient
 }
 
-// GetMetaInfo returns metadata about NCP RDBMS capabilities.
-func (handler *NcpVpcRDBMSHandler) GetMetaInfo() (irs.RDBMSMetaInfo, error) {
+// GetMetaInfo returns metadata about NCP RDBMS capabilities by dynamically querying the CSP API.
+func (handler *NcpVpcRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo, error) {
 	cblogger.Debug("NCP VPC RDBMSHandler GetMetaInfo() called")
 
 	hiscallInfo := GetCallLogScheme(handler.RegionInfo.Region, call.RDBMS, "GetMetaInfo", "GetMetaInfo()")
 	start := call.Start()
 
-	metaInfo := irs.RDBMSMetaInfo{
-		SupportedEngines: map[string][]string{
-			"mysql":      {"8.0"},
-			"postgresql": {"13", "14", "15"},
-		},
+	requestedEngine, err := irs.NormalizeRDBMSEngine(dbEngine)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
+	}
 
-		SupportsHighAvailability:   true,
-		SupportsBackup:             true,
-		SupportsPublicAccess:       false, // NCP DB instances are VPC-only
-		SupportsDeletionProtection: true,  // MySQL only (IsDeleteProtection)
-		SupportsEncryption:         true,
-
-		StorageTypeOptions: map[string][]string{
-			"mysql":      {"SSD"},
-			"postgresql": {"SSD"},
-		},
-		StorageSizeRange: irs.StorageSizeRange{
-			Min: 10,
-			Max: 6000,
-		},
+	var metaInfo irs.RDBMSMetaInfo
+	switch requestedEngine {
+	case "mysql":
+		metaInfo, err = handler.getMysqlMetaInfo()
+	case "postgresql":
+		metaInfo, err = handler.getPostgresqlMetaInfo()
+	default:
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("unsupported DBEngine '%s': NCP supports mysql and postgresql", requestedEngine)
+	}
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSMetaInfo{}, err
 	}
 
 	LoggingInfo(hiscallInfo, start)
 	return metaInfo, nil
+}
+
+// getMysqlMetaInfo fetches MySQL-specific metadata dynamically from the NCP CSP API.
+func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error) {
+	// Step 1: query image product list for supported versions.
+	// Image products expose EngineVersionCode.
+	imgResp, err := handler.MysqlClient.V2Api.GetCloudMysqlImageProductList(&vmysql.GetCloudMysqlImageProductListRequest{
+		RegionCode: &handler.RegionInfo.Region,
+	})
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("failed to query NCP MySQL image product list: %w", err)
+	}
+	if len(imgResp.ProductList) == 0 {
+		return irs.RDBMSMetaInfo{}, errors.New("NCP MySQL image product list is empty")
+	}
+
+	versionSeen := map[string]bool{}
+	var versions []string
+	for _, p := range imgResp.ProductList {
+		if p.EngineVersionCode != nil && *p.EngineVersionCode != "" && !versionSeen[*p.EngineVersionCode] {
+			versionSeen[*p.EngineVersionCode] = true
+			versions = append(versions, *p.EngineVersionCode)
+		}
+	}
+	if len(versions) == 0 {
+		return irs.RDBMSMetaInfo{}, errors.New("no engine version info found in NCP MySQL image products")
+	}
+
+	// StorageTypeOptions: per NCP documentation, G2 supports HDD or SSD, G3 uses SSD automatically.
+	// StorageSizeRange: NCP Cloud DB data storage range per NCP documentation (10~6000 GB).
+	// The NCP SDK does not expose query APIs for these values.
+	return irs.RDBMSMetaInfo{
+		DBEngine:                   "mysql",
+		SupportedVersions:          versions,
+		StorageTypeOptions:         []string{"HDD", "SSD"},
+		StorageSizeRange:           irs.StorageSizeRange{Min: 10, Max: 6000},
+		SupportsHighAvailability:   true,
+		SupportsBackup:             true,
+		SupportsPublicAccess:       false, // NCP does not expose a public domain assignment API; must be done manually via NCP Console
+		SupportsDeletionProtection: true,
+		SupportsEncryption:         false, // 2024년 10월 21일부터 신규 서비스 암호화 미제공 (Rocky 8.10)
+	}, nil
+}
+
+// getPostgresqlMetaInfo fetches PostgreSQL-specific metadata dynamically from the NCP CSP API.
+func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, error) {
+	// Step 1: query image product list for supported versions.
+	// Image products expose EngineVersionCode.
+	imgResp, err := handler.PostgresClient.V2Api.GetCloudPostgresqlImageProductList(&vpostgresql.GetCloudPostgresqlImageProductListRequest{
+		RegionCode: &handler.RegionInfo.Region,
+	})
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("failed to query NCP PostgreSQL image product list: %w", err)
+	}
+	if len(imgResp.ProductList) == 0 {
+		return irs.RDBMSMetaInfo{}, errors.New("NCP PostgreSQL image product list is empty")
+	}
+
+	versionSeen := map[string]bool{}
+	var versions []string
+	for _, p := range imgResp.ProductList {
+		if p.EngineVersionCode != nil && *p.EngineVersionCode != "" && !versionSeen[*p.EngineVersionCode] {
+			versionSeen[*p.EngineVersionCode] = true
+			versions = append(versions, *p.EngineVersionCode)
+		}
+	}
+	if len(versions) == 0 {
+		return irs.RDBMSMetaInfo{}, errors.New("no engine version info found in NCP PostgreSQL image products")
+	}
+
+	// StorageTypeOptions: per NCP documentation, PostgreSQL (G3) uses SSD automatically.
+	// StorageSizeRange: NCP Cloud DB data storage range per NCP documentation (10~6000 GB).
+	// The NCP SDK does not expose query APIs for these values.
+	return irs.RDBMSMetaInfo{
+		DBEngine:                   "postgresql",
+		SupportedVersions:          versions,
+		StorageTypeOptions:         []string{"SSD"},
+		StorageSizeRange:           irs.StorageSizeRange{Min: 10, Max: 6000},
+		SupportsHighAvailability:   true,
+		SupportsBackup:             true,
+		SupportsPublicAccess:       false,
+		SupportsDeletionProtection: false,
+		SupportsEncryption:         true,
+	}, nil
 }
 
 // ListIID returns a list of all RDBMS instance IIDs (MySQL + PostgreSQL).
@@ -148,12 +232,19 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 		dbName = "mydb"
 	}
 
+	// CloudMysqlServerNamePrefix: max 15 chars, must not end with '-'
+	serverNamePrefix := reqInfo.IId.NameId
+	if len(serverNamePrefix) > 15 {
+		serverNamePrefix = serverNamePrefix[:15]
+	}
+	serverNamePrefix = strings.TrimRight(serverNamePrefix, "-")
+
 	createReq := &vmysql.CreateCloudMysqlInstanceRequest{
 		RegionCode:                 &handler.RegionInfo.Region,
 		VpcNo:                      &reqInfo.VpcIID.SystemId,
 		SubnetNo:                   &reqInfo.SubnetIIDs[0].SystemId,
 		CloudMysqlServiceName:      &reqInfo.IId.NameId,
-		CloudMysqlServerNamePrefix: &reqInfo.IId.NameId,
+		CloudMysqlServerNamePrefix: &serverNamePrefix,
 		CloudMysqlUserName:         &reqInfo.MasterUserName,
 		CloudMysqlUserPassword:     &reqInfo.MasterUserPassword,
 		HostIp:                     &hostIp,
@@ -167,6 +258,11 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	}
 	if reqInfo.DBEngineVersion != "" {
 		createReq.EngineVersionCode = &reqInfo.DBEngineVersion
+	}
+	if reqInfo.StorageSize != "" {
+		// NCP Cloud DB for MySQL does not support setting storage size as an independent parameter.
+		// Storage capacity is bundled with the product code (DBInstanceSpec).
+		cblogger.Warnf("NCP MySQL: StorageSize '%s' GB is ignored — storage is determined by the product code (DBInstanceSpec)", reqInfo.StorageSize)
 	}
 	if reqInfo.StorageType != "" {
 		createReq.DataStorageTypeCode = &reqInfo.StorageType
@@ -204,7 +300,41 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 		return irs.RDBMSInfo{}, errors.New("MySQL instance created but no instance returned in response")
 	}
 
-	return handler.convertMysqlInstanceToRDBMSInfo(resp.CloudMysqlInstanceList[0]), nil
+	instanceNo := derefStr(resp.CloudMysqlInstanceList[0].CloudMysqlInstanceNo)
+	instForInfo := resp.CloudMysqlInstanceList[0]
+
+	if reqInfo.PublicAccess {
+		port := "3306"
+		if reqInfo.Port != "" {
+			port = reqInfo.Port
+		}
+		// NCP only populates AccessControlGroupNoList once the instance reaches "running" state.
+		cblogger.Infof("NCP MySQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
+		runningInst, waitErr := handler.waitForMysqlRunningAndGet(instanceNo, 40*time.Minute)
+		if waitErr != nil {
+			cblogger.Warnf("NCP MySQL: error waiting for running state: %v; ACG not configured", waitErr)
+		} else {
+			instForInfo = runningInst
+			if len(runningInst.AccessControlGroupNoList) > 0 {
+				acgNo := derefStr(runningInst.AccessControlGroupNoList[0])
+				if err := handler.addPublicACGInboundRule(reqInfo.VpcIID.SystemId, acgNo, port); err != nil {
+					cblogger.Warnf("NCP MySQL: failed to open ACG %s for public access: %v", acgNo, err)
+				} else {
+					cblogger.Infof("NCP MySQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) for public access", acgNo, port)
+				}
+			} else {
+				cblogger.Warnf("NCP MySQL: instance running but ACG list empty for instance %s; add inbound rule 0.0.0.0/0->%s manually", instanceNo, port)
+			}
+		}
+	}
+
+	info := handler.convertMysqlInstanceToRDBMSInfo(instForInfo)
+	// NCP does not expose master username/dbname via API; populate from request
+	info.MasterUserName = reqInfo.MasterUserName
+	if reqInfo.DatabaseName != "" {
+		info.DatabaseName = reqInfo.DatabaseName
+	}
+	return info, nil
 }
 
 func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInfo, hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) (irs.RDBMSInfo, error) {
@@ -269,7 +399,40 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 		return irs.RDBMSInfo{}, errors.New("PostgreSQL instance created but no instance returned in response")
 	}
 
-	return handler.convertPostgresqlInstanceToRDBMSInfo(resp.CloudPostgresqlInstanceList[0]), nil
+	instanceNo := derefStr(resp.CloudPostgresqlInstanceList[0].CloudPostgresqlInstanceNo)
+	instForInfo := resp.CloudPostgresqlInstanceList[0]
+
+	if reqInfo.PublicAccess {
+		port := "5432"
+		if reqInfo.Port != "" {
+			port = reqInfo.Port
+		}
+		cblogger.Infof("NCP PostgreSQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
+		runningInst, waitErr := handler.waitForPostgresqlRunningAndGet(instanceNo, 40*time.Minute)
+		if waitErr != nil {
+			cblogger.Warnf("NCP PostgreSQL: error waiting for running state: %v; ACG not configured", waitErr)
+		} else {
+			instForInfo = runningInst
+			if len(runningInst.AccessControlGroupNoList) > 0 {
+				acgNo := derefStr(runningInst.AccessControlGroupNoList[0])
+				if err := handler.addPublicACGInboundRule(reqInfo.VpcIID.SystemId, acgNo, port); err != nil {
+					cblogger.Warnf("NCP PostgreSQL: failed to open ACG %s for public access: %v", acgNo, err)
+				} else {
+					cblogger.Infof("NCP PostgreSQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) for public access", acgNo, port)
+				}
+			} else {
+				cblogger.Warnf("NCP PostgreSQL: instance running but ACG list empty for instance %s; add inbound rule 0.0.0.0/0->%s manually", instanceNo, port)
+			}
+		}
+	}
+
+	info := handler.convertPostgresqlInstanceToRDBMSInfo(instForInfo)
+	// NCP does not expose master username/dbname via API; populate from request
+	info.MasterUserName = reqInfo.MasterUserName
+	if reqInfo.DatabaseName != "" {
+		info.DatabaseName = reqInfo.DatabaseName
+	}
+	return info, nil
 }
 
 // ListRDBMS returns a list of all RDBMS instances (MySQL + PostgreSQL).
@@ -437,6 +600,179 @@ func derefInt64(i *int64) int64 {
 	return *i
 }
 
+// waitForMysqlRunningAndGet polls until the MySQL instance reaches "running" status and returns it.
+// Empty API responses (NCP temporarily not queryable during server replacement) are treated as
+// in-progress and retried, not as errors.
+func (handler *NcpVpcRDBMSHandler) waitForMysqlRunningAndGet(instanceNo string, timeout time.Duration) (*vmysql.CloudMysqlInstance, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := handler.MysqlClient.V2Api.GetCloudMysqlInstanceDetail(&vmysql.GetCloudMysqlInstanceDetailRequest{
+			RegionCode:           &handler.RegionInfo.Region,
+			CloudMysqlInstanceNo: &instanceNo,
+		})
+		if err == nil && len(resp.CloudMysqlInstanceList) > 0 {
+			inst := resp.CloudMysqlInstanceList[0]
+			status := derefStr(inst.CloudMysqlInstanceStatusName)
+			cblogger.Infof("NCP MySQL instance %s status: %s", instanceNo, status)
+			switch strings.ToLower(status) {
+			case "running":
+				return inst, nil
+			case "deleting", "error":
+				return nil, fmt.Errorf("instance %s entered terminal state '%s'", instanceNo, status)
+			}
+		} else {
+			cblogger.Infof("NCP MySQL instance %s temporarily not queryable — retrying", instanceNo)
+		}
+		time.Sleep(30 * time.Second)
+	}
+	return nil, fmt.Errorf("timed out waiting for MySQL instance %s to reach running state", instanceNo)
+}
+
+// waitForPostgresqlRunningAndGet polls until the PostgreSQL instance reaches "running" status and returns it.
+func (handler *NcpVpcRDBMSHandler) waitForPostgresqlRunningAndGet(instanceNo string, timeout time.Duration) (*vpostgresql.CloudPostgresqlInstance, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := handler.PostgresClient.V2Api.GetCloudPostgresqlInstanceDetail(&vpostgresql.GetCloudPostgresqlInstanceDetailRequest{
+			RegionCode:                &handler.RegionInfo.Region,
+			CloudPostgresqlInstanceNo: &instanceNo,
+		})
+		if err == nil && len(resp.CloudPostgresqlInstanceList) > 0 {
+			inst := resp.CloudPostgresqlInstanceList[0]
+			status := derefStr(inst.CloudPostgresqlInstanceStatusName)
+			cblogger.Infof("NCP PostgreSQL instance %s status: %s", instanceNo, status)
+			switch strings.ToLower(status) {
+			case "running":
+				return inst, nil
+			case "deleting", "error":
+				return nil, fmt.Errorf("instance %s entered terminal state '%s'", instanceNo, status)
+			}
+		} else {
+			cblogger.Infof("NCP PostgreSQL instance %s temporarily not queryable — retrying", instanceNo)
+		}
+		time.Sleep(30 * time.Second)
+	}
+	return nil, fmt.Errorf("timed out waiting for PostgreSQL instance %s to reach running state", instanceNo)
+}
+
+// waitForMysqlRunning polls until the MySQL instance reaches "running" status or times out.
+func (handler *NcpVpcRDBMSHandler) waitForMysqlRunning(instanceNo string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := handler.MysqlClient.V2Api.GetCloudMysqlInstanceDetail(&vmysql.GetCloudMysqlInstanceDetailRequest{
+			RegionCode:           &handler.RegionInfo.Region,
+			CloudMysqlInstanceNo: &instanceNo,
+		})
+		if err == nil && len(resp.CloudMysqlInstanceList) > 0 {
+			status := derefStr(resp.CloudMysqlInstanceList[0].CloudMysqlInstanceStatusName)
+			cblogger.Infof("NCP MySQL instance %s status: %s", instanceNo, status)
+			switch strings.ToLower(status) {
+			case "running":
+				return nil
+			case "deleting", "error":
+				return fmt.Errorf("instance %s entered terminal state '%s'", instanceNo, status)
+			}
+		}
+		time.Sleep(30 * time.Second)
+	}
+	return fmt.Errorf("timed out waiting for MySQL instance %s to reach running state", instanceNo)
+}
+
+// waitForPostgresqlRunning polls until the PostgreSQL instance reaches "running" status or times out.
+func (handler *NcpVpcRDBMSHandler) waitForPostgresqlRunning(instanceNo string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := handler.PostgresClient.V2Api.GetCloudPostgresqlInstanceDetail(&vpostgresql.GetCloudPostgresqlInstanceDetailRequest{
+			RegionCode:                &handler.RegionInfo.Region,
+			CloudPostgresqlInstanceNo: &instanceNo,
+		})
+		if err == nil && len(resp.CloudPostgresqlInstanceList) > 0 {
+			status := derefStr(resp.CloudPostgresqlInstanceList[0].CloudPostgresqlInstanceStatusName)
+			cblogger.Infof("NCP PostgreSQL instance %s status: %s", instanceNo, status)
+			switch strings.ToLower(status) {
+			case "running":
+				return nil
+			case "deleting", "error":
+				return fmt.Errorf("instance %s entered terminal state '%s'", instanceNo, status)
+			}
+		}
+		time.Sleep(30 * time.Second)
+	}
+	return fmt.Errorf("timed out waiting for PostgreSQL instance %s to reach running state", instanceNo)
+}
+
+// addPublicACGInboundRule adds a TCP 0.0.0.0/0 inbound rule for the given port to the
+// specified ACG, enabling external client connections when PublicAccess is requested.
+func (handler *NcpVpcRDBMSHandler) addPublicACGInboundRule(vpcNo, acgNo, port string) error {
+	if handler.VServerClient == nil {
+		return fmt.Errorf("VServerClient not initialized; cannot configure ACG")
+	}
+	protocol := "TCP"
+	ipBlock := "0.0.0.0/0"
+	_, err := handler.VServerClient.V2Api.AddAccessControlGroupInboundRule(
+		&vserver.AddAccessControlGroupInboundRuleRequest{
+			RegionCode:           &handler.RegionInfo.Region,
+			VpcNo:                &vpcNo,
+			AccessControlGroupNo: &acgNo,
+			AccessControlGroupRuleList: []*vserver.AddAccessControlGroupRuleParameter{
+				{
+					ProtocolTypeCode: &protocol,
+					IpBlock:          &ipBlock,
+					PortRange:        &port,
+				},
+			},
+		},
+	)
+	return err
+}
+
+// getMysqlMasterUserName fetches the DB user list for a MySQL instance and returns
+// the first user with DDL authority (the master/owner user created at instance creation).
+// Returns "" on any error so callers can fall back to their own stored value.
+func (handler *NcpVpcRDBMSHandler) getMysqlMasterUserName(instanceNo string) string {
+	pageNo := int32(0)
+	pageSize := int32(100)
+	resp, err := handler.MysqlClient.V2Api.GetCloudMysqlUserList(&vmysql.GetCloudMysqlUserListRequest{
+		RegionCode:           &handler.RegionInfo.Region,
+		CloudMysqlInstanceNo: &instanceNo,
+		PageNo:               &pageNo,
+		PageSize:             &pageSize,
+	})
+	if err != nil || resp == nil {
+		cblogger.Infof("NCP MySQL: could not fetch user list for instance %s: %v", instanceNo, err)
+		return ""
+	}
+	for _, u := range resp.CloudMysqlUserList {
+		if u.Authority != nil && strings.ToUpper(*u.Authority) == "DDL" {
+			return derefStr(u.UserName)
+		}
+	}
+	return ""
+}
+
+// getPostgresqlMasterUserName fetches the DB user list for a PostgreSQL instance and
+// returns the first non-replication-role user (the master user created at instance creation).
+// Returns "" on any error so callers can fall back to their own stored value.
+func (handler *NcpVpcRDBMSHandler) getPostgresqlMasterUserName(instanceNo string) string {
+	resp, err := handler.PostgresClient.V2Api.GetCloudPostgresqlUserList(&vpostgresql.GetCloudPostgresqlUserListRequest{
+		RegionCode:                &handler.RegionInfo.Region,
+		CloudPostgresqlInstanceNo: &instanceNo,
+	})
+	if err != nil || resp == nil {
+		cblogger.Infof("NCP PostgreSQL: could not fetch user list for instance %s: %v", instanceNo, err)
+		return ""
+	}
+	for _, u := range resp.CloudPostgresqlUserList {
+		if u.IsReplicationRole != nil && !*u.IsReplicationRole {
+			return derefStr(u.UserName)
+		}
+	}
+	// fallback: return first user regardless
+	if len(resp.CloudPostgresqlUserList) > 0 {
+		return derefStr(resp.CloudPostgresqlUserList[0].UserName)
+	}
+	return ""
+}
+
 func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.CloudMysqlInstance) irs.RDBMSInfo {
 	info := irs.RDBMSInfo{
 		IId: irs.IID{
@@ -454,7 +790,7 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 		BackupTime:          derefStr(inst.BackupTime),
 
 		Port:               strconv.Itoa(int(derefInt32(inst.CloudMysqlPort))),
-		MasterUserName:     "NA", // Not exposed in list/detail API
+		MasterUserName:     handler.getMysqlMasterUserName(derefStr(inst.CloudMysqlInstanceNo)),
 		DatabaseName:       "NA", // Not exposed in list/detail API
 		DeletionProtection: false,
 		PublicAccess:       false,
@@ -475,7 +811,13 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 		serverInst := inst.CloudMysqlServerInstanceList[0]
 		info.VpcIID = irs.IID{NameId: "NA", SystemId: derefStr(serverInst.VpcNo)}
 		info.DBInstanceSpec = derefStr(serverInst.CloudMysqlProductCode)
-		info.Endpoint = derefStr(serverInst.PrivateDomain)
+		if serverInst.PublicDomain != nil && *serverInst.PublicDomain != "" {
+			info.Endpoint = *serverInst.PublicDomain
+			info.PublicAccess = true
+		} else {
+			info.Endpoint = derefStr(serverInst.PrivateDomain)
+			info.PublicAccess = false
+		}
 		info.Encryption = derefBool(serverInst.IsStorageEncryption)
 
 		storageSizeBytes := derefInt64(serverInst.DataStorageSize)
@@ -500,6 +842,48 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 		}
 	}
 
+	// KeyValueList: NCP-specific fields not covered by standard RDBMSInfo
+	kvList := []irs.KeyValue{
+		{Key: "GenerationCode", Value: derefStr(inst.GenerationCode)},
+		{Key: "ImageProductCode", Value: derefStr(inst.CloudMysqlImageProductCode)},
+		{Key: "IsMultiZone", Value: strconv.FormatBool(derefBool(inst.IsMultiZone))},
+	}
+	if inst.License != nil && inst.License.CodeName != nil {
+		kvList = append(kvList, irs.KeyValue{Key: "License", Value: *inst.License.CodeName})
+	}
+	if len(inst.AccessControlGroupNoList) > 0 {
+		acgNos := []string{}
+		for _, v := range inst.AccessControlGroupNoList {
+			if v != nil {
+				acgNos = append(acgNos, *v)
+			}
+		}
+		kvList = append(kvList, irs.KeyValue{Key: "AccessControlGroupNos", Value: strings.Join(acgNos, ",")})
+	}
+	if len(inst.CloudMysqlConfigList) > 0 {
+		configs := []string{}
+		for _, v := range inst.CloudMysqlConfigList {
+			if v != nil {
+				configs = append(configs, *v)
+			}
+		}
+		kvList = append(kvList, irs.KeyValue{Key: "MySQLConfigs", Value: strings.Join(configs, ";")})
+	}
+	if len(inst.CloudMysqlServerInstanceList) > 0 {
+		s := inst.CloudMysqlServerInstanceList[0]
+		kvList = append(kvList,
+			irs.KeyValue{Key: "ServerName", Value: derefStr(s.CloudMysqlServerName)},
+			irs.KeyValue{Key: "ServerInstanceNo", Value: derefStr(s.CloudMysqlServerInstanceNo)},
+			irs.KeyValue{Key: "ZoneCode", Value: derefStr(s.ZoneCode)},
+			irs.KeyValue{Key: "PrivateIp", Value: derefStr(s.PrivateIp)},
+			irs.KeyValue{Key: "CpuCount", Value: strconv.Itoa(int(derefInt32(s.CpuCount)))},
+			irs.KeyValue{Key: "MemorySizeGB", Value: strconv.FormatInt(derefInt64(s.MemorySize)/(1024*1024*1024), 10)},
+			irs.KeyValue{Key: "UsedStorageSizeGB", Value: strconv.FormatInt(derefInt64(s.UsedDataStorageSize)/(1024*1024*1024), 10)},
+			irs.KeyValue{Key: "Uptime", Value: derefStr(s.Uptime)},
+		)
+	}
+	info.KeyValueList = kvList
+
 	return info
 }
 
@@ -520,7 +904,7 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 		BackupTime:          derefStr(inst.BackupTime),
 
 		Port:               strconv.Itoa(int(derefInt32(inst.CloudPostgresqlPort))),
-		MasterUserName:     "NA",
+		MasterUserName:     handler.getPostgresqlMasterUserName(derefStr(inst.CloudPostgresqlInstanceNo)),
 		DatabaseName:       "NA",
 		DeletionProtection: false, // PostgreSQL does not support deletion protection
 		PublicAccess:       false,
@@ -541,7 +925,13 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 		serverInst := inst.CloudPostgresqlServerInstanceList[0]
 		info.VpcIID = irs.IID{NameId: "NA", SystemId: derefStr(serverInst.VpcNo)}
 		info.DBInstanceSpec = derefStr(serverInst.CloudPostgresqlProductCode)
-		info.Endpoint = derefStr(serverInst.PrivateDomain)
+		if serverInst.PublicDomain != nil && *serverInst.PublicDomain != "" {
+			info.Endpoint = *serverInst.PublicDomain
+			info.PublicAccess = true
+		} else {
+			info.Endpoint = derefStr(serverInst.PrivateDomain)
+			info.PublicAccess = false
+		}
 		info.Encryption = derefBool(serverInst.IsStorageEncryption)
 
 		storageSizeBytes := derefInt64(serverInst.DataStorageSize)
@@ -566,6 +956,46 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 		}
 	}
 
+	// KeyValueList: NCP-specific fields not covered by standard RDBMSInfo
+	kvList := []irs.KeyValue{
+		{Key: "GenerationCode", Value: derefStr(inst.GenerationCode)},
+		{Key: "ImageProductCode", Value: derefStr(inst.CloudPostgresqlImageProductCode)},
+		{Key: "IsMultiZone", Value: strconv.FormatBool(derefBool(inst.IsMultiZone))},
+		{Key: "License", Value: derefStr(inst.License)},
+	}
+	if len(inst.AccessControlGroupNoList) > 0 {
+		acgNos := []string{}
+		for _, v := range inst.AccessControlGroupNoList {
+			if v != nil {
+				acgNos = append(acgNos, *v)
+			}
+		}
+		kvList = append(kvList, irs.KeyValue{Key: "AccessControlGroupNos", Value: strings.Join(acgNos, ",")})
+	}
+	if len(inst.CloudPostgresqlConfigList) > 0 {
+		configs := []string{}
+		for _, v := range inst.CloudPostgresqlConfigList {
+			if v != nil {
+				configs = append(configs, *v)
+			}
+		}
+		kvList = append(kvList, irs.KeyValue{Key: "PostgreSQLConfigs", Value: strings.Join(configs, ";")})
+	}
+	if len(inst.CloudPostgresqlServerInstanceList) > 0 {
+		s := inst.CloudPostgresqlServerInstanceList[0]
+		kvList = append(kvList,
+			irs.KeyValue{Key: "ServerName", Value: derefStr(s.CloudPostgresqlServerName)},
+			irs.KeyValue{Key: "ServerInstanceNo", Value: derefStr(s.CloudPostgresqlServerInstanceNo)},
+			irs.KeyValue{Key: "ZoneCode", Value: derefStr(s.ZoneCode)},
+			irs.KeyValue{Key: "PrivateIp", Value: derefStr(s.PrivateIp)},
+			irs.KeyValue{Key: "CpuCount", Value: strconv.Itoa(int(derefInt32(s.CpuCount)))},
+			irs.KeyValue{Key: "MemorySizeGB", Value: strconv.FormatInt(derefInt64(s.MemorySize)/(1024*1024*1024), 10)},
+			irs.KeyValue{Key: "UsedStorageSizeGB", Value: strconv.FormatInt(derefInt64(s.UsedDataStorageSize)/(1024*1024*1024), 10)},
+			irs.KeyValue{Key: "Uptime", Value: derefStr(s.Uptime)},
+		)
+	}
+	info.KeyValueList = kvList
+
 	return info
 }
 
@@ -574,7 +1004,7 @@ func convertNcpMysqlStatusToRDBMSStatus(statusName *string) irs.RDBMSStatus {
 		return irs.RDBMSError
 	}
 	switch strings.ToLower(*statusName) {
-	case "creating", "setting up", "configuring":
+	case "creating", "setup", "settingup", "setting up", "configuring":
 		return irs.RDBMSCreating
 	case "running":
 		return irs.RDBMSAvailable
@@ -592,7 +1022,7 @@ func convertNcpPostgresqlStatusToRDBMSStatus(statusName *string) irs.RDBMSStatus
 		return irs.RDBMSError
 	}
 	switch strings.ToLower(*statusName) {
-	case "creating", "setting up", "configuring":
+	case "creating", "setup", "settingup", "setting up", "configuring":
 		return irs.RDBMSCreating
 	case "running":
 		return irs.RDBMSAvailable
@@ -602,5 +1032,123 @@ func convertNcpPostgresqlStatusToRDBMSStatus(statusName *string) irs.RDBMSStatus
 		return irs.RDBMSStopped
 	default:
 		return irs.RDBMSError
+	}
+}
+
+// -------- RDBMSDatabaseManager implementation --------
+// NcpVpcRDBMSHandler implements the optional irs.RDBMSDatabaseManager interface,
+// enabling cloud-native database CRUD via the NCP API so that callers do not need
+// elevated SQL privileges (NCP Cloud MySQL/PostgreSQL restrict CREATE DATABASE via SQL).
+
+// CreateDatabase creates a new database inside an NCP MySQL or PostgreSQL instance.
+func (handler *NcpVpcRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	cblogger.Infof("NCP RDBMSDatabaseManager: CreateDatabase instanceNo=%s engine=%s db=%s", rdbmsSystemId, dbEngine, dbName)
+	engine := strings.ToLower(dbEngine)
+	switch {
+	case strings.Contains(engine, "mysql"):
+		_, err := handler.MysqlClient.V2Api.AddCloudMysqlDatabaseList(&vmysql.AddCloudMysqlDatabaseListRequest{
+			RegionCode:                 &handler.RegionInfo.Region,
+			CloudMysqlInstanceNo:       &rdbmsSystemId,
+			CloudMysqlDatabaseNameList: []*string{&dbName},
+		})
+		if err != nil {
+			return fmt.Errorf("NCP AddCloudMysqlDatabaseList: %w", err)
+		}
+		return nil
+	case strings.Contains(engine, "postgres"):
+		// PostgreSQL database creation requires an owner (the master user).
+		owner := handler.getPostgresqlMasterUserName(rdbmsSystemId)
+		if owner == "" {
+			owner = "postgres" // fallback
+		}
+		_, err := handler.PostgresClient.V2Api.AddCloudPostgresqlDatabaseList(&vpostgresql.AddCloudPostgresqlDatabaseListRequest{
+			RegionCode:                &handler.RegionInfo.Region,
+			CloudPostgresqlInstanceNo: &rdbmsSystemId,
+			CloudPostgresqlDatabaseList: []*vpostgresql.CloudPostgresqlDatabaseParameter{
+				{Name: &dbName, Owner: &owner},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("NCP AddCloudPostgresqlDatabaseList: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("NCP RDBMSDatabaseManager: unsupported DB engine: %s", dbEngine)
+	}
+}
+
+// ListDatabases returns all database names in an NCP MySQL or PostgreSQL instance.
+func (handler *NcpVpcRDBMSHandler) ListDatabases(rdbmsSystemId, dbEngine string) ([]string, error) {
+	cblogger.Infof("NCP RDBMSDatabaseManager: ListDatabases instanceNo=%s engine=%s", rdbmsSystemId, dbEngine)
+	engine := strings.ToLower(dbEngine)
+	switch {
+	case strings.Contains(engine, "mysql"):
+		pageNo := int32(0)
+		pageSize := int32(100)
+		resp, err := handler.MysqlClient.V2Api.GetCloudMysqlDatabaseList(&vmysql.GetCloudMysqlDatabaseListRequest{
+			RegionCode:           &handler.RegionInfo.Region,
+			CloudMysqlInstanceNo: &rdbmsSystemId,
+			PageNo:               &pageNo,
+			PageSize:             &pageSize,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("NCP GetCloudMysqlDatabaseList: %w", err)
+		}
+		var names []string
+		for _, db := range resp.CloudMysqlDatabaseList {
+			if db.DatabaseName != nil {
+				names = append(names, *db.DatabaseName)
+			}
+		}
+		return names, nil
+	case strings.Contains(engine, "postgres"):
+		resp, err := handler.PostgresClient.V2Api.GetCloudPostgresqlDatabaseList(&vpostgresql.GetCloudPostgresqlDatabaseListRequest{
+			RegionCode:                &handler.RegionInfo.Region,
+			CloudPostgresqlInstanceNo: &rdbmsSystemId,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("NCP GetCloudPostgresqlDatabaseList: %w", err)
+		}
+		var names []string
+		for _, db := range resp.CloudPostgresqlDatabaseList {
+			if db.DatabaseName != nil {
+				names = append(names, *db.DatabaseName)
+			}
+		}
+		return names, nil
+	default:
+		return nil, fmt.Errorf("NCP RDBMSDatabaseManager: unsupported DB engine: %s", dbEngine)
+	}
+}
+
+// DeleteDatabase drops a database from an NCP MySQL or PostgreSQL instance.
+func (handler *NcpVpcRDBMSHandler) DeleteDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	cblogger.Infof("NCP RDBMSDatabaseManager: DeleteDatabase instanceNo=%s engine=%s db=%s", rdbmsSystemId, dbEngine, dbName)
+	engine := strings.ToLower(dbEngine)
+	switch {
+	case strings.Contains(engine, "mysql"):
+		_, err := handler.MysqlClient.V2Api.DeleteCloudMysqlDatabaseList(&vmysql.DeleteCloudMysqlDatabaseListRequest{
+			RegionCode:                 &handler.RegionInfo.Region,
+			CloudMysqlInstanceNo:       &rdbmsSystemId,
+			CloudMysqlDatabaseNameList: []*string{&dbName},
+		})
+		if err != nil {
+			return fmt.Errorf("NCP DeleteCloudMysqlDatabaseList: %w", err)
+		}
+		return nil
+	case strings.Contains(engine, "postgres"):
+		_, err := handler.PostgresClient.V2Api.DeleteCloudPostgresqlDatabaseList(&vpostgresql.DeleteCloudPostgresqlDatabaseListRequest{
+			RegionCode:                &handler.RegionInfo.Region,
+			CloudPostgresqlInstanceNo: &rdbmsSystemId,
+			CloudPostgresqlDatabaseList: []*vpostgresql.CloudPostgresqlDatabaseKeyParameter{
+				{Name: &dbName},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("NCP DeleteCloudPostgresqlDatabaseList: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("NCP RDBMSDatabaseManager: unsupported DB engine: %s", dbEngine)
 	}
 }

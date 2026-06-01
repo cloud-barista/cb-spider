@@ -29,6 +29,7 @@ import (
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vpostgresql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpostgresql"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
+
 	// ncprs "github.com/cloud-barista/ncp/ncp/resources" // For local testing
 	ncprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources"
 )
@@ -212,9 +213,11 @@ func (cloudConn *NcpVpcCloudConnection) CreateMonitoringHandler() (irs.Monitorin
 func (cloudConn *NcpVpcCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateRDBMSHandler()!")
 	rdbmsHandler := ncprs.NcpVpcRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
 		RegionInfo:     cloudConn.RegionInfo,
 		MysqlClient:    cloudConn.MysqlClient,
 		PostgresClient: cloudConn.PostgresClient,
+		VServerClient:  cloudConn.VmClient,
 	}
 	return &rdbmsHandler, nil
 }

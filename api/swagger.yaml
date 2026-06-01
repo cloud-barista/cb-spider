@@ -1273,25 +1273,31 @@ definitions:
   spider.RDBMSMetaInfo:
     description: RDBMS Meta Information for CSP-specific capabilities
     properties:
+      DBEngine:
+        description: Requested DB engine name. e.g., mysql, mariadb, postgresql
+        example: mysql
+        type: string
       StorageSizeRange:
         allOf:
         - $ref: '#/definitions/spider.StorageSizeRange'
-        description: Min/Max storage size in GB
+        description: Min/Max storage size in GB for the requested DB engine
       StorageTypeOptions:
-        additionalProperties:
-          items:
-            type: string
-          type: array
-        description: 'Available storage types per engine. e.g., {"mysql": ["gp2",
-          "gp3", "io1"]}'
-        type: object
-      SupportedEngines:
-        additionalProperties:
-          items:
-            type: string
-          type: array
-        description: filled by the cloud driver
-        type: object
+        description: Available storage types for the requested DB engine
+        example:
+        - gp2
+        - gp3
+        - io1
+        items:
+          type: string
+        type: array
+      SupportedVersions:
+        description: Supported versions for the requested DB engine
+        example:
+        - "8.0"
+        - "8.4"
+        items:
+          type: string
+        type: array
       SupportsBackup:
         description: true if managed automatic backup is supported
         type: boolean
@@ -3355,6 +3361,29 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.RDBMSDatabaseListResponse:
+    properties:
+      Databases:
+        items:
+          type: string
+        type: array
+    type: object
+  spider.RDBMSDatabaseRequest:
+    properties:
+      ConnectionName:
+        example: ncp-korea1-config
+        type: string
+      DatabaseName:
+        description: required only for create/delete
+        example: mydb
+        type: string
+      MasterUserPassword:
+        description: required when driver uses SQL (e.g. AWS, IBM)
+        example: P@ssw0rd
+        type: string
+    required:
+    - ConnectionName
     type: object
   spider.RDBMSListResponse:
     properties:
@@ -8744,6 +8773,132 @@ paths:
       summary: Get RDBMS
       tags:
       - '[RDBMS Management]'
+  /rdbms/{Name}/databases:
+    get:
+      consumes:
+      - application/json
+      description: List databases inside an RDBMS instance using the CSP-native API.
+      operationId: list-rdbms-databases
+      parameters:
+      - description: The name of the RDBMS instance
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: ConnectionName
+        in: body
+        name: RDBMSDatabaseRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of databases
+          schema:
+            $ref: '#/definitions/spider.RDBMSDatabaseListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "501":
+          description: Not Supported by driver
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Databases in RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbms/{Name}/databases/{DBName}:
+    delete:
+      consumes:
+      - application/json
+      description: Drop a database inside an RDBMS instance using the CSP-native API.
+      operationId: delete-rdbms-database
+      parameters:
+      - description: The name of the RDBMS instance
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the database to drop
+        in: path
+        name: DBName
+        required: true
+        type: string
+      - description: ConnectionName
+        in: body
+        name: RDBMSDatabaseRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deleted
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "501":
+          description: Not Supported by driver
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete Database in RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbms/{Name}/databases/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a database inside an RDBMS instance using the CSP-native
+        API.
+      operationId: create-rdbms-database
+      parameters:
+      - description: The name of the RDBMS instance
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: ConnectionName and DatabaseName
+        in: body
+        name: RDBMSDatabaseRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Created
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "501":
+          description: Not Supported by driver
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create Database in RDBMS
+      tags:
+      - '[RDBMS Management]'
   /rdbmsmetainfo:
     get:
       consumes:
@@ -8755,6 +8910,11 @@ paths:
       - description: The name of the Connection
         in: query
         name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
         required: true
         type: string
       produces:

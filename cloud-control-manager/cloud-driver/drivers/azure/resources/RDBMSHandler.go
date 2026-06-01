@@ -12,11 +12,17 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -29,36 +35,179 @@ type AzureRDBMSHandler struct {
 	Ctx                 context.Context
 	ServersClient       *armmysqlfs.ServersClient
 	FirewallRulesClient *armmysqlfs.FirewallRulesClient
+	DatabasesClient     *armmysqlfs.DatabasesClient
 }
 
-func (handler *AzureRDBMSHandler) GetMetaInfo() (irs.RDBMSMetaInfo, error) {
+var azureMySQLFallbackVersions = []string{"5.7", "8.0.21", "8.4", "9.5"}
+
+var azureMySQLFallbackStorageTypeOptions = map[string][]string{
+	"mysql": {"GeneralPurpose", "BusinessCritical", "Burstable"},
+}
+
+var azureMySQLFallbackStorageSizeRange = irs.StorageSizeRange{Min: 20, Max: 16384}
+
+// GetMetaInfo returns metadata about Azure Database for MySQL Flexible Server capabilities.
+// Supported engine versions are fetched dynamically via the Azure REST API (api-version 2023-12-30).
+func (handler *AzureRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo, error) {
 	cblogger.Debug("Azure MySQL Flexible Server GetMetaInfo() called")
 
-	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "GetMetaInfo()")
+	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "Microsoft.DBforMySQL/locations/capabilitySets/default")
 	start := call.Start()
+	requestedEngine, err := irs.NormalizeRDBMSEngine(dbEngine)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
+	}
 
-	metaInfo := irs.RDBMSMetaInfo{
-		SupportedEngines: map[string][]string{
-			"mysql": {"5.7", "8.0.21"},
-		},
-		SupportsHighAvailability:   true,
-		SupportsBackup:             true,
-		SupportsPublicAccess:       true,
-		SupportsDeletionProtection: false,
-		SupportsEncryption:         true,
-		StorageTypeOptions: map[string][]string{
-			"mysql": {"GeneralPurpose", "BusinessCritical", "Burstable"},
-		},
-		StorageSizeRange: irs.StorageSizeRange{
-			Min: 20,
-			Max: 16384,
-		},
+	versions, storageTypeOptions, storageSizeRange, err := handler.fetchMySQLMetaOptions(handler.Region.Region)
+	if err != nil {
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("GetMetaInfo failed: %w", err)
+	}
+
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, map[string][]string{"mysql": versions}, storageTypeOptions, storageSizeRange, true, true, true, false, true)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
 	}
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
 
 	return metaInfo, nil
+}
+
+// fetchMySQLMetaOptions queries the Azure LocationBasedCapabilitySet_Get endpoint
+// (api-version 2023-12-30) to get supported MySQL versions and storage options for the given location.
+// This endpoint supersedes the legacy /capabilities endpoint and is stable across all regions.
+func (handler *AzureRDBMSHandler) fetchMySQLMetaOptions(location string) ([]string, map[string][]string, irs.StorageSizeRange, error) {
+	cred, err := azidentity.NewClientSecretCredential(
+		handler.CredentialInfo.TenantId,
+		handler.CredentialInfo.ClientId,
+		handler.CredentialInfo.ClientSecret,
+		nil,
+	)
+	if err != nil {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to create Azure credential: %w", err)
+	}
+
+	token, err := cred.GetToken(handler.Ctx, policy.TokenRequestOptions{
+		Scopes: []string{"https://management.azure.com/.default"},
+	})
+	if err != nil {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to get Azure token: %w", err)
+	}
+
+	apiURL := fmt.Sprintf(
+		"https://management.azure.com/subscriptions/%s/providers/Microsoft.DBforMySQL/locations/%s/capabilitySets/default?api-version=2023-12-30",
+		handler.CredentialInfo.SubscriptionId, location,
+	)
+	versions, storageTypeOptions, storageSizeRange, err := handler.doCapabilitySetRequest(apiURL, token.Token)
+	if err != nil {
+		fallbackVersions := append([]string(nil), azureMySQLFallbackVersions...)
+		fallbackStorageTypeOptions := map[string][]string{
+			"mysql": append([]string(nil), azureMySQLFallbackStorageTypeOptions["mysql"]...),
+		}
+		cblogger.Infof("Azure MySQL capabilitySets API failed for location %s. Using fallback versions %v and storage metadata %v/%+v: %v", location, fallbackVersions, fallbackStorageTypeOptions, azureMySQLFallbackStorageSizeRange, err)
+		return fallbackVersions, fallbackStorageTypeOptions, azureMySQLFallbackStorageSizeRange, nil
+	}
+	return versions, storageTypeOptions, storageSizeRange, nil
+}
+
+// doCapabilitySetRequest calls the Azure LocationBasedCapabilitySet_Get endpoint.
+// URL: GET .../capabilitySets/default?api-version=2023-12-30
+// Response: { "properties": { "supportedServerVersions": [{"name":"..."}] } }
+func (handler *AzureRDBMSHandler) doCapabilitySetRequest(apiURL, bearerToken string) ([]string, map[string][]string, irs.StorageSizeRange, error) {
+	req, err := http.NewRequestWithContext(handler.Ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to build capabilitySets request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+bearerToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to read capabilitySets response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Properties struct {
+			SupportedFlexibleServerEditions []struct {
+				Name                     string `json:"name"`
+				SupportedStorageEditions []struct {
+					Name           string `json:"name"`
+					MinStorageSize int64  `json:"minStorageSize"`
+					MaxStorageSize int64  `json:"maxStorageSize"`
+				} `json:"supportedStorageEditions"`
+			} `json:"supportedFlexibleServerEditions"`
+			SupportedServerVersions []struct {
+				Name string `json:"name"`
+			} `json:"supportedServerVersions"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to parse capabilitySets response: %w", err)
+	}
+
+	versionSet := map[string]bool{}
+	for _, sv := range result.Properties.SupportedServerVersions {
+		if sv.Name != "" {
+			versionSet[sv.Name] = true
+		}
+	}
+
+	versions := make([]string, 0, len(versionSet))
+	for v := range versionSet {
+		versions = append(versions, v)
+	}
+	sort.Strings(versions)
+
+	storageTypeSet := map[string]bool{}
+	var minStorageGB int64
+	var maxStorageGB int64
+	for _, edition := range result.Properties.SupportedFlexibleServerEditions {
+		if edition.Name != "" {
+			storageTypeSet[edition.Name] = true
+		}
+		for _, storageEdition := range edition.SupportedStorageEditions {
+			if storageEdition.MinStorageSize > 0 {
+				minGB := azureStorageMBToGB(storageEdition.MinStorageSize)
+				if minStorageGB == 0 || minGB < minStorageGB {
+					minStorageGB = minGB
+				}
+			}
+			if storageEdition.MaxStorageSize > 0 {
+				maxGB := azureStorageMBToGB(storageEdition.MaxStorageSize)
+				if maxGB > maxStorageGB {
+					maxStorageGB = maxGB
+				}
+			}
+		}
+	}
+	storageTypes := make([]string, 0, len(storageTypeSet))
+	for storageType := range storageTypeSet {
+		storageTypes = append(storageTypes, storageType)
+	}
+	sort.Strings(storageTypes)
+	if len(storageTypes) == 0 || minStorageGB == 0 || maxStorageGB == 0 {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets response did not include storage options")
+	}
+
+	storageTypeOptions := map[string][]string{"mysql": storageTypes}
+	storageSizeRange := irs.StorageSizeRange{Min: minStorageGB, Max: maxStorageGB}
+	return versions, storageTypeOptions, storageSizeRange, nil
+}
+
+func azureStorageMBToGB(storageMB int64) int64 {
+	return storageMB / 1024
 }
 
 func (handler *AzureRDBMSHandler) ListIID() ([]*irs.IID, error) {
@@ -433,4 +582,64 @@ func convertFlexibleServerStatus(state string) irs.RDBMSStatus {
 	default:
 		return irs.RDBMSError
 	}
+}
+
+// ─── rdbmsDatabaseManager interface implementation ───────────────────────────
+// Azure MySQL Flexible Server supports native database management via the ARM Databases API.
+
+// CreateDatabase creates a database in an Azure MySQL Flexible Server instance.
+func (handler *AzureRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	if handler.DatabasesClient == nil {
+		return fmt.Errorf("Azure CreateDatabase: DatabasesClient is not initialized")
+	}
+	resourceGroup := handler.Region.Region
+	poller, err := handler.DatabasesClient.BeginCreateOrUpdate(
+		handler.Ctx, resourceGroup, rdbmsSystemId, dbName,
+		armmysqlfs.Database{}, nil,
+	)
+	if err != nil {
+		return fmt.Errorf("Azure CreateDatabase: %w", err)
+	}
+	if _, err := poller.PollUntilDone(handler.Ctx, nil); err != nil {
+		return fmt.Errorf("Azure CreateDatabase (poll): %w", err)
+	}
+	return nil
+}
+
+// ListDatabases lists all databases in an Azure MySQL Flexible Server instance.
+func (handler *AzureRDBMSHandler) ListDatabases(rdbmsSystemId, dbEngine string) ([]string, error) {
+	if handler.DatabasesClient == nil {
+		return nil, fmt.Errorf("Azure ListDatabases: DatabasesClient is not initialized")
+	}
+	resourceGroup := handler.Region.Region
+	pager := handler.DatabasesClient.NewListByServerPager(resourceGroup, rdbmsSystemId, nil)
+	var names []string
+	for pager.More() {
+		page, err := pager.NextPage(handler.Ctx)
+		if err != nil {
+			return nil, fmt.Errorf("Azure ListDatabases: %w", err)
+		}
+		for _, db := range page.Value {
+			if db.Name != nil {
+				names = append(names, *db.Name)
+			}
+		}
+	}
+	return names, nil
+}
+
+// DeleteDatabase deletes a database from an Azure MySQL Flexible Server instance.
+func (handler *AzureRDBMSHandler) DeleteDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	if handler.DatabasesClient == nil {
+		return fmt.Errorf("Azure DeleteDatabase: DatabasesClient is not initialized")
+	}
+	resourceGroup := handler.Region.Region
+	poller, err := handler.DatabasesClient.BeginDelete(handler.Ctx, resourceGroup, rdbmsSystemId, dbName, nil)
+	if err != nil {
+		return fmt.Errorf("Azure DeleteDatabase: %w", err)
+	}
+	if _, err := poller.PollUntilDone(handler.Ctx, nil); err != nil {
+		return fmt.Errorf("Azure DeleteDatabase (poll): %w", err)
+	}
+	return nil
 }

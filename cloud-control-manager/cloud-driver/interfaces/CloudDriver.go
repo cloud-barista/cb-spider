@@ -81,6 +81,11 @@ type CredentialInfo struct {
 	S3SecretKey      string // S3 Secret Key
 	S3UseSSL         bool   // Use SSL
 	S3RegionRequired bool   // S3 Region Required or not
+
+	//----- RDS Access Info
+	RDSUserAccessKey   string // RDS User Access Key
+	RDSSecretAccessKey string // RDS Secret Access Key
+	RDSAppKey          string // RDS AppKey
 }
 
 type RegionInfo struct {

@@ -41,7 +41,6 @@ type KTCloudVpcConnection struct {
 	VolumeClient   *ktvpcsdk.ServiceClient
 	NLBClient      *ktvpcsdk.ServiceClient
 	NASClient      *ktvpcsdk.ServiceClient
-	DBClient       *ktvpcsdk.ServiceClient
 }
 
 func (cloudConn *KTCloudVpcConnection) CreateVMHandler() (irs.VMHandler, error) {
@@ -151,9 +150,5 @@ func (cloudConn *KTCloudVpcConnection) CreateMonitoringHandler() (irs.Monitoring
 
 func (cloudConn *KTCloudVpcConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	cblogger.Info("KT Cloud VPC Cloud Driver: called CreateRDBMSHandler()!")
-	rdbmsHandler := ktvpcrs.KTVpcRDBMSHandler{
-		RegionInfo: cloudConn.RegionInfo,
-		DBClient:   cloudConn.DBClient,
-	}
-	return &rdbmsHandler, nil
+	return nil, fmt.Errorf("KT Cloud VPC Driver does not support RDBMSHandler: KT Cloud DBaaS can only be created and managed through the KT Cloud Console and does not provide a public REST API.")
 }

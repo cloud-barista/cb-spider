@@ -290,8 +290,10 @@ func rLockResource(connectionName string, resType cres.RSType, resName string) e
 		myImageSPLock.RLock(connectionName, resName)
 	case cres.CLUSTER:
 		clusterSPLock.RLock(connectionName, resName)
+	case cres.RDBMS:
+		rdbmsSPLock.RLock(connectionName, resName)
 	default:
-		return fmt.Errorf(string(resType) + " is not supported Resource!!")
+		return fmt.Errorf("%s is not supported Resource!!", resType)
 	}
 	return nil
 }
@@ -316,6 +318,8 @@ func rUnlockResource(connectionName string, resType cres.RSType, resName string)
 		myImageSPLock.RUnlock(connectionName, resName)
 	case cres.CLUSTER:
 		clusterSPLock.RUnlock(connectionName, resName)
+	case cres.RDBMS:
+		rdbmsSPLock.RUnlock(connectionName, resName)
 	}
 }
 
@@ -386,6 +390,13 @@ func getIIDInfoByResourceType(connectionName string, resType cres.RSType, resNam
 			return "", "", err
 		}
 		return info.NameId, info.SystemId, nil
+	case cres.RDBMS:
+		var info RDBMSIIDInfo
+		err := infostore.GetByConditions(&info, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, resName)
+		if err != nil {
+			return "", "", err
+		}
+		return info.NameId, info.SystemId, nil
 	default:
 		return "", "", fmt.Errorf("unsupported resource type: %s", resType)
 	}
@@ -412,7 +423,7 @@ func checkTagSupported(connectionName string, resType cres.RSType) error {
 
 	// Check if tagging is supported at all
 	if !driverCapability.TagHandler {
-		return fmt.Errorf(errMsg)
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	// Iterate through the supported resource types for tagging
@@ -423,5 +434,5 @@ func checkTagSupported(connectionName string, resType cres.RSType) error {
 	}
 
 	// If the resource type is not found in the supported types
-	return fmt.Errorf(errMsg)
+	return fmt.Errorf("%s", errMsg)
 }

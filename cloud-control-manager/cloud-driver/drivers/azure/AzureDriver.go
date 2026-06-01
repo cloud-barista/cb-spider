@@ -301,6 +301,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	mysqlDatabasesClient, err := getMySQLDatabasesClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -336,6 +340,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		AccountsClient:                  accountsClient,
 		MySQLServersClient:              mysqlServersClient,
 		MySQLFirewallRulesClient:        mysqlFirewallRulesClient,
+		MySQLDatabasesClient:            mysqlDatabasesClient,
 	}
 
 	return &iConn, nil
@@ -791,4 +796,16 @@ func getMySQLFirewallRulesClient(credInfo idrv.CredentialInfo) (context.Context,
 	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 	return ctx, client, nil
+}
+
+func getMySQLDatabasesClient(credInfo idrv.CredentialInfo) (*armmysqlfs.DatabasesClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, err
+	}
+	client, err := armmysqlfs.NewDatabasesClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }

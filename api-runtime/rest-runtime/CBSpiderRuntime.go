@@ -515,10 +515,6 @@ func getRoutes() []route {
 		{"GET", "/filesystem/:Name/accesssubnet", ListAccessSubnet},
 		{"DELETE", "/filesystem/:Name/accesssubnet", RemoveAccessSubnet},
 
-		//----------Monitoring Handler
-		{"GET", "/monitoring/vm/:VMName/:MetricType", GetVMMetricData},
-		{"GET", "/monitoring/clusternode/:ClusterName/:NodeGroupName/:NodeNumber/:MetricType", GetClusterNodeMetricData},
-
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 
@@ -532,6 +528,11 @@ func getRoutes() []route {
 		{"GET", "/rdbms", ListRDBMS},
 		{"GET", "/rdbms/:Name", GetRDBMS},
 		{"DELETE", "/rdbms/:Name", DeleteRDBMS},
+
+		//-- RDBMS database management (CSP-native API; drivers that support RDBMSDatabaseManager)
+		{"POST", "/rdbms/:Name/databases/create", CreateRDBMSDatabase},
+		{"GET", "/rdbms/:Name/databases", ListRDBMSDatabases},
+		{"DELETE", "/rdbms/:Name/databases/:DBName", DeleteRDBMSDatabase},
 
 		//-- for meta info
 		{"GET", "/rdbmsmetainfo", GetRDBMSMetaInfo},

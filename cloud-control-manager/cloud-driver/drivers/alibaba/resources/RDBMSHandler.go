@@ -13,6 +13,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -29,38 +30,287 @@ type AlibabaRDBMSHandler struct {
 	Client *rds.Client
 }
 
-func (handler *AlibabaRDBMSHandler) GetMetaInfo() (irs.RDBMSMetaInfo, error) {
+type alibabaRDBMSEngine struct {
+	cbName  string
+	aliName string
+}
+
+type alibabaRDBMSStorageLookup struct {
+	zoneID        string
+	engineVersion string
+	category      string
+	storageType   string
+}
+
+func (handler *AlibabaRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo, error) {
 	cblogger.Debug("Alibaba RDS GetMetaInfo() called")
 
 	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "GetMetaInfo()")
 	start := call.Start()
+	requestedEngine, err := irs.NormalizeRDBMSEngine(dbEngine)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
+	}
+	supportedEngines, storageTypeOptions, storageSizeRange, err := handler.fetchRDBMSMetaOptions(requestedEngine)
+	if err != nil {
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSMetaInfo{}, err
+	}
 
-	metaInfo := irs.RDBMSMetaInfo{
-		SupportedEngines: map[string][]string{
-			"mysql":      {"5.7", "8.0"},
-			"mariadb":    {"10.3"},
-			"postgresql": {"10.0", "11.0", "12.0", "13.0", "14.0", "15.0", "16.0"},
-		},
-		SupportsHighAvailability:   true,
-		SupportsBackup:             true,
-		SupportsPublicAccess:       true,
-		SupportsDeletionProtection: true,
-		SupportsEncryption:         true,
-		StorageTypeOptions: map[string][]string{
-			"mysql":      {"cloud_ssd", "cloud_essd", "cloud_essd2", "cloud_essd3", "local_ssd"},
-			"mariadb":    {"cloud_ssd", "cloud_essd"},
-			"postgresql": {"cloud_ssd", "cloud_essd", "cloud_essd2", "cloud_essd3", "local_ssd"},
-		},
-		StorageSizeRange: irs.StorageSizeRange{
-			Min: 20,
-			Max: 32768,
-		},
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, true)
+	if err != nil {
+		return irs.RDBMSMetaInfo{}, err
 	}
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
 
 	return metaInfo, nil
+}
+
+func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[string][]string, map[string][]string, irs.StorageSizeRange, error) {
+	allEngineNames := []alibabaRDBMSEngine{
+		{cbName: "mysql", aliName: "MySQL"},
+		{cbName: "mariadb", aliName: "MariaDB"},
+		{cbName: "postgresql", aliName: "PostgreSQL"},
+	}
+	engineNames := make([]alibabaRDBMSEngine, 0, 1)
+	for _, eng := range allEngineNames {
+		if eng.cbName == dbEngine {
+			engineNames = append(engineNames, eng)
+			break
+		}
+	}
+	if len(engineNames) == 0 {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DBEngine '%s' is not supported by Alibaba RDS", dbEngine)
+	}
+	engineByAlibabaName := map[string]alibabaRDBMSEngine{}
+	for _, eng := range engineNames {
+		engineByAlibabaName[strings.ToLower(eng.aliName)] = eng
+	}
+
+	versionSets := map[string]map[string]bool{}
+	storageTypeSets := map[string]map[string]bool{}
+	storageLookups := map[string][]alibabaRDBMSStorageLookup{}
+	for _, eng := range engineNames {
+		zonesReq := rds.CreateDescribeAvailableZonesRequest()
+		zonesReq.Engine = eng.aliName
+		zonesReq.InstanceChargeType = "Postpaid"
+		if handler.Region.Zone != "" {
+			zonesReq.ZoneId = handler.Region.Zone
+		}
+		zonesResp, err := handler.Client.DescribeAvailableZones(zonesReq)
+		if err != nil {
+			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones failed for engine %s: %w", eng.aliName, err)
+		}
+		selectedZoneID := handler.Region.Zone
+		if selectedZoneID == "" && len(zonesResp.AvailableZones) > 0 {
+			selectedZoneID = zonesResp.AvailableZones[0].ZoneId
+		}
+		if selectedZoneID == "" {
+			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no zones for %s", eng.aliName)
+		}
+
+		for _, zone := range zonesResp.AvailableZones {
+			if zone.ZoneId != selectedZoneID {
+				continue
+			}
+			for _, supportedEngine := range zone.SupportedEngines {
+				if _, ok := engineByAlibabaName[strings.ToLower(supportedEngine.Engine)]; !ok || !strings.EqualFold(supportedEngine.Engine, eng.aliName) {
+					continue
+				}
+				if versionSets[eng.cbName] == nil {
+					versionSets[eng.cbName] = map[string]bool{}
+				}
+				if storageTypeSets[eng.cbName] == nil {
+					storageTypeSets[eng.cbName] = map[string]bool{}
+				}
+				for _, engineVersion := range supportedEngine.SupportedEngineVersions {
+					if engineVersion.Version == "" {
+						continue
+					}
+					versionSets[eng.cbName][engineVersion.Version] = true
+					for _, category := range engineVersion.SupportedCategorys {
+						for _, storageType := range category.SupportedStorageTypes {
+							if storageType.StorageType != "" {
+								storageTypeSets[eng.cbName][storageType.StorageType] = true
+								storageLookups[eng.aliName] = append(storageLookups[eng.aliName], alibabaRDBMSStorageLookup{
+									zoneID:        zone.ZoneId,
+									engineVersion: engineVersion.Version,
+									category:      category.Category,
+									storageType:   storageType.StorageType,
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	supportedEngines := map[string][]string{}
+	storageTypeOptions := map[string][]string{}
+	for _, eng := range engineNames {
+		versions := alibabaSortedSet(versionSets[eng.cbName])
+		if len(versions) == 0 {
+			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no engine versions for %s", eng.aliName)
+		}
+		supportedEngines[eng.cbName] = versions
+
+		storageTypes := alibabaSortedSet(storageTypeSets[eng.cbName])
+		if len(storageTypes) == 0 {
+			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no storage types for %s", eng.aliName)
+		}
+		storageTypeOptions[eng.cbName] = storageTypes
+	}
+
+	storageSizeRange, err := handler.fetchRDBMSStorageSizeRange(engineNames, storageLookups)
+	if err != nil {
+		return nil, nil, irs.StorageSizeRange{}, err
+	}
+
+	return supportedEngines, storageTypeOptions, storageSizeRange, nil
+}
+
+func (handler *AlibabaRDBMSHandler) fetchRDBMSStorageSizeRange(engineNames []alibabaRDBMSEngine, storageLookups map[string][]alibabaRDBMSStorageLookup) (irs.StorageSizeRange, error) {
+	var minStorage int64
+	var maxStorage int64
+	latestVersionByEngine := map[string]string{}
+	for _, eng := range engineNames {
+		for _, lookup := range storageLookups[eng.aliName] {
+			if latestVersionByEngine[eng.aliName] == "" || alibabaCompareVersionStrings(lookup.engineVersion, latestVersionByEngine[eng.aliName]) > 0 {
+				latestVersionByEngine[eng.aliName] = lookup.engineVersion
+			}
+		}
+	}
+
+	for _, eng := range engineNames {
+		seenLookup := map[string]bool{}
+		for _, lookup := range storageLookups[eng.aliName] {
+			if lookup.engineVersion != latestVersionByEngine[eng.aliName] {
+				continue
+			}
+			lookupKey := lookup.zoneID + ":" + lookup.engineVersion + ":" + lookup.category + ":" + lookup.storageType
+			if seenLookup[lookupKey] {
+				continue
+			}
+			seenLookup[lookupKey] = true
+
+			classesReq := rds.CreateDescribeAvailableClassesRequest()
+			classesReq.Engine = eng.aliName
+			classesReq.EngineVersion = lookup.engineVersion
+			classesReq.DBInstanceStorageType = lookup.storageType
+			classesReq.InstanceChargeType = "Postpaid"
+			classesReq.ZoneId = lookup.zoneID
+			classesReq.Category = lookup.category
+
+			classesResp, err := handler.describeAvailableClasses(classesReq)
+			if err != nil {
+				return irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableClasses failed for engine %s version %s category %s storage type %s zone %s: %w", eng.aliName, lookup.engineVersion, lookup.category, lookup.storageType, lookup.zoneID, err)
+			}
+
+			for _, class := range classesResp.DBInstanceClasses {
+				classMin, classMax := alibabaStorageRangeValues(class)
+				if classMin > 0 && (minStorage == 0 || classMin < minStorage) {
+					minStorage = classMin
+				}
+				if classMax > maxStorage {
+					maxStorage = classMax
+				}
+			}
+		}
+	}
+
+	if minStorage == 0 || maxStorage == 0 {
+		return irs.StorageSizeRange{}, errors.New("DescribeAvailableClasses returned no storage size range")
+	}
+
+	return irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
+}
+
+func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.DescribeAvailableClassesRequest) (*rds.DescribeAvailableClassesResponse, error) {
+	type describeAvailableClassesResult struct {
+		response *rds.DescribeAvailableClassesResponse
+		err      error
+	}
+	resultChan := make(chan describeAvailableClassesResult, 1)
+	go func() {
+		response, err := handler.Client.DescribeAvailableClasses(request)
+		resultChan <- describeAvailableClassesResult{response: response, err: err}
+	}()
+
+	timer := time.NewTimer(20 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case result := <-resultChan:
+		if result.err != nil {
+			return nil, result.err
+		}
+		if result.response == nil {
+			return nil, errors.New("DescribeAvailableClasses returned no response")
+		}
+		return result.response, nil
+	case <-timer.C:
+		return nil, errors.New("DescribeAvailableClasses timed out")
+	}
+}
+
+func alibabaStorageRangeValues(class rds.DBInstanceClass) (int64, int64) {
+	if class.DBInstanceStorageRange.MinValue > 0 || class.DBInstanceStorageRange.MaxValue > 0 {
+		return int64(class.DBInstanceStorageRange.MinValue), int64(class.DBInstanceStorageRange.MaxValue)
+	}
+
+	replacer := strings.NewReplacer("~", "-", ",", "-", " ", "")
+	parts := strings.Split(replacer.Replace(class.StorageRange), "-")
+	if len(parts) < 2 {
+		return 0, 0
+	}
+	minValue, minErr := strconv.ParseInt(parts[0], 10, 64)
+	maxValue, maxErr := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+	if minErr != nil || maxErr != nil {
+		return 0, 0
+	}
+	return minValue, maxValue
+}
+
+func alibabaSortedSet(set map[string]bool) []string {
+	values := make([]string, 0, len(set))
+	for value := range set {
+		values = append(values, value)
+	}
+	sort.Slice(values, func(i, j int) bool {
+		return alibabaCompareVersionStrings(values[i], values[j]) < 0
+	})
+	return values
+}
+
+func alibabaCompareVersionStrings(leftVersion, rightVersion string) int {
+	leftParts := strings.Split(leftVersion, ".")
+	rightParts := strings.Split(rightVersion, ".")
+	maxLen := len(leftParts)
+	if len(rightParts) > maxLen {
+		maxLen = len(rightParts)
+	}
+
+	for index := 0; index < maxLen; index++ {
+		leftValue, rightValue := 0, 0
+		if index < len(leftParts) {
+			leftValue, _ = strconv.Atoi(leftParts[index])
+		}
+		if index < len(rightParts) {
+			rightValue, _ = strconv.Atoi(rightParts[index])
+		}
+		if leftValue < rightValue {
+			return -1
+		}
+		if leftValue > rightValue {
+			return 1
+		}
+	}
+	return strings.Compare(leftVersion, rightVersion)
 }
 
 func (handler *AlibabaRDBMSHandler) ListIID() ([]*irs.IID, error) {
@@ -559,4 +809,44 @@ func (handler *AlibabaRDBMSHandler) waitForDBInstanceStatus(dbInstanceId string,
 		time.Sleep(15 * time.Second)
 	}
 	return fmt.Errorf("timeout waiting for instance %s to reach status %s", dbInstanceId, targetStatus)
+}
+
+// ─── rdbmsDatabaseManager interface implementation ───────────────────────────
+
+// CreateDatabase creates a database in an Alibaba Cloud RDS instance.
+func (handler *AlibabaRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	req := rds.CreateCreateDatabaseRequest()
+	req.DBInstanceId = rdbmsSystemId
+	req.DBName = dbName
+	req.CharacterSetName = "utf8mb4"
+	if _, err := handler.Client.CreateDatabase(req); err != nil {
+		return fmt.Errorf("Alibaba CreateDatabase: %w", err)
+	}
+	return nil
+}
+
+// ListDatabases lists all databases in an Alibaba Cloud RDS instance.
+func (handler *AlibabaRDBMSHandler) ListDatabases(rdbmsSystemId, dbEngine string) ([]string, error) {
+	req := rds.CreateDescribeDatabasesRequest()
+	req.DBInstanceId = rdbmsSystemId
+	resp, err := handler.Client.DescribeDatabases(req)
+	if err != nil {
+		return nil, fmt.Errorf("Alibaba ListDatabases: %w", err)
+	}
+	var names []string
+	for _, db := range resp.Databases.Database {
+		names = append(names, db.DBName)
+	}
+	return names, nil
+}
+
+// DeleteDatabase deletes a database from an Alibaba Cloud RDS instance.
+func (handler *AlibabaRDBMSHandler) DeleteDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	req := rds.CreateDeleteDatabaseRequest()
+	req.DBInstanceId = rdbmsSystemId
+	req.DBName = dbName
+	if _, err := handler.Client.DeleteDatabase(req); err != nil {
+		return fmt.Errorf("Alibaba DeleteDatabase: %w", err)
+	}
+	return nil
 }
