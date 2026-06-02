@@ -35,18 +35,30 @@ type GCPImageHandler struct {
 var arrImageProjectList = []string{
 	"gce-uefi-images", // 보안 VM을 지원하는 이미지
 
-	//보안 VM을 지원하지 않는 이미지들
+	// General OS images
+	"almalinux-cloud",
 	"centos-cloud",
 	"cos-cloud",
 	"coreos-cloud",
 	"debian-cloud",
+	"fedora-coreos-cloud",
+	"oracle-linux-cloud",
 	"rhel-cloud",
 	"rhel-sap-cloud",
+	"rocky-linux-cloud",
 	"suse-cloud",
 	"suse-sap-cloud",
 	"ubuntu-os-cloud",
+	"ubuntu-os-pro-cloud",
 	"windows-cloud",
 	"windows-sql-cloud",
+
+	// GPU / HPC / ML images
+	"cloud-hpc-image-public",
+	"deeplearning-platform-release",
+	"ml-images",
+	"rocky-linux-accelerator-cloud",
+	"ubuntu-os-accelerator-images",
 }
 
 /*
