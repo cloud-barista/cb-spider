@@ -3013,7 +3013,7 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 
 		// 5c. NGINX-HTTP-CHECK — poll until nginx responds with HTTP 2xx.
 		nginxHTTPOp := st.op("nginx-http-check", func() error {
-			const maxAttempts = 40 // 40 × 30 s = 20 min (IBM LB DNS propagation can take 10–20 min)
+			const maxAttempts = 80 // 80 × 30 s = 40 min (IBM LB DNS propagation can take up to 30 min)
 			const interval = 30 * time.Second
 			target := "http://" + nginxLBAddr + "/"
 			httpCli := &http.Client{Timeout: 10 * time.Second}
@@ -3083,26 +3083,43 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 		//    Must run BEFORE remove-nodegroup.
 		if st.nginxDeployed {
 			nginxDeleteTestOp := st.op("nginx-delete", func() error {
-				const maxDeleteAttempts = 10
+				const maxDeleteAttempts = 20
 				const deleteRetryInterval = 30 * time.Second
 				// nginxGone checks whether both nginx resources have already been deleted.
-				nginxGone := func() bool {
+				// Returns (gone, checkOK): checkOK is false if kubectl itself failed (can't confirm).
+				nginxGone := func() (bool, bool) {
 					getCmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig", st.kubeconfigPath,
 						"get", "deployment/nginx-deployment", "service/nginx-service",
 						"--ignore-not-found", "-o", "name")
-					getOut, _ := getCmd.Output()
-					return strings.TrimSpace(string(getOut)) == ""
+					getOut, getErr := getCmd.Output()
+					if getErr != nil {
+						return false, false // kubectl itself failed; cannot confirm
+					}
+					return strings.TrimSpace(string(getOut)) == "", true
 				}
 				var lastDeleteErr error
 				for deleteAttempt := 1; deleteAttempt <= maxDeleteAttempts; deleteAttempt++ {
-					cmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig", st.kubeconfigPath,
-						"delete", "-f", "-", "--ignore-not-found=true", "--wait=false")
+					// After 10 normal attempts, escalate to force-delete to handle
+					// cases where connection resets prevent graceful deletion (e.g. Tencent CLB).
+					// Use a short timeout context (2 minutes) for each kubectl attempt to prevent
+					// indefinite hangs when API server becomes unresponsive.
+					deleteCtx, deleteCancel := context.WithTimeout(ctx, 2*time.Minute)
+					var cmd *exec.Cmd
+					if deleteAttempt > 10 {
+						cmd = exec.CommandContext(deleteCtx, "kubectl", "--kubeconfig", st.kubeconfigPath,
+							"delete", "-f", "-", "--ignore-not-found=true", "--wait=false", "--timeout=2m",
+							"--force", "--grace-period=0")
+					} else {
+						cmd = exec.CommandContext(deleteCtx, "kubectl", "--kubeconfig", st.kubeconfigPath,
+							"delete", "-f", "-", "--ignore-not-found=true", "--wait=false", "--timeout=2m")
+					}
 					cmd.Stdin = strings.NewReader(nginxDeployYAML)
 					out, kerr := cmd.CombinedOutput()
 					outStr := strings.TrimSpace(string(out))
 					if kerr != nil {
+						deleteCancel() // release timeout context resources
 						// Connection reset may occur even when deletion succeeded — verify.
-						if nginxGone() {
+						if gone, checkOK := nginxGone(); checkOK && gone {
 							log.Infof("runner: nginx-delete: resources already gone (delete err: %v)", kerr)
 							st.nginxDeployed = false
 							return nil
@@ -3116,6 +3133,7 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 						}
 						continue
 					}
+					deleteCancel() // release timeout context resources
 					log.Infof("runner: nginx-delete: %s", outStr)
 					st.nginxDeployed = false
 					return nil
@@ -3632,26 +3650,43 @@ func (r *Runner) testCleanup(ctx context.Context, client *http.Client, cfg *conf
 				if err := fetchKubeconfig(); err != nil {
 					return fmt.Errorf("fetch kubeconfig: %v", err)
 				}
-				const maxDeleteAttempts = 10
+				const maxDeleteAttempts = 20
 				const deleteRetryInterval = 30 * time.Second
 				// nginxGone checks whether both nginx resources have already been deleted.
-				nginxGone := func() bool {
+				// Returns (gone, checkOK): checkOK is false if kubectl itself failed (can't confirm).
+				nginxGone := func() (bool, bool) {
 					getCmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig", cleanupKubeconfigPath,
 						"get", "deployment/nginx-deployment", "service/nginx-service",
 						"--ignore-not-found", "-o", "name")
-					getOut, _ := getCmd.Output()
-					return strings.TrimSpace(string(getOut)) == ""
+					getOut, getErr := getCmd.Output()
+					if getErr != nil {
+						return false, false // kubectl itself failed; cannot confirm
+					}
+					return strings.TrimSpace(string(getOut)) == "", true
 				}
 				var lastDeleteErr error
 				for deleteAttempt := 1; deleteAttempt <= maxDeleteAttempts; deleteAttempt++ {
-					cmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig", cleanupKubeconfigPath,
-						"delete", "-f", "-", "--ignore-not-found=true", "--wait=false")
+					// After 10 normal attempts, escalate to force-delete to handle
+					// cases where connection resets prevent graceful deletion (e.g. Tencent CLB).
+					// Use a short timeout context (2 minutes) for each kubectl attempt to prevent
+					// indefinite hangs when API server becomes unresponsive.
+					deleteCtx, deleteCancel := context.WithTimeout(ctx, 2*time.Minute)
+					var cmd *exec.Cmd
+					if deleteAttempt > 10 {
+						cmd = exec.CommandContext(deleteCtx, "kubectl", "--kubeconfig", cleanupKubeconfigPath,
+							"delete", "-f", "-", "--ignore-not-found=true", "--wait=false", "--timeout=2m",
+							"--force", "--grace-period=0")
+					} else {
+						cmd = exec.CommandContext(deleteCtx, "kubectl", "--kubeconfig", cleanupKubeconfigPath,
+							"delete", "-f", "-", "--ignore-not-found=true", "--wait=false", "--timeout=2m")
+					}
 					cmd.Stdin = strings.NewReader(nginxDeployYAML)
 					out, kerr := cmd.CombinedOutput()
 					outStr := strings.TrimSpace(string(out))
 					if kerr != nil {
+						deleteCancel() // release timeout context resources
 						// Connection reset may occur even when deletion succeeded — verify.
-						if nginxGone() {
+						if gone, checkOK := nginxGone(); checkOK && gone {
 							log.Infof("runner: nginx-delete: resources already gone (delete err: %v)", kerr)
 							st.nginxDeployed = false
 							return nil
@@ -3665,6 +3700,7 @@ func (r *Runner) testCleanup(ctx context.Context, client *http.Client, cfg *conf
 						}
 						continue
 					}
+					deleteCancel() // release timeout context resources
 					log.Infof("runner: kubectl delete nginx: %s", outStr)
 					st.nginxDeployed = false
 					return nil
