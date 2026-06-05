@@ -6876,9 +6876,7 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/rdbms/{Name}/databases/create": {
+            },
             "post": {
                 "description": "Create a database inside an RDBMS instance using the CSP-native API.",
                 "consumes": [
@@ -13400,7 +13398,7 @@ const docTemplate = `{
                     "example": 7
                 },
                 "BackupTime": {
-                    "description": "Preferred backup time (HH:MM in UTC)",
+                    "description": "Preferred backup time (read-only, CSP-managed. Not configurable at creation via Spider.)",
                     "type": "string",
                     "example": "03:00"
                 },
@@ -13427,18 +13425,13 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Primary"
                 },
-                "DatabaseName": {
-                    "description": "Database",
-                    "type": "string",
-                    "example": "mydb"
-                },
                 "DeletionProtection": {
                     "description": "Protection",
                     "type": "boolean",
                     "default": false
                 },
                 "Encryption": {
-                    "description": "Encryption",
+                    "description": "Encryption - read-only, CSP-managed. Not configurable at creation via Spider.",
                     "type": "boolean",
                     "default": false
                 },
@@ -13447,7 +13440,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "HighAvailability": {
-                    "description": "High Availability \u0026 Replication",
+                    "description": "High Availability",
                     "type": "boolean",
                     "default": false
                 },
@@ -13474,20 +13467,10 @@ const docTemplate = `{
                     "description": "Master user password (for Create request only)",
                     "type": "string"
                 },
-                "Port": {
-                    "description": "DB listen port",
-                    "type": "string",
-                    "example": "3306"
-                },
                 "PublicAccess": {
                     "description": "Access",
                     "type": "boolean",
                     "default": false
-                },
-                "ReplicationType": {
-                    "description": "async | semi-sync | sync (for response)",
-                    "type": "string",
-                    "example": "async"
                 },
                 "SecurityGroupIIDs": {
                     "description": "Associated Security Groups",
@@ -13542,10 +13525,33 @@ const docTemplate = `{
             "description": "RDBMS Meta Information for CSP-specific capabilities",
             "type": "object",
             "properties": {
+                "BackupRetentionRange": {
+                    "description": "Backup retention range at creation time (e.g., \"1-35\", \"7-730\"). \"NA\" if not configurable at creation.",
+                    "type": "string"
+                },
                 "DBEngine": {
                     "description": "Requested DB engine name. e.g., mysql, mariadb, postgresql",
                     "type": "string",
                     "example": "mysql"
+                },
+                "DBInstanceSpecOptions": {
+                    "description": "Available DBInstanceSpec values for the requested DB engine. \"NA\" if CSP does not provide spec list API.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "db.t3.medium",
+                        "1000"
+                    ]
+                },
+                "RequiresSecurityGroup": {
+                    "description": "true if SecurityGroupNames is required at creation",
+                    "type": "boolean"
+                },
+                "RequiresSubnet": {
+                    "description": "true if SubnetNames is required at creation",
+                    "type": "boolean"
                 },
                 "StorageSizeRange": {
                     "description": "Min/Max storage size in GB for the requested DB engine",
@@ -16372,12 +16378,9 @@ const docTemplate = `{
                     ],
                     "properties": {
                         "BackupRetentionDays": {
+                            "description": "Backup retention days (CSP will auto-assign backup time)",
                             "type": "integer",
                             "example": 7
-                        },
-                        "BackupTime": {
-                            "type": "string",
-                            "example": "03:00"
                         },
                         "DBEngine": {
                             "type": "string",
@@ -16391,15 +16394,7 @@ const docTemplate = `{
                             "type": "string",
                             "example": "db.t3.medium"
                         },
-                        "DatabaseName": {
-                            "type": "string",
-                            "example": "mydb"
-                        },
                         "DeletionProtection": {
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "Encryption": {
                             "type": "boolean",
                             "default": false
                         },
@@ -16418,10 +16413,6 @@ const docTemplate = `{
                         "Name": {
                             "type": "string",
                             "example": "rdbms-01"
-                        },
-                        "Port": {
-                            "type": "string",
-                            "example": "3306"
                         },
                         "PublicAccess": {
                             "type": "boolean",

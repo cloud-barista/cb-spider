@@ -106,6 +106,7 @@ type nhnRDSEnrichmentData struct {
 	SubnetCidr      string
 	UsePublicAccess bool
 	DBFlavorName    string
+	BackupConfig    nhnRDSBackupConfig
 }
 
 type nhnRDSNetworkInfo struct {
@@ -121,8 +122,8 @@ type nhnRDSStorageInfo struct {
 }
 
 type nhnRDSBackupSchedule struct {
-	BackupWndBgnTime  string `json:"backupWndBgnTime"`  // HH:mm format — backup window begin time
-	BackupWndDuration int    `json:"backupWndDuration"` // hours
+	BackupWndBgnTime  string `json:"backupWndBgnTime"`  // HH:mm:ss format — backup window begin time
+	BackupWndDuration string `json:"backupWndDuration"` // "ONE_HOUR", "TWO_HOUR", etc.
 }
 
 type nhnRDSBackupConfig struct {
@@ -284,6 +285,13 @@ func (handler *NhnCloudRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMeta
 		LoggingError(callLogInfo, newErr)
 		return irs.RDBMSMetaInfo{}, newErr
 	}
+	dbFlavors, err := handler.listRDSDBFlavors(ctx)
+	if err != nil {
+		newErr := fmt.Errorf("failed to list DB flavors from NHN Cloud RDS API: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.RDBMSMetaInfo{}, newErr
+	}
 	storageTypes, err := handler.listRDSStorageTypes(ctx)
 	if err != nil {
 		newErr := fmt.Errorf("failed to list storage types from NHN Cloud RDS API: %w", err)
@@ -297,6 +305,11 @@ func (handler *NhnCloudRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMeta
 		LoggingError(callLogInfo, err)
 		return irs.RDBMSMetaInfo{}, err
 	}
+	if len(dbFlavors) == 0 {
+		err := errors.New("NHN Cloud RDS API returned no DB flavors")
+		LoggingError(callLogInfo, err)
+		return irs.RDBMSMetaInfo{}, err
+	}
 	if len(storageTypes) == 0 {
 		err := errors.New("NHN Cloud RDS API returned no storage types")
 		LoggingError(callLogInfo, err)
@@ -306,13 +319,16 @@ func (handler *NhnCloudRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMeta
 	supportedEngines := map[string][]string{
 		"mysql": dbVersions,
 	}
+	instanceSpecOptions := map[string][]string{
+		"mysql": dbFlavors,
+	}
 	storageTypeOptions := map[string][]string{
 		"mysql": storageTypes,
 	}
 
 	storageSizeRange := irs.StorageSizeRange{Min: 20, Max: 2048}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, false, "1-730", true, false)
 	if err != nil {
 		LoggingError(callLogInfo, err)
 		return irs.RDBMSMetaInfo{}, err
@@ -338,6 +354,25 @@ func (handler *NhnCloudRDBMSHandler) listRDSDBVersions(ctx context.Context) ([]s
 		}
 	}
 	return versions, nil
+}
+
+func (handler *NhnCloudRDBMSHandler) listRDSDBFlavors(ctx context.Context) ([]string, error) {
+	var result nhnRDSFlavorListResponse
+	if err := handler.getRDS(ctx, "/v3.0/db-flavors", &result); err != nil {
+		return nil, err
+	}
+	if err := checkRDSResponseHeader(result.Header); err != nil {
+		return nil, err
+	}
+
+	flavors := make([]string, 0, len(result.DBFlavors))
+	for _, flavor := range result.DBFlavors {
+		// Use DBFlavorName (e.g., "m2.c2m4") instead of UUID for better readability
+		if flavor.DBFlavorName != "" {
+			flavors = append(flavors, flavor.DBFlavorName)
+		}
+	}
+	return flavors, nil
 }
 
 func (handler *NhnCloudRDBMSHandler) listRDSStorageTypes(ctx context.Context) ([]string, error) {
@@ -538,29 +573,18 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 		storageType = "General SSD"
 	}
 
-	dbPort := 3306
-	if rdbmsReqInfo.Port != "" {
-		if p, convErr := strconv.Atoi(rdbmsReqInfo.Port); convErr == nil {
-			dbPort = p
-		}
-	}
+	dbPort := 3306 // NHN MySQL default port
 
+	// NHN requires backup config - use 7 days as default if not specified
 	backupPeriod := rdbmsReqInfo.BackupRetentionDays
 	if backupPeriod <= 0 {
-		backupPeriod = 1
+		backupPeriod = 7 // NHN default
 	}
+	// BackupTime (backupHour/backupMinute) is not configurable at creation via Spider (NHN uses fixed time)
 	backupHour, backupMinute := 3, 0
-	if rdbmsReqInfo.BackupTime != "" {
-		parts := strings.SplitN(rdbmsReqInfo.BackupTime, ":", 2)
-		if len(parts) == 2 {
-			if h, parseErr := strconv.Atoi(parts[0]); parseErr == nil {
-				backupHour = h
-			}
-			if m, parseErr := strconv.Atoi(parts[1]); parseErr == nil {
-				backupMinute = m
-			}
-		}
-	}
+
+	// Debug: Log backup period being set
+	cblogger.Infof("[NHN RDBMS] Creating DB instance with BackupPeriod: %d days", backupPeriod)
 
 	// NHN RDS provisioning is async — allow up to 15 minutes
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
@@ -630,7 +654,7 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 			BackupSchedules: []nhnRDSBackupSchedule{
 				{
 					BackupWndBgnTime:  fmt.Sprintf("%02d:%02d", backupHour, backupMinute),
-					BackupWndDuration: 1,
+					BackupWndDuration: "ONE_HOUR",
 				},
 			},
 		},
@@ -673,6 +697,10 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 		LoggingError(callLogInfo, err)
 		return irs.RDBMSInfo{}, err
 	}
+
+	// Debug: Log backup information returned after creation
+	cblogger.Infof("[NHN RDBMS] After creation - BackupPeriod from API: %d, BackupSchedules count: %d",
+		getResp.Backup.BackupPeriod, len(getResp.Backup.BackupSchedules))
 
 	enrichment, err := handler.fetchRDBMSEnrichment(ctx, dbInstanceId, getResp.DBFlavorId)
 	if err != nil {
@@ -772,6 +800,10 @@ func (handler *NhnCloudRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo, 
 		LoggingError(callLogInfo, err)
 		return irs.RDBMSInfo{}, err
 	}
+
+	// Debug: Log backup information from NHN API response
+	cblogger.Infof("[NHN RDBMS] Backup info from API - BackupPeriod: %d, BackupSchedules count: %d",
+		result.Backup.BackupPeriod, len(result.Backup.BackupSchedules))
 
 	enrichment, err := handler.fetchRDBMSEnrichment(ctx, dbInstanceId, result.DBFlavorId)
 	if err != nil {
@@ -1099,16 +1131,23 @@ func (handler *NhnCloudRDBMSHandler) findRDSInstanceIDByName(ctx context.Context
 func convertNhnRDSInstanceToRDBMSInfo(inst nhnRDSDBInstance, ownerVPCName string, e nhnRDSEnrichmentData) irs.RDBMSInfo {
 	// Prefer publicEndpoint from network-info API; fallback to embedded endpoints
 	endpoint := e.PublicEndpoint
+	port := inst.DBPort // DBPort from instance
 	if endpoint == "" {
 		for _, ep := range inst.Network.Endpoints {
 			if ep.Address != "" {
 				endpoint = ep.Address
+				if ep.Port > 0 {
+					port = ep.Port
+				}
 				break
 			}
 		}
 	}
 	if endpoint == "" {
 		endpoint = "NA"
+	} else if port > 0 {
+		// Append port to endpoint
+		endpoint = fmt.Sprintf("%s:%d", endpoint, port)
 	}
 
 	master := e.MasterUserName
@@ -1137,10 +1176,28 @@ func convertNhnRDSInstanceToRDBMSInfo(inst nhnRDSDBInstance, ownerVPCName string
 
 	publicAccess := e.UsePublicAccess
 
-	backupTime := "00:00"
-	if len(inst.Backup.BackupSchedules) > 0 {
-		backupTime = inst.Backup.BackupSchedules[0].BackupWndBgnTime
+	// Backup info: prefer enrichment data (from /backup-info), fallback to inst.Backup
+	backupPeriod := e.BackupConfig.BackupPeriod
+	if backupPeriod == 0 {
+		backupPeriod = inst.Backup.BackupPeriod
 	}
+	backupTime := "00:00"
+	backupSchedules := e.BackupConfig.BackupSchedules
+	if len(backupSchedules) == 0 {
+		backupSchedules = inst.Backup.BackupSchedules
+	}
+	if len(backupSchedules) > 0 {
+		// NHN returns "HH:MM:SS" format, convert to "HH:MM" for Spider
+		rawTime := backupSchedules[0].BackupWndBgnTime
+		if len(rawTime) >= 5 {
+			backupTime = rawTime[:5] // "03:00:00" -> "03:00"
+		} else {
+			backupTime = rawTime
+		}
+	}
+
+	cblogger.Infof("[NHN RDBMS] Final backup values - Period: %d, Time: %s (enrichment schedules: %d, inst schedules: %d)",
+		backupPeriod, backupTime, len(e.BackupConfig.BackupSchedules), len(inst.Backup.BackupSchedules))
 
 	createdTime, _ := time.Parse(time.RFC3339, inst.CreatedYmdt)
 
@@ -1154,23 +1211,20 @@ func convertNhnRDSInstanceToRDBMSInfo(inst nhnRDSDBInstance, ownerVPCName string
 		DBEngine:        "mysql",
 		DBEngineVersion: inst.DBVersion,
 		DBInstanceSpec:  e.DBFlavorName,
-		DBInstanceType:  "Primary",
+		DBInstanceType:  "NA",
 
 		StorageType: storageType,
 		StorageSize: strconv.Itoa(storageSize),
 
 		SubnetIIDs: subnetIIDs,
 
-		Port:     strconv.Itoa(inst.DBPort),
 		Endpoint: endpoint,
 
 		MasterUserName: master,
-		DatabaseName:   "NA",
 
 		HighAvailability: inst.UseHighAvailability,
-		ReplicationType:  "NA",
 
-		BackupRetentionDays: inst.Backup.BackupPeriod,
+		BackupRetentionDays: backupPeriod,
 		BackupTime:          backupTime,
 
 		PublicAccess:       publicAccess,
@@ -1262,6 +1316,23 @@ func (handler *NhnCloudRDBMSHandler) fetchRDBMSEnrichment(ctx context.Context, d
 	}
 	data.StorageType = storResp.StorageType
 	data.StorageSize = storResp.StorageSize
+
+	// Try to fetch backup info (may not be available as separate endpoint)
+	var backupResp struct {
+		Header nhnRDSResponseHeader `json:"header"`
+		nhnRDSBackupConfig
+	}
+	if err := handler.getRDS(ctx, "/v3.0/db-instances/"+dbInstanceId+"/backup-info", &backupResp); err == nil {
+		if checkErr := checkRDSResponseHeader(backupResp.Header); checkErr == nil {
+			data.BackupConfig = backupResp.nhnRDSBackupConfig
+			cblogger.Infof("[NHN RDBMS] Backup info from /backup-info - BackupPeriod: %d, BackupSchedules: %d",
+				data.BackupConfig.BackupPeriod, len(data.BackupConfig.BackupSchedules))
+		} else {
+			cblogger.Infof("[NHN RDBMS] /backup-info endpoint exists but returned error: %v", checkErr)
+		}
+	} else {
+		cblogger.Infof("[NHN RDBMS] /backup-info endpoint not available: %v", err)
+	}
 
 	return data, nil
 }

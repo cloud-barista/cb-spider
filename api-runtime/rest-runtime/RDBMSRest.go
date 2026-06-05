@@ -116,21 +116,17 @@ type RDBMSCreateRequest struct {
 		StorageSize     string `json:"StorageSize" validate:"required" example:"100"` // in GB
 
 		StorageType string `json:"StorageType,omitempty" validate:"omitempty" example:"gp2"`
-		Port        string `json:"Port,omitempty" validate:"omitempty" example:"3306"`
 
 		SubnetNames        []string `json:"SubnetNames,omitempty" validate:"omitempty" example:"subnet-01"`
 		SecurityGroupNames []string `json:"SecurityGroupNames,omitempty" validate:"omitempty" example:"sg-01"`
 
 		MasterUserName     string `json:"MasterUserName" validate:"required" example:"admin"`
 		MasterUserPassword string `json:"MasterUserPassword" validate:"required" example:"password123!"`
-		DatabaseName       string `json:"DatabaseName,omitempty" validate:"omitempty" example:"mydb"`
 
-		HighAvailability    bool   `json:"HighAvailability,omitempty" default:"false"`
-		BackupRetentionDays int    `json:"BackupRetentionDays,omitempty" example:"7"`
-		BackupTime          string `json:"BackupTime,omitempty" validate:"omitempty" example:"03:00"`
+		HighAvailability    bool `json:"HighAvailability,omitempty" default:"false"`
+		BackupRetentionDays int  `json:"BackupRetentionDays,omitempty" example:"7"` // Backup retention days (CSP will auto-assign backup time)
 
 		PublicAccess       bool `json:"PublicAccess,omitempty" default:"false"`
-		Encryption         bool `json:"Encryption,omitempty" default:"false"`
 		DeletionProtection bool `json:"DeletionProtection,omitempty" default:"false"`
 
 		TagList []cres.KeyValue `json:"TagList,omitempty" validate:"omitempty"`
@@ -159,6 +155,10 @@ func CreateRDBMS(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	if req.ReqInfo.VPCName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "VPCName is required")
+	}
+
 	// Build SubnetIIDs from names
 	subnetIIDs := []cres.IID{}
 	for _, name := range req.ReqInfo.SubnetNames {
@@ -181,22 +181,20 @@ func CreateRDBMS(c echo.Context) error {
 		DBInstanceSpec:  req.ReqInfo.DBInstanceSpec,
 		StorageType:     req.ReqInfo.StorageType,
 		StorageSize:     req.ReqInfo.StorageSize,
-		Port:            req.ReqInfo.Port,
 
 		SubnetIIDs:        subnetIIDs,
 		SecurityGroupIIDs: sgIIDs,
 
 		MasterUserName:     req.ReqInfo.MasterUserName,
 		MasterUserPassword: req.ReqInfo.MasterUserPassword,
-		DatabaseName:       req.ReqInfo.DatabaseName,
 
 		HighAvailability:    req.ReqInfo.HighAvailability,
 		BackupRetentionDays: req.ReqInfo.BackupRetentionDays,
-		BackupTime:          req.ReqInfo.BackupTime,
+		// BackupTime is not configurable at creation (CSP auto-assigns)
 
 		PublicAccess:       req.ReqInfo.PublicAccess,
-		Encryption:         req.ReqInfo.Encryption,
 		DeletionProtection: req.ReqInfo.DeletionProtection,
+		// Encryption is not configurable at creation (CSP default)
 
 		TagList: req.ReqInfo.TagList,
 	}
@@ -541,7 +539,7 @@ type RDBMSDatabaseListResponse struct {
 // @Failure 400 {object} SimpleMsg "Bad Request"
 // @Failure 501 {object} SimpleMsg "Not Supported by driver"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
-// @Router /rdbms/{Name}/databases/create [post]
+// @Router /rdbms/{Name}/databases [post]
 func CreateRDBMSDatabase(c echo.Context) error {
 	cblog.Info("call CreateRDBMSDatabase()")
 

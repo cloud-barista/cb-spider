@@ -80,6 +80,7 @@ func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, err
 	}
+	instanceSpecOptions := handler.fetchRDBMSInstanceSpecOptions()
 	storageTypeOptions, err := handler.fetchRDBMSStorageTypeOptions(requestedEngine)
 	if err != nil {
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
@@ -93,7 +94,7 @@ func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "NA", false, false)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -136,6 +137,20 @@ func (handler *IbmRDBMSHandler) fetchRDBMSVersions() (map[string][]string, error
 	}
 
 	return supportedEngines, nil
+}
+
+func (handler *IbmRDBMSHandler) fetchRDBMSInstanceSpecOptions() map[string][]string {
+	// IBM Cloud Databases supports a hardcoded list of host_flavor IDs
+	hostFlavors := make([]string, 0, len(ibmRDBMSHostFlavorIDs))
+	for flavor := range ibmRDBMSHostFlavorIDs {
+		hostFlavors = append(hostFlavors, flavor)
+	}
+	sort.Strings(hostFlavors)
+
+	return map[string][]string{
+		"mysql":      append([]string(nil), hostFlavors...),
+		"postgresql": append([]string(nil), hostFlavors...),
+	}
 }
 
 func (handler *IbmRDBMSHandler) fetchRDBMSStorageTypeOptions(dbEngine string) (map[string][]string, error) {
@@ -400,26 +415,11 @@ func validateIBMCreateRequest(rdbmsReqInfo irs.RDBMSInfo) error {
 	if len(rdbmsReqInfo.SecurityGroupIIDs) > 0 {
 		return errors.New("IBM Cloud Databases provisioning does not support SecurityGroupNames/SecurityGroupIIDs; use IBM Cloud Databases allowlist APIs after creation")
 	}
-	if rdbmsReqInfo.DatabaseName != "" && !isIBMDefaultValue(rdbmsReqInfo.DatabaseName) && rdbmsReqInfo.DatabaseName != "ibmclouddb" {
-		return errors.New("IBM Cloud Databases API does not support creating an initial DatabaseName during provisioning")
-	}
 	if rdbmsReqInfo.BackupRetentionDays > 0 {
 		return errors.New("IBM Cloud Databases API does not support setting BackupRetentionDays during provisioning")
 	}
 	if rdbmsReqInfo.BackupTime != "" && !isIBMDefaultValue(rdbmsReqInfo.BackupTime) {
 		return errors.New("IBM Cloud Databases API does not support setting BackupTime during provisioning")
-	}
-	if rdbmsReqInfo.Port != "" {
-		expectedPort := ""
-		switch rdbmsReqInfo.DBEngine {
-		case "mysql":
-			expectedPort = "3306"
-		case "postgresql":
-			expectedPort = "5432"
-		}
-		if expectedPort != "" && rdbmsReqInfo.Port != expectedPort {
-			return fmt.Errorf("IBM Cloud Databases does not support custom Port during provisioning; %s uses service-managed port %s", rdbmsReqInfo.DBEngine, expectedPort)
-		}
 	}
 	if rdbmsReqInfo.DBInstanceSpec != "" && !isIBMDefaultValue(rdbmsReqInfo.DBInstanceSpec) && !isIBMHostFlavor(rdbmsReqInfo.DBInstanceSpec) {
 		return fmt.Errorf("IBM DBInstanceSpec must be an IBM host_flavor id, got %s", rdbmsReqInfo.DBInstanceSpec)
@@ -792,11 +792,9 @@ func (handler *IbmRDBMSHandler) convertResourceInstanceToRDBMSInfo(inst *resourc
 		switch {
 		case strings.HasPrefix(resourcePlanID, ibmServiceIDMySQL+"-"):
 			rdbmsInfo.DBEngine = "mysql"
-			rdbmsInfo.Port = "3306"
 			rdbmsInfo.StorageType = strings.TrimPrefix(resourcePlanID, ibmServiceIDMySQL+"-")
 		case strings.HasPrefix(resourcePlanID, ibmServiceIDPG+"-"):
 			rdbmsInfo.DBEngine = "postgresql"
-			rdbmsInfo.Port = "5432"
 			rdbmsInfo.StorageType = strings.TrimPrefix(resourcePlanID, ibmServiceIDPG+"-")
 		}
 	}
@@ -823,14 +821,14 @@ func (handler *IbmRDBMSHandler) convertResourceInstanceToRDBMSInfo(inst *resourc
 	// IBM Cloud Databases are always encrypted at rest
 	rdbmsInfo.Encryption = true
 	rdbmsInfo.MasterUserName = ibmDefaultAdminUser // IBM default
-	rdbmsInfo.DatabaseName = "NA"
 	rdbmsInfo.StorageSize = "NA"
 	if rdbmsInfo.StorageType == "" {
 		rdbmsInfo.StorageType = "standard"
 	}
 	rdbmsInfo.DBInstanceSpec = "NA"
-	rdbmsInfo.BackupTime = "NA"
-	rdbmsInfo.ReplicationType = "NA"
+	rdbmsInfo.DBInstanceType = "NA"    // IBM Cloud Databases does not provide instance type information
+	rdbmsInfo.BackupTime = "AUTO"      // IBM manages backup schedule automatically
+	rdbmsInfo.BackupRetentionDays = 30 // IBM Cloud Databases automatic backups are kept for 30 days (not configurable)
 	rdbmsInfo.Endpoint = "NA"
 	rdbmsInfo.VpcIID = irs.IID{SystemId: "NA"}
 	if inst.Locked != nil {
@@ -976,18 +974,12 @@ func applyIBMConnectionInfo(info *irs.RDBMSInfo, response *clouddatabasesv5.GetC
 		if err := applyIBMConnectionHosts(info, connection.Mysql.Hosts); err != nil {
 			return err
 		}
-		if connection.Mysql.Database != nil && *connection.Mysql.Database != "" {
-			info.DatabaseName = *connection.Mysql.Database
-		}
 	case "postgresql":
 		if connection.Postgres == nil {
 			return errors.New("IBM Cloud Databases PostgreSQL connection response did not include postgres endpoint")
 		}
 		if err := applyIBMConnectionHosts(info, connection.Postgres.Hosts); err != nil {
 			return err
-		}
-		if connection.Postgres.Database != nil && *connection.Postgres.Database != "" {
-			info.DatabaseName = *connection.Postgres.Database
 		}
 	default:
 		return fmt.Errorf("IBM Cloud Databases connection response is not supported for DBEngine %s", info.DBEngine)
@@ -1003,7 +995,6 @@ func applyIBMConnectionHosts(info *irs.RDBMSInfo, hosts []clouddatabasesv5.Conne
 	if hosts[0].Port == nil || *hosts[0].Port <= 0 {
 		return errors.New("IBM Cloud Databases connection response did not include endpoint port")
 	}
-	info.Port = strconv.FormatInt(*hosts[0].Port, 10)
 	info.Endpoint = fmt.Sprintf("%s:%d", *hosts[0].Hostname, *hosts[0].Port)
 	return nil
 }

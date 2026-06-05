@@ -64,6 +64,10 @@ var clusterSPLock = splock.New()
 var fsSPLock = splock.New()
 var rdbmsSPLock = splock.New()
 
+// vpcSharedResourceSPLock protects VPC-level shared resources (e.g., GCP Service Networking Peering, Azure Private DNS Zone)
+// that are created/deleted per VPC but shared by multiple RDBMS instances.
+var vpcSharedResourceSPLock = splock.New()
+
 // ====================================================================
 // Common column name and struct for GORM
 const CONNECTION_NAME_COLUMN = "connection_name"

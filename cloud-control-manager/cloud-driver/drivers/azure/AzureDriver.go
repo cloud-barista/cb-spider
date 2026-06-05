@@ -26,6 +26,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
@@ -305,6 +306,18 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	mysqlPrivateDNSZonesClient, err := getMySQLPrivateDNSZonesClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	mysqlPrivateDNSVNetLinksClient, err := getMySQLPrivateDNSVNetLinksClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
+	mysqlBackupsClient, err := getMySQLBackupsClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -341,6 +354,9 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		MySQLServersClient:              mysqlServersClient,
 		MySQLFirewallRulesClient:        mysqlFirewallRulesClient,
 		MySQLDatabasesClient:            mysqlDatabasesClient,
+		MySQLPrivateDNSZonesClient:      mysqlPrivateDNSZonesClient,
+		MySQLPrivateDNSVNetLinksClient:  mysqlPrivateDNSVNetLinksClient,
+		MySQLBackupsClient:              mysqlBackupsClient,
 	}
 
 	return &iConn, nil
@@ -804,6 +820,42 @@ func getMySQLDatabasesClient(credInfo idrv.CredentialInfo) (*armmysqlfs.Database
 		return nil, err
 	}
 	client, err := armmysqlfs.NewDatabasesClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func getMySQLBackupsClient(credInfo idrv.CredentialInfo) (*armmysqlfs.BackupsClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, err
+	}
+	client, err := armmysqlfs.NewBackupsClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func getMySQLPrivateDNSZonesClient(credInfo idrv.CredentialInfo) (*armprivatedns.PrivateZonesClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, err
+	}
+	client, err := armprivatedns.NewPrivateZonesClient(credInfo.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func getMySQLPrivateDNSVNetLinksClient(credInfo idrv.CredentialInfo) (*armprivatedns.VirtualNetworkLinksClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, err
+	}
+	client, err := armprivatedns.NewVirtualNetworkLinksClient(credInfo.SubscriptionId, cred, newArmClientOptions())
 	if err != nil {
 		return nil, err
 	}

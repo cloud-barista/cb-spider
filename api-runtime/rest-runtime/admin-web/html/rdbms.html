@@ -806,6 +806,94 @@
         cursor: pointer;
     }
 
+    /* Custom dropdown for Security Groups */
+    .sg-custom-select {
+        position: relative;
+        flex: 2;
+    }
+
+    .sg-selected-display {
+        background-color: #f3f3fd;
+        border: 1px solid #767676;
+        padding: 2px 8px 2px 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 22px;
+    }
+
+    .sg-selected-display:hover {
+        border-color: #555;
+    }
+
+    .sg-selected-display span:first-child {
+        font-size: 14px;
+        text-align: left;
+        flex: 1;
+    }
+
+    .sg-dropdown-arrow {
+        font-size: 12px;
+        font-weight: bold;
+        color: #666;
+        margin-left: 5px;
+    }
+
+    .sg-dropdown-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #767676;
+        border-top: none;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 0;
+        margin: 0;
+    }
+
+    .sg-dropdown-list * {
+        box-sizing: border-box;
+    }
+
+    .sg-dropdown-list.open {
+        display: block;
+    }
+
+    .sg-dropdown-item {
+        padding: 3px;
+        margin: 0;
+        cursor: pointer;
+        display: block;
+        line-height: 20px;
+    }
+
+    .sg-dropdown-item:hover {
+        background-color: #f0f0f0;
+    }
+
+    .sg-dropdown-item input[type="checkbox"] {
+        margin: 0;
+        padding: 0;
+        vertical-align: middle;
+        width: 13px;
+        height: 13px;
+        display: inline-block;
+    }
+
+    .sg-dropdown-item label {
+        cursor: pointer;
+        margin: 0;
+        padding-left: 5px;
+        display: inline-block;
+        vertical-align: middle;
+    }
+
 </style>
 </head>
 <body>
@@ -885,10 +973,6 @@
                         <tr>
                             <th>Endpoint</th>
                             <td style="font-size: 11px; word-break: break-all;">{{$rdbms.Endpoint}}</td>
-                        </tr>
-                        <tr>
-                            <th>Port</th>
-                            <td>{{$rdbms.Port}}</td>
                         </tr>
                     </table>
                 </td>
@@ -1170,7 +1254,7 @@
                     </div>
                     <div class="form-group">
                         <label for="vpcName">VPC Name:</label>
-                        <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
+                        <select id="vpcName" name="vpcName" required onchange="updateSubnets(); loadSecurityGroups();" style="width: 65%;"></select>
                     </div>
                 </fieldset>
 
@@ -1179,7 +1263,7 @@
                     <legend>DB Engine:</legend>
                     <div class="form-group">
                         <label for="dbEngine">Engine:</label>
-                        <select id="dbEngine" name="dbEngine" required style="background-color: #E6E6FA; width: 65%;">
+                        <select id="dbEngine" name="dbEngine" required style="background-color: #E6E6FA; width: 65%;" onchange="loadRDBMSMetaInfo()">
                             <option value="mysql">mysql</option>
                             <option value="mariadb">mariadb</option>
                             <option value="postgresql">postgresql</option>
@@ -1187,7 +1271,9 @@
                     </div>
                     <div class="form-group">
                         <label for="dbEngineVersion">Version:</label>
-                        <input type="text" id="dbEngineVersion" name="dbEngineVersion" required placeholder="e.g., 8.0" style="background-color: #F5F5DC; width: 65%;">
+                        <select id="dbEngineVersion" name="dbEngineVersion" required style="background-color: #F5F5DC; width: 65%;">
+                            <option value="">Loading...</option>
+                        </select>
                     </div>
                 </fieldset>
 
@@ -1196,19 +1282,20 @@
                     <legend>Instance Spec:</legend>
                     <div class="form-group">
                         <label for="dbInstanceSpec">Instance Spec:</label>
-                        <input type="text" id="dbInstanceSpec" name="dbInstanceSpec" required placeholder="e.g., db.t3.medium" style="width: 65%;">
+                        <select id="dbInstanceSpec" name="dbInstanceSpec" required style="width: 65%;">
+                            <option value="">Loading...</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="storageSize">Storage (GB):</label>
                         <input type="number" id="storageSize" name="storageSize" required min="1" value="20" style="background-color: #F5F5DC; width: 65%;">
+                        <small id="storageSizeHint" style="color: #666; margin-left: 10px;"></small>
                     </div>
                     <div class="form-group">
                         <label for="storageType">Storage Type:</label>
-                        <input type="text" id="storageType" name="storageType" placeholder="e.g., gp2 (optional)" style="width: 65%;">
-                    </div>
-                    <div class="form-group">
-                        <label for="port">Port:</label>
-                        <input type="text" id="port" name="port" placeholder="e.g., 3306 (optional)" style="width: 65%;">
+                        <select id="storageType" name="storageType" style="width: 65%;">
+                            <option value="">Loading...</option>
+                        </select>
                     </div>
                 </fieldset>
 
@@ -1216,12 +1303,24 @@
                 <fieldset class="info-group">
                     <legend>Network:</legend>
                     <div class="form-group">
-                        <label for="subnetNames">Subnet Names:</label>
-                        <input type="text" id="subnetNames" name="subnetNames" placeholder="comma-separated (optional)" style="width: 65%;">
+                        <label for="subnetSelect" id="subnetLabel">Subnets:</label>
+                        <div class="sg-custom-select" id="subnetSelectWrapper" style="width: 65%; display: inline-block;">
+                            <div class="sg-selected-display" id="subnetSelectedDisplay" onclick="toggleSubnetDropdown()">
+                                <span id="subnetSelectedText">Select VPC first</span>
+                                <span class="sg-dropdown-arrow">v</span>
+                            </div>
+                            <div class="sg-dropdown-list" id="subnetDropdownList"></div>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="sgNames">SG Names:</label>
-                        <input type="text" id="sgNames" name="sgNames" placeholder="comma-separated (optional)" style="width: 65%;">
+                        <label for="securityGroupSelect" id="sgLabel">Security Groups:</label>
+                        <div class="sg-custom-select" id="securityGroupSelectWrapper" style="width: 65%; display: inline-block;">
+                            <div class="sg-selected-display" id="sgSelectedDisplay" onclick="toggleSGDropdown()">
+                                <span id="sgSelectedText">Select VPC first</span>
+                                <span class="sg-dropdown-arrow">v</span>
+                            </div>
+                            <div class="sg-dropdown-list" id="sgDropdownList"></div>
+                        </div>
                     </div>
                 </fieldset>
 
@@ -1235,10 +1334,6 @@
                     <div class="form-group">
                         <label for="masterUserPassword">Password:</label>
                         <input type="password" id="masterUserPassword" name="masterUserPassword" required placeholder="Master password" style="width: 65%;">
-                    </div>
-                    <div class="form-group">
-                        <label for="databaseName">DB Name:</label>
-                        <input type="text" id="databaseName" name="databaseName" placeholder="Initial DB name (optional)" style="width: 65%;">
                     </div>
                 </fieldset>
 
@@ -1273,12 +1368,10 @@
                             <option value="true">Yes</option>
                         </select>
                     </div>
-                    <div class="form-group-tags">
-                        <label for="backupRetentionDays">Backup Days:</label>
-                        <input type="number" id="backupRetentionDays" name="backupRetentionDays" value="0" min="0" style="width: 43px;">
-
-                        <label for="backupTime">Backup Time:</label>
-                        <input type="text" id="backupTime" name="backupTime" placeholder="HH:MM" style="width: 43px;">
+                    <div class="form-group">
+                        <label for="backupRetentionDays">Backup Retention Days:</label>
+                        <input type="number" id="backupRetentionDays" name="backupRetentionDays" value="" placeholder="(optional)" min="0" style="width: 65px;">
+                        <small id="backupRetentionHint" style="color: #666; margin-left: 10px;"></small>
                     </div>
                 </fieldset>
 
@@ -1524,24 +1617,24 @@
         const dbInstanceSpec = document.getElementById('dbInstanceSpec').value;
         const storageSize = document.getElementById('storageSize').value;
         const storageType = document.getElementById('storageType').value.trim();
-        const port = document.getElementById('port').value.trim();
 
-        const subnetNamesRaw = document.getElementById('subnetNames').value.trim();
-        const subnetNames = subnetNamesRaw ? subnetNamesRaw.split(',').map(s => s.trim()).filter(s => s) : [];
+        // Get selected subnets (multi-select checkboxes)
+        const selectedSubnets = Array.from(document.querySelectorAll('.subnet-checkbox:checked')).map(checkbox => checkbox.value);
 
-        const sgNamesRaw = document.getElementById('sgNames').value.trim();
-        const sgNames = sgNamesRaw ? sgNamesRaw.split(',').map(s => s.trim()).filter(s => s) : [];
+        // Get selected security groups (multi-select checkboxes)
+        const selectedSecurityGroups = Array.from(document.querySelectorAll('.sg-checkbox:checked')).map(checkbox => checkbox.value);
 
         const masterUserName = document.getElementById('masterUserName').value;
         const masterUserPassword = document.getElementById('masterUserPassword').value;
-        const databaseName = document.getElementById('databaseName').value.trim();
 
         const highAvailability = document.getElementById('highAvailability').value === 'true';
         const publicAccess = document.getElementById('publicAccess').value === 'true';
         const encryption = document.getElementById('encryption').value === 'true';
         const deletionProtection = document.getElementById('deletionProtection').value === 'true';
-        const backupRetentionDays = parseInt(document.getElementById('backupRetentionDays').value) || 0;
-        const backupTime = document.getElementById('backupTime').value.trim();
+        
+        // Handle BackupRetentionDays: empty = -1 (CSP default), 0 = disable backup (AWS only), >0 = explicit value
+        const backupRetentionValue = document.getElementById('backupRetentionDays').value.trim();
+        const backupRetentionDays = backupRetentionValue !== '' ? parseInt(backupRetentionValue) : -1;
 
         const tags = Array.from(document.querySelectorAll('.rdbms-tag-input')).map(tagInput => ({
             Key: tagInput.querySelector('.rdbms-tag-key').value,
@@ -1558,18 +1651,15 @@
                 DBInstanceSpec: dbInstanceSpec,
                 StorageSize: storageSize,
                 StorageType: storageType || undefined,
-                Port: port || undefined,
-                SubnetNames: subnetNames.length > 0 ? subnetNames : undefined,
-                SecurityGroupNames: sgNames.length > 0 ? sgNames : undefined,
+                SubnetNames: selectedSubnets.length > 0 ? selectedSubnets : undefined,
+                SecurityGroupNames: selectedSecurityGroups.length > 0 ? selectedSecurityGroups : undefined,
                 MasterUserName: masterUserName,
                 MasterUserPassword: masterUserPassword,
-                DatabaseName: databaseName || undefined,
                 HighAvailability: highAvailability,
                 PublicAccess: publicAccess,
                 Encryption: encryption,
                 DeletionProtection: deletionProtection,
                 BackupRetentionDays: backupRetentionDays,
-                BackupTime: backupTime || undefined,
                 TagList: tags.length > 0 ? tags : undefined
             }
         };
@@ -1613,38 +1703,54 @@
     }
 
     function showOverlay() {
-        loadVPCs().then(() => {
+        showProgressBar();
+        Promise.all([loadVPCs(), loadRDBMSMetaInfo(), setDefaultMasterUser()]).then(() => {
             const region = '{{.RegionName}}';
             const rdbmsNameInput = document.getElementById('rdbmsName');
             rdbmsNameInput.value = `${region}-rdbms-${Math.random().toString(36).substring(2, 5)}`;
 
+            hideProgressBar();
             document.getElementById('overlay').style.display = 'flex';
             document.addEventListener('keydown', handleEsc);
         }).catch(error => {
-            console.error('Error loading VPCs:', error);
+            hideProgressBar();
+            console.error('Error loading resources:', error);
+            showErrorModal('Loading Error', `Failed to load resources: ${error.message}`);
         });
     }
 
-    function clearFormFields() {
+    async function clearFormFields() {
         const region = '{{.RegionName}}';
         document.getElementById('rdbmsName').value = `${region}-rdbms-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('dbEngine').value = 'mysql';
-        document.getElementById('dbEngineVersion').value = '';
-        document.getElementById('dbInstanceSpec').value = '';
+        
+        // Reset MetaInfo-driven selects
+        const versionSelect = document.getElementById('dbEngineVersion');
+        versionSelect.innerHTML = '<option value="">Loading...</option>';
+        const specSelect = document.getElementById('dbInstanceSpec');
+        specSelect.innerHTML = '<option value="">Loading...</option>';
+        const storageTypeSelect = document.getElementById('storageType');
+        storageTypeSelect.innerHTML = '<option value="">Loading...</option>';
+        
         document.getElementById('storageSize').value = '20';
-        document.getElementById('storageType').value = '';
-        document.getElementById('port').value = '';
-        document.getElementById('subnetNames').value = '';
-        document.getElementById('sgNames').value = '';
-        document.getElementById('masterUserName').value = '';
+        document.getElementById('storageSizeHint').textContent = '';
+        
+        // Reset network controls
+        document.getElementById('subnetSelectedText').textContent = 'Select VPC first';
+        document.getElementById('subnetDropdownList').innerHTML = '';
+        document.getElementById('sgSelectedText').textContent = 'Select VPC first';
+        document.getElementById('sgDropdownList').innerHTML = '';
+        
+        // Set CSP-specific default Master User
+        await setDefaultMasterUser();
         document.getElementById('masterUserPassword').value = '';
-        document.getElementById('databaseName').value = '';
         document.getElementById('highAvailability').value = 'false';
         document.getElementById('publicAccess').value = 'false';
         document.getElementById('encryption').value = 'false';
         document.getElementById('deletionProtection').value = 'false';
-        document.getElementById('backupRetentionDays').value = '0';
-        document.getElementById('backupTime').value = '';
+        document.getElementById('backupRetentionDays').value = '';
+        document.getElementById('backupRetentionDays').placeholder = '(optional)';
+        document.getElementById('backupRetentionHint').textContent = '';
         document.querySelectorAll('.rdbms-tag-input').forEach(tagInput => tagInput.remove());
     }
 
@@ -1661,11 +1767,45 @@
         }
     }
 
+    function setDefaultMasterUser() {
+        const connConfig = document.getElementById('connConfig').value;
+        const url = `/spider/connectionconfig/${encodeURIComponent(connConfig)}`;
+        
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const masterUserInput = document.getElementById('masterUserName');
+            const providerName = (data.ProviderName || '').toLowerCase();
+            
+            // Set CSP-specific default: Tencent=root, IBM=admin, others=dbadmin
+            if (providerName.includes('tencent')) {
+                masterUserInput.value = 'root';
+                masterUserInput.placeholder = 'e.g., root';
+            } else if (providerName.includes('ibm')) {
+                masterUserInput.value = 'admin';
+                masterUserInput.placeholder = 'e.g., admin';
+            } else {
+                masterUserInput.value = 'dbadmin';
+                masterUserInput.placeholder = 'e.g., dbadmin';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading connection config:', error);
+            // Fallback to dbadmin on error
+            document.getElementById('masterUserName').value = 'dbadmin';
+        });
+    }
+
     function loadVPCs() {
         const connConfig = document.getElementById('connConfig').value;
         const url = `/spider/vpc?ConnectionName=${encodeURIComponent(connConfig)}`;
 
-        return fetchWithProgress(url, {
+        return fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -1680,11 +1820,18 @@
                     const option = document.createElement('option');
                     option.value = vpc.IId.NameId;
                     option.text = `${vpc.IId.NameId} (${vpc.IPv4_CIDR})`;
+                    // Store subnet list as JSON in data attribute for later retrieval
+                    if (vpc.SubnetInfoList && vpc.SubnetInfoList.length > 0) {
+                        option.setAttribute('data-subnets', JSON.stringify(vpc.SubnetInfoList));
+                    }
                     vpcSelect.appendChild(option);
                     if (index === 0) {
                         vpcSelect.value = vpc.IId.NameId;
                     }
                 });
+                // Trigger initial subnet/SG load for first VPC
+                updateSubnets();
+                loadSecurityGroups();
             } else {
                 const option = document.createElement('option');
                 option.value = "";
@@ -1695,8 +1842,314 @@
         })
         .catch(error => {
             console.error('Error loading VPCs:', error);
+            // Don't throw - allow form to open even if VPC loading fails
+            const vpcSelect = document.getElementById('vpcName');
+            vpcSelect.innerHTML = '';
+            const option = document.createElement('option');
+            option.value = "";
+            option.text = "Error loading VPCs";
+            vpcSelect.appendChild(option);
+            vpcSelect.disabled = true;
+        });
+    }
+
+    function loadRDBMSMetaInfo() {
+        const connConfig = document.getElementById('connConfig').value;
+        const dbEngine = document.getElementById('dbEngine').value;
+        const url = `/spider/rdbmsmetainfo?DBEngine=${encodeURIComponent(dbEngine)}&ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`MetaInfo API returned status ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(metaInfo => {
+            // Update Subnet/SG label required status
+            const subnetLabel = document.getElementById('subnetLabel');
+            const sgLabel = document.getElementById('sgLabel');
+            if (metaInfo.RequiresSubnet) {
+                subnetLabel.innerHTML = 'Subnets: <span style="color: red;">*</span>';
+            } else {
+                subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(optional)</span>';
+            }
+            if (metaInfo.RequiresSecurityGroup) {
+                sgLabel.innerHTML = 'Security Groups: <span style="color: red;">*</span>';
+            } else {
+                sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(optional)</span>';
+            }
+
+            // Populate Version select
+            const versionSelect = document.getElementById('dbEngineVersion');
+            versionSelect.innerHTML = '';
+            if (metaInfo.SupportedVersions && metaInfo.SupportedVersions.length > 0) {
+                metaInfo.SupportedVersions.forEach((version, index) => {
+                    const option = document.createElement('option');
+                    option.value = version;
+                    option.text = version;
+                    versionSelect.appendChild(option);
+                });
+            } else {
+                versionSelect.innerHTML = '<option value="">No versions available</option>';
+            }
+
+            // Populate Instance Spec select
+            const specSelect = document.getElementById('dbInstanceSpec');
+            specSelect.innerHTML = '';
+            if (metaInfo.DBInstanceSpecOptions && metaInfo.DBInstanceSpecOptions.length > 0) {
+                metaInfo.DBInstanceSpecOptions.forEach((spec, index) => {
+                    const option = document.createElement('option');
+                    option.value = spec;
+                    option.text = spec;
+                    specSelect.appendChild(option);
+                });
+            } else {
+                specSelect.innerHTML = '<option value="">No specs available</option>';
+            }
+
+            // Populate Storage Type select
+            const storageTypeSelect = document.getElementById('storageType');
+            storageTypeSelect.innerHTML = '';
+            if (metaInfo.StorageTypeOptions && metaInfo.StorageTypeOptions.length > 0) {
+                // Add empty option for optional field
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.text = '(optional)';
+                storageTypeSelect.appendChild(emptyOption);
+                
+                metaInfo.StorageTypeOptions.forEach((storageType, index) => {
+                    const option = document.createElement('option');
+                    option.value = storageType;
+                    option.text = storageType;
+                    storageTypeSelect.appendChild(option);
+                });
+                
+                // Auto-select first storage type for CSPs that require it (e.g., Alibaba)
+                // User can manually select (optional) if not needed
+                storageTypeSelect.value = metaInfo.StorageTypeOptions[0];
+            } else {
+                // Add empty option if no storage types available
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.text = '(optional)';
+                storageTypeSelect.appendChild(emptyOption);
+            }
+
+            // Update Storage Size hint
+            const storageSizeHint = document.getElementById('storageSizeHint');
+            const storageSizeInput = document.getElementById('storageSize');
+            if (metaInfo.StorageSizeRange) {
+                const min = metaInfo.StorageSizeRange.Min;
+                const max = metaInfo.StorageSizeRange.Max;
+                storageSizeHint.textContent = `(Range: ${min}-${max} GB)`;
+                storageSizeInput.min = min;
+                storageSizeInput.max = max;
+                // Set default to min if current value is out of range
+                const currentValue = parseInt(storageSizeInput.value);
+                if (currentValue < min) {
+                    storageSizeInput.value = min;
+                }
+            } else {
+                storageSizeHint.textContent = '';
+            }
+
+            // Update Backup Retention Days hint with CSP-specific guidance
+            const backupRetentionHint = document.getElementById('backupRetentionHint');
+            const backupRetentionInput = document.getElementById('backupRetentionDays');
+            if (metaInfo.BackupRetentionRange) {
+                // Get provider name from connection config for AWS-specific guidance
+                const connConfig = document.getElementById('connConfig').value;
+                fetch(`/spider/connectionconfig/${encodeURIComponent(connConfig)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const providerName = (data.ProviderName || '').toLowerCase();
+                        if (providerName.includes('aws')) {
+                            backupRetentionHint.textContent = `(Range: ${metaInfo.BackupRetentionRange}, 0 = disable backup)`;
+                        } else {
+                            backupRetentionHint.textContent = `(Range: ${metaInfo.BackupRetentionRange})`;
+                        }
+                        // Keep placeholder as (optional) - do not set range values
+                        backupRetentionInput.placeholder = '(optional)';
+                    })
+                    .catch(() => {
+                        backupRetentionHint.textContent = `(Range: ${metaInfo.BackupRetentionRange})`;
+                        backupRetentionInput.placeholder = '(optional)';
+                    });
+            } else {
+                backupRetentionHint.textContent = '';
+                backupRetentionInput.placeholder = '(optional)';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading RDBMS MetaInfo:', error);
+            // Set error states
+            document.getElementById('dbEngineVersion').innerHTML = '<option value="">Error loading versions</option>';
+            document.getElementById('dbInstanceSpec').innerHTML = '<option value="">Error loading specs</option>';
+            document.getElementById('storageType').innerHTML = '<option value="">Error loading types</option>';
             throw error;
         });
+    }
+
+    function updateSubnets() {
+        const vpcSelect = document.getElementById('vpcName');
+        const subnetDropdownList = document.getElementById('subnetDropdownList');
+        const subnetSelectedText = document.getElementById('subnetSelectedText');
+        
+        subnetDropdownList.innerHTML = '';
+        
+        if (!vpcSelect.value) {
+            subnetSelectedText.textContent = 'Select VPC first';
+            return;
+        }
+        
+        const selectedOption = vpcSelect.options[vpcSelect.selectedIndex];
+        const subnetsJSON = selectedOption.getAttribute('data-subnets');
+        
+        if (!subnetsJSON) {
+            subnetSelectedText.textContent = 'No subnets available';
+            return;
+        }
+        
+        try {
+            const subnets = JSON.parse(subnetsJSON);
+            if (subnets && Array.isArray(subnets) && subnets.length > 0) {
+                subnets.forEach((subnet, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'sg-dropdown-item';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = subnet.IId.NameId;
+                    checkbox.id = `subnet-${subnet.IId.NameId}`;
+                    checkbox.className = 'subnet-checkbox';
+                    // Auto-check first two subnets for Multi-AZ support
+                    if (index < 2) {
+                        checkbox.checked = true;
+                    }
+                    checkbox.onchange = updateSubnetSelectedDisplay;
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = `subnet-${subnet.IId.NameId}`;
+                    label.textContent = `${subnet.IId.NameId} (${subnet.IPv4_CIDR})`;
+                    
+                    item.appendChild(checkbox);
+                    item.appendChild(label);
+                    subnetDropdownList.appendChild(item);
+                });
+                
+                // Update display with initially selected items
+                updateSubnetSelectedDisplay();
+            } else {
+                subnetSelectedText.textContent = 'No subnets available';
+            }
+        } catch (e) {
+            console.error('Error parsing subnet data:', e);
+            subnetSelectedText.textContent = 'Error loading subnets';
+        }
+    }
+
+    function toggleSubnetDropdown() {
+        const dropdown = document.getElementById('subnetDropdownList');
+        dropdown.classList.toggle('open');
+    }
+
+    function updateSubnetSelectedDisplay() {
+        const checkboxes = document.querySelectorAll('.subnet-checkbox:checked');
+        const subnetSelectedText = document.getElementById('subnetSelectedText');
+        
+        if (checkboxes.length === 0) {
+            subnetSelectedText.textContent = 'Select subnets';
+        } else if (checkboxes.length === 1) {
+            subnetSelectedText.textContent = checkboxes[0].value;
+        } else {
+            subnetSelectedText.textContent = `${checkboxes.length} selected`;
+        }
+    }
+
+    function loadSecurityGroups() {
+        const connConfig = document.getElementById('connConfig').value;
+        const sgDropdownList = document.getElementById('sgDropdownList');
+        const sgSelectedText = document.getElementById('sgSelectedText');
+        const vpcSelect = document.getElementById('vpcName');
+        
+        if (!vpcSelect.value) {
+            sgSelectedText.textContent = 'Select VPC first';
+            sgDropdownList.innerHTML = '';
+            return;
+        }
+        
+        const vpcName = vpcSelect.options[vpcSelect.selectedIndex].text.split(' ')[0];
+        const url = `/spider/securitygroup/vpc/${encodeURIComponent(vpcName)}?ConnectionName=${encodeURIComponent(connConfig)}`;
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            sgDropdownList.innerHTML = '';
+
+            if (data.securitygroup && data.securitygroup.length > 0) {
+                data.securitygroup.forEach((sg, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'sg-dropdown-item';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = sg.IId.NameId;
+                    checkbox.id = `sg-${sg.IId.NameId}`;
+                    checkbox.className = 'sg-checkbox';
+                    // Auto-check first security group
+                    if (index === 0) {
+                        checkbox.checked = true;
+                    }
+                    checkbox.onchange = updateSGSelectedDisplay;
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = `sg-${sg.IId.NameId}`;
+                    label.textContent = sg.IId.NameId;
+                    
+                    item.appendChild(checkbox);
+                    item.appendChild(label);
+                    sgDropdownList.appendChild(item);
+                });
+                
+                // Update display with initially selected item
+                updateSGSelectedDisplay();
+            } else {
+                sgSelectedText.textContent = 'No security groups available for this VPC';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading security groups:', error);
+            sgSelectedText.textContent = 'Error loading security groups';
+        });
+    }
+
+    function toggleSGDropdown() {
+        const dropdown = document.getElementById('sgDropdownList');
+        dropdown.classList.toggle('open');
+    }
+
+    function updateSGSelectedDisplay() {
+        const checkboxes = document.querySelectorAll('.sg-checkbox:checked');
+        const sgSelectedText = document.getElementById('sgSelectedText');
+        
+        if (checkboxes.length === 0) {
+            sgSelectedText.textContent = 'Select security groups';
+        } else if (checkboxes.length === 1) {
+            sgSelectedText.textContent = checkboxes[0].value;
+        } else {
+            sgSelectedText.textContent = `${checkboxes.length} selected`;
+        }
     }
 
     function addRDBMSTagField() {
@@ -1769,6 +2222,22 @@
                 button.style.display = 'inline-block';
             } else {
                 button.style.display = 'none';
+            }
+        });
+
+        // Close SG dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const sgDropdown = document.getElementById('sgDropdownList');
+            const sgDisplay = document.getElementById('sgSelectedDisplay');
+            if (sgDropdown && sgDisplay && !sgDisplay.contains(event.target) && !sgDropdown.contains(event.target)) {
+                sgDropdown.classList.remove('open');
+            }
+            
+            // Close Subnet dropdown when clicking outside
+            const subnetDropdown = document.getElementById('subnetDropdownList');
+            const subnetDisplay = document.getElementById('subnetSelectedDisplay');
+            if (subnetDropdown && subnetDisplay && !subnetDisplay.contains(event.target) && !subnetDropdown.contains(event.target)) {
+                subnetDropdown.classList.remove('open');
             }
         });
     });

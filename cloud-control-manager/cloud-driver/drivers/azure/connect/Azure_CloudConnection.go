@@ -20,6 +20,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
@@ -74,6 +75,9 @@ type AzureCloudConnection struct {
 	MySQLServersClient              *armmysqlfs.ServersClient
 	MySQLFirewallRulesClient        *armmysqlfs.FirewallRulesClient
 	MySQLDatabasesClient            *armmysqlfs.DatabasesClient
+	MySQLPrivateDNSZonesClient      *armprivatedns.PrivateZonesClient
+	MySQLPrivateDNSVNetLinksClient  *armprivatedns.VirtualNetworkLinksClient
+	MySQLBackupsClient              *armmysqlfs.BackupsClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -314,12 +318,16 @@ func (cloudConn *AzureCloudConnection) CreateMonitoringHandler() (irs.Monitoring
 func (cloudConn *AzureCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateRDBMSHandler()!")
 	rdbmsHandler := azrs.AzureRDBMSHandler{
-		CredentialInfo:      cloudConn.CredentialInfo,
-		Region:              cloudConn.Region,
-		Ctx:                 cloudConn.Ctx,
-		ServersClient:       cloudConn.MySQLServersClient,
-		FirewallRulesClient: cloudConn.MySQLFirewallRulesClient,
-		DatabasesClient:     cloudConn.MySQLDatabasesClient,
+		CredentialInfo:           cloudConn.CredentialInfo,
+		Region:                   cloudConn.Region,
+		Ctx:                      cloudConn.Ctx,
+		ServersClient:            cloudConn.MySQLServersClient,
+		FirewallRulesClient:      cloudConn.MySQLFirewallRulesClient,
+		DatabasesClient:          cloudConn.MySQLDatabasesClient,
+		SubnetClient:             cloudConn.SubnetClient,
+		PrivateDNSZonesClient:    cloudConn.MySQLPrivateDNSZonesClient,
+		PrivateDNSVNetLinkClient: cloudConn.MySQLPrivateDNSVNetLinksClient,
+		BackupsClient:            cloudConn.MySQLBackupsClient,
 	}
 	return &rdbmsHandler, nil
 }

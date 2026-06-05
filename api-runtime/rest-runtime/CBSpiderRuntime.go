@@ -530,7 +530,7 @@ func getRoutes() []route {
 		{"DELETE", "/rdbms/:Name", DeleteRDBMS},
 
 		//-- RDBMS database management (CSP-native API; drivers that support RDBMSDatabaseManager)
-		{"POST", "/rdbms/:Name/databases/create", CreateRDBMSDatabase},
+		{"POST", "/rdbms/:Name/databases", CreateRDBMSDatabase},
 		{"GET", "/rdbms/:Name/databases", ListRDBMSDatabases},
 		{"DELETE", "/rdbms/:Name/databases/:DBName", DeleteRDBMSDatabase},
 

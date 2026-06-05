@@ -87,6 +87,8 @@ github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleserv
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers v1.2.0/go.mod h1:0mKVz3WT8oNjBunT1zD/HPwMleQ72QClMa7Gmsm+6Kc=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9 v9.0.0 h1:CbHDMVJhcJSmXenq+UDWyIjumzVkZIb5pVUGzsCok5M=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9 v9.0.0/go.mod h1:raqbEXrok4aycS74XoU6p9Hne1dliAFpHLizlp+qJoM=
+github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns v1.3.0 h1:yzrctSl9GMIQ5lHu7jc8olOsGjWDCsBpJhWqfGa/YIM=
+github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns v1.3.0/go.mod h1:GE4m0rnnfwLGX0Y9A9A25Zx5N/90jneT5ABevqzhuFQ=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armdeployments v1.0.0 h1:67nFqWXpo0x5Nz0XEb1yI7s8D+EHy8NsTinYw9sZnLk=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armdeployments v1.0.0/go.mod h1:fewgRjNVE84QVVh798sIMFb7gPXPp7NmnekGnboSnXk=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0 h1:Dd+RhdJn0OTtVGaeDLZpcumkIVCtA/3/Fo42+eoYvVM=
