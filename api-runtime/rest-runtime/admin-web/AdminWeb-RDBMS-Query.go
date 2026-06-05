@@ -517,7 +517,7 @@ func trySpiderDatabaseListAPI(connName, rdbmsName string) (spiderRDBMSDatabaseAP
 // trySpiderDatabaseCreateAPI calls the Spider CSP-native create-database endpoint.
 // Returns (false, nil) on success; (true, nil) when HTTP 501 (caller must fall back to SQL).
 func trySpiderDatabaseCreateAPI(connName, rdbmsName, dbName string) (notSupported bool, err error) {
-	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases/create"
+	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases"
 	body, _ := json.Marshal(map[string]string{"ConnectionName": connName, "DatabaseName": dbName})
 	req, _ := http.NewRequest("POST", url, strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
@@ -638,7 +638,7 @@ func RDBMSCreateDatabase(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid database name. Use only letters, numbers, and underscores."})
 	}
 
-	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases/create"
+	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases"
 	body, _ := json.Marshal(map[string]string{"ConnectionName": req.ConnectionName, "DatabaseName": req.DatabaseName, "MasterUserPassword": req.Password})
 	httpReq, _ := http.NewRequest("POST", url, strings.NewReader(string(body)))
 	httpReq.Header.Set("Content-Type", "application/json")
