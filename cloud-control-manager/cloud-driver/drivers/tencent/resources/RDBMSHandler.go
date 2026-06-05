@@ -49,7 +49,7 @@ func (handler *TencentRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	supportedEngines, storageTypeOptions, storageSizeRange, err := handler.fetchCDBMetaOptions()
+	supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, err := handler.fetchCDBMetaOptions()
 	if err != nil {
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
 		cblogger.Error(err)
@@ -57,7 +57,7 @@ func (handler *TencentRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("GetMetaInfo failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, false, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "7-1830", true, false)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -68,18 +68,18 @@ func (handler *TencentRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 	return metaInfo, nil
 }
 
-func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, map[string][]string, irs.StorageSizeRange, error) {
+func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, map[string][]string, map[string][]string, irs.StorageSizeRange, error) {
 	if handler.Client == nil {
-		return nil, nil, irs.StorageSizeRange{}, errors.New("CDB client is unavailable")
+		return nil, nil, nil, irs.StorageSizeRange{}, errors.New("CDB client is unavailable")
 	}
 
 	request := cdb.NewDescribeCdbZoneConfigRequest()
 	response, err := handler.Client.DescribeCdbZoneConfig(request)
 	if err != nil {
-		return nil, nil, irs.StorageSizeRange{}, err
+		return nil, nil, nil, irs.StorageSizeRange{}, err
 	}
 	if response.Response == nil || response.Response.DataResult == nil {
-		return nil, nil, irs.StorageSizeRange{}, errors.New("DescribeCdbZoneConfig returned empty response")
+		return nil, nil, nil, irs.StorageSizeRange{}, errors.New("DescribeCdbZoneConfig returned empty response")
 	}
 
 	data := response.Response.DataResult
@@ -94,7 +94,7 @@ func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, 
 		configMap[*cfg.Id] = cfg
 	}
 	if len(configMap) == 0 {
-		return nil, nil, irs.StorageSizeRange{}, errors.New("DescribeCdbZoneConfig returned no available CDB sell configs")
+		return nil, nil, nil, irs.StorageSizeRange{}, errors.New("DescribeCdbZoneConfig returned no available CDB sell configs")
 	}
 
 	versionSet := make(map[string]struct{})
@@ -157,22 +157,29 @@ func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, 
 	}
 
 	if !matchedZone {
-		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no online zone for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
+		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no online zone for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
 	}
 	if len(versionSet) == 0 {
-		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no MySQL engine versions for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
+		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no MySQL engine versions for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
 	}
 	if len(selectedConfigIDs) == 0 {
-		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no available CDB config IDs for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
+		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no available CDB config IDs for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
 	}
 	if len(storageTypeSet) == 0 {
-		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no storage types for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
+		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no storage types for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
 	}
 
+	memorySet := make(map[int64]struct{})
 	storageRange := irs.StorageSizeRange{}
 	for cfgID := range selectedConfigIDs {
 		cfg, ok := configMap[cfgID]
-		if !ok || cfg.VolumeMin == nil || cfg.VolumeMax == nil {
+		if !ok {
+			continue
+		}
+		if cfg.Memory != nil && *cfg.Memory > 0 {
+			memorySet[*cfg.Memory] = struct{}{}
+		}
+		if cfg.VolumeMin == nil || cfg.VolumeMax == nil {
 			continue
 		}
 		if storageRange.Min == 0 || *cfg.VolumeMin < storageRange.Min {
@@ -183,11 +190,26 @@ func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, 
 		}
 	}
 	if storageRange.Min == 0 || storageRange.Max == 0 {
-		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no storage size range for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
+		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no storage size range for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
 	}
+	if len(memorySet) == 0 {
+		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no memory options for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
+	}
+
+	memoryList := make([]string, 0, len(memorySet))
+	for memory := range memorySet {
+		memoryList = append(memoryList, strconv.FormatInt(memory, 10))
+	}
+	sort.Slice(memoryList, func(i, j int) bool {
+		mi, _ := strconv.ParseInt(memoryList[i], 10, 64)
+		mj, _ := strconv.ParseInt(memoryList[j], 10, 64)
+		return mi < mj
+	})
 
 	return map[string][]string{
 			"mysql": sortedTencentVersionSet(versionSet),
+		}, map[string][]string{
+			"mysql": memoryList,
 		}, map[string][]string{
 			"mysql": sortedTencentStringSet(storageTypeSet),
 		}, storageRange, nil
@@ -296,7 +318,9 @@ func (handler *TencentRDBMSHandler) ListIID() ([]*irs.IID, error) {
 }
 
 func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDBMSInfo, error) {
-	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, rdbmsReqInfo.IId.NameId, "CreateDBInstanceHour()")
+	cblogger.Info("Tencent CDB CreateRDBMS() called")
+
+	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "CreateRDBMS", "CreateDBInstanceHour()")
 	start := call.Start()
 
 	// Validate required fields
@@ -316,10 +340,13 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		return irs.RDBMSInfo{}, fmt.Errorf("Tencent Cloud Database does not support custom MasterUserName: the admin user is always %q. Set MasterUserName to %q or leave it empty", tencentDefaultAdminUser, tencentDefaultAdminUser)
 	}
 
-	// DBInstanceSpec can be memory(MB) or Tencent VM spec name.
-	memory, err := handler.resolveMemoryMBFromSpec(rdbmsReqInfo.DBInstanceSpec)
+	// DBInstanceSpec must be memory(MB) from Tencent CDB DescribeCdbZoneConfig API
+	memory, err := strconv.ParseInt(rdbmsReqInfo.DBInstanceSpec, 10, 64)
 	if err != nil {
-		return irs.RDBMSInfo{}, err
+		return irs.RDBMSInfo{}, fmt.Errorf("DBInstanceSpec must be numeric memory size in MB (e.g., 1000, 2000, 4000). Use GetMetaInfo API to get available memory options. Error: %w", err)
+	}
+	if memory <= 0 {
+		return irs.RDBMSInfo{}, fmt.Errorf("DBInstanceSpec must be positive integer (memory in MB), got %d", memory)
 	}
 
 	// Parse storage size (volume in GB)
@@ -340,25 +367,21 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		request.EngineVersion = &rdbmsReqInfo.DBEngineVersion
 	}
 
+	// VPC and Subnet validation
+	if rdbmsReqInfo.VpcIID.SystemId == "" {
+		return irs.RDBMSInfo{}, errors.New("VPC (VpcIID.SystemId) is required for Tencent CDB")
+	}
+	if len(rdbmsReqInfo.SubnetIIDs) == 0 || rdbmsReqInfo.SubnetIIDs[0].SystemId == "" {
+		return irs.RDBMSInfo{}, errors.New("Subnet (SubnetIIDs[0].SystemId) is required for Tencent CDB")
+	}
+
 	// VPC and Subnet
-	if rdbmsReqInfo.VpcIID.SystemId != "" {
-		request.UniqVpcId = &rdbmsReqInfo.VpcIID.SystemId
-	}
-	if len(rdbmsReqInfo.SubnetIIDs) > 0 && rdbmsReqInfo.SubnetIIDs[0].SystemId != "" {
-		request.UniqSubnetId = &rdbmsReqInfo.SubnetIIDs[0].SystemId
-	}
+	request.UniqVpcId = &rdbmsReqInfo.VpcIID.SystemId
+	request.UniqSubnetId = &rdbmsReqInfo.SubnetIIDs[0].SystemId
 
 	// Zone
 	if handler.Region.Zone != "" {
 		request.Zone = &handler.Region.Zone
-	}
-
-	// Port
-	if rdbmsReqInfo.Port != "" {
-		port, portErr := strconv.ParseInt(rdbmsReqInfo.Port, 10, 64)
-		if portErr == nil {
-			request.Port = &port
-		}
 	}
 
 	// HA - ProtectMode: 0=async, 1=semi-sync, 2=strong-sync
@@ -376,6 +399,16 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		}
 		request.SecurityGroup = sgIds
 	}
+
+	// Backup Configuration
+	// Note: Tencent CDB CreateDBInstanceHour API does not support backup settings.
+	// BackupRetentionDays and BackupTime must be configured via ModifyBackupConfig API after instance creation.
+	// TODO: Implement post-creation backup configuration using ModifyBackupConfig API
+	// if rdbmsReqInfo.BackupRetentionDays > 0 || rdbmsReqInfo.BackupTime != "" {
+	//     cblogger.Infof("[Tencent CDB] Backup settings (RetentionDays=%d, Time=%s) will use CSP defaults. "+
+	//         "Post-creation configuration via ModifyBackupConfig is not yet implemented.",
+	//         rdbmsReqInfo.BackupRetentionDays, rdbmsReqInfo.BackupTime)
+	// }
 
 	// Tags
 	if len(rdbmsReqInfo.TagList) > 0 {
@@ -459,6 +492,8 @@ func (handler *TencentRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 
 		for _, inst := range response.Response.Items {
 			rdbmsInfo := handler.convertToRDBMSInfo(inst)
+			// Retrieve backup configuration for each instance
+			handler.enrichBackupInfo(&rdbmsInfo)
 			rdbmsList = append(rdbmsList, &rdbmsInfo)
 		}
 
@@ -498,7 +533,14 @@ func (handler *TencentRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo, e
 		return irs.RDBMSInfo{}, fmt.Errorf("DB instance not found: %s", rdbmsIID.SystemId)
 	}
 
-	return handler.convertToRDBMSInfo(response.Response.Items[0]), nil
+	rdbmsInfo := handler.convertToRDBMSInfo(response.Response.Items[0])
+
+	// Retrieve backup configuration
+	if rdbmsInfo.IId.SystemId != "" {
+		handler.enrichBackupInfo(&rdbmsInfo)
+	}
+
+	return rdbmsInfo, nil
 }
 
 func (handler *TencentRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
@@ -558,20 +600,22 @@ func (handler *TencentRDBMSHandler) convertToRDBMSInfo(inst *cdb.InstanceInfo) i
 	if inst.Volume != nil {
 		rdbmsInfo.StorageSize = strconv.FormatInt(*inst.Volume, 10)
 	}
-	rdbmsInfo.StorageType = "NA" // Not directly exposed in InstanceInfo
+	if inst.DeviceType != nil && *inst.DeviceType != "" {
+		rdbmsInfo.StorageType = *inst.DeviceType
+	} else {
+		rdbmsInfo.StorageType = "NA"
+	}
 
 	// Endpoint: prefer public WAN endpoint when public access is enabled.
 	if inst.WanStatus != nil && *inst.WanStatus == 1 && inst.WanDomain != nil && *inst.WanDomain != "" {
 		rdbmsInfo.Endpoint = *inst.WanDomain
 		if inst.WanPort != nil {
 			rdbmsInfo.Endpoint += ":" + strconv.FormatInt(*inst.WanPort, 10)
-			rdbmsInfo.Port = strconv.FormatInt(*inst.WanPort, 10)
 		}
 	} else if inst.Vip != nil {
 		rdbmsInfo.Endpoint = *inst.Vip
 		if inst.Vport != nil {
 			rdbmsInfo.Endpoint += ":" + strconv.FormatInt(*inst.Vport, 10)
-			rdbmsInfo.Port = strconv.FormatInt(*inst.Vport, 10)
 		}
 	}
 
@@ -611,11 +655,12 @@ func (handler *TencentRDBMSHandler) convertToRDBMSInfo(inst *cdb.InstanceInfo) i
 		rdbmsInfo.PublicAccess = (*inst.WanStatus == 1)
 	}
 
-	rdbmsInfo.DatabaseName = "NA"
+	// BackupTime and BackupRetentionDays are retrieved via DescribeBackupConfig in enrichBackupInfo
 	rdbmsInfo.BackupTime = "NA"
-	rdbmsInfo.ReplicationType = "NA"
-	rdbmsInfo.DeletionProtection = false
-	rdbmsInfo.Encryption = false
+	rdbmsInfo.BackupRetentionDays = 0
+	rdbmsInfo.DeletionProtection = false // Tencent CDB does not expose deletion protection status
+	rdbmsInfo.Encryption = false         // Can be retrieved through DescribeDBInstanceConfig API (not implemented)
+	rdbmsInfo.DBInstanceType = "NA"      // Tencent CDB does not provide instance type information
 
 	// KeyValueList
 	rdbmsInfo.KeyValueList = irs.StructToKeyValueList(inst)
@@ -679,6 +724,31 @@ func (handler *TencentRDBMSHandler) waitForWanStatus(instanceId string, targetWa
 		time.Sleep(10 * time.Second)
 	}
 	return fmt.Errorf("timeout waiting for instance %s to reach WAN status %d", instanceId, targetWanStatus)
+}
+
+func (handler *TencentRDBMSHandler) enrichBackupInfo(rdbmsInfo *irs.RDBMSInfo) {
+	if rdbmsInfo.IId.SystemId == "" {
+		return
+	}
+
+	request := cdb.NewDescribeBackupConfigRequest()
+	request.InstanceId = &rdbmsInfo.IId.SystemId
+
+	response, err := handler.Client.DescribeBackupConfig(request)
+	if err != nil {
+		cblogger.Debug("Failed to retrieve backup config: ", err)
+		return
+	}
+
+	if response.Response != nil {
+		if response.Response.BackupExpireDays != nil {
+			rdbmsInfo.BackupRetentionDays = int(*response.Response.BackupExpireDays)
+		}
+		if response.Response.StartTimeMin != nil && response.Response.StartTimeMax != nil {
+			// Tencent returns time as hour integers (0-23)
+			rdbmsInfo.BackupTime = fmt.Sprintf("%02d:00-%02d:00", *response.Response.StartTimeMin, *response.Response.StartTimeMax)
+		}
+	}
 }
 
 func (handler *TencentRDBMSHandler) resolveMemoryMBFromSpec(spec string) (int64, error) {

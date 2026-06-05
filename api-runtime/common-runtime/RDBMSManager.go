@@ -911,7 +911,7 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 
 	engine := strings.ToLower(string(info.DBEngine))
 	host := info.Endpoint
-	port := info.Port
+	port := ""
 	user := info.MasterUserName
 
 	// Strip port embedded in endpoint ("host:port" form)
@@ -921,9 +921,7 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 		var p int
 		if _, err := fmt.Sscanf(portPart, "%d", &p); err == nil {
 			host = hostPart
-			if port == "" {
-				port = portPart
-			}
+			port = portPart
 		}
 	}
 

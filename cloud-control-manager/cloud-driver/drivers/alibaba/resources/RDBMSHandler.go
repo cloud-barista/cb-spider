@@ -51,7 +51,7 @@ func (handler *AlibabaRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
-	supportedEngines, storageTypeOptions, storageSizeRange, err := handler.fetchRDBMSMetaOptions(requestedEngine)
+	supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, err := handler.fetchRDBMSMetaOptions(requestedEngine)
 	if err != nil {
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
 		cblogger.Error(err)
@@ -59,7 +59,7 @@ func (handler *AlibabaRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "7-730", true, false)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -70,7 +70,7 @@ func (handler *AlibabaRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 	return metaInfo, nil
 }
 
-func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[string][]string, map[string][]string, irs.StorageSizeRange, error) {
+func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[string][]string, map[string][]string, map[string][]string, irs.StorageSizeRange, error) {
 	allEngineNames := []alibabaRDBMSEngine{
 		{cbName: "mysql", aliName: "MySQL"},
 		{cbName: "mariadb", aliName: "MariaDB"},
@@ -84,7 +84,7 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[
 		}
 	}
 	if len(engineNames) == 0 {
-		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DBEngine '%s' is not supported by Alibaba RDS", dbEngine)
+		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DBEngine '%s' is not supported by Alibaba RDS", dbEngine)
 	}
 	engineByAlibabaName := map[string]alibabaRDBMSEngine{}
 	for _, eng := range engineNames {
@@ -103,14 +103,14 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[
 		}
 		zonesResp, err := handler.Client.DescribeAvailableZones(zonesReq)
 		if err != nil {
-			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones failed for engine %s: %w", eng.aliName, err)
+			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones failed for engine %s: %w", eng.aliName, err)
 		}
 		selectedZoneID := handler.Region.Zone
 		if selectedZoneID == "" && len(zonesResp.AvailableZones) > 0 {
 			selectedZoneID = zonesResp.AvailableZones[0].ZoneId
 		}
 		if selectedZoneID == "" {
-			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no zones for %s", eng.aliName)
+			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no zones for %s", eng.aliName)
 		}
 
 		for _, zone := range zonesResp.AvailableZones {
@@ -155,26 +155,27 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[
 	for _, eng := range engineNames {
 		versions := alibabaSortedSet(versionSets[eng.cbName])
 		if len(versions) == 0 {
-			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no engine versions for %s", eng.aliName)
+			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no engine versions for %s", eng.aliName)
 		}
 		supportedEngines[eng.cbName] = versions
 
 		storageTypes := alibabaSortedSet(storageTypeSets[eng.cbName])
 		if len(storageTypes) == 0 {
-			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no storage types for %s", eng.aliName)
+			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no storage types for %s", eng.aliName)
 		}
 		storageTypeOptions[eng.cbName] = storageTypes
 	}
 
-	storageSizeRange, err := handler.fetchRDBMSStorageSizeRange(engineNames, storageLookups)
+	instanceSpecOptions, storageSizeRange, err := handler.fetchRDBMSInstanceOptions(engineNames, storageLookups)
 	if err != nil {
-		return nil, nil, irs.StorageSizeRange{}, err
+		return nil, nil, nil, irs.StorageSizeRange{}, err
 	}
 
-	return supportedEngines, storageTypeOptions, storageSizeRange, nil
+	return supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, nil
 }
 
-func (handler *AlibabaRDBMSHandler) fetchRDBMSStorageSizeRange(engineNames []alibabaRDBMSEngine, storageLookups map[string][]alibabaRDBMSStorageLookup) (irs.StorageSizeRange, error) {
+func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alibabaRDBMSEngine, storageLookups map[string][]alibabaRDBMSStorageLookup) (map[string][]string, irs.StorageSizeRange, error) {
+	instanceSpecOptions := map[string][]string{}
 	var minStorage int64
 	var maxStorage int64
 	latestVersionByEngine := map[string]string{}
@@ -187,6 +188,7 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSStorageSizeRange(engineNames []ali
 	}
 
 	for _, eng := range engineNames {
+		instanceSpecSet := map[string]bool{}
 		seenLookup := map[string]bool{}
 		for _, lookup := range storageLookups[eng.aliName] {
 			if lookup.engineVersion != latestVersionByEngine[eng.aliName] {
@@ -208,10 +210,13 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSStorageSizeRange(engineNames []ali
 
 			classesResp, err := handler.describeAvailableClasses(classesReq)
 			if err != nil {
-				return irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableClasses failed for engine %s version %s category %s storage type %s zone %s: %w", eng.aliName, lookup.engineVersion, lookup.category, lookup.storageType, lookup.zoneID, err)
+				return nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableClasses failed for engine %s version %s category %s storage type %s zone %s: %w", eng.aliName, lookup.engineVersion, lookup.category, lookup.storageType, lookup.zoneID, err)
 			}
 
 			for _, class := range classesResp.DBInstanceClasses {
+				if class.DBInstanceClass != "" {
+					instanceSpecSet[class.DBInstanceClass] = true
+				}
 				classMin, classMax := alibabaStorageRangeValues(class)
 				if classMin > 0 && (minStorage == 0 || classMin < minStorage) {
 					minStorage = classMin
@@ -221,13 +226,18 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSStorageSizeRange(engineNames []ali
 				}
 			}
 		}
+
+		instanceSpecs := alibabaSortedSet(instanceSpecSet)
+		if len(instanceSpecs) > 0 {
+			instanceSpecOptions[eng.cbName] = instanceSpecs
+		}
 	}
 
 	if minStorage == 0 || maxStorage == 0 {
-		return irs.StorageSizeRange{}, errors.New("DescribeAvailableClasses returned no storage size range")
+		return nil, irs.StorageSizeRange{}, errors.New("DescribeAvailableClasses returned no storage size range")
 	}
 
-	return irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
+	return instanceSpecOptions, irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
 }
 
 func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.DescribeAvailableClassesRequest) (*rds.DescribeAvailableClassesResponse, error) {
@@ -383,6 +393,13 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 	if rdbmsReqInfo.StorageSize == "" {
 		return irs.RDBMSInfo{}, errors.New("StorageSize is required")
 	}
+	// Alibaba RDS requires VPC and Subnet (VSwitch) for instance creation
+	if rdbmsReqInfo.VpcIID.SystemId == "" {
+		return irs.RDBMSInfo{}, errors.New("VPC (VpcIID.SystemId) is required for Alibaba RDS")
+	}
+	if len(rdbmsReqInfo.SubnetIIDs) == 0 || rdbmsReqInfo.SubnetIIDs[0].SystemId == "" {
+		return irs.RDBMSInfo{}, errors.New("Subnet (SubnetIIDs[0].SystemId / VSwitch) is required for Alibaba RDS")
+	}
 
 	request := rds.CreateCreateDBInstanceRequest()
 	request.RegionId = handler.Region.Region
@@ -428,17 +445,22 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		request.ZoneId = handler.Region.Zone
 	}
 
-	// Port
-	if rdbmsReqInfo.Port != "" {
-		request.Port = rdbmsReqInfo.Port
-	}
-
 	// HA (Category)
 	if rdbmsReqInfo.HighAvailability {
 		request.Category = "HighAvailability"
 	} else {
 		request.Category = "Basic"
 	}
+
+	// Backup Configuration
+	// Note: Alibaba RDS CreateDBInstance API does not support backup settings.
+	// BackupRetentionDays and BackupTime must be configured via ModifyBackupPolicy API after instance creation.
+	// TODO: Implement post-creation backup configuration using ModifyBackupPolicy API
+	// if rdbmsReqInfo.BackupRetentionDays > 0 || rdbmsReqInfo.BackupTime != "" {
+	//     cblogger.Infof("[Alibaba RDBMS] Backup settings (RetentionDays=%d, Time=%s) will use CSP defaults. "+
+	//         "Post-creation configuration via ModifyBackupPolicy is not yet implemented.",
+	//         rdbmsReqInfo.BackupRetentionDays, rdbmsReqInfo.BackupTime)
+	// }
 
 	// Tags
 	if len(rdbmsReqInfo.TagList) > 0 {
@@ -639,8 +661,12 @@ func (handler *AlibabaRDBMSHandler) getDBInstanceAttribute(dbInstanceId string) 
 	if netErr == nil && netResp != nil {
 		for _, netInfo := range netResp.DBInstanceNetInfos.DBInstanceNetInfo {
 			if netInfo.IPType == "Public" {
-				rdbmsInfo.Endpoint = netInfo.IPAddress
-				rdbmsInfo.Port = netInfo.Port
+				// Add port to endpoint
+				if netInfo.Port != "" {
+					rdbmsInfo.Endpoint = fmt.Sprintf("%s:%s", netInfo.IPAddress, netInfo.Port)
+				} else {
+					rdbmsInfo.Endpoint = netInfo.IPAddress
+				}
 				rdbmsInfo.PublicAccess = true
 				break
 			}
@@ -658,6 +684,17 @@ func (handler *AlibabaRDBMSHandler) getDBInstanceAttribute(dbInstanceId string) 
 				break
 			}
 		}
+	}
+
+	// Retrieve backup policy via DescribeBackupPolicy
+	backupReq := rds.CreateDescribeBackupPolicyRequest()
+	backupReq.DBInstanceId = dbInstanceId
+	backupResp, backupErr := handler.Client.DescribeBackupPolicy(backupReq)
+	if backupErr == nil && backupResp != nil {
+		rdbmsInfo.BackupRetentionDays = backupResp.BackupRetentionPeriod
+		rdbmsInfo.BackupTime = backupResp.PreferredBackupTime
+	} else {
+		cblogger.Debug("Failed to retrieve backup policy: ", backupErr)
 	}
 
 	return rdbmsInfo, nil
@@ -679,10 +716,8 @@ func (handler *AlibabaRDBMSHandler) convertAttributeToRDBMSInfo(attr *rds.DBInst
 	rdbmsInfo.DBInstanceSpec = attr.DBInstanceClass
 	rdbmsInfo.StorageType = attr.DBInstanceStorageType
 	rdbmsInfo.StorageSize = strconv.Itoa(attr.DBInstanceStorage)
-	rdbmsInfo.Port = attr.Port
 	rdbmsInfo.Endpoint = attr.ConnectionString
 	rdbmsInfo.MasterUserName = "" // Retrieved via DescribeAccounts in getDBInstanceAttribute
-	rdbmsInfo.DatabaseName = ""
 
 	// VPC
 	rdbmsInfo.VpcIID = irs.IID{SystemId: attr.VpcId}
@@ -695,10 +730,11 @@ func (handler *AlibabaRDBMSHandler) convertAttributeToRDBMSInfo(attr *rds.DBInst
 	// Status
 	rdbmsInfo.Status = convertAlibabaStatusToRDBMSStatus(attr.DBInstanceStatus)
 
-	// HA
+	// HA and DBInstanceType (Category)
 	if attr.Category == "HighAvailability" || attr.Category == "AlwaysOn" || attr.Category == "Finance" {
 		rdbmsInfo.HighAvailability = true
 	}
+	rdbmsInfo.DBInstanceType = attr.Category
 
 	// Deletion protection
 	rdbmsInfo.DeletionProtection = attr.DeletionProtection
@@ -711,11 +747,11 @@ func (handler *AlibabaRDBMSHandler) convertAttributeToRDBMSInfo(attr *rds.DBInst
 		}
 	}
 
-	// Backup/Encryption are not directly exposed in attribute - return NA/defaults
-	rdbmsInfo.BackupRetentionDays = 0 // Can be retrieved through DescribeBackupPolicy, but not included in attribute
+	// Backup/Encryption are not directly exposed in attribute - requires separate API calls
+	// BackupRetentionDays and BackupTime are retrieved via DescribeBackupPolicy in getDBInstanceAttribute
+	rdbmsInfo.BackupRetentionDays = 0
 	rdbmsInfo.BackupTime = "NA"
 	rdbmsInfo.Encryption = false // Requires separate DescribeDBInstanceSSL/encryption API
-	rdbmsInfo.ReplicationType = "NA"
 
 	// PublicAccess is determined by DescribeDBInstanceNetInfo in getDBInstanceAttribute
 	rdbmsInfo.PublicAccess = false
@@ -741,13 +777,10 @@ func (handler *AlibabaRDBMSHandler) convertListItemToRDBMSInfo(db *rds.DBInstanc
 	rdbmsInfo.DBEngineVersion = db.EngineVersion
 	rdbmsInfo.DBInstanceSpec = db.DBInstanceClass
 	rdbmsInfo.StorageType = db.DBInstanceStorageType
-	rdbmsInfo.Port = "NA"
 	rdbmsInfo.Endpoint = db.ConnectionString
 	rdbmsInfo.MasterUserName = "NA"
-	rdbmsInfo.DatabaseName = "NA"
 	rdbmsInfo.StorageSize = "NA"
 	rdbmsInfo.BackupTime = "NA"
-	rdbmsInfo.ReplicationType = "NA"
 
 	rdbmsInfo.VpcIID = irs.IID{SystemId: db.VpcId}
 	if db.VSwitchId != "" {
@@ -759,6 +792,7 @@ func (handler *AlibabaRDBMSHandler) convertListItemToRDBMSInfo(db *rds.DBInstanc
 	if db.Category == "HighAvailability" || db.Category == "AlwaysOn" || db.Category == "Finance" {
 		rdbmsInfo.HighAvailability = true
 	}
+	rdbmsInfo.DBInstanceType = db.Category
 
 	if db.CreateTime != "" {
 		t, err := time.Parse("2006-01-02T15:04:05Z", db.CreateTime)

@@ -130,14 +130,14 @@ func (handler *AwsRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		})
 		storageLookupVersions[eng.awsName] = storageVersions
 	}
-	storageTypeOptions, storageSizeRange, err := handler.fetchRDBMSStorageOptions(engineNames, storageLookupVersions)
+	instanceSpecOptions, storageTypeOptions, storageSizeRange, err := handler.fetchRDBMSInstanceOptions(engineNames, storageLookupVersions)
 	if err != nil {
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("DescribeOrderableDBInstanceOptions failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "0-35", true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -148,7 +148,8 @@ func (handler *AwsRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 	return metaInfo, nil
 }
 
-func (handler *AwsRDBMSHandler) fetchRDBMSStorageOptions(engineNames []awsRDBMSEngine, storageLookupVersions map[string][]string) (map[string][]string, irs.StorageSizeRange, error) {
+func (handler *AwsRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []awsRDBMSEngine, storageLookupVersions map[string][]string) (map[string][]string, map[string][]string, irs.StorageSizeRange, error) {
+	instanceSpecOptions := map[string][]string{}
 	storageTypeOptions := map[string][]string{}
 	var minStorage int64
 	var maxStorage int64
@@ -158,8 +159,9 @@ func (handler *AwsRDBMSHandler) fetchRDBMSStorageOptions(engineNames []awsRDBMSE
 	for _, eng := range engineNames {
 		lookupVersions := storageLookupVersions[eng.awsName]
 		if len(lookupVersions) == 0 {
-			return nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s has no versions for storage lookup", eng.awsName)
+			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s has no versions for storage lookup", eng.awsName)
 		}
+		instanceSpecSet := map[string]bool{}
 		storageSet := map[string]bool{}
 		for _, engineVersion := range lookupVersions {
 			input := &rds.DescribeOrderableDBInstanceOptionsInput{
@@ -169,6 +171,9 @@ func (handler *AwsRDBMSHandler) fetchRDBMSStorageOptions(engineNames []awsRDBMSE
 			}
 			err := handler.Client.DescribeOrderableDBInstanceOptionsPagesWithContext(ctx, input, func(page *rds.DescribeOrderableDBInstanceOptionsOutput, lastPage bool) bool {
 				for _, option := range page.OrderableDBInstanceOptions {
+					if option.DBInstanceClass != nil && *option.DBInstanceClass != "" {
+						instanceSpecSet[*option.DBInstanceClass] = true
+					}
 					if option.StorageType != nil && *option.StorageType != "" {
 						storageSet[*option.StorageType] = true
 					}
@@ -182,8 +187,17 @@ func (handler *AwsRDBMSHandler) fetchRDBMSStorageOptions(engineNames []awsRDBMSE
 				return true
 			})
 			if err != nil {
-				return nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s version %s: %w", eng.awsName, engineVersion, err)
+				return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s version %s: %w", eng.awsName, engineVersion, err)
 			}
+		}
+
+		instanceSpecs := make([]string, 0, len(instanceSpecSet))
+		for instanceSpec := range instanceSpecSet {
+			instanceSpecs = append(instanceSpecs, instanceSpec)
+		}
+		sort.Strings(instanceSpecs)
+		if len(instanceSpecs) > 0 {
+			instanceSpecOptions[eng.cbName] = instanceSpecs
 		}
 
 		storageTypes := make([]string, 0, len(storageSet))
@@ -192,16 +206,16 @@ func (handler *AwsRDBMSHandler) fetchRDBMSStorageOptions(engineNames []awsRDBMSE
 		}
 		sort.Strings(storageTypes)
 		if len(storageTypes) == 0 {
-			return nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s returned no storage types", eng.awsName)
+			return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("engine %s returned no storage types", eng.awsName)
 		}
 		storageTypeOptions[eng.cbName] = storageTypes
 	}
 
 	if minStorage == 0 || maxStorage == 0 {
-		return nil, irs.StorageSizeRange{}, fmt.Errorf("storage size range is empty")
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("storage size range is empty")
 	}
 
-	return storageTypeOptions, irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
+	return instanceSpecOptions, storageTypeOptions, irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
 }
 
 func awsCompareVersionStrings(leftVersion, rightVersion string) int {
@@ -311,6 +325,13 @@ func (handler *AwsRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		return irs.RDBMSInfo{}, fmt.Errorf("invalid StorageSize: %s", rdbmsReqInfo.StorageSize)
 	}
 
+	// Ensure VPC has EnableDnsHostnames=true (required for RDS endpoint resolution)
+	if rdbmsReqInfo.VpcIID.SystemId != "" {
+		if err := handler.ensureVPCDnsHostnames(rdbmsReqInfo.VpcIID.SystemId); err != nil {
+			return irs.RDBMSInfo{}, fmt.Errorf("VPC DNS hostname check failed: %w", err)
+		}
+	}
+
 	// Create DB Subnet Group if VPC and Subnets are provided
 	subnetGroupName := ""
 	if rdbmsReqInfo.VpcIID.SystemId != "" && len(rdbmsReqInfo.SubnetIIDs) > 0 {
@@ -351,36 +372,19 @@ func (handler *AwsRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		input.StorageType = aws.String(rdbmsReqInfo.StorageType)
 	}
 
-	// Port
-	if rdbmsReqInfo.Port != "" {
-		port, err := strconv.ParseInt(rdbmsReqInfo.Port, 10, 64)
-		if err == nil {
-			input.Port = aws.Int64(port)
-		}
-	}
-
-	// Database Name
-	if rdbmsReqInfo.DatabaseName != "" {
-		input.DBName = aws.String(rdbmsReqInfo.DatabaseName)
-	}
-
 	// High Availability (Multi-AZ)
 	input.MultiAZ = aws.Bool(rdbmsReqInfo.HighAvailability)
 
-	// Backup
-	if rdbmsReqInfo.BackupRetentionDays > 0 {
+	// Backup: -1 = not set (use AWS default), 0 = disable backup, >0 = explicit retention days
+	if rdbmsReqInfo.BackupRetentionDays >= 0 {
 		input.BackupRetentionPeriod = aws.Int64(int64(rdbmsReqInfo.BackupRetentionDays))
 	}
-	if rdbmsReqInfo.BackupTime != "" {
-		// AWS expects "HH:MM-HH:MM" format for preferred backup window
-		input.PreferredBackupWindow = aws.String(rdbmsReqInfo.BackupTime)
-	}
+	// BackupTime (PreferredBackupWindow) is not configurable at creation via Spider (AWS auto-assigns)
 
 	// Public Access
 	input.PubliclyAccessible = aws.Bool(rdbmsReqInfo.PublicAccess)
 
-	// Encryption
-	input.StorageEncrypted = aws.Bool(rdbmsReqInfo.Encryption)
+	// Encryption is not configurable at creation via Spider (AWS uses default encryption settings)
 
 	// Deletion Protection
 	input.DeletionProtection = aws.Bool(rdbmsReqInfo.DeletionProtection)
@@ -541,6 +545,41 @@ func (handler *AwsRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
 
 // ===== Helper Functions =====
 
+// ensureVPCDnsHostnames checks whether the VPC has EnableDnsHostnames enabled.
+// If not, it automatically enables it (required for RDS endpoint DNS resolution)
+// and logs the action.
+func (handler *AwsRDBMSHandler) ensureVPCDnsHostnames(vpcID string) error {
+	// 1. Check current EnableDnsHostnames setting
+	descOut, err := handler.EC2Client.DescribeVpcAttribute(&ec2.DescribeVpcAttributeInput{
+		VpcId:     aws.String(vpcID),
+		Attribute: aws.String("enableDnsHostnames"),
+	})
+	if err != nil {
+		return fmt.Errorf("DescribeVpcAttribute(enableDnsHostnames) failed for VPC %s: %w", vpcID, err)
+	}
+
+	if descOut.EnableDnsHostnames != nil && aws.BoolValue(descOut.EnableDnsHostnames.Value) {
+		// Already enabled — nothing to do
+		return nil
+	}
+
+	// 2. EnableDnsHostnames is false — automatically set to true
+	cblogger.Infof("[VPC DNS] VPC '%s' has EnableDnsHostnames=false. Enabling it automatically for RDS endpoint resolution.", vpcID)
+
+	_, err = handler.EC2Client.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
+		VpcId: aws.String(vpcID),
+		EnableDnsHostnames: &ec2.AttributeBooleanValue{
+			Value: aws.Bool(true),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("ModifyVpcAttribute(EnableDnsHostnames=true) failed for VPC %s: %w", vpcID, err)
+	}
+
+	cblogger.Infof("[VPC DNS] VPC '%s' EnableDnsHostnames has been set to true. RDS DNS endpoint resolution is now available.", vpcID)
+	return nil
+}
+
 func (handler *AwsRDBMSHandler) createDBSubnetGroup(groupName string, subnetIIDs []irs.IID) error {
 	var subnetIDs []*string
 	for _, subnet := range subnetIIDs {
@@ -638,28 +677,12 @@ func (handler *AwsRDBMSHandler) convertDBInstanceToRDBMSInfo(dbInstance *rds.DBI
 	}
 
 	// Port
-	if dbInstance.Endpoint != nil && dbInstance.Endpoint.Port != nil {
-		rdbmsInfo.Port = strconv.FormatInt(aws.Int64Value(dbInstance.Endpoint.Port), 10)
-	} else if dbInstance.DbInstancePort != nil {
-		rdbmsInfo.Port = strconv.FormatInt(aws.Int64Value(dbInstance.DbInstancePort), 10)
-	}
-
 	// Authentication
 	rdbmsInfo.MasterUserName = aws.StringValue(dbInstance.MasterUsername)
 	// MasterUserPassword is never returned by AWS API
 
-	// Database
-	rdbmsInfo.DatabaseName = aws.StringValue(dbInstance.DBName)
-
 	// High Availability
 	rdbmsInfo.HighAvailability = aws.BoolValue(dbInstance.MultiAZ)
-	if dbInstance.StatusInfos != nil {
-		for _, info := range dbInstance.StatusInfos {
-			if aws.StringValue(info.StatusType) == "read replication" {
-				rdbmsInfo.ReplicationType = "async"
-			}
-		}
-	}
 
 	// Backup
 	if dbInstance.BackupRetentionPeriod != nil {

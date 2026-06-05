@@ -51,14 +51,14 @@ func (handler *GCPRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL meta options failed: %w", err)
 	}
-	storageSizeRange, err := handler.fetchCloudSQLStorageSizeRange()
+	instanceSpecOptions, storageSizeRange, err := handler.fetchCloudSQLInstanceOptions()
 	if err != nil {
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
 		LoggingError(hiscallInfo, err)
-		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL storage size range failed: %w", err)
+		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL instance options failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, true, true, true, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "1-7", false, false)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -154,19 +154,20 @@ func (handler *GCPRDBMSHandler) fetchCloudSQLMetaOptions() (map[string][]string,
 	return supportedEngines, storageTypeOptions, nil
 }
 
-func (handler *GCPRDBMSHandler) fetchCloudSQLStorageSizeRange() (irs.StorageSizeRange, error) {
+func (handler *GCPRDBMSHandler) fetchCloudSQLInstanceOptions() (map[string][]string, irs.StorageSizeRange, error) {
 	projectID := handler.getProjectId()
 	if projectID == "" {
-		return irs.StorageSizeRange{}, fmt.Errorf("GCP project ID is empty")
+		return nil, irs.StorageSizeRange{}, fmt.Errorf("GCP project ID is empty")
 	}
 
 	resp, err := handler.Client.Tiers.List(projectID).Do()
 	if err != nil {
-		return irs.StorageSizeRange{}, fmt.Errorf("Cloud SQL Tiers.List failed: %w", err)
+		return nil, irs.StorageSizeRange{}, fmt.Errorf("Cloud SQL Tiers.List failed: %w", err)
 	}
 
 	const bytesPerGiB = int64(1024 * 1024 * 1024)
 	maxStorageGB := int64(0)
+	tierSet := map[string]bool{}
 	for _, tier := range resp.Items {
 		if tier == nil || tier.DiskQuota <= 0 {
 			continue
@@ -174,16 +175,30 @@ func (handler *GCPRDBMSHandler) fetchCloudSQLStorageSizeRange() (irs.StorageSize
 		if !cloudSQLTierSupportsRegion(tier, handler.Region.Region) {
 			continue
 		}
+		if tier.Tier != "" {
+			tierSet[tier.Tier] = true
+		}
 		storageGB := tier.DiskQuota / bytesPerGiB
 		if storageGB > maxStorageGB {
 			maxStorageGB = storageGB
 		}
 	}
 	if maxStorageGB == 0 {
-		return irs.StorageSizeRange{}, fmt.Errorf("Cloud SQL Tiers.List returned no disk quota for region %s", handler.Region.Region)
+		return nil, irs.StorageSizeRange{}, fmt.Errorf("Cloud SQL Tiers.List returned no disk quota for region %s", handler.Region.Region)
 	}
 
-	return irs.StorageSizeRange{Min: 10, Max: maxStorageGB}, nil
+	tierList := make([]string, 0, len(tierSet))
+	for tier := range tierSet {
+		tierList = append(tierList, tier)
+	}
+	sort.Strings(tierList)
+
+	instanceSpecOptions := map[string][]string{
+		"mysql":      append([]string(nil), tierList...),
+		"postgresql": append([]string(nil), tierList...),
+	}
+
+	return instanceSpecOptions, irs.StorageSizeRange{Min: 10, Max: maxStorageGB}, nil
 }
 
 func cloudSQLTierSupportsRegion(tier *sqladmin.Tier, region string) bool {
@@ -346,12 +361,14 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	if rdbmsReqInfo.BackupRetentionDays > 0 {
 		backupConfig.TransactionLogRetentionDays = int64(rdbmsReqInfo.BackupRetentionDays)
 	}
-	if rdbmsReqInfo.BackupTime != "" {
-		backupConfig.StartTime = rdbmsReqInfo.BackupTime
-	}
+	// BackupTime (StartTime) is not configurable at creation via Spider (GCP auto-assigns)
 	settings.BackupConfiguration = backupConfig
 
 	// IP Configuration (Public Access, Network)
+	// GCP Cloud SQL supports three networking modes:
+	//   1. Public IP only: Ipv4Enabled=true, PrivateNetwork not set
+	//   2. Private IP only: Ipv4Enabled=false, PrivateNetwork set (requires Service Networking Peering)
+	//   3. Hybrid (both): Ipv4Enabled=true, PrivateNetwork set (requires Service Networking Peering)
 	ipConfig := &sqladmin.IpConfiguration{}
 	if rdbmsReqInfo.PublicAccess {
 		ipConfig.Ipv4Enabled = true
@@ -366,8 +383,22 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		ipConfig.Ipv4Enabled = false
 	}
 
-	// VPC Network - GCP uses private service connection
-	if rdbmsReqInfo.VpcIID.SystemId != "" {
+	// VPC Network - GCP uses Service Networking Peering (private service connection)
+	// Only set PrivateNetwork when PublicAccess=false (Private IP mode)
+	// PublicAccess=true uses public IP only (VPC is for SecurityGroup reference, not for private connectivity)
+	if !rdbmsReqInfo.PublicAccess && rdbmsReqInfo.VpcIID.SystemId != "" {
+		// TODO: Implement Service Networking Peering auto-creation with vpcSharedResourceSPLock.
+		// Current behavior: User must manually create peering via gcloud:
+		//   1. gcloud services enable servicenetworking.googleapis.com
+		//   2. gcloud compute addresses create google-managed-services-{vpc} --global --purpose=VPC_PEERING --prefix-length=16 --network={vpc}
+		//   3. gcloud services vpc-peerings connect --service=servicenetworking.googleapis.com --ranges=google-managed-services-{vpc} --network={vpc}
+		//
+		// Required implementation:
+		//   - Use vpcSharedResourceSPLock.Lock(connectionName, vpcName) to prevent concurrent peering creation
+		//   - Check if peering exists via compute API (addresses.list with purpose=VPC_PEERING)
+		//   - If not exists, create IP range and service connection via servicenetworking API
+		//   - Reference: https://cloud.google.com/sql/docs/mysql/configure-private-services-access
+		cblogger.Warnf("[GCP RDBMS] Private network mode detected (PublicAccess=false). Ensure Service Networking Peering is manually created for VPC '%s'.", rdbmsReqInfo.VpcIID.SystemId)
 		ipConfig.PrivateNetwork = rdbmsReqInfo.VpcIID.SystemId
 	}
 	settings.IpConfiguration = ipConfig
@@ -417,17 +448,6 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	_, err = handler.Client.Users.Insert(projectId, rdbmsReqInfo.IId.NameId, user).Do()
 	if err != nil {
 		cblogger.Warnf("Failed to create master user: %v", err)
-	}
-
-	// Set initial database if specified
-	if rdbmsReqInfo.DatabaseName != "" {
-		db := &sqladmin.Database{
-			Name: rdbmsReqInfo.DatabaseName,
-		}
-		_, err = handler.Client.Databases.Insert(projectId, rdbmsReqInfo.IId.NameId, db).Do()
-		if err != nil {
-			cblogger.Warnf("Failed to create initial database: %v", err)
-		}
 	}
 
 	// Get the created instance
@@ -480,13 +500,21 @@ func (handler *GCPRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
 
 	projectId := handler.getProjectId()
 
-	// Check and disable deletion protection if needed
+	// Get instance info to extract VPC (for Service Networking Peering cleanup)
 	instance, err := handler.Client.Instances.Get(projectId, rdbmsIID.SystemId).Do()
 	if err != nil {
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
+
+	// Extract VPC for peering cleanup check
+	var vpcNetwork string
+	if instance.Settings != nil && instance.Settings.IpConfiguration != nil {
+		vpcNetwork = instance.Settings.IpConfiguration.PrivateNetwork
+	}
+
+	// Disable deletion protection if needed
 	if instance.Settings != nil && instance.Settings.DeletionProtectionEnabled {
 		instance.Settings.DeletionProtectionEnabled = false
 		_, err = handler.Client.Instances.Update(projectId, rdbmsIID.SystemId, instance).Do()
@@ -507,6 +535,26 @@ func (handler *GCPRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
 	err = handler.waitForOperation(projectId, op.Name)
 	if err != nil {
 		return false, fmt.Errorf("failed waiting for instance deletion: %w", err)
+	}
+
+	// TODO: Implement Service Networking Peering auto-deletion with vpcSharedResourceSPLock.
+	// Current behavior: Peering remains after RDBMS deletion (user must manually delete).
+	//
+	// Required implementation:
+	//   - If vpcNetwork is not empty (private network was used):
+	//     1. Use vpcSharedResourceSPLock.Lock(connectionName, vpcName) for concurrency control
+	//     2. Query all Cloud SQL instances in the same VPC via handler.listInstancesInVPC(vpcNetwork)
+	//     3. If no other instances exist (last instance deleted), delete Service Networking Peering:
+	//        a. gcloud services vpc-peerings delete --service=servicenetworking.googleapis.com --network={vpc}
+	//        b. gcloud compute addresses delete google-managed-services-{vpc} --global
+	//     4. Unlock vpcSharedResourceSPLock
+	//
+	// Race condition without lock:
+	//   - Thread A deletes db-1, checks "db-2 exists" → keeps peering
+	//   - Thread B deletes db-2, checks "db-1 exists" → keeps peering
+	//   - Result: Both deleted but peering remains, VPC deletion fails
+	if vpcNetwork != "" {
+		cblogger.Warnf("[GCP RDBMS] Instance with private network deleted. Service Networking Peering for VPC '%s' remains (manual cleanup required if this was the last instance).", vpcNetwork)
 	}
 
 	return true, nil
@@ -575,7 +623,6 @@ func (handler *GCPRDBMSHandler) convertToRDBMSInfo(instance *sqladmin.DatabaseIn
 		rdbmsInfo.HighAvailability = (instance.Settings.AvailabilityType == "REGIONAL")
 		if rdbmsInfo.HighAvailability {
 			rdbmsInfo.DBInstanceType = "REGIONAL"
-			rdbmsInfo.ReplicationType = "sync"
 		} else {
 			rdbmsInfo.DBInstanceType = "ZONAL"
 		}
@@ -624,22 +671,19 @@ func (handler *GCPRDBMSHandler) convertToRDBMSInfo(instance *sqladmin.DatabaseIn
 		}
 	}
 
-	// Endpoint
+	// Endpoint with port
 	if len(instance.IpAddresses) > 0 {
 		for _, ip := range instance.IpAddresses {
 			if ip.Type == "PRIMARY" || ip.Type == "PRIVATE" {
-				rdbmsInfo.Endpoint = ip.IpAddress
+				// Add default port based on engine
+				port := "3306" // MySQL default
+				if engine == "postgresql" {
+					port = "5432"
+				}
+				rdbmsInfo.Endpoint = fmt.Sprintf("%s:%s", ip.IpAddress, port)
 				break
 			}
 		}
-	}
-
-	// Port - GCP uses standard ports
-	switch strings.ToLower(engine) {
-	case "mysql":
-		rdbmsInfo.Port = "3306"
-	case "postgresql":
-		rdbmsInfo.Port = "5432"
 	}
 
 	// Encryption - GCP encrypts by default
@@ -735,4 +779,26 @@ func (handler *GCPRDBMSHandler) DeleteDatabase(rdbmsSystemId, dbEngine, dbName s
 		return fmt.Errorf("GCP DeleteDatabase: %w", err)
 	}
 	return handler.waitForOperation(projectId, op.Name)
+}
+
+// ===== Service Networking Peering Helpers =====
+
+// listInstancesInVPC returns all Cloud SQL instances that use the specified VPC private network.
+// This is used to determine if a Service Networking Peering can be safely deleted (only when no instances remain).
+func (handler *GCPRDBMSHandler) listInstancesInVPC(vpcNetwork string) ([]*sqladmin.DatabaseInstance, error) {
+	projectId := handler.getProjectId()
+	resp, err := handler.Client.Instances.List(projectId).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Cloud SQL instances: %w", err)
+	}
+
+	var instances []*sqladmin.DatabaseInstance
+	for _, instance := range resp.Items {
+		if instance.Settings != nil && instance.Settings.IpConfiguration != nil {
+			if instance.Settings.IpConfiguration.PrivateNetwork == vpcNetwork {
+				instances = append(instances, instance)
+			}
+		}
+	}
+	return instances, nil
 }

@@ -25,9 +25,10 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/limits"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/quotasets"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumetypes"
-	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
+	computeflavors "github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/v2/openstack/db/v1/databases"
 	"github.com/gophercloud/gophercloud/v2/openstack/db/v1/datastores"
+	dbflavors "github.com/gophercloud/gophercloud/v2/openstack/db/v1/flavors"
 	"github.com/gophercloud/gophercloud/v2/openstack/db/v1/instances"
 	"github.com/gophercloud/gophercloud/v2/openstack/db/v1/users"
 	"github.com/gophercloud/gophercloud/v2/pagination"
@@ -78,7 +79,14 @@ func (handler *OpenStackRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMet
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, storageTypeOptions, storageSizeRange, false, true, true, false, false)
+	instanceSpecOptions, err := handler.fetchInstanceSpecOptions(supportedEngines)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSMetaInfo{}, err
+	}
+
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, false, true, true, false, false, "NA", false, false)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -200,6 +208,53 @@ func (handler *OpenStackRDBMSHandler) fetchStorageSizeRange() (irs.StorageSizeRa
 	return irs.StorageSizeRange{Min: 1, Max: int64(maxSize)}, nil
 }
 
+// fetchInstanceSpecOptions queries Trove flavors API to retrieve available instance specifications.
+func (handler *OpenStackRDBMSHandler) fetchInstanceSpecOptions(supportedEngines map[string][]string) (map[string][]string, error) {
+	if handler.DBClient == nil {
+		return nil, errors.New("OpenStack Trove DB client is not initialized")
+	}
+
+	allPages, err := dbflavors.List(handler.DBClient).AllPages(context.TODO())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Trove flavors: %w", err)
+	}
+
+	flavorList, err := dbflavors.ExtractFlavors(allPages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract Trove flavors: %w", err)
+	}
+
+	if len(flavorList) == 0 {
+		cblogger.Warn("Trove returned no flavors, using empty list")
+		instanceSpecOptions := make(map[string][]string, len(supportedEngines))
+		for engine := range supportedEngines {
+			instanceSpecOptions[engine] = []string{}
+		}
+		return instanceSpecOptions, nil
+	}
+
+	// Extract flavor names or IDs
+	flavorNames := make([]string, 0, len(flavorList))
+	for _, flavor := range flavorList {
+		if flavor.Name != "" {
+			flavorNames = append(flavorNames, flavor.Name)
+		} else if flavor.StrID != "" {
+			flavorNames = append(flavorNames, flavor.StrID)
+		}
+	}
+	sort.Strings(flavorNames)
+
+	// All engines share the same flavor list in Trove
+	instanceSpecOptions := make(map[string][]string, len(supportedEngines))
+	for engine := range supportedEngines {
+		engineFlavors := make([]string, len(flavorNames))
+		copy(engineFlavors, flavorNames)
+		instanceSpecOptions[engine] = engineFlavors
+	}
+
+	return instanceSpecOptions, nil
+}
+
 // ListIID returns a list of RDBMS instance IIDs.
 func (handler *OpenStackRDBMSHandler) ListIID() ([]*irs.IID, error) {
 	hiscallInfo := GetCallLogScheme(handler.CredentialInfo.IdentityEndpoint, call.RDBMS, "ListIID", "instances.List()")
@@ -314,11 +369,12 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 		createOpts.VolumeType = rdbmsReqInfo.StorageType
 	}
 
-	// Network: Trove needs a neutron *network* UUID (= VPC SystemId), not subnet IDs.
-	if rdbmsReqInfo.VpcIID.SystemId != "" {
-		createOpts.Networks = []instances.NetworkOpts{
-			{UUID: rdbmsReqInfo.VpcIID.SystemId},
-		}
+	// Network validation: Trove needs a neutron *network* UUID (= VPC SystemId), not subnet IDs.
+	if rdbmsReqInfo.VpcIID.SystemId == "" {
+		return irs.RDBMSInfo{}, errors.New("VPC (VpcIID.SystemId) is required for OpenStack Trove")
+	}
+	createOpts.Networks = []instances.NetworkOpts{
+		{UUID: rdbmsReqInfo.VpcIID.SystemId},
 	}
 
 	// Set availability zone if provided in Region
@@ -376,7 +432,13 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 	// Grant global admin privileges to the non-root master user so it can
 	// create/drop databases (Trove's user API only grants db-specific access).
 	if effectiveUser != "root" {
-		if grantErr := grantAdminPrivileges(rdbmsInfo.Endpoint, rdbmsInfo.Port, rootPwd, effectiveUser); grantErr != nil {
+		// Determine default port based on engine type
+		engineType := strings.ToLower(rdbmsReqInfo.DBEngine)
+		defaultPort := "3306"
+		if strings.Contains(engineType, "postgresql") {
+			defaultPort = "5432"
+		}
+		if grantErr := grantAdminPrivileges(rdbmsInfo.Endpoint, defaultPort, rootPwd, effectiveUser); grantErr != nil {
 			cblogger.Warnf("CreateRDBMS: could not grant admin privileges to '%s': %v", effectiveUser, grantErr)
 		} else {
 			cblogger.Infof("CreateRDBMS: granted ALL PRIVILEGES ON *.* to '%s'", effectiveUser)
@@ -500,11 +562,11 @@ func (handler *OpenStackRDBMSHandler) resolveFlavorRef(spec string) (string, err
 	}
 
 	// Look up by name via Nova flavors (same catalog used by Trove in DevStack)
-	allPages, err := flavors.ListDetail(handler.ComputeClient, flavors.ListOpts{}).AllPages(context.TODO())
+	allPages, err := computeflavors.ListDetail(handler.ComputeClient, computeflavors.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return "", fmt.Errorf("failed to list flavors for spec resolution: %w", err)
 	}
-	flavorList, err := flavors.ExtractFlavors(allPages)
+	flavorList, err := computeflavors.ExtractFlavors(allPages)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract flavors: %w", err)
 	}
@@ -525,11 +587,11 @@ func (handler *OpenStackRDBMSHandler) resolveFlavorName(flavorID string) (string
 		return "", fmt.Errorf("resolveFlavorName: ComputeClient is not available; cannot resolve flavor ID '%s' to name", flavorID)
 	}
 
-	allPages, err := flavors.ListDetail(handler.ComputeClient, flavors.ListOpts{}).AllPages(context.TODO())
+	allPages, err := computeflavors.ListDetail(handler.ComputeClient, computeflavors.ListOpts{}).AllPages(context.TODO())
 	if err != nil {
 		return "", fmt.Errorf("failed to list flavors for flavor name resolution: %w", err)
 	}
-	flavorList, err := flavors.ExtractFlavors(allPages)
+	flavorList, err := computeflavors.ExtractFlavors(allPages)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract flavors: %w", err)
 	}
@@ -542,7 +604,7 @@ func (handler *OpenStackRDBMSHandler) resolveFlavorName(flavorID string) (string
 }
 
 // joinFlavorNames returns a comma-separated list of flavor names for error messages.
-func joinFlavorNames(fl []flavors.Flavor) string {
+func joinFlavorNames(fl []computeflavors.Flavor) string {
 	names := make([]string, 0, len(fl))
 	for _, f := range fl {
 		names = append(names, f.Name)
@@ -687,16 +749,14 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 		}
 	}
 
-	// Determine default port based on engine type.
-	// Trove API does not expose the actual port in the instance response,
-	// so standard defaults are used as a best-effort value.
+	// Determine default port for endpoint
 	engineType := strings.ToLower(inst.Datastore.Type)
-	port := "NA"
-	switch {
-	case strings.Contains(engineType, "mysql") || strings.Contains(engineType, "mariadb"):
-		port = "3306"
-	case strings.Contains(engineType, "postgresql"):
-		port = "5432"
+	defaultPort := "3306" // MySQL/MariaDB default
+	if strings.Contains(engineType, "postgresql") {
+		defaultPort = "5432"
+	}
+	if endpoint != "NA" {
+		endpoint = fmt.Sprintf("%s:%s", endpoint, defaultPort)
 	}
 
 	return irs.RDBMSInfo{
@@ -709,19 +769,16 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 		DBEngine:        inst.Datastore.Type,
 		DBEngineVersion: inst.Datastore.Version,
 		DBInstanceSpec:  flavorName,
-		DBInstanceType:  "Primary",
+		DBInstanceType:  "NA",
 
 		StorageType: "NA",
 		StorageSize: strconv.Itoa(inst.Volume.Size),
 
-		Port:     port,
 		Endpoint: endpoint,
 
 		MasterUserName: "NA", // populated by caller via queryMasterUserName()
-		DatabaseName:   "NA", // Not exposed in instance info
 
 		HighAvailability: false, // Trove HA is deployment-specific
-		ReplicationType:  "NA",
 
 		BackupRetentionDays: 0,
 		BackupTime:          "NA",

@@ -65,6 +65,7 @@ func (handler *NcpVpcRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaIn
 }
 
 // getMysqlMetaInfo fetches MySQL-specific metadata dynamically from the NCP CSP API.
+// Only G3 generation products are supported.
 func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error) {
 	// Step 1: query image product list for supported versions.
 	// Image products expose EngineVersionCode.
@@ -78,32 +79,80 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 		return irs.RDBMSMetaInfo{}, errors.New("NCP MySQL image product list is empty")
 	}
 
+	// Filter G3 generation products only
 	versionSeen := map[string]bool{}
 	var versions []string
+	var g3ImageProductCode string
 	for _, p := range imgResp.ProductList {
+		// Filter G3 generation only
+		if p.GenerationCode == nil || *p.GenerationCode != "G3" {
+			continue
+		}
 		if p.EngineVersionCode != nil && *p.EngineVersionCode != "" && !versionSeen[*p.EngineVersionCode] {
 			versionSeen[*p.EngineVersionCode] = true
 			versions = append(versions, *p.EngineVersionCode)
+			if g3ImageProductCode == "" && p.ProductCode != nil {
+				g3ImageProductCode = *p.ProductCode
+			}
 		}
 	}
 	if len(versions) == 0 {
-		return irs.RDBMSMetaInfo{}, errors.New("no engine version info found in NCP MySQL image products")
+		return irs.RDBMSMetaInfo{}, errors.New("no G3 generation MySQL versions found in NCP")
 	}
 
-	// StorageTypeOptions: per NCP documentation, G2 supports HDD or SSD, G3 uses SSD automatically.
-	// StorageSizeRange: NCP Cloud DB data storage range per NCP documentation (10~6000 GB).
-	// The NCP SDK does not expose query APIs for these values.
+	// Step 2: Query product list for available instance specs (CloudMysqlProductCode)
+	// Use G3 image product code to query available server specs
+	var instanceSpecs []string
+	if g3ImageProductCode != "" {
+		var err error
+		instanceSpecs, err = handler.fetchMysqlProductSpecs(g3ImageProductCode)
+		if err != nil {
+			cblogger.Infof("Failed to fetch MySQL G3 product specs, using empty list: %v", err)
+			instanceSpecs = []string{}
+		}
+	}
+
+	// StorageTypeOptions: G3 generation uses SSD automatically.
+	// StorageSizeRange: NCP G3 supports 10GB default, 10GB increments up to 6000GB.
 	return irs.RDBMSMetaInfo{
 		DBEngine:                   "mysql",
 		SupportedVersions:          versions,
-		StorageTypeOptions:         []string{"HDD", "SSD"},
+		DBInstanceSpecOptions:      instanceSpecs,
+		StorageTypeOptions:         []string{"SSD"},
 		StorageSizeRange:           irs.StorageSizeRange{Min: 10, Max: 6000},
 		SupportsHighAvailability:   true,
 		SupportsBackup:             true,
 		SupportsPublicAccess:       false, // NCP does not expose a public domain assignment API; must be done manually via NCP Console
 		SupportsDeletionProtection: true,
 		SupportsEncryption:         false, // 2024년 10월 21일부터 신규 서비스 암호화 미제공 (Rocky 8.10)
+		RequiresSubnet:             true,
+		RequiresSecurityGroup:      false,
 	}, nil
+}
+
+// fetchMysqlProductSpecs queries NCP GetCloudMysqlProductList API to retrieve available product codes (instance specs)
+// The imageProductCode parameter is already filtered to G3, so no additional generation filtering is needed.
+func (handler *NcpVpcRDBMSHandler) fetchMysqlProductSpecs(imageProductCode string) ([]string, error) {
+	prodResp, err := handler.MysqlClient.V2Api.GetCloudMysqlProductList(&vmysql.GetCloudMysqlProductListRequest{
+		RegionCode:                 &handler.RegionInfo.Region,
+		CloudMysqlImageProductCode: &imageProductCode,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query NCP MySQL product list: %w", err)
+	}
+	if len(prodResp.ProductList) == 0 {
+		return []string{}, nil
+	}
+
+	specSeen := map[string]bool{}
+	var specs []string
+	for _, p := range prodResp.ProductList {
+		if p.ProductCode != nil && *p.ProductCode != "" && !specSeen[*p.ProductCode] {
+			specSeen[*p.ProductCode] = true
+			specs = append(specs, *p.ProductCode)
+		}
+	}
+	return specs, nil
 }
 
 // getPostgresqlMetaInfo fetches PostgreSQL-specific metadata dynamically from the NCP CSP API.
@@ -132,12 +181,29 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 		return irs.RDBMSMetaInfo{}, errors.New("no engine version info found in NCP PostgreSQL image products")
 	}
 
+	// Step 2: Query product list for available instance specs (CloudPostgresqlProductCode)
+	// Use the first image product code to query available server specs
+	var imageProductCode string
+	if len(imgResp.ProductList) > 0 && imgResp.ProductList[0].ProductCode != nil {
+		imageProductCode = *imgResp.ProductList[0].ProductCode
+	}
+
+	var instanceSpecs []string
+	if imageProductCode != "" {
+		var err error
+		instanceSpecs, err = handler.fetchPostgresqlProductSpecs(imageProductCode)
+		if err != nil {
+			cblogger.Infof("Failed to fetch PostgreSQL product specs, using empty list: %v", err)
+			instanceSpecs = []string{}
+		}
+	}
+
 	// StorageTypeOptions: per NCP documentation, PostgreSQL (G3) uses SSD automatically.
-	// StorageSizeRange: NCP Cloud DB data storage range per NCP documentation (10~6000 GB).
-	// The NCP SDK does not expose query APIs for these values.
+	// StorageSizeRange: NCP G3 supports 10GB default, 10GB increments up to 6000GB.
 	return irs.RDBMSMetaInfo{
 		DBEngine:                   "postgresql",
 		SupportedVersions:          versions,
+		DBInstanceSpecOptions:      instanceSpecs,
 		StorageTypeOptions:         []string{"SSD"},
 		StorageSizeRange:           irs.StorageSizeRange{Min: 10, Max: 6000},
 		SupportsHighAvailability:   true,
@@ -145,7 +211,33 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 		SupportsPublicAccess:       false,
 		SupportsDeletionProtection: false,
 		SupportsEncryption:         true,
+		RequiresSubnet:             true,
+		RequiresSecurityGroup:      false,
 	}, nil
+}
+
+// fetchPostgresqlProductSpecs queries NCP GetCloudPostgresqlProductList API to retrieve available product codes (instance specs)
+func (handler *NcpVpcRDBMSHandler) fetchPostgresqlProductSpecs(imageProductCode string) ([]string, error) {
+	prodResp, err := handler.PostgresClient.V2Api.GetCloudPostgresqlProductList(&vpostgresql.GetCloudPostgresqlProductListRequest{
+		RegionCode:                      &handler.RegionInfo.Region,
+		CloudPostgresqlImageProductCode: &imageProductCode,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query NCP PostgreSQL product list: %w", err)
+	}
+	if len(prodResp.ProductList) == 0 {
+		return []string{}, nil
+	}
+
+	specSeen := map[string]bool{}
+	var specs []string
+	for _, p := range prodResp.ProductList {
+		if p.ProductCode != nil && *p.ProductCode != "" && !specSeen[*p.ProductCode] {
+			specSeen[*p.ProductCode] = true
+			specs = append(specs, *p.ProductCode)
+		}
+	}
+	return specs, nil
 }
 
 // ListIID returns a list of all RDBMS instance IIDs (MySQL + PostgreSQL).
@@ -227,9 +319,13 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	isHa := reqInfo.HighAvailability
 	isBackup := true
 	hostIp := "%"
-	dbName := reqInfo.DatabaseName
-	if dbName == "" {
-		dbName = "mydb"
+	dbName := "mydb" // NCP requires initial database name
+
+	// Find G3 image product code for the requested engine version
+	imageProductCode, err := handler.findMysqlG3ImageProductCode(reqInfo.DBEngineVersion)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSInfo{}, fmt.Errorf("failed to find G3 image product for MySQL version %s: %w", reqInfo.DBEngineVersion, err)
 	}
 
 	// CloudMysqlServerNamePrefix: max 15 chars, must not end with '-'
@@ -251,42 +347,44 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 		CloudMysqlDatabaseName:     &dbName,
 		IsHa:                       &isHa,
 		IsBackup:                   &isBackup,
+		CloudMysqlImageProductCode: &imageProductCode,
 	}
 
-	if reqInfo.DBInstanceSpec != "" {
-		createReq.CloudMysqlProductCode = &reqInfo.DBInstanceSpec
+	// DBInstanceSpec is required: it specifies CPU, memory, and base storage configuration
+	if reqInfo.DBInstanceSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required for NCP MySQL instance creation. Use GetMetaInfo to get available options")
 	}
+	createReq.CloudMysqlProductCode = &reqInfo.DBInstanceSpec
+
 	if reqInfo.DBEngineVersion != "" {
 		createReq.EngineVersionCode = &reqInfo.DBEngineVersion
 	}
-	if reqInfo.StorageSize != "" {
-		// NCP Cloud DB for MySQL does not support setting storage size as an independent parameter.
-		// Storage capacity is bundled with the product code (DBInstanceSpec).
-		cblogger.Warnf("NCP MySQL: StorageSize '%s' GB is ignored — storage is determined by the product code (DBInstanceSpec)", reqInfo.StorageSize)
+
+	// StorageSize: NCP G3 always starts with 10GB and automatically scales up by 10GB as data increases (up to 6000GB).
+	// Storage size cannot be specified at creation time.
+	if reqInfo.StorageSize != "" && reqInfo.StorageSize != "10" {
+		return irs.RDBMSInfo{}, fmt.Errorf("NCP MySQL G3 does not support custom StorageSize at creation. Default is 10GB, automatically scaled up by 10GB as data increases (up to 6000GB). Requested: %s GB", reqInfo.StorageSize)
 	}
+
 	if reqInfo.StorageType != "" {
-		createReq.DataStorageTypeCode = &reqInfo.StorageType
+		// G3 generation automatically uses SSD; DataStorageTypeCode must NOT be specified
+		if strings.ToUpper(reqInfo.StorageType) != "SSD" {
+			return irs.RDBMSInfo{}, fmt.Errorf("NCP MySQL G3 only supports SSD storage type, requested: %s", reqInfo.StorageType)
+		}
+		// Do not set DataStorageTypeCode for G3 (SSD is automatic)
+		cblogger.Infof("NCP MySQL G3: SSD storage type is applied automatically (not set explicitly)")
 	}
-	if reqInfo.Encryption {
-		createReq.IsStorageEncryption = &reqInfo.Encryption
-	}
+	// Encryption is not configurable at creation via Spider (NCP uses default encryption settings)
 	if reqInfo.DeletionProtection {
 		createReq.IsDeleteProtection = &reqInfo.DeletionProtection
 	}
-	if reqInfo.BackupRetentionDays > 0 {
-		period := int32(reqInfo.BackupRetentionDays)
-		createReq.BackupFileRetentionPeriod = &period
+	backupPeriod := reqInfo.BackupRetentionDays
+	if backupPeriod <= 0 {
+		backupPeriod = 1 // NCP default
 	}
-	if reqInfo.BackupTime != "" {
-		createReq.BackupTime = &reqInfo.BackupTime
-	}
-	if reqInfo.Port != "" {
-		port, err := strconv.Atoi(reqInfo.Port)
-		if err == nil {
-			p := int32(port)
-			createReq.CloudMysqlPort = &p
-		}
-	}
+	period := int32(backupPeriod)
+	createReq.BackupFileRetentionPeriod = &period
+	// BackupTime is not configurable at creation via Spider (NCP auto-assigns)
 
 	resp, err := handler.MysqlClient.V2Api.CreateCloudMysqlInstance(createReq)
 	if err != nil {
@@ -305,9 +403,6 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 
 	if reqInfo.PublicAccess {
 		port := "3306"
-		if reqInfo.Port != "" {
-			port = reqInfo.Port
-		}
 		// NCP only populates AccessControlGroupNoList once the instance reaches "running" state.
 		cblogger.Infof("NCP MySQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
 		runningInst, waitErr := handler.waitForMysqlRunningAndGet(instanceNo, 40*time.Minute)
@@ -329,11 +424,8 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	}
 
 	info := handler.convertMysqlInstanceToRDBMSInfo(instForInfo)
-	// NCP does not expose master username/dbname via API; populate from request
+	// NCP does not expose master username via API; populate from request
 	info.MasterUserName = reqInfo.MasterUserName
-	if reqInfo.DatabaseName != "" {
-		info.DatabaseName = reqInfo.DatabaseName
-	}
 	return info, nil
 }
 
@@ -341,9 +433,13 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	isHa := reqInfo.HighAvailability
 	isBackup := true
 	clientCidr := "0.0.0.0/0"
-	dbName := reqInfo.DatabaseName
-	if dbName == "" {
-		dbName = "mydb"
+	dbName := "mydb" // NCP requires initial database name
+
+	// Find G3 image product code for the requested engine version
+	imageProductCode, err := handler.findPostgresqlG3ImageProductCode(reqInfo.DBEngineVersion)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSInfo{}, fmt.Errorf("failed to find G3 image product for PostgreSQL version %s: %w", reqInfo.DBEngineVersion, err)
 	}
 
 	createReq := &vpostgresql.CreateCloudPostgresqlInstanceRequest{
@@ -358,34 +454,41 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 		CloudPostgresqlDatabaseName:     &dbName,
 		IsHa:                            &isHa,
 		IsBackup:                        &isBackup,
+		CloudPostgresqlImageProductCode: &imageProductCode,
 	}
 
-	if reqInfo.DBInstanceSpec != "" {
-		createReq.CloudPostgresqlProductCode = &reqInfo.DBInstanceSpec
+	// DBInstanceSpec is required: it specifies CPU, memory, and base storage configuration
+	if reqInfo.DBInstanceSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required for NCP PostgreSQL instance creation. Use GetMetaInfo to get available options")
 	}
+	createReq.CloudPostgresqlProductCode = &reqInfo.DBInstanceSpec
+
 	if reqInfo.DBEngineVersion != "" {
 		createReq.EngineVersionCode = &reqInfo.DBEngineVersion
 	}
+
+	// StorageSize: NCP G3 always starts with 10GB and automatically scales up by 10GB as data increases (up to 6000GB).
+	// Storage size cannot be specified at creation time.
+	if reqInfo.StorageSize != "" && reqInfo.StorageSize != "10" {
+		return irs.RDBMSInfo{}, fmt.Errorf("NCP PostgreSQL G3 does not support custom StorageSize at creation. Default is 10GB, automatically scaled up by 10GB as data increases (up to 6000GB). Requested: %s GB", reqInfo.StorageSize)
+	}
+
 	if reqInfo.StorageType != "" {
-		createReq.DataStorageTypeCode = &reqInfo.StorageType
-	}
-	if reqInfo.Encryption {
-		createReq.IsStorageEncryption = &reqInfo.Encryption
-	}
-	if reqInfo.BackupRetentionDays > 0 {
-		period := int32(reqInfo.BackupRetentionDays)
-		createReq.BackupFileRetentionPeriod = &period
-	}
-	if reqInfo.BackupTime != "" {
-		createReq.BackupTime = &reqInfo.BackupTime
-	}
-	if reqInfo.Port != "" {
-		port, err := strconv.Atoi(reqInfo.Port)
-		if err == nil {
-			p := int32(port)
-			createReq.CloudPostgresqlPort = &p
+		// G3 generation automatically uses SSD; DataStorageTypeCode must NOT be specified
+		if strings.ToUpper(reqInfo.StorageType) != "SSD" {
+			return irs.RDBMSInfo{}, fmt.Errorf("NCP PostgreSQL G3 only supports SSD storage type, requested: %s", reqInfo.StorageType)
 		}
+		// Do not set DataStorageTypeCode for G3 (SSD is automatic)
+		cblogger.Infof("NCP PostgreSQL G3: SSD storage type is applied automatically (not set explicitly)")
 	}
+	// Encryption is not configurable at creation via Spider (NCP uses default encryption settings)
+	backupPeriod := reqInfo.BackupRetentionDays
+	if backupPeriod <= 0 {
+		backupPeriod = 1 // NCP default
+	}
+	period := int32(backupPeriod)
+	createReq.BackupFileRetentionPeriod = &period
+	// BackupTime is not configurable at creation via Spider (NCP auto-assigns)
 
 	resp, err := handler.PostgresClient.V2Api.CreateCloudPostgresqlInstance(createReq)
 	if err != nil {
@@ -404,9 +507,6 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 
 	if reqInfo.PublicAccess {
 		port := "5432"
-		if reqInfo.Port != "" {
-			port = reqInfo.Port
-		}
 		cblogger.Infof("NCP PostgreSQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
 		runningInst, waitErr := handler.waitForPostgresqlRunningAndGet(instanceNo, 40*time.Minute)
 		if waitErr != nil {
@@ -427,11 +527,8 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	}
 
 	info := handler.convertPostgresqlInstanceToRDBMSInfo(instForInfo)
-	// NCP does not expose master username/dbname via API; populate from request
+	// NCP does not expose master username via API; populate from request
 	info.MasterUserName = reqInfo.MasterUserName
-	if reqInfo.DatabaseName != "" {
-		info.DatabaseName = reqInfo.DatabaseName
-	}
 	return info, nil
 }
 
@@ -571,6 +668,131 @@ func (handler *NcpVpcRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
 }
 
 // ---- Helper functions ----
+
+// extractStorageSizeFromProductCode parses storage size (GB) from NCP product code.
+// Product code format: SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003
+// .BXXX. pattern indicates storage size (e.g., B050 = 50GB, B100 = 100GB)
+// Returns 0 if pattern not found.
+func extractStorageSizeFromProductCode(productCode string) int {
+	parts := strings.Split(productCode, ".")
+	for _, part := range parts {
+		if len(part) > 1 && part[0] == 'B' {
+			// Extract numeric portion (e.g., "B050" -> "050" -> 50)
+			sizeStr := part[1:]
+			size, err := strconv.Atoi(sizeStr)
+			if err == nil && size > 0 {
+				return size
+			}
+		}
+	}
+	return 0
+}
+
+// calculateStorageRangeFromSpecs calculates min/max storage size from product code list.
+// If no valid storage sizes found, returns (0, 0) to indicate "not applicable".
+func calculateStorageRangeFromSpecs(specs []string) (int, int) {
+	if len(specs) == 0 {
+		return 0, 0
+	}
+
+	minSize := 0
+	maxSize := 0
+	for _, spec := range specs {
+		size := extractStorageSizeFromProductCode(spec)
+		if size > 0 {
+			if minSize == 0 || size < minSize {
+				minSize = size
+			}
+			if size > maxSize {
+				maxSize = size
+			}
+		}
+	}
+
+	// If no storage sizes found, return 0,0
+	if minSize == 0 && maxSize == 0 {
+		return 0, 0
+	}
+	return minSize, maxSize
+}
+
+// findMysqlG3ImageProductCode finds the G3 image product code for the specified MySQL engine version.
+func (handler *NcpVpcRDBMSHandler) findMysqlG3ImageProductCode(engineVersion string) (string, error) {
+	imgResp, err := handler.MysqlClient.V2Api.GetCloudMysqlImageProductList(&vmysql.GetCloudMysqlImageProductListRequest{
+		RegionCode: &handler.RegionInfo.Region,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to query NCP MySQL image product list: %w", err)
+	}
+	if len(imgResp.ProductList) == 0 {
+		return "", errors.New("NCP MySQL image product list is empty")
+	}
+
+	// Find G3 image product with matching engine version
+	for _, p := range imgResp.ProductList {
+		// Filter G3 generation only
+		if p.GenerationCode == nil || *p.GenerationCode != "G3" {
+			continue
+		}
+		// Match engine version if specified
+		if engineVersion != "" {
+			if p.EngineVersionCode != nil && *p.EngineVersionCode == engineVersion {
+				if p.ProductCode != nil && *p.ProductCode != "" {
+					return *p.ProductCode, nil
+				}
+			}
+		} else {
+			// If no version specified, return first G3 image product
+			if p.ProductCode != nil && *p.ProductCode != "" {
+				return *p.ProductCode, nil
+			}
+		}
+	}
+
+	if engineVersion != "" {
+		return "", fmt.Errorf("no G3 image product found for MySQL version %s", engineVersion)
+	}
+	return "", errors.New("no G3 image product found for MySQL")
+}
+
+// findPostgresqlG3ImageProductCode finds the G3 image product code for the specified PostgreSQL engine version.
+func (handler *NcpVpcRDBMSHandler) findPostgresqlG3ImageProductCode(engineVersion string) (string, error) {
+	imgResp, err := handler.PostgresClient.V2Api.GetCloudPostgresqlImageProductList(&vpostgresql.GetCloudPostgresqlImageProductListRequest{
+		RegionCode: &handler.RegionInfo.Region,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to query NCP PostgreSQL image product list: %w", err)
+	}
+	if len(imgResp.ProductList) == 0 {
+		return "", errors.New("NCP PostgreSQL image product list is empty")
+	}
+
+	// Find G3 image product with matching engine version
+	for _, p := range imgResp.ProductList {
+		// PostgreSQL is G3 only, but check anyway
+		if p.GenerationCode != nil && *p.GenerationCode != "G3" {
+			continue
+		}
+		// Match engine version if specified
+		if engineVersion != "" {
+			if p.EngineVersionCode != nil && *p.EngineVersionCode == engineVersion {
+				if p.ProductCode != nil && *p.ProductCode != "" {
+					return *p.ProductCode, nil
+				}
+			}
+		} else {
+			// If no version specified, return first G3 image product
+			if p.ProductCode != nil && *p.ProductCode != "" {
+				return *p.ProductCode, nil
+			}
+		}
+	}
+
+	if engineVersion != "" {
+		return "", fmt.Errorf("no G3 image product found for PostgreSQL version %s", engineVersion)
+	}
+	return "", errors.New("no G3 image product found for PostgreSQL")
+}
 
 func derefStr(s *string) string {
 	if s == nil {
@@ -789,12 +1011,9 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 		BackupRetentionDays: int(derefInt32(inst.BackupFileRetentionPeriod)),
 		BackupTime:          derefStr(inst.BackupTime),
 
-		Port:               strconv.Itoa(int(derefInt32(inst.CloudMysqlPort))),
 		MasterUserName:     handler.getMysqlMasterUserName(derefStr(inst.CloudMysqlInstanceNo)),
-		DatabaseName:       "NA", // Not exposed in list/detail API
 		DeletionProtection: false,
 		PublicAccess:       false,
-		ReplicationType:    "async",
 
 		Status: convertNcpMysqlStatusToRDBMSStatus(inst.CloudMysqlInstanceStatusName),
 	}
@@ -811,22 +1030,44 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 		serverInst := inst.CloudMysqlServerInstanceList[0]
 		info.VpcIID = irs.IID{NameId: "NA", SystemId: derefStr(serverInst.VpcNo)}
 		info.DBInstanceSpec = derefStr(serverInst.CloudMysqlProductCode)
+
+		// Set endpoint with port
+		var domain string
 		if serverInst.PublicDomain != nil && *serverInst.PublicDomain != "" {
-			info.Endpoint = *serverInst.PublicDomain
+			domain = *serverInst.PublicDomain
 			info.PublicAccess = true
 		} else {
-			info.Endpoint = derefStr(serverInst.PrivateDomain)
+			domain = derefStr(serverInst.PrivateDomain)
 			info.PublicAccess = false
 		}
+
+		// Append port to endpoint
+		port := derefInt32(inst.CloudMysqlPort)
+		if port > 0 {
+			info.Endpoint = fmt.Sprintf("%s:%d", domain, port)
+		} else {
+			info.Endpoint = domain
+		}
+
 		info.Encryption = derefBool(serverInst.IsStorageEncryption)
 
+		// Storage size and type: use values from NCP API directly
 		storageSizeBytes := derefInt64(serverInst.DataStorageSize)
-		info.StorageSize = strconv.FormatInt(storageSizeBytes/(1024*1024*1024), 10)
+		if storageSizeBytes > 0 {
+			info.StorageSize = strconv.FormatInt(storageSizeBytes/(1024*1024*1024), 10)
+		} else {
+			info.StorageSize = "NA"
+		}
 
 		if serverInst.DataStorageType != nil && serverInst.DataStorageType.CodeName != nil {
 			info.StorageType = *serverInst.DataStorageType.CodeName
 		} else {
-			info.StorageType = "NA"
+			// G3 generation always uses SSD
+			if derefStr(inst.GenerationCode) == "G3" {
+				info.StorageType = "SSD"
+			} else {
+				info.StorageType = "NA"
+			}
 		}
 
 		if len(inst.CloudMysqlServerInstanceList) > 0 {
@@ -903,12 +1144,9 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 		BackupRetentionDays: int(derefInt32(inst.BackupFileRetentionPeriod)),
 		BackupTime:          derefStr(inst.BackupTime),
 
-		Port:               strconv.Itoa(int(derefInt32(inst.CloudPostgresqlPort))),
 		MasterUserName:     handler.getPostgresqlMasterUserName(derefStr(inst.CloudPostgresqlInstanceNo)),
-		DatabaseName:       "NA",
 		DeletionProtection: false, // PostgreSQL does not support deletion protection
 		PublicAccess:       false,
-		ReplicationType:    "async",
 
 		Status: convertNcpPostgresqlStatusToRDBMSStatus(inst.CloudPostgresqlInstanceStatusName),
 	}
@@ -925,22 +1163,44 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 		serverInst := inst.CloudPostgresqlServerInstanceList[0]
 		info.VpcIID = irs.IID{NameId: "NA", SystemId: derefStr(serverInst.VpcNo)}
 		info.DBInstanceSpec = derefStr(serverInst.CloudPostgresqlProductCode)
+
+		// Set endpoint with port
+		var domain string
 		if serverInst.PublicDomain != nil && *serverInst.PublicDomain != "" {
-			info.Endpoint = *serverInst.PublicDomain
+			domain = *serverInst.PublicDomain
 			info.PublicAccess = true
 		} else {
-			info.Endpoint = derefStr(serverInst.PrivateDomain)
+			domain = derefStr(serverInst.PrivateDomain)
 			info.PublicAccess = false
 		}
+
+		// Append port to endpoint
+		port := derefInt32(inst.CloudPostgresqlPort)
+		if port > 0 {
+			info.Endpoint = fmt.Sprintf("%s:%d", domain, port)
+		} else {
+			info.Endpoint = domain
+		}
+
 		info.Encryption = derefBool(serverInst.IsStorageEncryption)
 
+		// Storage size and type: use values from NCP API directly
 		storageSizeBytes := derefInt64(serverInst.DataStorageSize)
-		info.StorageSize = strconv.FormatInt(storageSizeBytes/(1024*1024*1024), 10)
+		if storageSizeBytes > 0 {
+			info.StorageSize = strconv.FormatInt(storageSizeBytes/(1024*1024*1024), 10)
+		} else {
+			info.StorageSize = "NA"
+		}
 
 		if serverInst.DataStorageType != nil && serverInst.DataStorageType.CodeName != nil {
 			info.StorageType = *serverInst.DataStorageType.CodeName
 		} else {
-			info.StorageType = "NA"
+			// G3 generation always uses SSD
+			if derefStr(inst.GenerationCode) == "G3" {
+				info.StorageType = "SSD"
+			} else {
+				info.StorageType = "NA"
+			}
 		}
 
 		if len(inst.CloudPostgresqlServerInstanceList) > 0 {

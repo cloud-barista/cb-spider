@@ -1162,7 +1162,8 @@ definitions:
         example: 7
         type: integer
       BackupTime:
-        description: Preferred backup time (HH:MM in UTC)
+        description: Preferred backup time (read-only, CSP-managed. Not configurable
+          at creation via Spider.)
         example: "03:00"
         type: string
       CreatedTime:
@@ -1183,24 +1184,21 @@ definitions:
         description: Primary | ReadReplica (for response)
         example: Primary
         type: string
-      DatabaseName:
-        description: Database
-        example: mydb
-        type: string
       DeletionProtection:
         default: false
         description: Protection
         type: boolean
       Encryption:
         default: false
-        description: Encryption
+        description: Encryption - read-only, CSP-managed. Not configurable at creation
+          via Spider.
         type: boolean
       Endpoint:
         description: Connection endpoint (for response)
         type: string
       HighAvailability:
         default: false
-        description: High Availability & Replication
+        description: High Availability
         type: boolean
       IId:
         allOf:
@@ -1217,18 +1215,10 @@ definitions:
       MasterUserPassword:
         description: Master user password (for Create request only)
         type: string
-      Port:
-        description: DB listen port
-        example: "3306"
-        type: string
       PublicAccess:
         default: false
         description: Access
         type: boolean
-      ReplicationType:
-        description: async | semi-sync | sync (for response)
-        example: async
-        type: string
       SecurityGroupIIDs:
         description: Associated Security Groups
         items:
@@ -1273,10 +1263,29 @@ definitions:
   spider.RDBMSMetaInfo:
     description: RDBMS Meta Information for CSP-specific capabilities
     properties:
+      BackupRetentionRange:
+        description: Backup retention range at creation time (e.g., "1-35", "7-730").
+          "NA" if not configurable at creation.
+        type: string
       DBEngine:
         description: Requested DB engine name. e.g., mysql, mariadb, postgresql
         example: mysql
         type: string
+      DBInstanceSpecOptions:
+        description: Available DBInstanceSpec values for the requested DB engine.
+          "NA" if CSP does not provide spec list API.
+        example:
+        - db.t3.medium
+        - "1000"
+        items:
+          type: string
+        type: array
+      RequiresSecurityGroup:
+        description: true if SecurityGroupNames is required at creation
+        type: boolean
+      RequiresSubnet:
+        description: true if SubnetNames is required at creation
+        type: boolean
       StorageSizeRange:
         allOf:
         - $ref: '#/definitions/spider.StorageSizeRange'
@@ -3281,11 +3290,9 @@ definitions:
       ReqInfo:
         properties:
           BackupRetentionDays:
+            description: Backup retention days (CSP will auto-assign backup time)
             example: 7
             type: integer
-          BackupTime:
-            example: "03:00"
-            type: string
           DBEngine:
             example: mysql
             type: string
@@ -3295,13 +3302,7 @@ definitions:
           DBInstanceSpec:
             example: db.t3.medium
             type: string
-          DatabaseName:
-            example: mydb
-            type: string
           DeletionProtection:
-            default: false
-            type: boolean
-          Encryption:
             default: false
             type: boolean
           HighAvailability:
@@ -3315,9 +3316,6 @@ definitions:
             type: string
           Name:
             example: rdbms-01
-            type: string
-          Port:
-            example: "3306"
             type: string
           PublicAccess:
             default: false
@@ -8813,6 +8811,46 @@ paths:
       summary: List Databases in RDBMS
       tags:
       - '[RDBMS Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a database inside an RDBMS instance using the CSP-native
+        API.
+      operationId: create-rdbms-database
+      parameters:
+      - description: The name of the RDBMS instance
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: ConnectionName and DatabaseName
+        in: body
+        name: RDBMSDatabaseRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RDBMSDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Created
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "501":
+          description: Not Supported by driver
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create Database in RDBMS
+      tags:
+      - '[RDBMS Management]'
   /rdbms/{Name}/databases/{DBName}:
     delete:
       consumes:
@@ -8856,47 +8894,6 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Delete Database in RDBMS
-      tags:
-      - '[RDBMS Management]'
-  /rdbms/{Name}/databases/create:
-    post:
-      consumes:
-      - application/json
-      description: Create a database inside an RDBMS instance using the CSP-native
-        API.
-      operationId: create-rdbms-database
-      parameters:
-      - description: The name of the RDBMS instance
-        in: path
-        name: Name
-        required: true
-        type: string
-      - description: ConnectionName and DatabaseName
-        in: body
-        name: RDBMSDatabaseRequest
-        required: true
-        schema:
-          $ref: '#/definitions/spider.RDBMSDatabaseRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Created
-          schema:
-            $ref: '#/definitions/spider.SimpleMsg'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/spider.SimpleMsg'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/spider.SimpleMsg'
-        "501":
-          description: Not Supported by driver
-          schema:
-            $ref: '#/definitions/spider.SimpleMsg'
-      summary: Create Database in RDBMS
       tags:
       - '[RDBMS Management]'
   /rdbmsmetainfo:

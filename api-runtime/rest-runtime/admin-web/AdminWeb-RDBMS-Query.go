@@ -75,16 +75,12 @@ func fetchRDBMSInfo(connConfig, rdbmsName string) (*cres.RDBMSInfo, error) {
 }
 
 // openDBConnection creates a database/sql connection to the RDBMS instance.
-// dbNameOverride, if non-empty, takes precedence over info.DatabaseName.
+// dbNameOverride specifies the database name to connect to.
 func openDBConnection(info *cres.RDBMSInfo, password, dbNameOverride string) (*sql.DB, string, error) {
 	engine := strings.ToLower(info.DBEngine)
 	endpoint := info.Endpoint
-	port := info.Port
 	user := info.MasterUserName
-	dbName := info.DatabaseName
-	if dbNameOverride != "" {
-		dbName = dbNameOverride
-	}
+	dbName := dbNameOverride
 	// Treat "NA" as no database specified (some drivers return "NA" as placeholder)
 	if strings.EqualFold(dbName, "NA") {
 		dbName = ""
@@ -100,15 +96,14 @@ func openDBConnection(info *cres.RDBMSInfo, password, dbNameOverride string) (*s
 
 	// Strip port from endpoint if it already contains one (e.g., "host.rds.amazonaws.com:3306")
 	host := endpoint
+	port := ""
 	if idx := strings.LastIndex(endpoint, ":"); idx > 0 {
 		hostPart := endpoint[:idx]
 		portPart := endpoint[idx+1:]
 		// Check if the part after ':' looks like a port number
 		if _, err := fmt.Sscanf(portPart, "%d", new(int)); err == nil {
 			host = hostPart
-			if port == "" {
-				port = portPart
-			}
+			port = portPart
 		}
 	}
 
