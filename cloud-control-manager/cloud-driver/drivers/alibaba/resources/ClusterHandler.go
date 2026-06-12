@@ -546,11 +546,33 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	// Image: Alibaba uses ImageId as SystemId
 	imageId := nodeGroupReqInfo.ImageIID.SystemId
 
+	// ACK image_type aliases - these must be passed as image_type, not image_id.
+	// Actual ECS image IDs start with "m-"; anything else that matches a known
+	// ACK image_type value should be routed accordingly.
+	ackImageTypeAliases := map[string]bool{
+		"AliyunLinux":                    true,
+		"AliyunLinux3":                   true,
+		"AliyunLinux3ContainerOptimized": true,
+		"AliyunLinux3Arm64":              true,
+		"AliyunLinuxSecurity":            true,
+		"AliyunLinuxUEFI":                true,
+		"ContainerOS":                    true,
+		"CentOS":                         true,
+		"Ubuntu":                         true,
+		"Windows":                        true,
+		"WindowsCore":                    true,
+	}
+
 	imageType := ""
 	if strings.EqualFold(imageId, "") || strings.EqualFold(imageId, "default") {
 		imageId = ""
 		imageType = defaultNodePoolImageType
 		cblogger.Debugf("Using default image type: %s", imageType)
+	} else if ackImageTypeAliases[imageId] {
+		// imageId is an ACK image_type alias, not an actual ECS image ID
+		imageType = imageId
+		imageId = ""
+		cblogger.Debugf("Routing ACK image_type alias as image_type: %s", imageType)
 	} else {
 		cblogger.Debugf("Using specified image ID: %s", imageId)
 	}
