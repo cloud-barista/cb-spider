@@ -57,7 +57,7 @@ func (handler *TencentRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("GetMetaInfo failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "7-1830", true, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "7-1830", true, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -101,6 +101,17 @@ func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, 
 	storageTypeSet := make(map[string]struct{})
 	selectedConfigIDs := make(map[int64]struct{})
 
+	// DeviceTypes supported in the matched zone, derived from SellType ConfigIds.
+	// Used to filter DiskTypeConf: cloud disk types are only included when the zone
+	// actually has CLOUD_NATIVE_CLUSTER configs available.
+	zoneDeviceTypes := make(map[string]struct{})
+
+	// Device types that use cloud disk storage (CLOUD_HSSD, CLOUD_SSD, CLOUD_PREMIUM).
+	cloudNativeDeviceTypes := map[string]bool{
+		"CLOUD_NATIVE_CLUSTER":           true,
+		"CLOUD_NATIVE_CLUSTER_EXCLUSIVE": true,
+	}
+
 	matchedZone := false
 	for _, regionConf := range data.Regions {
 		if regionConf == nil || regionConf.Region == nil {
@@ -135,16 +146,30 @@ func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, 
 					if cfgID == nil {
 						continue
 					}
-					_, ok := configMap[*cfgID]
+					cfg, ok := configMap[*cfgID]
 					if !ok {
 						continue
 					}
 					selectedConfigIDs[*cfgID] = struct{}{}
+					// Track device types actually available in this zone
+					if cfg.DeviceType != nil && *cfg.DeviceType != "" {
+						zoneDeviceTypes[*cfg.DeviceType] = struct{}{}
+					}
 				}
 			}
 
+			// Include cloud disk storage types only if the zone supports CLOUD_NATIVE_CLUSTER.
+			// DiskTypeConf items carry a DeviceType field; we match it against zoneDeviceTypes
+			// so that zones without cloud-native configs (e.g., Beijing-3) do not expose
+			// CLOUD_HSSD/CLOUD_SSD/CLOUD_PREMIUM as usable options.
 			for _, diskTypeConf := range zoneConf.DiskTypeConf {
-				if diskTypeConf == nil {
+				if diskTypeConf == nil || diskTypeConf.DeviceType == nil {
+					continue
+				}
+				if !cloudNativeDeviceTypes[*diskTypeConf.DeviceType] {
+					continue
+				}
+				if _, supported := zoneDeviceTypes[*diskTypeConf.DeviceType]; !supported {
 					continue
 				}
 				for _, diskType := range diskTypeConf.DiskType {
@@ -165,9 +190,8 @@ func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, 
 	if len(selectedConfigIDs) == 0 {
 		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no available CDB config IDs for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
 	}
-	if len(storageTypeSet) == 0 {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeCdbZoneConfig returned no storage types for region [%s], zone [%s]", handler.Region.Region, handler.Region.Zone)
-	}
+	// UNIVERSAL (local SSD) is always available; add it regardless of cloud disk support.
+	storageTypeSet["local_ssd"] = struct{}{}
 
 	memorySet := make(map[int64]struct{})
 	storageRange := irs.StorageSizeRange{}
@@ -379,11 +403,6 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 	request.UniqVpcId = &rdbmsReqInfo.VpcIID.SystemId
 	request.UniqSubnetId = &rdbmsReqInfo.SubnetIIDs[0].SystemId
 
-	// Zone
-	if handler.Region.Zone != "" {
-		request.Zone = &handler.Region.Zone
-	}
-
 	// HA - ProtectMode: 0=async, 1=semi-sync, 2=strong-sync
 	if rdbmsReqInfo.HighAvailability {
 		protectMode := int64(1) // semi-sync for HA
@@ -424,7 +443,77 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		request.ResourceTags = tags
 	}
 
-	response, err := handler.Client.CreateDBInstanceHour(request)
+	// StorageType handling:
+	//   "local_ssd"    → UNIVERSAL device type (default, no DeviceType/Zone needed)
+	//   cloud disk types → DeviceType=CLOUD_NATIVE_CLUSTER required; Zone must NOT be set
+	//                      (CLOUD_NATIVE_CLUSTER derives zone from VPC/Subnet automatically)
+	tencentCloudDiskTypes := map[string]bool{
+		"CLOUD_HSSD":    true,
+		"CLOUD_SSD":     true,
+		"CLOUD_PREMIUM": true,
+	}
+	switch {
+	case rdbmsReqInfo.StorageType == "local_ssd" || rdbmsReqInfo.StorageType == "":
+		// UNIVERSAL instance (local SSD): apply zone from connection config
+		if handler.Region.Zone != "" {
+			request.Zone = &handler.Region.Zone
+		}
+	case tencentCloudDiskTypes[rdbmsReqInfo.StorageType]:
+		// Cloud disk instance: DeviceType=CLOUD_NATIVE_CLUSTER + DiskType specifies the disk technology.
+		// Zone/SlaveZone must NOT be set for cloud disk edition;
+		// node availability zones are configured via ClusterTopology instead.
+		deviceType := "CLOUD_NATIVE_CLUSTER"
+		request.DeviceType = &deviceType
+
+		diskType := rdbmsReqInfo.StorageType // CLOUD_HSSD, CLOUD_SSD, or CLOUD_PREMIUM
+		request.DiskType = &diskType
+
+		// ClusterTopology: RW node in the configured zone; RO node auto-assigned.
+		rwZone := handler.Region.Zone
+		isRandomZone := "YES"
+		request.ClusterTopology = &cdb.ClusterTopology{
+			ReadWriteNode: &cdb.ReadWriteNode{
+				Zone: &rwZone,
+			},
+			ReadOnlyNodes: []*cdb.ReadonlyNode{
+				{IsRandomZone: &isRandomZone},
+			},
+		}
+	default:
+		return irs.RDBMSInfo{}, fmt.Errorf("unsupported StorageType '%s' for Tencent CDB; valid values: local_ssd, CLOUD_HSSD, CLOUD_SSD, CLOUD_PREMIUM", rdbmsReqInfo.StorageType)
+	}
+
+	// CreateDBInstanceHour with retry for OperationDenied.OtherOderInProcess.
+	// Tencent rejects concurrent orders while another order is being placed.
+	// Retry with backoff until the order slot is free or timeout is reached.
+	const orderRetryIntervalSec = 10
+	const orderRetryTimeoutSec = 300 // 5 minutes
+	var response *cdb.CreateDBInstanceHourResponse
+	orderAttempts := 0
+	for {
+		orderAttempts++
+		response, err = handler.Client.CreateDBInstanceHour(request)
+		if err == nil {
+			break
+		}
+		if strings.Contains(err.Error(), "OtherOderInProcess") {
+			elapsed := orderAttempts * orderRetryIntervalSec
+			if elapsed >= orderRetryTimeoutSec {
+				hiscallInfo.ElapsedTime = call.Elapsed(start)
+				finalErr := fmt.Errorf("CreateDBInstanceHour failed after %d attempt(s) over %ds timeout: %w",
+					orderAttempts, orderRetryTimeoutSec, err)
+				cblogger.Error(finalErr)
+				LoggingError(hiscallInfo, finalErr)
+				return irs.RDBMSInfo{}, finalErr
+			}
+			cblogger.Warnf("[Tencent] OtherOderInProcess on attempt %d – retrying in %ds (elapsed %d/%ds): %v",
+				orderAttempts, orderRetryIntervalSec, elapsed, orderRetryTimeoutSec, err)
+			time.Sleep(time.Duration(orderRetryIntervalSec) * time.Second)
+			continue
+		}
+		// Non-retryable error
+		break
+	}
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		err = handler.enrichUnsupportedSpecError(err, rdbmsReqInfo.DBEngineVersion)
@@ -434,11 +523,21 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	if response.Response == nil || len(response.Response.InstanceIds) == 0 {
-		return irs.RDBMSInfo{}, errors.New("no instance ID returned from CreateDBInstanceHour")
+	// Tencent may return an empty InstanceIds list even on success when concurrent
+	// orders are in flight (OtherOderInProcess scenario). Fall back to a name-based
+	// lookup so the instance is not lost.
+	var instanceId string
+	if response.Response != nil && len(response.Response.InstanceIds) > 0 {
+		instanceId = *response.Response.InstanceIds[0]
+	} else {
+		cblogger.Warnf("[Tencent] CreateDBInstanceHour returned no InstanceIds for '%s'; looking up by name...", rdbmsReqInfo.IId.NameId)
+		var lookupErr error
+		instanceId, lookupErr = handler.findInstanceIdByName(rdbmsReqInfo.IId.NameId, 60)
+		if lookupErr != nil {
+			return irs.RDBMSInfo{}, fmt.Errorf("CreateDBInstanceHour returned no InstanceIds and name lookup failed: %w", lookupErr)
+		}
+		cblogger.Infof("[Tencent] Found instance '%s' by name: %s", rdbmsReqInfo.IId.NameId, instanceId)
 	}
-
-	instanceId := *response.Response.InstanceIds[0]
 
 	// Wait for instance to be running (status=1)
 	err = handler.waitForInstanceStatus(instanceId, 1, 600)
@@ -547,7 +646,7 @@ func (handler *TencentRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) 
 	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, rdbmsIID.NameId, "IsolateDBInstance()")
 	start := call.Start()
 
-	// Step 1: Isolate the instance
+	// Step 1: Isolate the instance (moves to recycle bin, status → 4:isolating → 5:isolated)
 	isolateReq := cdb.NewIsolateDBInstanceRequest()
 	isolateReq.InstanceId = &rdbmsIID.SystemId
 
@@ -560,15 +659,21 @@ func (handler *TencentRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) 
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	// Step 2: Offline the isolated instance (permanent delete)
+	// Step 2: Wait for isolated status (5) before calling Offline.
+	// OfflineIsolatedInstances fails if the instance is still in isolating state (4).
+	const isolatedStatus int64 = 5
+	if waitErr := handler.waitForInstanceStatus(rdbmsIID.SystemId, isolatedStatus, 300); waitErr != nil {
+		cblogger.Warnf("[Tencent] Timeout waiting for instance %s to reach isolated status; attempting Offline anyway: %v",
+			rdbmsIID.SystemId, waitErr)
+	}
+
+	// Step 3: Permanently delete (Eliminate Now)
 	offlineReq := cdb.NewOfflineIsolatedInstancesRequest()
 	offlineReq.InstanceIds = []*string{&rdbmsIID.SystemId}
 
 	_, err = handler.Client.OfflineIsolatedInstances(offlineReq)
 	if err != nil {
-		cblogger.Warn("Isolate succeeded but Offline failed (instance will be in recycle bin): ", err)
-		// Still return true since isolate succeeded
-		return true, nil
+		return false, fmt.Errorf("instance isolated but permanent delete (OfflineIsolatedInstances) failed: %w", err)
 	}
 
 	return true, nil
@@ -600,8 +705,15 @@ func (handler *TencentRDBMSHandler) convertToRDBMSInfo(inst *cdb.InstanceInfo) i
 	if inst.Volume != nil {
 		rdbmsInfo.StorageSize = strconv.FormatInt(*inst.Volume, 10)
 	}
-	if inst.DeviceType != nil && *inst.DeviceType != "" {
-		rdbmsInfo.StorageType = *inst.DeviceType
+	// DiskType: actual storage disk type (CLOUD_HSSD, CLOUD_SSD).
+	// Only returned for cloud disk instances; empty for local SSD instances.
+	// DeviceType: hardware instance category (UNIVERSAL, EXCLUSIVE, etc.) - NOT the storage type.
+	// When DiskType is empty and DeviceType is UNIVERSAL/EXCLUSIVE, the instance uses local SSD.
+	if inst.DiskType != nil && *inst.DiskType != "" {
+		rdbmsInfo.StorageType = *inst.DiskType
+	} else if inst.DeviceType != nil &&
+		(*inst.DeviceType == "UNIVERSAL" || *inst.DeviceType == "EXCLUSIVE") {
+		rdbmsInfo.StorageType = "local_ssd"
 	} else {
 		rdbmsInfo.StorageType = "NA"
 	}
@@ -681,6 +793,28 @@ func convertTencentStatusToRDBMSStatus(status int64) irs.RDBMSStatus {
 	default:
 		return irs.RDBMSError
 	}
+}
+
+// findInstanceIdByName looks up the CDB instance ID by InstanceName.
+// Tencent may return empty InstanceIds in CreateDBInstanceHour when concurrent
+// orders are processed; this resolves the ID via DescribeDBInstances.
+// It polls for up to timeoutSec seconds (5s interval) to handle propagation delay.
+func (handler *TencentRDBMSHandler) findInstanceIdByName(name string, timeoutSec int) (string, error) {
+	for elapsed := 0; elapsed < timeoutSec; elapsed += 5 {
+		req := cdb.NewDescribeDBInstancesRequest()
+		req.InstanceNames = []*string{&name}
+		resp, err := handler.Client.DescribeDBInstances(req)
+		if err == nil && resp.Response != nil {
+			for _, inst := range resp.Response.Items {
+				if inst.InstanceName != nil && *inst.InstanceName == name &&
+					inst.InstanceId != nil && *inst.InstanceId != "" {
+					return *inst.InstanceId, nil
+				}
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return "", fmt.Errorf("instance with name '%s' not found within %ds", name, timeoutSec)
 }
 
 func (handler *TencentRDBMSHandler) waitForInstanceStatus(instanceId string, targetStatus int64, timeoutSec int) error {

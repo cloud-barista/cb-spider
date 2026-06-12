@@ -44,13 +44,8 @@ type AzureRDBMSHandler struct {
 	BackupsClient            *armmysqlfs.BackupsClient
 }
 
-var azureMySQLFallbackVersions = []string{"5.7", "8.0.21", "8.4", "9.5"}
-
-var azureMySQLFallbackStorageTypeOptions = map[string][]string{
-	"mysql": {"Burstable", "GeneralPurpose", "MemoryOptimized"},
-}
-
-var azureMySQLFallbackStorageSizeRange = irs.StorageSizeRange{Min: 20, Max: 32768}
+// Azure MySQL Flexible Server storage type (storageSku) is read-only and set automatically by Azure.
+// StorageTypeOptions returns ["NA"] to indicate it is not user-selectable.
 
 // GetMetaInfo returns metadata about Azure Database for MySQL Flexible Server capabilities.
 // Supported engine versions are fetched dynamically via the Azure REST API (api-version 2023-12-30).
@@ -64,7 +59,7 @@ func (handler *AzureRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInf
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	versions, skus, storageTypeOptions, storageSizeRange, err := handler.fetchMySQLMetaOptions(handler.Region.Region)
+	versions, skus, storageSizeRange, err := handler.fetchMySQLMetaOptions(handler.Region.Region)
 	if err != nil {
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
 		LoggingError(hiscallInfo, err)
@@ -75,8 +70,10 @@ func (handler *AzureRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInf
 	instanceSpecOptions := map[string][]string{
 		"mysql": skus,
 	}
+	// Azure storageSku is read-only and set automatically; not user-selectable
+	storageTypeOptions := map[string][]string{"mysql": {"NA"}}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, map[string][]string{"mysql": versions}, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "1-35", false, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, map[string][]string{"mysql": versions}, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "1-35", false, false, false, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -88,9 +85,9 @@ func (handler *AzureRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInf
 }
 
 // fetchMySQLMetaOptions queries the Azure LocationBasedCapabilitySet_Get endpoint
-// (api-version 2023-12-30) to get supported MySQL versions, SKUs, and storage options for the given location.
-// This endpoint supersedes the legacy /capabilities endpoint and is stable across all regions.
-func (handler *AzureRDBMSHandler) fetchMySQLMetaOptions(location string) ([]string, []string, map[string][]string, irs.StorageSizeRange, error) {
+// (api-version 2023-12-30) to get supported MySQL versions, SKUs, and storage size range for the given location.
+// StorageType is not returned because Azure sets storageSku automatically (read-only).
+func (handler *AzureRDBMSHandler) fetchMySQLMetaOptions(location string) ([]string, []string, irs.StorageSizeRange, error) {
 	cred, err := azidentity.NewClientSecretCredential(
 		handler.CredentialInfo.TenantId,
 		handler.CredentialInfo.ClientId,
@@ -98,55 +95,50 @@ func (handler *AzureRDBMSHandler) fetchMySQLMetaOptions(location string) ([]stri
 		nil,
 	)
 	if err != nil {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to create Azure credential: %w", err)
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to create Azure credential: %w", err)
 	}
 
 	token, err := cred.GetToken(handler.Ctx, policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
 	})
 	if err != nil {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to get Azure token: %w", err)
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to get Azure token: %w", err)
 	}
 
 	apiURL := fmt.Sprintf(
 		"https://management.azure.com/subscriptions/%s/providers/Microsoft.DBforMySQL/locations/%s/capabilitySets/default?api-version=2023-12-30",
 		handler.CredentialInfo.SubscriptionId, location,
 	)
-	versions, skus, storageTypeOptions, storageSizeRange, err := handler.doCapabilitySetRequest(apiURL, token.Token)
+	versions, skus, storageSizeRange, err := handler.doCapabilitySetRequest(apiURL, token.Token)
 	if err != nil {
-		fallbackVersions := append([]string(nil), azureMySQLFallbackVersions...)
-		fallbackStorageTypeOptions := map[string][]string{
-			"mysql": append([]string(nil), azureMySQLFallbackStorageTypeOptions["mysql"]...),
-		}
-		cblogger.Infof("Azure MySQL capabilitySets API failed for location %s. Using fallback: versions=%v, storage=%v/%+v: %v", location, fallbackVersions, fallbackStorageTypeOptions, azureMySQLFallbackStorageSizeRange, err)
-		return fallbackVersions, []string{}, fallbackStorageTypeOptions, azureMySQLFallbackStorageSizeRange, nil
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets API failed for location %s: %w", location, err)
 	}
-	return versions, skus, storageTypeOptions, storageSizeRange, nil
+	return versions, skus, storageSizeRange, nil
 }
 
 // doCapabilitySetRequest calls the Azure LocationBasedCapabilitySet_Get endpoint.
 // URL: GET .../capabilitySets/default?api-version=2023-12-30
 // Response: { "properties": { "supportedServerVersions": [{"name":"..."}], "supportedFlexibleServerEditions": [...] } }
-func (handler *AzureRDBMSHandler) doCapabilitySetRequest(apiURL, bearerToken string) ([]string, []string, map[string][]string, irs.StorageSizeRange, error) {
+func (handler *AzureRDBMSHandler) doCapabilitySetRequest(apiURL, bearerToken string) ([]string, []string, irs.StorageSizeRange, error) {
 	req, err := http.NewRequestWithContext(handler.Ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to build capabilitySets request: %w", err)
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to build capabilitySets request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+bearerToken)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets request failed: %w", err)
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to read capabilitySets response: %w", err)
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to read capabilitySets response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {
@@ -168,7 +160,7 @@ func (handler *AzureRDBMSHandler) doCapabilitySetRequest(apiURL, bearerToken str
 		} `json:"properties"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to parse capabilitySets response: %w", err)
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("failed to parse capabilitySets response: %w", err)
 	}
 
 	versionSet := map[string]bool{}
@@ -199,13 +191,9 @@ func (handler *AzureRDBMSHandler) doCapabilitySetRequest(apiURL, bearerToken str
 	}
 	sort.Strings(skus)
 
-	storageTypeSet := map[string]bool{}
 	var minStorageGB int64
 	var maxStorageGB int64
 	for _, edition := range result.Properties.SupportedFlexibleServerEditions {
-		if edition.Name != "" {
-			storageTypeSet[edition.Name] = true
-		}
 		for _, storageEdition := range edition.SupportedStorageEditions {
 			if storageEdition.MinStorageSize > 0 {
 				minGB := azureStorageMBToGB(storageEdition.MinStorageSize)
@@ -221,18 +209,12 @@ func (handler *AzureRDBMSHandler) doCapabilitySetRequest(apiURL, bearerToken str
 			}
 		}
 	}
-	storageTypes := make([]string, 0, len(storageTypeSet))
-	for storageType := range storageTypeSet {
-		storageTypes = append(storageTypes, storageType)
-	}
-	sort.Strings(storageTypes)
-	if len(storageTypes) == 0 || minStorageGB == 0 || maxStorageGB == 0 {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets response did not include storage options")
+	if minStorageGB == 0 || maxStorageGB == 0 {
+		return nil, nil, irs.StorageSizeRange{}, fmt.Errorf("capabilitySets response did not include storage size options")
 	}
 
-	storageTypeOptions := map[string][]string{"mysql": storageTypes}
 	storageSizeRange := irs.StorageSizeRange{Min: minStorageGB, Max: maxStorageGB}
-	return versions, skus, storageTypeOptions, storageSizeRange, nil
+	return versions, skus, storageSizeRange, nil
 }
 
 func azureStorageMBToGB(storageMB int64) int64 {
@@ -292,6 +274,9 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 	}
 	if rdbmsReqInfo.StorageSize == "" {
 		return irs.RDBMSInfo{}, errors.New("StorageSize is required")
+	}
+	if rdbmsReqInfo.StorageType != "" {
+		return irs.RDBMSInfo{}, errors.New("StorageType is not supported for Azure: storage type is set automatically by the CSP. See SupportsStorageTypeSelection in GetMetaInfo")
 	}
 
 	// Validate PublicAccess and VPC combination

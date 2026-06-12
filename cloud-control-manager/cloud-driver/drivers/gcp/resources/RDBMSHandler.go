@@ -58,7 +58,7 @@ func (handler *GCPRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL instance options failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "1-7", false, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "1-7", false, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -331,6 +331,52 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		return irs.RDBMSInfo{}, fmt.Errorf("invalid StorageSize: %s", rdbmsReqInfo.StorageSize)
 	}
 
+	// Validate StorageType against machine series.
+	// Each machine series has a fixed storage type that cannot be changed:
+	//
+	//   StorageType         | Machine Series          | Edition
+	//   --------------------|-------------------------|----------------
+	//   PD_SSD (fixed)      | db-perf-optimized-N-*   | Enterprise Plus
+	//   PD_SSD or PD_HDD    | db-custom-*, db-f1-micro, db-g1-small | Enterprise
+	//   HYPERDISK_BALANCED  | db-c4a-highmem-*        | Enterprise Plus
+	//   HYPERDISK_BALANCED  | db-custom-N4-*          | Enterprise
+	if rdbmsReqInfo.StorageType != "" {
+		spec := rdbmsReqInfo.DBInstanceSpec
+		st := rdbmsReqInfo.StorageType
+		const storageMapping = "\n\n  StorageType mapping:\n" +
+			"    PD_SSD (fixed)     : db-perf-optimized-N-* (Enterprise Plus)\n" +
+			"    PD_SSD or PD_HDD   : db-custom-*, db-f1-micro, db-g1-small (Enterprise)\n" +
+			"    HYPERDISK_BALANCED : db-c4a-highmem-* (Enterprise Plus)\n" +
+			"    HYPERDISK_BALANCED : db-custom-N4-* (Enterprise)"
+		switch {
+		case strings.HasPrefix(spec, "db-perf-optimized"):
+			if st != "PD_SSD" {
+				return irs.RDBMSInfo{}, fmt.Errorf(
+					"StorageType %q is not supported for machine series db-perf-optimized-N-* (fixed: PD_SSD)%s",
+					st, storageMapping)
+			}
+		case strings.HasPrefix(spec, "db-c4a"):
+			if st != "HYPERDISK_BALANCED" {
+				return irs.RDBMSInfo{}, fmt.Errorf(
+					"StorageType %q is not supported for machine series db-c4a-highmem-* (fixed: HYPERDISK_BALANCED)%s",
+					st, storageMapping)
+			}
+		case strings.HasPrefix(spec, "db-custom-N4-"):
+			if st != "HYPERDISK_BALANCED" {
+				return irs.RDBMSInfo{}, fmt.Errorf(
+					"StorageType %q is not supported for machine series db-custom-N4-* (fixed: HYPERDISK_BALANCED)%s",
+					st, storageMapping)
+			}
+		default:
+			// Shared/Dedicated core: PD_SSD and PD_HDD only
+			if st != "PD_SSD" && st != "PD_HDD" {
+				return irs.RDBMSInfo{}, fmt.Errorf(
+					"StorageType %q is not supported for machine series db-custom-*/db-f1-micro/db-g1-small (selectable: PD_SSD, PD_HDD)%s",
+					st, storageMapping)
+			}
+		}
+	}
+
 	projectId := handler.getProjectId()
 
 	// Map engine to GCP database version format
@@ -342,8 +388,20 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		DataDiskSizeGb: storageSizeGB,
 	}
 
-	// Storage Type
-	if rdbmsReqInfo.StorageType != "" {
+	// Edition: N2 (db-perf-optimized-N-*) and C4A (db-c4a-highmem-*) require ENTERPRISE_PLUS.
+	// N4 (db-custom-N4-*) and Shared/Dedicated core (db-custom-*) use ENTERPRISE (default).
+	if strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-perf-optimized") ||
+		strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-c4a") {
+		settings.Edition = "ENTERPRISE_PLUS"
+	}
+
+	// Storage Type:
+	// - N2 (db-perf-optimized-N-*): PD_SSD is fixed by machine series; do not set DataDiskType.
+	// - HYPERDISK_BALANCED: auto-assigned for C4A and N4 machine series; do not set DataDiskType.
+	// - Shared/Dedicated core (db-custom-*): PD_SSD or PD_HDD can be selected; set DataDiskType.
+	if rdbmsReqInfo.StorageType != "" &&
+		!strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-perf-optimized") &&
+		rdbmsReqInfo.StorageType != "HYPERDISK_BALANCED" {
 		settings.DataDiskType = rdbmsReqInfo.StorageType
 	}
 

@@ -37,16 +37,16 @@ csp_script() {
 }
 
 print_separator() {
-    echo "------------------------------------------------------------------------------------------------------------------------------------------------------------"
+    printf '%177s\n' '' | tr ' ' '-'
 }
 
 print_header() {
     echo ""
-    echo "============================================================================================================================================================"
+    printf '%177s\n' '' | tr ' ' '='
     echo "                                              RDBMS CREATE & INFO TEST SUMMARY - ALL CSPs"
-    echo "============================================================================================================================================================"
+    printf '%177s\n' '' | tr ' ' '='
     echo ""
-    printf "%-12s | %-11s | %-8s | %-12s | %-24s | %-10s | %-40s | %-12s | %-10s\n" \
+    printf "%-12s | %-11s | %-8s | %-12s | %-24s | %-24s | %-40s | %-12s | %-10s\n" \
         "CSP" "Status" "Engine" "Version" "Spec" "Storage" "Endpoint" "PublicAccess" "Elapsed"
     print_separator
 }
@@ -107,7 +107,7 @@ for csp in ${CSP_ORDER}; do
     result_file="${RESULT_DIR}/result_$(to_lower "${csp}").txt"
 
     if [[ -f "${result_file}" ]]; then
-        IFS='|' read -r r_csp r_status r_engine r_version r_spec r_storage r_endpoint r_public r_elapsed \
+        IFS='|' read -r r_csp r_status r_engine r_version r_spec r_storage r_storage_type r_endpoint r_public r_elapsed \
             < "${result_file}"
     else
         r_csp="${csp}"
@@ -116,14 +116,16 @@ for csp in ${CSP_ORDER}; do
         r_version="-"
         r_spec="-"
         r_storage="-"
+        r_storage_type="-"
         r_endpoint="-"
         r_public="-"
         r_elapsed="-"
     fi
 
-    printf "%-12s | %-11s | %-8s | %-12s | %-24s | %-10s | %-40s | %-12s | %-10s\n" \
+    r_storage_display="${r_storage}|${r_storage_type}"
+    printf "%-12s | %-11s | %-8s | %-12s | %-24s | %-24s | %-40s | %-12s | %-10s\n" \
         "${r_csp}" "${r_status}" "${r_engine}" "${r_version}" \
-        "${r_spec}" "${r_storage}" "${r_endpoint}" "${r_public}" "${r_elapsed}"
+        "${r_spec}" "${r_storage_display}" "${r_endpoint}" "${r_public}" "${r_elapsed}"
 done
 
 print_separator
@@ -131,7 +133,7 @@ echo ""
 echo "Logs   : ${LOG_DIR}/"
 echo "Results: ${RESULT_DIR}/"
 echo ""
-echo "=============================================================================================================================================================="
+printf '%177s\n' '' | tr ' ' '='
 echo ""
 
 # ── Per-CSP full log dump (optional, controlled by VERBOSE=1) ────────────────

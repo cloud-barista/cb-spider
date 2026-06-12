@@ -18,7 +18,6 @@ export CREATE_JSON='{
     "DBEngine": "mysql",
     "DBEngineVersion": "MYSQL_V8408",
     "DBInstanceSpec": "m2.c2m4",
-    "StorageType": "General SSD",
     "StorageSize": "20",
     "MasterUserName": "myadmin",
     "MasterUserPassword": "Password123!",

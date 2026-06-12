@@ -137,7 +137,7 @@ func (handler *AwsRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("DescribeOrderableDBInstanceOptions failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "0-35", true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "0-35", true, true, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -368,10 +368,23 @@ func (handler *AwsRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	}
 
 	// Storage Type (Advanced - default: gp2)
+	// io1/io2: Iops is required. gp3: Iops is optional (default 3000).
 	if rdbmsReqInfo.StorageType != "" {
 		input.StorageType = aws.String(rdbmsReqInfo.StorageType)
 	}
-
+	st := rdbmsReqInfo.StorageType
+	if st == "io1" || st == "io2" {
+		if rdbmsReqInfo.Iops == "" {
+			return irs.RDBMSInfo{}, fmt.Errorf("Iops is required for StorageType %q (AWS RDS)", st)
+		}
+	}
+	if rdbmsReqInfo.Iops != "" {
+		iops, err := strconv.ParseInt(rdbmsReqInfo.Iops, 10, 64)
+		if err != nil {
+			return irs.RDBMSInfo{}, fmt.Errorf("invalid Iops value: %s", rdbmsReqInfo.Iops)
+		}
+		input.Iops = aws.Int64(iops)
+	}
 	// High Availability (Multi-AZ)
 	input.MultiAZ = aws.Bool(rdbmsReqInfo.HighAvailability)
 
@@ -668,7 +681,9 @@ func (handler *AwsRDBMSHandler) convertDBInstanceToRDBMSInfo(dbInstance *rds.DBI
 	if dbInstance.AllocatedStorage != nil {
 		rdbmsInfo.StorageSize = strconv.FormatInt(aws.Int64Value(dbInstance.AllocatedStorage), 10)
 	}
-
+	if dbInstance.Iops != nil {
+		rdbmsInfo.Iops = strconv.FormatInt(aws.Int64Value(dbInstance.Iops), 10)
+	}
 	// Security Groups
 	for _, sg := range dbInstance.VpcSecurityGroups {
 		rdbmsInfo.SecurityGroupIIDs = append(rdbmsInfo.SecurityGroupIIDs, irs.IID{

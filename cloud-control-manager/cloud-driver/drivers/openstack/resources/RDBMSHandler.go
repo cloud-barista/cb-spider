@@ -86,7 +86,7 @@ func (handler *OpenStackRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMet
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, false, true, true, false, false, "NA", false, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, false, true, true, false, false, "NA", false, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -415,13 +415,15 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 	LoggingInfo(hiscallInfo, start)
 
 	// Re-fetch to get the latest status/endpoint after ACTIVE
-	freshInst, err := instances.Get(context.TODO(), handler.DBClient, instanceID).Extract()
+	freshResult := instances.Get(context.TODO(), handler.DBClient, instanceID)
+	freshInst, err := freshResult.Extract()
 	if err != nil {
 		cblogger.Warnf("failed to re-fetch instance %s after creation: %v", instanceID, err)
 		freshInst = createdInstance
 	}
+	freshVolumeType := extractVolumeTypeFromBody(freshResult.Body)
 
-	rdbmsInfo, err := handler.convertInstanceToRDBMSInfo(freshInst)
+	rdbmsInfo, err := handler.convertInstanceToRDBMSInfo(freshInst, freshVolumeType)
 	if err != nil {
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -460,8 +462,9 @@ func (handler *OpenStackRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 		if err != nil {
 			return false, err
 		}
+		volumeTypes := extractVolumeTypesFromPageBody(page.GetBody())
 		for _, inst := range instanceList {
-			info, err := handler.convertInstanceToRDBMSInfo(&inst)
+			info, err := handler.convertInstanceToRDBMSInfo(&inst, volumeTypes[inst.ID])
 			if err != nil {
 				return false, err
 			}
@@ -511,7 +514,7 @@ func (handler *OpenStackRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo,
 
 	LoggingInfo(hiscallInfo, start)
 
-	rdbmsInfo, err := handler.convertInstanceToRDBMSInfo(inst)
+	rdbmsInfo, err := handler.convertInstanceToRDBMSInfo(inst, extractVolumeTypeFromBody(result.Body))
 	if err != nil {
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -722,8 +725,61 @@ func (handler *OpenStackRDBMSHandler) findInstanceIDByName(name string) (string,
 	return foundID, nil
 }
 
+// extractVolumeTypeFromBody extracts volume.type from a Trove single-instance raw response body.
+// gophercloud's Volume struct does not include the Type field, so we parse it from the raw JSON.
+// Note: Trove API does not return volume.type or volume.id in instance detail responses in many
+// deployments. StorageType will be "NA" if the Trove API omits volume.type.
+func extractVolumeTypeFromBody(body interface{}) string {
+	raw, ok := body.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	rawInst, ok := raw["instance"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	rawVol, ok := rawInst["volume"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	vt, _ := rawVol["type"].(string)
+	return vt
+}
+
+// extractVolumeTypesFromPageBody extracts volume.type for each instance in a list page body.
+// Returns a map of instanceID -> volumeType.
+func extractVolumeTypesFromPageBody(body interface{}) map[string]string {
+	result := map[string]string{}
+	raw, ok := body.(map[string]interface{})
+	if !ok {
+		return result
+	}
+	rawInsts, ok := raw["instances"].([]interface{})
+	if !ok {
+		return result
+	}
+	for _, ri := range rawInsts {
+		rawInst, ok := ri.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		id, _ := rawInst["id"].(string)
+		if id == "" {
+			continue
+		}
+		rawVol, ok := rawInst["volume"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		vt, _ := rawVol["type"].(string)
+		result[id] = vt
+	}
+	return result
+}
+
 // convertInstanceToRDBMSInfo converts a Trove Instance to RDBMSInfo.
-func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances.Instance) (irs.RDBMSInfo, error) {
+// volumeType is passed explicitly because gophercloud's Volume struct omits the Type field.
+func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances.Instance, volumeType string) (irs.RDBMSInfo, error) {
 	flavorName, err := handler.resolveFlavorName(inst.Flavor.ID)
 	if err != nil {
 		return irs.RDBMSInfo{}, err
@@ -771,7 +827,12 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 		DBInstanceSpec:  flavorName,
 		DBInstanceType:  "NA",
 
-		StorageType: "NA",
+		StorageType: func() string {
+			if volumeType != "" {
+				return volumeType
+			}
+			return "NA"
+		}(),
 		StorageSize: strconv.Itoa(inst.Volume.Size),
 
 		Endpoint: endpoint,

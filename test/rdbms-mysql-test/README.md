@@ -14,17 +14,17 @@ cd ./bin; ./start.sh
 
 Before running tests, register connection names for each CSP in CB-Spider.
 
-| CSP | Connection Name |
-|-----|----------------|
-| AWS | `aws-config01` |
-| Azure | `azure-koreacentral-config` |
-| GCP | `gcp-iowa-config` |
-| Alibaba | `alibaba-beijing-config` |
-| Tencent | `tencent-beijing3-config` |
-| IBM | `ibm-us-east-1-config` |
-| OpenStack | `openstack-config01` |
-| NCP | `ncp-korea1-config` |
-| NHN | `nhn-korea-pangyo1-config` |
+| CSP | Connection Name | Region | Zone |
+|-----|----------------|--------|------|
+| AWS | `aws-config01` | `ap-southeast-2` | `ap-southeast-2a` |
+| Azure | `azure-koreacentral-config` | `koreacentral` | `1` |
+| GCP | `gcp-iowa-config` | `us-central1` | `us-central1-a` |
+| Alibaba | `alibaba-beijing-config` | `cn-beijing` | `cn-beijing-f` |
+| Tencent | `tencent-beijing6-config` | `ap-beijing` | `ap-beijing-6` |
+| IBM | `ibm-us-east-1-config` | `us-east` | `us-east-1` |
+| OpenStack | `openstack-config01` | `RegionOne` | `nova` |
+| NCP | `ncp-korea1-config` | `KR` | `KR-1` |
+| NHN | `nhn-korea-pangyo1-config` | `KR1` | `kr-pub-a` |
 
 ### Pre-created Network Resources
 
@@ -71,16 +71,18 @@ curl -u admin:***** -sX POST http://localhost:1024/spider/vpc \
 
 All CSPs create a MySQL instance named `cb-spider-mysql-test`.
 
+StorageType은 지정하지 않으며, CSP 기본값으로 생성됩니다. 결과 테이블의 Storage 컬럼에 `크기|타입` 형태로 표시됩니다 (예: `100GB|gp2`).
+
 | CSP | Engine Version | Instance Spec | Storage | Subnet Required |
 |-----|---------------|---------------|---------|-----------------|
 | AWS | 8.0 | db.t3.medium | 100GB | ✅ (2개, 다른 AZ) |
 | Azure | 8.0.21 | Standard_B1ms | 20GB | 미사용 |
 | GCP | 8.0 | db-custom-2-8192 | 20GB | 미사용 |
-| Alibaba | 8.0 | mysql.n2e.small.1 | 20GB | ✅ |
+| Alibaba | 8.0 | mysql.n4.large.1 | 20GB | ✅ |
 | Tencent | 8.0 | 8000 (MB) | 50GB | ✅ |
 | IBM | 8.4 | multitenant | 30GB | 미사용 |
 | OpenStack | 5.7.29 | m1.small | 20GB | 미사용 |
-| NCP | 8.0.36 | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | 10GB | ✅ |
+| NCP | 8.0.36 | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | CSP 관리 | ✅ |
 | NHN | MYSQL_V8408 | m2.c2m4 | 20GB | ✅ |
 
 ## Configuration
@@ -115,11 +117,11 @@ export SPIDER_AUTH="${SPIDER_AUTH:-admin:*****}"   # <-- 비밀번호 변경
 
 **Example output:**
 ```
-CSP          | Status      | Engine   | Version      | Spec                     | Storage    | Endpoint                                 | PublicAccess | Elapsed
+CSP          | Status      | Engine   | Version      | Spec                     | Storage                  | Endpoint                                 | PublicAccess | Elapsed
 ---
-AWS          | Available   | mysql    | 8.0.45       | db.t3.medium             | 100GB      | xxx.rds.amazonaws.com:3306               | true         | 8m39s
-AZURE        | Available   | mysql    | 8.0.21       | Standard_B1ms            | 20GB       | xxx.mysql.database.azure.com:3306        | true         | 5m35s
-GCP          | Available   | mysql    | 8.0          | db-custom-2-8192         | 20GB       | xxx.cloudsql.google.com:3306             | true         | 3m58s
+AWS          | Available   | mysql    | 8.0.45       | db.t3.medium             | 100GB|gp2                | xxx.rds.amazonaws.com:3306               | true         | 8m39s
+AZURE        | Available   | mysql    | 8.0.21       | Standard_B1ms            | 20GB|N/A                 | xxx.mysql.database.azure.com:3306        | true         | 5m35s
+GCP          | Available   | mysql    | 8.0          | db-custom-2-8192         | 20GB|PD_SSD              | xxx.cloudsql.google.com:3306             | true         | 3m58s
 ...
 ```
 
@@ -219,4 +221,27 @@ tail -f /tmp/rdbms_logs_<PID>/log_aws.txt
 |-----|------|
 | AWS | SubnetGroup 생성을 위해 **다른 AZ의 서브넷 2개 이상** 필요 |
 | Tencent | `DBInstanceSpec`은 메모리 크기(MB) 지정 (예: `8000` = 8GB) |
-| NCP | StorageSize는 10GB 단위. G3(KVM) generation만 지원. Public 도메인은 생성 후 콘솔에서 별도 신청 필요 |
+| NCP | StorageSize/StorageType 지정 불가 (CSP 자동 관리). G3(KVM) generation만 지원. Public 도메인은 생성 후 콘솔에서 별도 신청 필요 |
+
+## 시험 결과
+
+### 2026-06-12
+
+```
+=================================================================================================================================================================================
+                                              RDBMS CREATE & INFO TEST SUMMARY - ALL CSPs
+=================================================================================================================================================================================
+CSP          | Status      | Engine   | Version      | Spec                     | Storage                  | Endpoint                                 | PublicAccess | Elapsed
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+AWS          | Available   | mysql    | 8.0.45       | db.t3.medium             | 100GB|gp2                | cb-spider-mysql-test-***.ap-southeast-2.rds.amazonaws.com:3306          | true         | 4m36s
+AZURE        | Available   | mysql    | 8.0.21       | Standard_B1ms            | 20GB|Premium_LRS         | cb-spider-mysql-test-***.mysql.database.azure.com:3306                  | true         | 5m37s
+GCP          | Available   | mysql    | 8.0          | db-custom-2-8192         | 20GB|PD_SSD              | *.*.*.*:3306                             | true         | 3m56s
+ALIBABA      | Available   | mysql    | 8.0          | mysql.n4.large.1         | 20GB|cloud_essd          | *.*.*.*:3306                             | true         | 2m52s
+TENCENT      | Available   | mysql    | 8.0          | 8000                     | 50GB|local_ssd           | bj-cdb-***.sql.tencentcdb.com:24740      | true         | 5m14s
+IBM          | Available   | mysql    | 8.4          | multitenant              | 30GB|standard            | ***.databases.appdomain.cloud:31172      | true         | 6m34s
+OPENSTACK    | Available   | mysql    | 5.7.29       | m1.small                 | 20GB|NA                  | *.*.*.*:3306                             | true         | 4m28s
+NCP          | Available   | mysql    | MYSQL8.0.36  | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | 10GB|SSD                 | db-***.vpc-cdb.ntruss.com:3306           | N/A          | 12m27s
+NHN          | Available   | mysql    | MYSQL_V8408  | m2.c2m4                  | 20GB|General SSD         | ***.external.kr1.mysql.rds.nhncloudservice.com:3306                     | true         | 8m36s
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Total: 9  PASS: 9  FAIL: 0
+```

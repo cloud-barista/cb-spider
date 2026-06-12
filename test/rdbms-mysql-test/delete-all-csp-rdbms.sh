@@ -26,7 +26,7 @@ csp_connection() {
         AZURE)     echo "azure-koreacentral-config"    ;;
         GCP)       echo "gcp-iowa-config"              ;;
         ALIBABA)   echo "alibaba-beijing-config"       ;;
-        TENCENT)   echo "tencent-beijing3-config"      ;;
+        TENCENT)   echo "tencent-beijing6-config"      ;;
         IBM)       echo "ibm-us-east-1-config"         ;;
         OPENSTACK) echo "openstack-config01"           ;;
         NCP)       echo "ncp-korea1-config"            ;;

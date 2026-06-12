@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # NCP (Naver Cloud Platform) RDBMS Test Script
-# Note: Subnet required. StorageSize must be 10 (default, 10GB increments up to 6000GB).
+# Note: Subnet required. StorageSize and StorageType are not configurable (SupportsStorageSizeConfiguration=false, SupportsStorageTypeSelection=false).
 #       G3 (KVM) server generation only. Public domain must be requested via console after creation.
 # Author: CB-Spider Team
 
@@ -19,8 +19,6 @@ export CREATE_JSON='{
     "DBInstanceSpec": "SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003",
     "DBEngine": "mysql",
     "DBEngineVersion": "8.0.36",
-    "StorageSize": "10",
-    "StorageType": "SSD",
     "MasterUserName": "myadmin",
     "MasterUserPassword": "Password123!",
     "PublicAccess": true

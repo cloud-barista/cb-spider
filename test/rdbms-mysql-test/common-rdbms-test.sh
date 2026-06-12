@@ -45,7 +45,7 @@ create_resp=$(curl -u "${SPIDER_AUTH}" -sX POST "${SPIDER_URL}/spider/rdbms" \
 err_msg=$(echo "${create_resp}" | jq -r '.message // empty' 2>/dev/null)
 if [[ -n "${err_msg}" ]]; then
     echo "[${CSP_NAME}] ERROR on create: ${err_msg}"
-    echo "${CSP_NAME}|CREATE_ERROR|${err_msg}|||||||-" > "${RESULT_FILE}"
+    echo "${CSP_NAME}|CREATE_ERROR|${err_msg}||||||||-" > "${RESULT_FILE}"
     exit 1
 fi
 
@@ -78,7 +78,7 @@ while true; do
 
     if [[ ${elapsed} -ge ${MAX_WAIT_SEC} ]]; then
         echo "[${CSP_NAME}] TIMEOUT: RDBMS did not become available within ${MAX_WAIT_SEC}s"
-        echo "${CSP_NAME}|TIMEOUT|||||||||" > "${RESULT_FILE}"
+        echo "${CSP_NAME}|TIMEOUT||||||||||" > "${RESULT_FILE}"
         exit 1
     fi
 done
@@ -95,8 +95,9 @@ status=$(echo "${info}"     | jq -r '.Status           // "N/A"')
 engine=$(echo "${info}"     | jq -r '.DBEngine         // "N/A"')
 version=$(echo "${info}"    | jq -r '.DBEngineVersion  // "N/A"')
 spec=$(echo "${info}"       | jq -r '.DBInstanceSpec   // "N/A"')
-storage=$(echo "${info}"    | jq -r '.StorageSize      // "N/A"')
-ep_addr=$(echo "${info}"    | jq -r '.Endpoint         // "N/A"')
+storage=$(echo "${info}"      | jq -r '.StorageSize  // "N/A"')
+storage_type=$(echo "${info}" | jq -r '.StorageType  // "N/A"')
+ep_addr=$(echo "${info}"      | jq -r '.Endpoint     // "N/A"')
 ep_port=$(echo "${info}"    | jq -r '.Port             // "N/A"')
 pub_access=$(echo "${info}" | jq -r '.PublicAccess     // "N/A"')
 
@@ -114,6 +115,6 @@ echo "[${CSP_NAME}] Done. Endpoint: ${endpoint_display} (total elapsed: ${elapse
 mkdir -p "$(dirname "${RESULT_FILE}")"
 
 # Write pipe-separated result line
-# Format: CSP|Status|Engine|Version|Spec|Storage(GB)|Endpoint|PublicAccess|Elapsed
-echo "${CSP_NAME}|${status}|${engine}|${version}|${spec}|${storage}GB|${endpoint_display}|${pub_access}|${elapsed_fmt}" \
+# Format: CSP|Status|Engine|Version|Spec|Storage(GB)|StorageType|Endpoint|PublicAccess|Elapsed
+echo "${CSP_NAME}|${status}|${engine}|${version}|${spec}|${storage}GB|${storage_type}|${endpoint_display}|${pub_access}|${elapsed_fmt}" \
   > "${RESULT_FILE}"
