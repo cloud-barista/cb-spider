@@ -17,7 +17,6 @@ export CREATE_JSON='{
     "DBEngine": "mysql",
     "DBEngineVersion": "8.4",
     "DBInstanceSpec": "multitenant",
-    "StorageType": "standard",
     "StorageSize": "30",
     "MasterUserName": "admin",
     "MasterUserPassword": "Passwordspider123",

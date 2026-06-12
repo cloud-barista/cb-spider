@@ -115,7 +115,13 @@ type RDBMSCreateRequest struct {
 		DBInstanceSpec  string `json:"DBInstanceSpec" validate:"required" example:"db.t3.medium"`
 		StorageSize     string `json:"StorageSize" validate:"required" example:"100"` // in GB
 
+		// StorageType: storage volume type. Use GetMetaInfo() to discover available options per CSP.
+		// OpenStack: configurable at creation time, but Trove API does not return this field in responses (always "NA").
 		StorageType string `json:"StorageType,omitempty" validate:"omitempty" example:"gp2"`
+		// Iops: Provisioned IOPS for the storage volume.
+		// AWS: required for io1/io2 (100-64000).
+		// Other CSPs: not used.
+		Iops string `json:"Iops,omitempty" validate:"omitempty" example:"3000"`
 
 		SubnetNames        []string `json:"SubnetNames,omitempty" validate:"omitempty" example:"subnet-01"`
 		SecurityGroupNames []string `json:"SecurityGroupNames,omitempty" validate:"omitempty" example:"sg-01"`
@@ -181,6 +187,7 @@ func CreateRDBMS(c echo.Context) error {
 		DBInstanceSpec:  req.ReqInfo.DBInstanceSpec,
 		StorageType:     req.ReqInfo.StorageType,
 		StorageSize:     req.ReqInfo.StorageSize,
+		Iops:            req.ReqInfo.Iops,
 
 		SubnetIIDs:        subnetIIDs,
 		SecurityGroupIIDs: sgIIDs,

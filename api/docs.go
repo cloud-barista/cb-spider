@@ -13452,6 +13452,11 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "Iops": {
+                    "description": "Iops: Provisioned IOPS for the storage volume.\nAWS: required for io1/io2 (100–64000).\nOther CSPs: not used.",
+                    "type": "string",
+                    "example": "3000"
+                },
                 "KeyValueList": {
                     "type": "array",
                     "items": {
@@ -13494,7 +13499,7 @@ const docTemplate = `{
                     "example": "100"
                 },
                 "StorageType": {
-                    "description": "Storage",
+                    "description": "Storage\nStorageType: storage volume type for the RDBMS instance.\ne.g., \"gp2\", \"io1\", \"SSD\", \"cloud_essd\"\nOpenStack: configurable at creation time, but Trove API does not return this field in responses (always \"NA\").",
                     "type": "string",
                     "example": "gp2"
                 },
@@ -13602,6 +13607,14 @@ const docTemplate = `{
                 },
                 "SupportsPublicAccess": {
                     "description": "true if public access can be toggled",
+                    "type": "boolean"
+                },
+                "SupportsStorageSizeConfiguration": {
+                    "description": "true if user can specify StorageSize at creation; false if CSP manages size automatically (e.g., NCP)",
+                    "type": "boolean"
+                },
+                "SupportsStorageTypeSelection": {
+                    "description": "true if user can specify StorageType at creation; false if CSP sets it automatically (e.g., Azure, NCP)",
                     "type": "boolean"
                 }
             }
@@ -16402,6 +16415,11 @@ const docTemplate = `{
                             "type": "boolean",
                             "default": false
                         },
+                        "Iops": {
+                            "description": "Iops: Provisioned IOPS for the storage volume.\nAWS: required for io1/io2 (100-64000).\nOther CSPs: not used.",
+                            "type": "string",
+                            "example": "3000"
+                        },
                         "MasterUserName": {
                             "type": "string",
                             "example": "admin"
@@ -16433,6 +16451,7 @@ const docTemplate = `{
                             "example": "100"
                         },
                         "StorageType": {
+                            "description": "StorageType: storage volume type. Use GetMetaInfo() to discover available options per CSP.\nOpenStack: configurable at creation time, but Trove API does not return this field in responses (always \"NA\").",
                             "type": "string",
                             "example": "gp2"
                         },

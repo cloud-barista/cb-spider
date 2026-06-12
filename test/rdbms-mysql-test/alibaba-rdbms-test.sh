@@ -17,7 +17,7 @@ export CREATE_JSON='{
     "SubnetNames": ["subnet-01"],
     "DBEngine": "mysql",
     "DBEngineVersion": "8.0",
-    "DBInstanceSpec": "mysql.n2e.small.1",
+    "DBInstanceSpec": "mysql.n4.large.1",
     "StorageSize": "20",
     "MasterUserName": "myadmin",
     "MasterUserPassword": "Password123!",

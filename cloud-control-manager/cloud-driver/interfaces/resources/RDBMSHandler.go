@@ -46,6 +46,9 @@ type RDBMSMetaInfo struct {
 	SupportsDeletionProtection bool   `json:"SupportsDeletionProtection"`     // true if deletion protection is available
 	SupportsEncryption         bool   `json:"SupportsEncryption"`             // true if storage encryption is available
 
+	SupportsStorageTypeSelection    bool `json:"SupportsStorageTypeSelection"`    // true if user can specify StorageType at creation; false if CSP sets it automatically (e.g., Azure, NCP)
+	SupportsStorageSizeConfiguration bool `json:"SupportsStorageSizeConfiguration"` // true if user can specify StorageSize at creation; false if CSP manages size automatically (e.g., NCP)
+
 	RequiresSubnet        bool `json:"RequiresSubnet"`        // true if SubnetNames is required at creation
 	RequiresSecurityGroup bool `json:"RequiresSecurityGroup"` // true if SecurityGroupNames is required at creation
 }
@@ -60,7 +63,7 @@ func NormalizeRDBMSEngine(dbEngine string) (string, error) {
 	}
 }
 
-func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbInstanceSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup bool) (RDBMSMetaInfo, error) {
+func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbInstanceSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup, supportsStorageTypeSelection, supportsStorageSizeConfiguration bool) (RDBMSMetaInfo, error) {
 	normalizedEngine, err := NormalizeRDBMSEngine(dbEngine)
 	if err != nil {
 		return RDBMSMetaInfo{}, err
@@ -85,6 +88,8 @@ func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, d
 		SupportsPublicAccess:       supportsPublicAccess,
 		SupportsDeletionProtection: supportsDeletionProtection,
 		SupportsEncryption:         supportsEncryption,
+		SupportsStorageTypeSelection:    supportsStorageTypeSelection,
+		SupportsStorageSizeConfiguration: supportsStorageSizeConfiguration,
 		RequiresSubnet:             requiresSubnet,
 		RequiresSecurityGroup:      requiresSecurityGroup,
 	}, nil
@@ -113,8 +118,15 @@ type RDBMSInfo struct {
 	DBInstanceType string `json:"DBInstanceType,omitempty" example:"Primary"`                // Primary | ReadReplica (for response)
 
 	// Storage
-	StorageType string `json:"StorageType,omitempty" example:"gp2"`           // e.g., "gp2", "io1", "SSD", "cloud_essd"
+	// StorageType: storage volume type for the RDBMS instance.
+	// e.g., "gp2", "io1", "SSD", "cloud_essd"
+	// OpenStack: configurable at creation time, but Trove API does not return this field in responses (always "NA").
+	StorageType string `json:"StorageType,omitempty" example:"gp2"`
 	StorageSize string `json:"StorageSize" validate:"required" example:"100"` // in GB
+	// Iops: Provisioned IOPS for the storage volume.
+	// AWS: required for io1/io2 (100–64000).
+	// Other CSPs: not used.
+	Iops string `json:"Iops,omitempty" example:"3000"`
 
 	// Network
 	SubnetIIDs        []IID `json:"SubnetIIDs,omitempty"`        // Subnet IIDs for DB placement

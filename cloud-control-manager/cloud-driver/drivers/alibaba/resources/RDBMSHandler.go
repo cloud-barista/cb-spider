@@ -59,7 +59,7 @@ func (handler *AlibabaRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "7-730", true, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "7-730", true, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -513,19 +513,36 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		}
 	}
 
-	// Create master user account
+	// Create master user account with retry for IncorrectDBInstanceState.
+	// The instance may still be initializing after public connection allocation.
 	if rdbmsReqInfo.MasterUserName != "" {
-		acctReq := rds.CreateCreateAccountRequest()
-		acctReq.DBInstanceId = dbInstanceId
-		acctReq.AccountName = rdbmsReqInfo.MasterUserName
-		acctReq.AccountPassword = rdbmsReqInfo.MasterUserPassword
-		acctReq.AccountType = "Super"
-		_, acctErr := handler.Client.CreateAccount(acctReq)
-		if acctErr != nil {
-			cblogger.Errorf("Failed to create master account [%s] for [%s]: %v", rdbmsReqInfo.MasterUserName, dbInstanceId, acctErr)
+		const acctRetryInterval = 15
+		const acctRetryTimeout = 180
+		acctAttempts := 0
+		for {
+			acctReq := rds.CreateCreateAccountRequest()
+			acctReq.DBInstanceId = dbInstanceId
+			acctReq.AccountName = rdbmsReqInfo.MasterUserName
+			acctReq.AccountPassword = rdbmsReqInfo.MasterUserPassword
+			acctReq.AccountType = "Super"
+			_, acctErr := handler.Client.CreateAccount(acctReq)
+			if acctErr == nil {
+				cblogger.Infof("Master account [%s] created for [%s]", rdbmsReqInfo.MasterUserName, dbInstanceId)
+				break
+			}
+			if strings.Contains(acctErr.Error(), "IncorrectDBInstanceState") {
+				elapsed := acctAttempts * acctRetryInterval
+				if elapsed >= acctRetryTimeout {
+					return irs.RDBMSInfo{}, fmt.Errorf("failed to create master account after %ds: %w", acctRetryTimeout, acctErr)
+				}
+				cblogger.Warnf("[Alibaba] IncorrectDBInstanceState on account create attempt %d – retrying in %ds: %v",
+					acctAttempts+1, acctRetryInterval, acctErr)
+				time.Sleep(time.Duration(acctRetryInterval) * time.Second)
+				acctAttempts++
+				continue
+			}
 			return irs.RDBMSInfo{}, fmt.Errorf("failed to create master account: %w", acctErr)
 		}
-		cblogger.Infof("Master account [%s] created for [%s]", rdbmsReqInfo.MasterUserName, dbInstanceId)
 	}
 
 	// Set deletion protection if requested

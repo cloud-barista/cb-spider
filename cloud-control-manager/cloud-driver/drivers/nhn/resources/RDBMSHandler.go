@@ -328,7 +328,7 @@ func (handler *NhnCloudRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMeta
 
 	storageSizeRange := irs.StorageSizeRange{Min: 20, Max: 2048}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, false, "1-730", true, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, false, "1-730", true, false, true, true)
 	if err != nil {
 		LoggingError(callLogInfo, err)
 		return irs.RDBMSMetaInfo{}, err

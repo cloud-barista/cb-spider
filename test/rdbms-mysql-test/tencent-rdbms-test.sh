@@ -5,12 +5,12 @@
 # Author: CB-Spider Team
 
 export CSP_NAME="TENCENT"
-export CONNECTION_NAME="tencent-beijing3-config"
+export CONNECTION_NAME="tencent-beijing6-config"
 export RDBMS_NAME="cb-spider-mysql-test"
 export RESULT_FILE="${RESULT_DIR:-/tmp/rdbms_results}/result_tencent.txt"
 
 export CREATE_JSON='{
-  "ConnectionName": "tencent-beijing3-config",
+  "ConnectionName": "tencent-beijing6-config",
   "ReqInfo": {
     "Name": "cb-spider-mysql-test",
     "VPCName": "vpc-01",
@@ -19,7 +19,6 @@ export CREATE_JSON='{
     "DBEngineVersion": "8.0",
     "DBInstanceSpec": "8000",
     "StorageSize": "50",
-    "StorageType": "CLOUD_HSSD",
     "MasterUserName": "root",
     "MasterUserPassword": "Password123!",
     "PublicAccess": true

@@ -94,7 +94,7 @@ func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "NA", false, false)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "NA", false, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -555,10 +555,20 @@ func (handler *IbmRDBMSHandler) getDefaultMemberScalingGroup(dbEngine string, ho
 // apply admin_password passed as a provisioning parameter; the explicit UpdateUser call
 // (matching the IBM Terraform Provider approach) is required to actually set the password.
 func (handler *IbmRDBMSHandler) setAdminPassword(deploymentID, password string) error {
-	deployment, _, err := handler.CloudDBService.GetDeploymentInfoWithContext(
-		handler.getContext(),
-		handler.CloudDBService.NewGetDeploymentInfoOptions(deploymentID),
-	)
+	const retryInterval = 15
+	const retryTimeout = 180
+	var deployment *clouddatabasesv5.GetDeploymentInfoResponse
+	var err error
+	for elapsed := 0; elapsed < retryTimeout; elapsed += retryInterval {
+		deployment, _, err = handler.CloudDBService.GetDeploymentInfoWithContext(
+			handler.getContext(),
+			handler.CloudDBService.NewGetDeploymentInfoOptions(deploymentID),
+		)
+		if err == nil && deployment != nil && deployment.Deployment != nil {
+			break
+		}
+		time.Sleep(retryInterval * time.Second)
+	}
 	if err != nil || deployment == nil || deployment.Deployment == nil {
 		return fmt.Errorf("failed to get deployment info for setting admin password: %w", err)
 	}

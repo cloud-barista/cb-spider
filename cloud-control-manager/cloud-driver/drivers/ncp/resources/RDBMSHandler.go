@@ -112,21 +112,23 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 		}
 	}
 
-	// StorageTypeOptions: G3 generation uses SSD automatically.
-	// StorageSizeRange: NCP G3 supports 10GB default, 10GB increments up to 6000GB.
+	// StorageTypeOptions: NCP G3 generation sets SSD automatically; not user-selectable.
+	// StorageSizeRange: shown for reference only. NCP G3 starts at 10GB and auto-scales by 10GB increments up to 6000GB.
 	return irs.RDBMSMetaInfo{
-		DBEngine:                   "mysql",
-		SupportedVersions:          versions,
-		DBInstanceSpecOptions:      instanceSpecs,
-		StorageTypeOptions:         []string{"SSD"},
-		StorageSizeRange:           irs.StorageSizeRange{Min: 10, Max: 6000},
-		SupportsHighAvailability:   true,
-		SupportsBackup:             true,
-		SupportsPublicAccess:       false, // NCP does not expose a public domain assignment API; must be done manually via NCP Console
-		SupportsDeletionProtection: true,
-		SupportsEncryption:         false, // 2024년 10월 21일부터 신규 서비스 암호화 미제공 (Rocky 8.10)
-		RequiresSubnet:             true,
-		RequiresSecurityGroup:      false,
+		DBEngine:                         "mysql",
+		SupportedVersions:                versions,
+		DBInstanceSpecOptions:            instanceSpecs,
+		StorageTypeOptions:               []string{"NA"},
+		StorageSizeRange:                 irs.StorageSizeRange{Min: 10, Max: 6000},
+		SupportsHighAvailability:         true,
+		SupportsBackup:                   true,
+		SupportsPublicAccess:             false, // NCP does not expose a public domain assignment API; must be done manually via NCP Console
+		SupportsDeletionProtection:       true,
+		SupportsEncryption:               false, // 2024년 10월 21일부터 신규 서비스 암호화 미제공 (Rocky 8.10)
+		SupportsStorageTypeSelection:     false,
+		SupportsStorageSizeConfiguration: false,
+		RequiresSubnet:                   true,
+		RequiresSecurityGroup:            false,
 	}, nil
 }
 
@@ -198,21 +200,23 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 		}
 	}
 
-	// StorageTypeOptions: per NCP documentation, PostgreSQL (G3) uses SSD automatically.
-	// StorageSizeRange: NCP G3 supports 10GB default, 10GB increments up to 6000GB.
+	// StorageTypeOptions: NCP G3 generation sets SSD automatically; not user-selectable.
+	// StorageSizeRange: shown for reference only. NCP G3 starts at 10GB and auto-scales by 10GB increments up to 6000GB.
 	return irs.RDBMSMetaInfo{
-		DBEngine:                   "postgresql",
-		SupportedVersions:          versions,
-		DBInstanceSpecOptions:      instanceSpecs,
-		StorageTypeOptions:         []string{"SSD"},
-		StorageSizeRange:           irs.StorageSizeRange{Min: 10, Max: 6000},
-		SupportsHighAvailability:   true,
-		SupportsBackup:             true,
-		SupportsPublicAccess:       false,
-		SupportsDeletionProtection: false,
-		SupportsEncryption:         true,
-		RequiresSubnet:             true,
-		RequiresSecurityGroup:      false,
+		DBEngine:                         "postgresql",
+		SupportedVersions:                versions,
+		DBInstanceSpecOptions:            instanceSpecs,
+		StorageTypeOptions:               []string{"NA"},
+		StorageSizeRange:                 irs.StorageSizeRange{Min: 10, Max: 6000},
+		SupportsHighAvailability:         true,
+		SupportsBackup:                   true,
+		SupportsPublicAccess:             false,
+		SupportsDeletionProtection:       false,
+		SupportsEncryption:               true,
+		SupportsStorageTypeSelection:     false,
+		SupportsStorageSizeConfiguration: false,
+		RequiresSubnet:                   true,
+		RequiresSecurityGroup:            false,
 	}, nil
 }
 
@@ -362,17 +366,12 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 
 	// StorageSize: NCP G3 always starts with 10GB and automatically scales up by 10GB as data increases (up to 6000GB).
 	// Storage size cannot be specified at creation time.
-	if reqInfo.StorageSize != "" && reqInfo.StorageSize != "10" {
-		return irs.RDBMSInfo{}, fmt.Errorf("NCP MySQL G3 does not support custom StorageSize at creation. Default is 10GB, automatically scaled up by 10GB as data increases (up to 6000GB). Requested: %s GB", reqInfo.StorageSize)
+	if reqInfo.StorageSize != "" {
+		return irs.RDBMSInfo{}, fmt.Errorf("StorageSize is not configurable for NCP: NCP G3 starts at 10GB and auto-scales by 10GB increments up to 6000GB. See SupportsStorageSizeConfiguration in GetMetaInfo. Requested: %s GB", reqInfo.StorageSize)
 	}
 
 	if reqInfo.StorageType != "" {
-		// G3 generation automatically uses SSD; DataStorageTypeCode must NOT be specified
-		if strings.ToUpper(reqInfo.StorageType) != "SSD" {
-			return irs.RDBMSInfo{}, fmt.Errorf("NCP MySQL G3 only supports SSD storage type, requested: %s", reqInfo.StorageType)
-		}
-		// Do not set DataStorageTypeCode for G3 (SSD is automatic)
-		cblogger.Infof("NCP MySQL G3: SSD storage type is applied automatically (not set explicitly)")
+		return irs.RDBMSInfo{}, errors.New("StorageType is not supported for NCP: storage type is set automatically by the CSP. See SupportsStorageTypeSelection in GetMetaInfo")
 	}
 	// Encryption is not configurable at creation via Spider (NCP uses default encryption settings)
 	if reqInfo.DeletionProtection {
@@ -469,17 +468,12 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 
 	// StorageSize: NCP G3 always starts with 10GB and automatically scales up by 10GB as data increases (up to 6000GB).
 	// Storage size cannot be specified at creation time.
-	if reqInfo.StorageSize != "" && reqInfo.StorageSize != "10" {
-		return irs.RDBMSInfo{}, fmt.Errorf("NCP PostgreSQL G3 does not support custom StorageSize at creation. Default is 10GB, automatically scaled up by 10GB as data increases (up to 6000GB). Requested: %s GB", reqInfo.StorageSize)
+	if reqInfo.StorageSize != "" {
+		return irs.RDBMSInfo{}, fmt.Errorf("StorageSize is not configurable for NCP: NCP G3 starts at 10GB and auto-scales by 10GB increments up to 6000GB. See SupportsStorageSizeConfiguration in GetMetaInfo. Requested: %s GB", reqInfo.StorageSize)
 	}
 
 	if reqInfo.StorageType != "" {
-		// G3 generation automatically uses SSD; DataStorageTypeCode must NOT be specified
-		if strings.ToUpper(reqInfo.StorageType) != "SSD" {
-			return irs.RDBMSInfo{}, fmt.Errorf("NCP PostgreSQL G3 only supports SSD storage type, requested: %s", reqInfo.StorageType)
-		}
-		// Do not set DataStorageTypeCode for G3 (SSD is automatic)
-		cblogger.Infof("NCP PostgreSQL G3: SSD storage type is applied automatically (not set explicitly)")
+		return irs.RDBMSInfo{}, errors.New("StorageType is not supported for NCP: storage type is set automatically by the CSP. See SupportsStorageTypeSelection in GetMetaInfo")
 	}
 	// Encryption is not configurable at creation via Spider (NCP uses default encryption settings)
 	backupPeriod := reqInfo.BackupRetentionDays
