@@ -14,12 +14,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	iidm "github.com/cloud-barista/cb-spider/cloud-control-manager/iid-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
+)
+
+const (
+	ncpNodeGroupIDPollInterval = 5 * time.Second
+	ncpNodeGroupIDPollMaxTry   = 24
 )
 
 // ====================================================================
@@ -617,6 +623,15 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 		return nil, err
 	}
 
+	if hasNCPTemporaryNodeGroupID(providerName, info.NodeGroupList) {
+		waitInfoList, waitErr := waitForNCPNodeGroupSystemIDs(handler, providerName, info.IId, info.NodeGroupList)
+		if waitErr != nil {
+			cblog.Error(waitErr)
+			return nil, waitErr
+		}
+		info.NodeGroupList = waitInfoList
+	}
+
 	// (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 	//     ex) spiderIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	spiderIId := cres.IID{NameId: reqIId.NameId, SystemId: spUUID + ":" + info.IId.SystemId}
@@ -702,6 +717,75 @@ func getReqNameId(reqIIdList []cres.IID, driverNameId string) string {
 		}
 	}
 	return ""
+}
+
+func isNCPTemporaryNodeGroupID(providerName string, systemID string) bool {
+	return strings.EqualFold(providerName, "NCP") && strings.TrimSpace(systemID) == "1"
+}
+
+func hasNCPTemporaryNodeGroupID(providerName string, nodeGroupList []cres.NodeGroupInfo) bool {
+	for _, ngInfo := range nodeGroupList {
+		if isNCPTemporaryNodeGroupID(providerName, ngInfo.IId.SystemId) {
+			return true
+		}
+	}
+	return false
+}
+
+func waitForNCPNodeGroupSystemIDs(handler cres.ClusterHandler, providerName string, clusterDriverIID cres.IID, nodeGroupList []cres.NodeGroupInfo) ([]cres.NodeGroupInfo, error) {
+	if !strings.EqualFold(providerName, "NCP") {
+		return nodeGroupList, nil
+	}
+
+	targetNameIDMap := map[string]struct{}{}
+	for _, ngInfo := range nodeGroupList {
+		if isNCPTemporaryNodeGroupID(providerName, ngInfo.IId.SystemId) {
+			targetNameIDMap[ngInfo.IId.NameId] = struct{}{}
+		}
+	}
+	if len(targetNameIDMap) == 0 {
+		return nodeGroupList, nil
+	}
+
+	updatedList := make([]cres.NodeGroupInfo, len(nodeGroupList))
+	copy(updatedList, nodeGroupList)
+
+	for i := 0; i < ncpNodeGroupIDPollMaxTry; i++ {
+		clusterInfo, err := handler.GetCluster(clusterDriverIID)
+		if err != nil {
+			cblog.Warnf("failed to refresh cluster while waiting NodeGroup instance IDs (try %d/%d): %v", i+1, ncpNodeGroupIDPollMaxTry, err)
+			time.Sleep(ncpNodeGroupIDPollInterval)
+			continue
+		}
+
+		currentByNameID := map[string]cres.NodeGroupInfo{}
+		for _, ngInfo := range clusterInfo.NodeGroupList {
+			currentByNameID[ngInfo.IId.NameId] = ngInfo
+		}
+
+		remaining := 0
+		for idx, ngInfo := range updatedList {
+			if _, ok := targetNameIDMap[ngInfo.IId.NameId]; !ok {
+				continue
+			}
+
+			latestInfo, ok := currentByNameID[ngInfo.IId.NameId]
+			if !ok || isNCPTemporaryNodeGroupID(providerName, latestInfo.IId.SystemId) {
+				remaining++
+				continue
+			}
+
+			updatedList[idx].IId.SystemId = latestInfo.IId.SystemId
+		}
+
+		if remaining == 0 {
+			return updatedList, nil
+		}
+
+		time.Sleep(ncpNodeGroupIDPollInterval)
+	}
+
+	return nil, fmt.Errorf("timed out while waiting for meaningful NodeGroup instance IDs from CSP")
 }
 
 func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
@@ -1339,6 +1423,20 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 		return nil, err
 	}
 
+	if isNCPTemporaryNodeGroupID(providerName, ngInfo.IId.SystemId) {
+		waitInfoList, waitErr := waitForNCPNodeGroupSystemIDs(
+			handler,
+			providerName,
+			getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}),
+			[]cres.NodeGroupInfo{ngInfo},
+		)
+		if waitErr != nil {
+			cblog.Error(waitErr)
+			return nil, waitErr
+		}
+		ngInfo = waitInfoList[0]
+	}
+
 	ngSpiderIId := cres.IID{NameId: nodeGroupNameId, SystemId: nodeGroupUUID + ":" + ngInfo.IId.SystemId}
 	err2 := infostore.Insert(&NodeGroupIIDInfo{ConnectionName: iidInfo.ConnectionName, NameId: ngSpiderIId.NameId, SystemId: ngSpiderIId.SystemId,
 		OwnerClusterName: clusterName})
@@ -1964,7 +2062,7 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 	result := false
 
-	result, err = handler.(cres.ClusterHandler).DeleteCluster(driverIId)
+	result, err = handler.DeleteCluster(driverIId)
 	if err != nil {
 		cblog.Error(err)
 		if checkNotFoundError(err) {
@@ -1981,8 +2079,35 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		}
 	}
 
+	// Wait until the cluster is not found in CSP, like VM deletion flow.
+	waiter := NewWaiter(15, 600)
+	for {
+		_, err = handler.GetCluster(driverIId)
+		if err != nil {
+			if checkNotFoundError(err) {
+				break
+			}
+			cblog.Error(err)
+			if force != "true" {
+				return false, err
+			}
+			break
+		}
+
+		if !waiter.Wait() {
+			err = fmt.Errorf("[%s] Failed to delete Cluster %s. (Timeout=%v)", connectionName, driverIId.NameId, waiter.Timeout)
+			cblog.Error(err)
+			if force != "true" {
+				return false, err
+			}
+			break
+		}
+	}
+
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
+	// delete all nodegroups of target Cluster first
+	_, err = infostore.DeleteByConditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName,
+		OWNER_CLUSTER_NAME_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {
@@ -1990,13 +2115,13 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		}
 	}
 
-	// for NodeGroup list
-	// delete all nodegroups of target Cluster
-	_, err = infostore.DeleteByConditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName,
-		OWNER_CLUSTER_NAME_COLUMN, iidInfo.NameId)
+	// delete cluster IID after nodegroup IIDs
+	_, err = infostore.DeleteByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
-		return false, err
+		if force != "true" {
+			return false, err
+		}
 	}
 
 	return result, nil

@@ -1130,7 +1130,7 @@
             const deletePromises = Array.from(checkboxes).map(checkbox => {
                 const clusterName = checkbox.value;
 
-                return fetchWithProgress(`/spider/cluster/${clusterName}`, {
+                return fetchWithProgress(`/spider/cluster/${clusterName}?force=true`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ConnectionName: "{{.ConnectionConfig}}" })
@@ -1477,7 +1477,7 @@
             button.parentElement.remove();
         }
     
-        function postCluster() {
+        function buildClusterCreateData(versionOverride = null) {
             const connConfig = document.getElementById('connConfig').value;
             const selectedSubnets = Array.from(document.getElementById('subnetSelect').selectedOptions).map(option => option.value);
             const selectedKeyPair = document.getElementById('keyPairSelect').value;
@@ -1515,7 +1515,7 @@
                 ConnectionName: connConfig,
                 ReqInfo: {
                     Name: document.getElementById('clusterName').value,
-                    Version: document.getElementById('clusterVersion').value,
+                    Version: versionOverride !== null ? versionOverride : document.getElementById('clusterVersion').value,
                     VPCName: selectedVPCText,
                     SubnetNames: selectedSubnets,
                     SecurityGroupNames: securityGroupArray,
@@ -1525,7 +1525,11 @@
                 }
             };
 
-            fetchWithProgress('/spider/cluster', {
+            return clusterData;
+        }
+
+        function createCluster(clusterData) {
+            return fetchWithProgress('/spider/cluster', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(clusterData)
@@ -1534,11 +1538,89 @@
                     return response.json().then(error => { throw new Error(error.message); });
                 }
                 return response.json();
-            }).then(() => {
+            });
+        }
+
+        function parseAvailableVersions(errorMessage) {
+            const match = errorMessage.match(/Available\s+version[s]?:\s*([^)]+)/i);
+            if (!match || !match[1]) {
+                return [];
+            }
+
+            return match[1]
+                .split(',')
+                .map(v => v.trim().replace(/[)\]]+$/g, ''))
+                .filter(v => v.length > 0);
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showVersionSelectionError(errorMessage, versions) {
+            closeError();
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+
+            const optionsHtml = versions
+                .map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`)
+                .join('');
+
+            errorDiv.innerHTML = `
+                <p>Cluster Creation Error</p>
+                <p style="margin-bottom:10px;">${escapeHtml(errorMessage)}</p>
+                <p style="margin:8px 0 4px;">Select one of available versions and retry:</p>
+                <select id="availableVersionSelect" style="min-width:220px; font-size:14px; padding:4px;">
+                    ${optionsHtml}
+                </select>
+                <div style="margin-top:16px; display:flex; gap:10px; justify-content:center;">
+                    <button id="retryWithSelectedVersionBtn">Retry</button>
+                    <button id="cancelVersionRetryBtn">Cancel</button>
+                </div>
+            `;
+
+            document.body.appendChild(errorDiv);
+            document.addEventListener('keydown', handleEscError);
+
+            document.getElementById('retryWithSelectedVersionBtn').addEventListener('click', () => {
+                const selectedVersion = document.getElementById('availableVersionSelect').value;
+                if (!selectedVersion) {
+                    return;
+                }
+                document.getElementById('clusterVersion').value = selectedVersion;
+                closeError();
+                postCluster(selectedVersion);
+            });
+
+            document.getElementById('cancelVersionRetryBtn').addEventListener('click', () => {
+                closeError();
+            });
+        }
+
+        function postCluster(versionOverride = null) {
+            const connConfig = document.getElementById('connConfig').value;
+            const clusterData = buildClusterCreateData(versionOverride);
+
+            createCluster(clusterData).then(() => {
                 hideOverlay();
                 location.reload();
             }).catch(error => {
-                showError(`Error adding cluster: ${error.message}`, "Cluster Creation Error");
+                const availableVersions = parseAvailableVersions(error.message || '');
+                getCSPInfo(connConfig).then(providerName => {
+                    if (providerName && providerName.toUpperCase() === 'NCP' && availableVersions.length > 0) {
+                        showVersionSelectionError(error.message, availableVersions);
+                        return;
+                    }
+                    showError(`Error adding cluster: ${error.message}`, "Cluster Creation Error");
+                }).catch(() => {
+                    showError(`Error adding cluster: ${error.message}`, "Cluster Creation Error");
+                });
             });
         }
 
@@ -1908,26 +1990,26 @@
 
                     // Add each row of information from the provided node data
                     const rows = [
-                        { label: "Node Name", value: node.IId.NameId || 'N/A' },
-                        { label: "System ID", value: node.IId.SystemId },
-                        { label: "Start Time", value: node.StartTime },
-                        { label: "Region", value: node.Region.Region },
-                        { label: "Zone", value: node.Region.Zone },
-                        { label: "Image ID", value: node.ImageIId.NameId || node.ImageIId.SystemId },
-                        { label: "VM Spec Name", value: node.VMSpecName },
-                        { label: "VPC ID", value: node.VpcIID.SystemId },
-                        { label: "Subnet ID", value: node.SubnetIID.SystemId },
-                        { label: "Security Groups", value: node.SecurityGroupIIds.map(sg => sg.NameId).join(', ') },
-                        { label: "Key Pair", value: node.KeyPairIId.NameId },
-                        { label: "Root Disk Type", value: node.RootDiskType },
-                        { label: "Root Disk Size (GB)", value: node.RootDiskSize },
-                        { label: "Root Device Name", value: node.RootDeviceName },
-                        { label: "Block Disk", value: node.VMBlockDisk },
-                        { label: "Network Interface", value: node.NetworkInterface },
+                        { label: "Node Name", value: node.IId?.NameId || 'N/A' },
+                        { label: "System ID", value: node.IId?.SystemId || 'N/A' },
+                        { label: "Start Time", value: node.StartTime || 'N/A' },
+                        { label: "Region", value: node.Region?.Region || 'N/A' },
+                        { label: "Zone", value: node.Region?.Zone || 'N/A' },
+                        { label: "Image ID", value: node.ImageIId?.NameId || node.ImageIId?.SystemId || 'N/A' },
+                        { label: "VM Spec Name", value: node.VMSpecName || 'N/A' },
+                        { label: "VPC ID", value: node.VpcIID?.SystemId || 'N/A' },
+                        { label: "Subnet ID", value: node.SubnetIID?.SystemId || 'N/A' },
+                        { label: "Security Groups", value: node.SecurityGroupIIds?.map(sg => sg.NameId || sg.SystemId).join(', ') || 'N/A' },
+                        { label: "Key Pair", value: node.KeyPairIId?.NameId || 'N/A' },
+                        { label: "Root Disk Type", value: node.RootDiskType || 'N/A' },
+                        { label: "Root Disk Size (GB)", value: node.RootDiskSize || 'N/A' },
+                        { label: "Root Device Name", value: node.RootDeviceName || 'N/A' },
+                        { label: "Block Disk", value: node.VMBlockDisk || 'N/A' },
+                        { label: "Network Interface", value: node.NetworkInterface || 'N/A' },
                         { label: "Public IP", value: node.PublicIP || 'N/A' },
-                        { label: "Private IP", value: node.PrivateIP },
+                        { label: "Private IP", value: node.PrivateIP || 'N/A' },
                         { label: "Private DNS", value: node.PrivateDNS || 'N/A' },
-                        { label: "Platform", value: node.Platform },
+                        { label: "Platform", value: node.Platform || 'N/A' },
                         { label: "Access Point", value: node.AccessPoint || 'N/A' },
                     ];
 

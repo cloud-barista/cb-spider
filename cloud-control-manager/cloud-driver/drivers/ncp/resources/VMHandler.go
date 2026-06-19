@@ -1063,13 +1063,7 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		return irs.VMInfo{}, newErr
 	}
 
-	// Caution!!) Because disk info within the NCP VM info is being returned with incorrect value.
-	var rootDiskType string
-	if strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "CB1") || strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "CB2") {
-		rootDiskType = "SSD"
-	} else if strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "SSD") {
-		rootDiskType = "HDD"
-	}
+	
 
 	// PublicIpID : Using for deleting the PublicIP
 	vmInfo := irs.VMInfo{
@@ -1098,7 +1092,6 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		NetworkInterface: 	*netInterfaceName,
 		PublicIP:         	*publicIp,
 		PrivateIP:        	*privateIp,
-		RootDiskType:     	rootDiskType,
 		SSHAccessPoint:   	*publicIp + ":22",
 		KeyValueList:   	irs.StructToKeyValueList(NcpInstance),
 	}
@@ -1128,18 +1121,14 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 	}
 
 	// Set the VM Image Info
-	imageHandler := NcpVpcImageHandler{
-		RegionInfo: vmHandler.RegionInfo,
-		VMClient:   vmHandler.VMClient,
-	}
 	if !strings.EqualFold(*NcpInstance.ServerImageNo, "") {
-		isPublicImage, err := imageHandler.isPublicImage(*NcpInstance.ServerImageNo) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
+		isPublicImage, known, err := vmHandler.probePublicImageTypeQuiet(*NcpInstance.ServerImageNo) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Debug(newErr.Error())
-			
+			cblogger.Debugf("Failed to Check Whether the Image is Public Image (quiet mode): %v", err)
 			vmInfo.ImageType = "NA"
-			// return irs.VMInfo{}, newErr // Caution!! Consider what happens when an image that was supported in the past is no longer available.
+		} else if !known {
+			// Managed/ephemeral image may not be returned by image list API.
+			vmInfo.ImageType = "NA"
 		} else if isPublicImage {
 			vmInfo.ImageType = irs.PublicImage
 		} else {
@@ -1147,11 +1136,14 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		}
 	}
 
-	_, storageSize, deviceName, err := vmHandler.getVmRootDiskInfo(NcpInstance.ServerInstanceNo)
+	_, diskTypeFromBS, storageSize, deviceName, err := vmHandler.getVmRootDiskInfo(NcpInstance.ServerInstanceNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get BlockStorage Info : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
+	}
+	if diskTypeFromBS != nil && !strings.EqualFold(*diskTypeFromBS, "") {
+		vmInfo.RootDiskType = *diskTypeFromBS
 	}
 	if !strings.EqualFold(*storageSize, "") {
 		vmInfo.RootDiskSize = *storageSize
@@ -1180,6 +1172,34 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 	}
 
 	return vmInfo, nil
+}
+
+// probePublicImageTypeQuiet checks image visibility/type without emitting error logs for expected "not found" cases.
+func (vmHandler *NcpVpcVMHandler) probePublicImageTypeQuiet(imageNo string) (bool, bool, error) {
+	if strings.EqualFold(imageNo, "") {
+		return false, false, nil
+	}
+
+	imageReq := vserver.GetServerImageListRequest{
+		RegionCode:        ncloud.String(vmHandler.RegionInfo.Region),
+		ServerImageNoList: []*string{ncloud.String(imageNo)},
+	}
+
+	result, err := vmHandler.VMClient.V2Api.GetServerImageList(&imageReq)
+	if err != nil {
+		return false, false, err
+	}
+
+	if len(result.ServerImageList) < 1 {
+		return false, false, nil
+	}
+
+	image := result.ServerImageList[0]
+	if image == nil || image.ServerImageType == nil || image.ServerImageType.Code == nil {
+		return false, false, nil
+	}
+
+	return strings.EqualFold(ncloud.StringValue(image.ServerImageType.Code), "NCP"), true, nil
 }
 
 func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPairId string) (*string, error) {
@@ -1501,7 +1521,7 @@ func (vmHandler *NcpVpcVMHandler) waitForDiskAttach(vmIID irs.IID) (irs.DiskStat
 	maxRetryCnt := 100
 
 	for {
-		storageNo, _, _, err := vmHandler.getVmRootDiskInfo(&vmIID.SystemId)
+		storageNo, _, _, _, err := vmHandler.getVmRootDiskInfo(&vmIID.SystemId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get BlockStorage Info : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -1574,13 +1594,13 @@ func (vmHandler *NcpVpcVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatu
 	return irs.VMStatus("Terminating"), nil
 }
 
-func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *string, *string, error) {
+func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *string, *string, *string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called getVmRootDiskInfo()!!")
 
 	if strings.EqualFold(*vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
 		cblogger.Error(newErr.Error())
-		return nil, nil, nil, newErr
+		return nil, nil, nil, nil, newErr
 	}
 
 	storageReq := vserver.GetBlockStorageInstanceListRequest{
@@ -1591,7 +1611,7 @@ func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *str
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
 		cblogger.Error(newErr.Error())
-		return nil, nil, nil, newErr
+		return nil, nil, nil, nil, newErr
 	}
 
 	if len(storageResult.BlockStorageInstanceList) < 1 {
@@ -1599,18 +1619,26 @@ func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *str
 	}
 
 	var storageInstanceNo *string
+	var diskType string
 	var storageSize string
 	var deviceName *string
 	for _, disk := range storageResult.BlockStorageInstanceList {
 		if strings.EqualFold(*disk.ServerInstanceNo, *vmId) && strings.EqualFold(*disk.BlockStorageType.Code, "BASIC") {
-
 			storageInstanceNo = disk.BlockStorageInstanceNo
 			storageSize 	  = strconv.FormatFloat(float64(*disk.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
 			deviceName 		  = disk.DeviceName
+			if disk.BlockStorageDiskDetailType != nil {
+				codeName := ncloud.StringValue(disk.BlockStorageDiskDetailType.CodeName)
+				if strings.EqualFold(codeName, "SSD") || strings.EqualFold(codeName, "CB1") || strings.EqualFold(codeName, "CB2") {
+					diskType = "SSD"
+				} else {
+					diskType = "HDD"
+				}
+			}
 			break
 		}
 	}
-	return storageInstanceNo, &storageSize, deviceName, nil
+	return storageInstanceNo, &diskType, &storageSize, deviceName, nil
 }
 
 func (vmHandler *NcpVpcVMHandler) getVmDataDiskList(vmId *string) ([]irs.IID, error) {
