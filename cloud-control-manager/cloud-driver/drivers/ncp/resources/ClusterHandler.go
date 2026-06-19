@@ -122,7 +122,7 @@ func (nvch *NcpVpcClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 
 	cblogger.Debug("NCP Cloud Driver: called CreateCluster()")
 	emptyClusterInfo := irs.ClusterInfo{}
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
 
 	cblogger.Info("Create Cluster")
@@ -218,6 +218,9 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 	// 1. 필수 파라미터 검증
 	if clusterName == "" || clusterReqInfo.Version == "" || clusterReqInfo.Network.VpcIID.SystemId == "" {
 		return "", fmt.Errorf("required parameter missing (name, version, vpcNo)")
+	}
+	if nvch.RegionInfo.Zone == "" {
+		return "", fmt.Errorf("zone is required for NCP cluster creation: RegionInfo.Zone is empty (e.g. KR-1, KR-2)")
 	}
 
 	// 2. NCP 특화 옵션(KeyValueList) 파싱 및 기본값 처리
@@ -562,7 +565,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 
 	cblogger.Debug("NCP Cloud Driver: called GetCluster()")
 	emptyClusterInfo := irs.ClusterInfo{}
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, clusterIID.SystemId, "GetCluster()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, clusterIID.SystemId, "GetCluster()")
 	start := call.Start()
 
 	var getErr error
@@ -721,7 +724,7 @@ func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (stri
 	}()
 
 	cblogger.Debug("NCP Cloud Driver: called GenerateClusterToken()")
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GenerateClusterToken()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, clusterIID.NameId, "GenerateClusterToken()")
 	start := call.Start()
 
 	var tokenErr error
@@ -1059,7 +1062,7 @@ func (nvch *NcpVpcClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 		return false, fmt.Errorf("DeleteCluster: SystemId is required")
 	}
 
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, clusterIID.SystemId, "DeleteCluster()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, clusterIID.SystemId, "DeleteCluster()")
 	start := call.Start()
 
 	err := nvch.deleteCluster(clusterIID.SystemId)
@@ -1084,7 +1087,7 @@ func (nvch *NcpVpcClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 func (nvch *NcpVpcClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	cblogger.Infof("Cluster SystemId: [%s] / NodeGroup Name: [%s]", clusterIID.SystemId, nodeGroupReqInfo.IId.NameId)
 
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, nodeGroupReqInfo.IId.NameId, "AddNodeGroup()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, nodeGroupReqInfo.IId.NameId, "AddNodeGroup()")
 	start := call.Start()
 
 	// Validation
@@ -1293,7 +1296,7 @@ func (nvch *NcpVpcClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.Node
 func (nvch *NcpVpcClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
 	cblogger.Infof("Cluster SystemId: [%s] / NodeGroup SystemId: [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
 
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, nodeGroupIID.SystemId, "GetNodeGroup()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, nodeGroupIID.SystemId, "GetNodeGroup()")
 	start := call.Start()
 
 	// Get NodePool list for the cluster
@@ -1487,7 +1490,7 @@ func (nvch *NcpVpcClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nod
 func (nvch *NcpVpcClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
 	cblogger.Infof("Cluster SystemId: [%s] / NodeGroup SystemId: [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
 
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, nodeGroupIID.SystemId, "RemoveNodeGroup()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, nodeGroupIID.SystemId, "RemoveNodeGroup()")
 	start := call.Start()
 
 	// Check if this is the default node pool (cannot be deleted)
@@ -1932,7 +1935,7 @@ func (nvch *NcpVpcClusterHandler) ListIID() ([]*irs.IID, error) {
 	}()
 
 	cblogger.Debug("NHN Cloud Driver: called ListCluster()")
-	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListIID()") // HisCall logging
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, "ListCluster()", "ListIID()") // HisCall logging
 
 	start := call.Start()
 
