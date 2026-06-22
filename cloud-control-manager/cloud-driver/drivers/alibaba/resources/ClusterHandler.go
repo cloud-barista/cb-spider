@@ -543,8 +543,15 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	// KeyPair: Alibaba uses KeyPairName as both NameId and SystemId, so use SystemId
 	keyPair := nodeGroupReqInfo.KeyPairIID.SystemId
 
-	// Image: Alibaba uses ImageId as SystemId
-	imageId := nodeGroupReqInfo.ImageIID.SystemId
+	// Image: prefer NameId (user-specified ACK image_type alias) over SystemId (resolved ECS image ID).
+	// TB resolves ACK aliases (e.g. "AliyunLinux3") to ECS image IDs before calling Spider, but
+	// ACK rejects ECS IDs on AddNodeGroup with "does not support cgroup v2". Using NameId keeps
+	// the alias intact so the ackImageTypeAliases check below can route it correctly, consistent
+	// with how CreateCluster's buildNodepoolsForCreateCluster uses ImageIID.NameId.
+	imageId := nodeGroupReqInfo.ImageIID.NameId
+	if imageId == "" {
+		imageId = nodeGroupReqInfo.ImageIID.SystemId
+	}
 
 	// ACK image_type aliases - these must be passed as image_type, not image_id.
 	// Actual ECS image IDs start with "m-"; anything else that matches a known
