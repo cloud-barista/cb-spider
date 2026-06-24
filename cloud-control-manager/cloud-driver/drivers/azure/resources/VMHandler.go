@@ -983,21 +983,32 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 			VPCName:    vmInfo.VpcIID.NameId,
 			SubnetName: vmInfo.SubnetIID.NameId,
 		}
+		// Use NameId (short name) — SystemId is the full ARM resource path, not a name.
+		primaryNicName := ""
+		if len(vmInfo.NICs) > 0 {
+			primaryNicName = vmInfo.NICs[0].IId.NameId
+		}
 		cleanResources := CleanVMClientRequestResource{
-			"", (func() string { if len(vmInfo.NICs) > 0 { return vmInfo.NICs[0].IId.SystemId }; return "" })(), "",
+			NetworkInterfaceName: primaryNicName,
 		}
 		if vm.Properties.StorageProfile.OSDisk.Name != nil {
 			cleanResources.VmDiskName = *vm.Properties.StorageProfile.OSDisk.Name
 		}
-		vNic, vNicErr := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, (func() string { if len(vmInfo.NICs) > 0 { return vmInfo.NICs[0].IId.SystemId }; return "" })(), nil)
-		if vNicErr != nil {
-			return vNicErr
-		}
-		for _, ip := range vNic.Properties.IPConfigurations {
-			if ip.Properties.Primary != nil && *ip.Properties.Primary {
-				if ip.Properties.PublicIPAddress != nil && ip.Properties.PublicIPAddress.ID != nil {
-					publicipIdAddr := strings.Split(*ip.Properties.PublicIPAddress.ID, "/")
-					cleanResources.PublicIPName = publicipIdAddr[len(publicipIdAddr)-1]
+		// Fetch NIC to discover the associated Public IP name.
+		// If the NIC is already gone (e.g. deleted via AdminWeb before VM deletion),
+		// skip PublicIP lookup and continue — cleanVMRelatedResource handles absent resources.
+		if primaryNicName != "" {
+			vNic, vNicErr := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, primaryNicName, nil)
+			if vNicErr != nil {
+				cblogger.Warnf("cleanDeleteVm: NIC %s not found or inaccessible (%v); skipping PublicIP cleanup", primaryNicName, vNicErr)
+			} else {
+				for _, ip := range vNic.Properties.IPConfigurations {
+					if ip.Properties.Primary != nil && *ip.Properties.Primary {
+						if ip.Properties.PublicIPAddress != nil && ip.Properties.PublicIPAddress.ID != nil {
+							publicipIdAddr := strings.Split(*ip.Properties.PublicIPAddress.ID, "/")
+							cleanResources.PublicIPName = publicipIdAddr[len(publicipIdAddr)-1]
+						}
+					}
 				}
 			}
 		}
