@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PublicIP Management</title>
+<style>
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    .header-container { display: flex; align-items: flex-end; }
+    .header-container img { margin-right: 10px; height: 28px; }
+    .header-container h1 { font-size: 16px; margin: 0; }
+    .content { margin-top: 70px; }
+    #searchInput { width: 190px; font-family: Arial, sans-serif; padding-right: 2.5cm; }
+    #clearSearch { position: absolute; right: 0.1cm; top: 50%; transform: translateY(-50%); border: none; background-color: transparent; cursor: pointer; }
+    .searchContainer { position: relative; display: flex; align-items: center; padding-left: 0.5cm; }
+    .fixed-header {
+        position: fixed; top: 0; width: 97%; background-color: white; z-index: 1000;
+        display: flex; justify-content: space-between; padding: 10px 20px;
+        align-items: center; box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons { display: flex; align-items: center; }
+    .fixed-action-buttons button { margin-left: 10px; }
+    .header-with-progress { display: flex; align-items: center; margin-bottom: 0; }
+    .progress-bar-container {
+        width: 600px; margin-left: 10px; margin-bottom: 10px; height: 22px;
+        background-color: #f0f5ff; border-radius: 4px; overflow: hidden;
+        display: none; position: relative; z-index: 2000;
+    }
+    @keyframes shimmer {
+        0%   { background-position: -600px 0; }
+        100% { background-position: 600px 0; }
+    }
+    .progress-bar {
+        width: 0; height: 100%; border-radius: 4px; transition: width 0.6s ease;
+        background: linear-gradient(90deg, #cce6ff 25%, #e8f4ff 50%, #cce6ff 75%);
+        background-size: 1200px 100%;
+        animation: shimmer 1.6s infinite linear;
+    }
+    #timeDisplay { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 14px; color: #333; z-index: 30; }
+    .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }
+    th, td { border: 1px solid black; padding: 6px; position: relative; }
+    th { background-color: #f2f2f2; font-size: 14px; text-align: center; }
+    td { text-align: left; }
+    .column-num { width: 3%; text-align: center; }
+    .center-align { text-align: center; }
+    .check-column { width: 3%; text-align: center; }
+    .highlight { background-color: #fffab6; }
+    .overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white; padding: 20px; border-radius: 5px;
+        font-family: Arial, sans-serif; font-size: 12px; position: relative; min-width: 320px;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0; color: #d9534f; border: 1px solid #ccc;
+        border-radius: 4px; cursor: pointer; position: absolute; top: 10px; right: 10px;
+    }
+    .form-group { display: flex; align-items: center; margin-bottom: 10px; }
+    .form-group label { flex: 1; text-align: right; margin-right: 10px; }
+    .form-group input, .form-group select { flex: 2; }
+    .tag-input-group { display: flex; align-items: center; flex: 2; }
+    .tag-input-group input { width: 80px; flex: 0.5; margin-right: 5px; }
+    #publicip-tag-container { display: flex; flex-direction: column; }
+    .name-cell { width: 15%; font-size: 13px; font-weight: bold; }
+    .system-id-text {
+        display: block; font-size: 12px; font-weight: normal; color: #666;
+        max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+    }
+    .ip-column { width: 12%; text-align: center; font-family: monospace; font-size: 13px; }
+    .status-column { width: 10%; text-align: center; }
+    .status-available { color: #28a745; font-weight: bold; }
+    .status-associated { color: #007bff; font-weight: bold; }
+    .status-error { color: #dc3545; font-weight: bold; }
+    .status-other { color: #6c757d; }
+    .vm-column { width: 22%; text-align: center; }
+    .created-column { width: 11%; text-align: center; font-size: 11px; color: #555; }
+    .misc-column { width: 17%; text-align: left; }
+    .misc-content { max-height: 2.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .more-btn { display: none; background-color: transparent; border: none; color: blue; text-decoration: underline; cursor: pointer; }
+    .misc-cell { position: relative; }
+    .misc-cell .more-btn { position: absolute; right: 5px; bottom: 5px; }
+    .system-id-overlay {
+        display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 50%; max-width: 600px; background-color: white; border: 1px solid black;
+        padding: 20px; z-index: 2000; border-radius: 5px;
+    }
+    .system-id-overlay-content { position: relative; font-family: Arial, sans-serif; font-size: 14px; word-wrap: break-word; }
+    .copy-btn { background: none; border: none; font-size: 16px; cursor: pointer; margin-left: 10px; }
+    .ip-badge {
+        display: inline-block; background-color: #e8f4f8; border: 1px solid #b8d9e8;
+        border-radius: 4px; padding: 2px 8px; font-weight: bold; color: #1a5276; cursor: pointer;
+    }
+    .ip-badge:hover { background-color: #cce5f0; }
+    .assoc-cell { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; width: 100%; flex-wrap: nowrap; }
+    .assoc-col  { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+    .assoc-row  { display: inline-flex; align-items: center; gap: 4px; }
+    .nic-select { width: 140px; font-size: 12px; }
+    .ip-select  { width: 110px; font-size: 12px; }
+    .vm-select  { width: 130px; font-size: 12px; }
+    .assoc-label { font-size: 11px; color: #555; }
+    .assoc-btn {
+        font-size: 12px; padding: 3px 8px; border-radius: 4px; border: none;
+        background-color: #007bff; color: #fff; cursor: pointer;
+    }
+    .assoc-btn:hover { background-color: #0056b3; }
+    .dissoc-btn {
+        font-size: 12px; padding: 3px 8px; border-radius: 4px; border: none;
+        background-color: #dc3545; color: #fff; cursor: pointer;
+    }
+    .dissoc-btn:hover { background-color: #b02a37; }
+    .owner-label { font-weight: bold; color: #333; font-size: 12px; }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/disk.png" alt="PublicIP Icon" onerror="this.src='/spider/adminweb/images/left-menu/disk.png'">
+            <h1>PublicIP Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedPublicIPs()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+ PublicIP</button>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>
+        </div>
+
+        <table id="publicip-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="center-align name-cell" style="text-align:center;">Name</th>
+                <th class="center-align ip-column">Public IP</th>
+                <th class="center-align status-column">Status</th>
+                <th class="center-align vm-column">NIC + PrivateIP (Associate / Disassociate)</th>
+                <th class="center-align created-column">Created</th>
+                <th class="center-align misc-column">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $pip := .PublicIPs}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="name-cell">
+                    {{$pip.IId.NameId}}
+                    <span class="system-id-text" onclick="showSystemIdOverlay('{{$pip.IId.SystemId}}')">&nbsp;• {{$pip.IId.SystemId}}</span>
+                </td>
+                <td class="center-align ip-column">
+                    <span class="ip-badge" onclick="copyToClipboard('{{$pip.PublicIPAddress}}')">{{$pip.PublicIPAddress}}</span>
+                </td>
+                <td class="center-align status-column">
+                    {{if eq $pip.Status "Associated"}}
+                        <span class="status-associated">Associated</span>
+                    {{else if eq $pip.Status "Available"}}
+                        <span class="status-available">Available</span>
+                    {{else if eq $pip.Status "NotFound"}}
+                        <span class="status-error">NotFound</span>
+                    {{else}}
+                        <span class="status-other">{{$pip.Status}}</span>
+                    {{end}}
+                </td>
+                <td id="vmcell-{{$pip.IId.NameId}}" class="center-align vm-column">
+                    {{if eq $pip.Status "Associated"}}
+                    <div class="assoc-cell">
+                        {{if $pip.OwnedNIC.NameId}}
+                        {{/* NIC-level association: show NIC name + private IP */}}
+                        <span class="owner-label">
+                            {{$pip.OwnedNIC.NameId}}
+                            {{if $pip.OwnedPrivateIP}}
+                            <span style="font-weight:normal;color:#555;">({{$pip.OwnedPrivateIP}})</span>
+                            {{end}}
+                        </span>
+                        {{else if $pip.OwnedVM.NameId}}
+                        {{/* VM-level association (NCP etc.) */}}
+                        <span class="owner-label">{{$pip.OwnedVM.NameId}}</span>
+                        {{else}}
+                        <span class="owner-label">(attached)</span>
+                        {{end}}
+                        <button class="dissoc-btn" onclick="disassociatePublicIP('{{$pip.IId.NameId}}')">Detach</button>
+                    </div>
+                    {{else}}
+                        {{if $.NICs}}
+                        {{/* NIC-based association (AWS, Azure, GCP, Alibaba, Tencent, IBM, OpenStack, NHN, KT) */}}
+                        <div class="assoc-col">
+                            <div class="assoc-row">
+                                <span class="assoc-label">NIC:</span>
+                                <select id="nic-select-{{$pip.IId.NameId}}" class="nic-select"
+                                    onchange="updatePrivateIPs('{{$pip.IId.NameId}}')">
+                                    <option value="" disabled selected>Select NIC</option>
+                                    {{range $nic := $.NICs}}
+                                    <option value="{{$nic.IId.NameId}}"
+                                        data-private-ip="{{$nic.PrivateIP}}"
+                                        data-private-ips="{{range $i, $ip := $nic.PrivateIPs}}{{if $i}},{{end}}{{$ip}}{{end}}">
+                                        {{$nic.IId.NameId}} ({{$nic.PrivateIP}}){{if eq $nic.Status "Attached"}} ●{{end}}
+                                    </option>
+                                    {{end}}
+                                </select>
+                            </div>
+                            <div class="assoc-row">
+                                <span class="assoc-label">PrivateIP:</span>
+                                <select id="pip-select-{{$pip.IId.NameId}}" class="ip-select">
+                                    <option value="">auto (primary)</option>
+                                </select>
+                            </div>
+                            <button class="assoc-btn" onclick="associatePublicIP('{{$pip.IId.NameId}}')">Attach</button>
+                        </div>
+                        {{else}}
+                        {{/* VM-based association fallback (NCP) */}}
+                        <div class="assoc-col">
+                            <div class="assoc-row">
+                                <span class="assoc-label">VM:</span>
+                                <select id="vm-select-{{$pip.IId.NameId}}" class="vm-select">
+                                    <option value="" disabled selected>Select VM</option>
+                                    {{range $vm := $.VMs}}
+                                    <option value="{{$vm.IId.NameId}}">{{$vm.IId.NameId}}</option>
+                                    {{end}}
+                                </select>
+                            </div>
+                            <button class="assoc-btn" onclick="associatePublicIPVM('{{$pip.IId.NameId}}', document.getElementById('vm-select-{{$pip.IId.NameId}}').value)">Attach</button>
+                        </div>
+                        {{end}}
+                    {{end}}
+                </td>
+                <td class="center-align created-column" data-time="{{$pip.CreatedTime}}">{{$pip.CreatedTime}}</td>
+                <td class="center-align misc-column misc-cell">
+                    <div class="misc-content">{{range $kv := $pip.KeyValueList}}{{$kv.Key}}: {{$kv.Value}}<br>{{end}}</div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$pip.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .PublicIPs}}
+            <tr>
+                <td colspan="8" class="center-align">No PublicIPs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <!-- Create PublicIP Overlay -->
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Allocate New PublicIP</h2>
+            <form id="addPublicIPForm" onsubmit="event.preventDefault(); postPublicIP();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="publicipName">Name:</label>
+                    <input type="text" id="publicipName" name="publicipName" required style="color:#3366CC; font-weight:bold;">
+                </div>
+                <div class="form-group" style="padding-left:100px;">
+                    <label>Tags:</label>
+                    <div id="publicip-tag-container"></div>
+                    <button type="button" onclick="addTagField()">+</button>
+                </div>
+                <div class="form-group" style="display:flex; justify-content:center; align-items:center; margin-top:20px;">
+                    <label for="publicipCount" style="margin-right:5px;">#:</label>
+                    <input type="number" id="publicipCount" value="1" min="1" max="10" style="width:50px; margin-right:10px;">
+                    <button type="submit">Allocate</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left:10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- System ID Overlay -->
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+    <!-- Misc detail overlay -->
+    <div id="misc-overlay" class="overlay" style="z-index:2000;">
+        <div class="overlay-content" style="max-width:500px; word-break:break-all;">
+            <button type="button" class="overlay-close-btn" onclick="closeMiscOverlay()">X</button>
+            <h2>Details</h2>
+            <div id="misc-overlay-content" style="font-size:13px; line-height:1.6;"></div>
+        </div>
+    </div>
+
+</body>
+<script>
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const creds = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = { ...fetchOptions.headers, 'Authorization': 'Basic ' + creds };
+        }
+        return fetchOptions;
+    }
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    // ---- Create ----
+    function postPublicIP() {
+        const submitBtn = document.querySelector('#addPublicIPForm button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Allocating...'; }
+        const restoreBtn = () => { if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Allocate'; } };
+
+        const connConfig = document.getElementById('connConfig').value;
+        const name = document.getElementById('publicipName').value.trim();
+        const count = parseInt(document.getElementById('publicipCount').value);
+        if (!name) { alert("Name is required."); restoreBtn(); return; }
+
+        const tagInputs = document.querySelectorAll('#publicip-tag-container .tag-input-row');
+        const tags = Array.from(tagInputs).map(row => ({
+            Key: row.querySelector('.tag-key').value.trim(),
+            Value: row.querySelector('.tag-value').value.trim()
+        })).filter(t => t.Key);
+
+        const promises = Array.from({ length: count }).map((_, i) => {
+            const pipName = count > 1 ? `${name}-${i + 1}` : name;
+            return fetchWithProgress('/spider/publicip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: connConfig, ReqInfo: { Name: pipName, TagList: tags } })
+            }, true).then(r => r.json().then(data => ({ pipName, ok: r.ok && !!data.IId, data })));
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                restoreBtn();
+                const failures = results.filter(r => !r.ok);
+                if (failures.length > 0) {
+                    const msgs = failures.map(r => (count > 1 ? r.pipName + ': ' : '') + (r.data.message || JSON.stringify(r.data))).join('\n');
+                    hideProgressBar();
+                    alert('Allocation failed:\n' + msgs);
+                } else {
+                    location.reload();  // bar stays (keepAlive) until page unloads
+                }
+            })
+            .catch(err => { restoreBtn(); hideProgressBar(); alert("Error: " + err.message); });
+    }
+
+    // ---- PrivateIP dropdown update (when NIC is selected) ----
+    function updatePrivateIPs(pipName) {
+        const nicSelect = document.getElementById(`nic-select-${pipName}`);
+        const ipSelect  = document.getElementById(`pip-select-${pipName}`);
+        if (!nicSelect || !ipSelect) return;
+
+        const selectedOpt = nicSelect.options[nicSelect.selectedIndex];
+        const primaryIP   = selectedOpt.dataset.privateIp  || '';
+        const allIPs      = selectedOpt.dataset.privateIps ? selectedOpt.dataset.privateIps.split(',') : [];
+
+        ipSelect.innerHTML = '<option value="">auto (primary)</option>';
+        // Add all known private IPs for explicit selection
+        const ips = allIPs.length > 0 ? allIPs : (primaryIP ? [primaryIP] : []);
+        ips.forEach(ip => {
+            const opt = document.createElement('option');
+            opt.value = ip;
+            opt.textContent = ip + (ip === primaryIP ? ' (primary)' : '');
+            ipSelect.appendChild(opt);
+        });
+    }
+
+    // ---- Associate (NIC + PrivateIP path) ----
+    function associatePublicIP(pipName) {
+        const connConfig     = document.getElementById('connConfig').value;
+        const nicSelect      = document.getElementById(`nic-select-${pipName}`);
+        const ipSelect       = document.getElementById(`pip-select-${pipName}`);
+        const nicName        = nicSelect ? nicSelect.value : '';
+        const selectedNicOpt = nicSelect ? nicSelect.options[nicSelect.selectedIndex] : null;
+        // When "auto (primary)" is selected (value=""), resolve the NIC's primary private IP
+        // so CSPs that require an explicit PrivateIpAddress (e.g. Tencent) receive a valid value.
+        const privateIP = (ipSelect && ipSelect.value !== '')
+            ? ipSelect.value
+            : (selectedNicOpt ? (selectedNicOpt.dataset.privateIp || '') : '');
+
+        if (!nicName) { alert("Please select a NIC."); return; }
+
+        fetchWithProgress(`/spider/publicip/${pipName}/associate`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, ReqInfo: { NICName: nicName, PrivateIP: privateIP } })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.IId) {
+                const label = privateIP ? `${nicName} (${privateIP})` : nicName;
+                document.getElementById(`vmcell-${pipName}`).innerHTML = `<div class="assoc-cell"><span class="owner-label">${label}</span><button class="dissoc-btn" onclick="disassociatePublicIP('${pipName}')">Detach</button></div>`;
+                document.getElementById(`vmcell-${pipName}`).closest('tr').cells[3].innerHTML =
+                    '<span class="status-associated">Associated</span>';
+            } else {
+                alert("Associate failed: " + (data.message || JSON.stringify(data)));
+            }
+        })
+        .catch(err => alert("Error associating: " + err.message));
+    }
+
+    // ---- Associate (VM path — NCP fallback) ----
+    function associatePublicIPVM(pipName, vmName) {
+        if (!vmName) { alert("Please select a VM."); return; }
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetchWithProgress(`/spider/publicip/${pipName}/associate`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, ReqInfo: { VMName: vmName } })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.IId) {
+                document.getElementById(`vmcell-${pipName}`).innerHTML = `<div class="assoc-cell"><span class="owner-label">${vmName}</span><button class="dissoc-btn" onclick="disassociatePublicIP('${pipName}')">Detach</button></div>`;
+                document.getElementById(`vmcell-${pipName}`).closest('tr').cells[3].innerHTML =
+                    '<span class="status-associated">Associated</span>';
+            } else {
+                alert("Associate failed: " + (data.message || JSON.stringify(data)));
+            }
+        })
+        .catch(err => alert("Error associating: " + err.message));
+    }
+
+    // ---- Disassociate ----
+    function disassociatePublicIP(pipName) {
+        if (!confirm(`Detach PublicIP "${pipName}" from its VM?`)) return;
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetchWithProgress(`/spider/publicip/${pipName}/disassociate`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        }, true)  // keepAlive: bar stays until reload
+        .then(r => r.json())
+        .then(data => {
+            if (data.Result === 'true') {
+                location.reload();
+            } else {
+                hideProgressBar();
+                alert("Disassociate failed: " + JSON.stringify(data));
+            }
+        })
+        .catch(err => alert("Error disassociating: " + err.message));
+    }
+
+    // ---- Delete ----
+    function deleteSelectedPublicIPs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checked = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checked.length === 0) { alert("Please select PublicIPs to delete."); return; }
+        if (!confirm(`Delete ${checked.length} PublicIP(s)?`)) return;
+
+        const promises = Array.from(checked).map(cb =>
+            fetchWithProgress(`/spider/publicip/${cb.value}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: connConfig })
+            }).then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.message); }); return r.json(); })
+        );
+        Promise.all(promises).then(() => location.reload()).catch(err => alert("Error: " + err.message));
+    }
+
+    function toggleSelectAll(source) {
+        document.querySelectorAll('input[name="deleteCheckbox"]').forEach(cb => cb.checked = source.checked);
+    }
+
+    // ---- Tag helpers ----
+    function addTagField() {
+        const container = document.getElementById('publicip-tag-container');
+        const row = document.createElement('div');
+        row.className = 'tag-input-row tag-input-group';
+        row.innerHTML = `
+            <input type="text" class="tag-key" placeholder="Key">
+            <input type="text" class="tag-value" placeholder="Value" style="margin-left:4px;">
+            <button type="button" onclick="this.parentElement.remove()" style="margin-left:4px;">-</button>`;
+        container.appendChild(row);
+    }
+
+    // ---- Overlay helpers ----
+    function showOverlay() {
+        const region = '{{.RegionName}}';
+        document.getElementById('publicipName').value = `${region}-pip-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('publicip-tag-container').innerHTML = '';
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+    }
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+    }
+    function handleOverlayEsc(e) { if (e.key === 'Escape') hideOverlay(); }
+
+    function showSystemIdOverlay(systemId) {
+        document.getElementById('fullSystemId').textContent = systemId;
+        document.getElementById('system-id-overlay').style.display = 'block';
+        document.addEventListener('keydown', handleSystemIdEsc);
+    }
+    function closeSystemIdOverlay() {
+        document.getElementById('system-id-overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleSystemIdEsc);
+    }
+    function handleSystemIdEsc(e) { if (e.key === 'Escape') closeSystemIdOverlay(); }
+
+    function copySystemId() {
+        const el = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        try { document.execCommand('copy'); } catch(e) {}
+        window.getSelection().removeAllRanges();
+        closeSystemIdOverlay();
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const el = document.createElement('div');
+            el.textContent = `Copied: ${text}`;
+            el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#333;color:#fff;padding:8px 14px;border-radius:4px;font-size:13px;z-index:9999;';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 2000);
+        }).catch(() => alert('Copied: ' + text));
+    }
+
+    function showMiscOverlay(btn) {
+        const content = btn.closest('.misc-cell').querySelector('.misc-content').innerHTML;
+        document.getElementById('misc-overlay-content').innerHTML = content;
+        document.getElementById('misc-overlay').style.display = 'flex';
+    }
+    function closeMiscOverlay() { document.getElementById('misc-overlay').style.display = 'none'; }
+
+    // ---- Search ----
+    function searchKeyword() {
+        const filter = document.getElementById('searchInput').value.toUpperCase().trim();
+        if (!filter) { clearSearchInput(); return; }
+        document.querySelectorAll('#publicip-table tr').forEach((tr, i) => {
+            if (i === 0) return;
+            Array.from(tr.cells).forEach(td => {
+                td.classList.toggle('highlight', (td.textContent || td.innerText).toUpperCase().includes(filter));
+            });
+        });
+    }
+    function clearSearchInput() {
+        document.getElementById('searchInput').value = '';
+        document.querySelectorAll('#publicip-table td.highlight').forEach(td => td.classList.remove('highlight'));
+    }
+
+    // ---- Progress bar ----
+    let _hideTimer = null;
+
+    // keepAlive=true: bar stays visible after fetch (caller will hide it manually or via reload)
+    function fetchWithProgress(url, options, keepAlive) {
+        showProgressBar();
+        const start = Date.now();
+        const timer = setInterval(() => {
+            const el = document.getElementById('timeDisplay');
+            if (el) el.textContent = `${((Date.now() - start) / 1000).toFixed(1)}s`;
+        }, 500);
+        return fetch(url, options)
+            .then(r => { if (!keepAlive) { clearInterval(timer); hideProgressBar(); } return r; })
+            .catch(e => { clearInterval(timer); hideProgressBar(); throw e; });
+    }
+    function showProgressBar() {
+        if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+        const b = document.getElementById('progressBar');
+        const c = document.getElementById('progressBarContainer');
+        b.style.transition = 'width 0.6s ease';
+        b.style.background = '';
+        b.style.animation = 'shimmer 1.6s infinite linear';
+        b.style.width = '0%';
+        c.style.display = 'block';
+        setTimeout(() => { b.style.width = '100%'; }, 60);
+    }
+    function hideProgressBar() {
+        if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+        const b = document.getElementById('progressBar');
+        const c = document.getElementById('progressBarContainer');
+        b.style.background = '#66b3ff';
+        b.style.animation = 'none';
+        _hideTimer = setTimeout(() => {
+            _hideTimer = null;
+            c.style.display = 'none';
+            b.style.background = '';
+            b.style.animation = 'shimmer 1.6s infinite linear';
+            b.style.width = '0%';
+            const el = document.getElementById('timeDisplay');
+            if (el) el.textContent = '';
+        }, 400);
+    }
+
+    // ---- Format created time ----
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.created-column[data-time]').forEach(td => {
+            const t = td.getAttribute('data-time');
+            if (!t || t === '0001-01-01 00:00:00 +0000 UTC') { td.textContent = '-'; return; }
+            try {
+                const parts = t.split(' ');
+                td.textContent = parts[0] + ' ' + (parts[1] ? parts[1].slice(0, 5) : '') + (parts[3] ? ' ' + parts[3] : '');
+            } catch(e) {}
+        });
+        document.querySelectorAll('.misc-cell').forEach(cell => {
+            const content = cell.querySelector('.misc-content');
+            const btn = cell.querySelector('.more-btn');
+            if (content && btn && content.scrollHeight > content.clientHeight + 2) btn.style.display = 'inline';
+        });
+    });
+</script>
+</html>

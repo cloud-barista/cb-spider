@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +34,9 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/keypairs"
 	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/v2/openstack/compute/v2/attachinterfaces"
 	layer3floatingips "github.com/gophercloud/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
+	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/ports"
 	"github.com/gophercloud/gophercloud/v2/openstack/networking/v2/subnets"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -712,7 +715,6 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 
 		//VMUserId:          server.UserID,
 		//VMUserPasswd:      server.AdminPass,
-		NetworkInterface:  server.HostID,
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
 	}
@@ -741,8 +743,8 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			}
 		}
 	}
-	if creatTime, err := time.Parse(time.RFC3339, server.Created.String()); err == nil {
-		vmInfo.StartTime = creatTime
+	if !server.Created.IsZero() {
+		vmInfo.StartTime = server.Created.Local()
 	}
 	// VM Image 정보 설정
 	for key, value := range server.Metadata {
@@ -766,6 +768,9 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			for _, vol := range allVolume {
 				if vol.Bootable == "true" {
 					vmInfo.RootDiskSize = strconv.Itoa(vol.Size)
+					if vol.VolumeType != "" {
+						vmInfo.RootDiskType = vol.VolumeType
+					}
 					for _, att := range vol.Attachments {
 						if att.ServerID == server.ID {
 							vmInfo.RootDeviceName = att.Device
@@ -826,21 +831,100 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		}
 	}
 
-	// Subnet, Network Interface 정보 설정
-	port, _ := GetPortByDeviceID(vmHandler.NetworkClient, vmInfo.IId.SystemId)
-	if port != nil {
-		// Subnet 정보 설정
-		if len(port.FixedIPs) > 0 {
-			ipInfo := port.FixedIPs[0]
-			vmInfo.SubnetIID.SystemId = ipInfo.SubnetID
+	// Subnet, Network Interface 정보 설정 - use attachinterfaces to get real NIC info
+	{
+		pager := attachinterfaces.List(vmHandler.ComputeClient, server.ID)
+		allPages, err := pager.AllPages(context.TODO())
+		if err == nil {
+			ifaces, err := attachinterfaces.ExtractInterfaces(allPages)
+			if err == nil {
+				// Sort: original VM NICs (port name == port UUID = not Spider-named) first.
+				// OpenStack may return newly hot-attached NICs first, mis-indexing NIC[0].
+				// Resolve port names upfront so we can sort before processing.
+				uuidRe := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+				ifaceNames := make([]string, len(ifaces))
+				for i, iface := range ifaces {
+					name := iface.PortID
+					if p, pErr := ports.Get(context.TODO(), vmHandler.NetworkClient, iface.PortID).Extract(); pErr == nil && p.Name != "" {
+						name = p.Name
+					}
+					ifaceNames[i] = name
+				}
+				sort.SliceStable(ifaces, func(i, j int) bool {
+					// UUID-named ports (original VM NICs) sort before Spider-named ports (hot-attached).
+					iIsUUID := uuidRe.MatchString(ifaceNames[i])
+					jIsUUID := uuidRe.MatchString(ifaceNames[j])
+					if iIsUUID != jIsUUID {
+						return iIsUUID // original NIC first
+					}
+					return ifaceNames[i] < ifaceNames[j] // stable tie-break
+				})
+				var vmNICs []irs.VMNICInfo
+				var allPrivateIPs []string
+				var allPublicIPs []string
+				for idx, iface := range ifaces {
+					nicNameId := ifaceNames[idx]
+					nicInfo := irs.VMNICInfo{
+						DeviceIndex: idx,
+						IId:         irs.IID{NameId: nicNameId, SystemId: iface.PortID},
+						MACAddress:  iface.MACAddr,
+					}
+					// SubnetIID from first FixedIP
+					if len(iface.FixedIPs) > 0 {
+						subnetID := iface.FixedIPs[0].SubnetID
+						nicInfo.SubnetIID = irs.IID{SystemId: subnetID}
+						sub, _ := GetSubnetByID(vmHandler.NetworkClient, subnetID)
+						if sub != nil {
+							nicInfo.SubnetIID.NameId = sub.Name
+						}
+						if idx == 0 {
+							vmInfo.SubnetIID = nicInfo.SubnetIID
+						}
+					}
+					// PrivateIPs from FixedIPs
+					var privateIPs []string
+					for _, fip := range iface.FixedIPs {
+						if fip.IPAddress != "" {
+							privateIPs = append(privateIPs, fip.IPAddress)
+						}
+					}
+					nicInfo.PrivateIPs = privateIPs
+					allPrivateIPs = append(allPrivateIPs, privateIPs...)
+					if idx == 0 && len(privateIPs) > 0 {
+						vmInfo.PrivateIP = privateIPs[0]
+						vmInfo.NetworkInterface = nicNameId
+					}
+					// PublicIPs via floating IP list filtered by PortID
+					floatingPager, ferr := layer3floatingips.List(vmHandler.NetworkClient, layer3floatingips.ListOpts{PortID: iface.PortID}).AllPages(context.TODO())
+					if ferr == nil {
+						fips, ferr2 := layer3floatingips.ExtractFloatingIPs(floatingPager)
+						if ferr2 == nil {
+							var publicIPs []string
+							for _, fip := range fips {
+								if fip.FloatingIP != "" {
+									publicIPs = append(publicIPs, fip.FloatingIP)
+								}
+							}
+							nicInfo.PublicIPs = publicIPs
+							allPublicIPs = append(allPublicIPs, publicIPs...)
+							if idx == 0 && len(publicIPs) > 0 {
+								vmInfo.PublicIP = publicIPs[0]
+							}
+						}
+					}
+					vmNICs = append(vmNICs, nicInfo)
+				}
+				if len(vmNICs) > 0 {
+					vmInfo.NICs = vmNICs
+				}
+				if len(allPrivateIPs) > 0 {
+					vmInfo.PrivateIPs = allPrivateIPs
+				}
+				if len(allPublicIPs) > 0 {
+					vmInfo.PublicIPs = allPublicIPs
+				}
+			}
 		}
-		subnet, _ := GetSubnetByID(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
-		if subnet != nil {
-			vmInfo.SubnetIID.NameId = subnet.Name
-		}
-
-		// Network Interface 정보 설정
-		vmInfo.NetworkInterface = port.ID
 	}
 
 	osPlatform, err := getOSTypeByServer(server)

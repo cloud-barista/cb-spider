@@ -152,3 +152,18 @@ func (cloudConn *KTCloudVpcConnection) CreateRDBMSHandler() (irs.RDBMSHandler, e
 	cblogger.Info("KT Cloud VPC Cloud Driver: called CreateRDBMSHandler()!")
 	return nil, fmt.Errorf("KT Cloud VPC Driver does not support RDBMSHandler: KT Cloud DBaaS can only be created and managed through the KT Cloud Console and does not provide a public REST API.")
 }
+
+func (cloudConn *KTCloudVpcConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := ktvpcrs.KTVpcNICHandler{RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient, VMClient: cloudConn.VMClient}
+	return &handler, nil
+}
+
+func (cloudConn *KTCloudVpcConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("KT Cloud VPC Driver: called CreatePublicIPHandler()!")
+	handler := ktvpcrs.KTVpcPublicIPHandler{
+		RegionInfo:    cloudConn.RegionInfo,
+		NetworkClient: cloudConn.NetworkClient,
+		VMClient:      cloudConn.VMClient,
+	}
+	return &handler, nil
+}

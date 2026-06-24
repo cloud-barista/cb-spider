@@ -57,18 +57,33 @@
         left: 10%;
         width: 80%;
         height: 80%;
-        padding: 20px;
         box-shadow: 0 0 20px #000;
         background: #fff;
-        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .overlay-header {
+        height: 34px;
+        background: #f0f0f0;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        padding: 0 12px;
+        flex-shrink: 0;
     }
     .close-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        font-size: 24px;
+        background: none;
+        border: none;
+        font-size: 22px;
+        font-weight: bold;
         cursor: pointer;
+        color: #555;
+        line-height: 1;
     }
+    .close-btn:hover { color: #dc3545; }
     /* Progress Bar Style */
     .progress-bar {
         width: 100%;
@@ -190,10 +205,24 @@
         overlayContent.className = 'overlay-content';
         overlay.appendChild(overlayContent);
 
+        // Header bar with X button (above iframe, no overlap)
+        var header = document.createElement('div');
+        header.className = 'overlay-header';
+        var closeButton = document.createElement('div');
+        closeButton.textContent = '✕';
+        closeButton.className = 'close-btn';
+        closeButton.onclick = function() {
+            document.body.removeChild(overlay);
+            refreshDashboard();
+        };
+        header.appendChild(closeButton);
+        overlayContent.appendChild(header);
+
         var content = document.createElement('iframe');
         content.src = url;
         content.style.width = '100%';
-        content.style.height = 'calc(100% - 20px)'; // Adjust for progress bar height
+        content.style.flex = '1';
+        content.style.border = 'none';
         content.onload = function() {
             progressBarInner.style.width = '100%'; // End progress
             setTimeout(function() {
@@ -208,15 +237,6 @@
         progressBarInner.className = 'progress-bar-inner';
         progressBar.appendChild(progressBarInner);
         overlayContent.appendChild(progressBar);
-
-        var closeButton = document.createElement('div');
-        closeButton.textContent = 'X';
-        closeButton.className = 'close-btn';
-        closeButton.onclick = function() {
-            document.body.removeChild(overlay);
-            refreshDashboard();
-        };
-        overlayContent.appendChild(closeButton);
 
         document.body.appendChild(overlay);
         overlay.style.display = 'block'; // Make the overlay visible
@@ -278,6 +298,8 @@
                 <th>Security Groups</th>
                 <th>KeyPairs</th>
                 <th>VMs</th>
+                <th>NICs</th>
+                <th>PublicIPs</th>
                 <th>Disks</th>
                 <th>My Images</th>
                 <th>NLBs</th>
@@ -296,6 +318,8 @@
                     <td class="{{if gt $count.SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/securitygroup/{{$count.ConnectionName}}'); return false;">{{$count.SecurityGroups}}</a></td>
                     <td class="{{if gt $count.KeyPairs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/keypair/{{$count.ConnectionName}}'); return false;">{{$count.KeyPairs}}</a></td>
                     <td class="{{if gt $count.VMs 0}}highlight-vms{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vm/{{$count.ConnectionName}}'); return false;">{{$count.VMs}}</a></td>
+                    <td class="{{if gt $count.NICs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nic/{{$count.ConnectionName}}'); return false;">{{$count.NICs}}</a></td>
+                    <td class="{{if gt $count.PublicIPs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/publicip/{{$count.ConnectionName}}'); return false;">{{$count.PublicIPs}}</a></td>
                     <td class="{{if gt $count.Disks 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/disk/{{$count.ConnectionName}}'); return false;">{{$count.Disks}}</a></td>
                     <td class="{{if gt $count.MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/myimage/{{$count.ConnectionName}}'); return false;">{{$count.MyImages}}</a></td>
                     <td class="{{if gt $count.NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{$count.ConnectionName}}'); return false;">{{$count.NetworkLoadBalancers}}</a></td>
@@ -306,7 +330,7 @@
                 {{end}}
             {{else}}
             <tr>
-                <td colspan="12">No connections found for {{$provider}}</td>
+                <td colspan="14">No connections found for {{$provider}}</td>
             </tr>
             {{end}}
         </table>

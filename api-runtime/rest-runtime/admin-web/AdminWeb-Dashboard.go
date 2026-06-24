@@ -32,6 +32,8 @@ type ResourceCounts struct {
 	KeyPairs             int    `json:"keyPairs"`
 	Disks                int    `json:"disks"`
 	NetworkLoadBalancers int    `json:"nlbs"`
+	PublicIPs            int    `json:"publicIPs"`
+	NICs                 int    `json:"nics"`
 	Clusters             int    `json:"clusters"`
 	MyImages             int    `json:"myImages"`
 	S3Buckets            int    `json:"s3Buckets"`
@@ -59,8 +61,8 @@ func filterEmptyConnections(resourceCounts map[string][]ResourceCounts) map[stri
 		for _, count := range counts {
 			if count.VPCs > 0 || count.Subnets > 0 || count.SecurityGroups > 0 || count.VMs > 0 ||
 				count.KeyPairs > 0 || count.Disks > 0 || count.NetworkLoadBalancers > 0 ||
-				count.Clusters > 0 || count.MyImages > 0 || count.S3Buckets > 0 ||
-				count.RDBMSInstances > 0 {
+				count.PublicIPs > 0 || count.NICs > 0 || count.Clusters > 0 || count.MyImages > 0 ||
+				count.S3Buckets > 0 || count.RDBMSInstances > 0 {
 				nonEmptyCounts = append(nonEmptyCounts, count)
 			}
 		}
@@ -87,7 +89,7 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 	counts.RegionName = config.RegionName
 
 	baseURL := "http://localhost:1024/spider"
-	resources := []string{"vpc", "subnet", "securitygroup", "vm", "keypair", "disk", "nlb", "cluster", "myimage", "s3", "rdbms"}
+	resources := []string{"vpc", "subnet", "securitygroup", "vm", "keypair", "disk", "nlb", "publicip", "nic", "cluster", "myimage", "s3", "rdbms"}
 
 	for _, resource := range resources {
 		url := fmt.Sprintf("%s/count%s/%s", baseURL, resource, config.ConfigName)
@@ -123,6 +125,10 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 			counts.Disks = response.Count
 		case "nlb":
 			counts.NetworkLoadBalancers = response.Count
+		case "publicip":
+			counts.PublicIPs = response.Count
+		case "nic":
+			counts.NICs = response.Count
 		case "cluster":
 			counts.Clusters = response.Count
 		case "myimage":

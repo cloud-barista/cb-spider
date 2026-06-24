@@ -3016,7 +3016,7 @@ func (nlbHandler *GCPNLBHandler) getVPCInfoFromVM(zoneID string, vmID irs.IID) (
 	////NetworkIP: (string) (len=8) "10.0.0.6",
 	////Subnetwork: (string) (len=110) "https://www.googleapis.com/compute/v1/projects/[projectID]/regions/[regionID]/subnetworks/[subnetName]",
 	vpcUrl := vm.NetworkInterfaces[0].Network
-	////subnetUrl := vm.NetworkInterfaces[0].Subnetwork
+	////subnetUrl := (func() string { if len(vm.NICs) > 0 { return vm.NICs[0].SystemId }; return "" })()s[0].Subnetwork
 	vpcArr := strings.Split(vpcUrl, StringSeperator_Slash)
 	////subnetArr := strings.Split(subnetUrl, StringSeperator_Slash)
 	vpcName := vpcArr[len(vpcArr)-1]

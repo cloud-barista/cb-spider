@@ -139,3 +139,11 @@ func (cloudConn *MockConnection) CreateMonitoringHandler() (irs.MonitoringHandle
 func (cloudConn *MockConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	return nil, fmt.Errorf("Mock Driver: RDBMSHandler not supported")
 }
+
+func (cloudConn *MockConnection) CreateNICHandler() (irs.NICHandler, error) {
+	return nil, fmt.Errorf("Mock Driver: NICHandler not supported")
+}
+
+func (cloudConn *MockConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	return nil, fmt.Errorf("Mock Driver: PublicIPHandler not supported")
+}

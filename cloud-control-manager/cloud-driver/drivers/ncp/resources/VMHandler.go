@@ -14,12 +14,14 @@ package resources
 import (
 	"errors"
 	"fmt"
+
 	// "reflect"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -40,14 +42,14 @@ type NcpVpcVMHandler struct {
 }
 
 const (
-	lnxUserName 			string = "cb-user"
+	lnxUserName             string = "cb-user"
 	winUserName             string = "Administrator"
-	ubuntuCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init"
-	centosCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
-	winCloudInitFilePath 	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
-	LnxTypeOs 				string = "LNX" // LNX (LINUX)
-	WinTypeOS 				string = "WND" // WND (WINDOWS)
-	KVMRootDiskType 		string = "CB1" // Default root disk type for KVM-based VMs
+	ubuntuCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init"
+	centosCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
+	winCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
+	LnxTypeOs               string = "LNX" // LNX (LINUX)
+	WinTypeOS               string = "WND" // WND (WINDOWS)
+	KVMRootDiskType         string = "CB1" // Default root disk type for KVM-based VMs
 )
 
 func init() {
@@ -184,19 +186,19 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
 			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
 				{
-					NetworkInterfaceOrder: 		orderInt32,					
+					NetworkInterfaceOrder: orderInt32,
 					// If you don't specify 'NetworkInterfaceNo', a NetworkInterface is automatically generated and applied.
-					AccessControlGroupNoList: 	securityGroupIds,
+					AccessControlGroupNoList: securityGroupIds,
 				},
 			},
-			
+
 			BlockStorageMappingList: []*vserver.BlockStorageMappingParameter{
 				{
-					Order:						orderInt32,
+					Order:                      orderInt32,
 					BlockStorageVolumeTypeCode: ncloud.String(reqDiskType),
-					BlockStorageSize: 			ncloud.String(vmReqInfo.RootDiskSize),
+					BlockStorageSize:           ncloud.String(vmReqInfo.RootDiskSize),
 				},
-			}, 
+			},
 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
 			ServerCreateCount:          minCount,
@@ -275,9 +277,9 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			MemberServerImageInstanceNo: ncloud.String(myImageId),
 			// ServerImageProductCode: 		ncloud.String(publicImageId), // In case using New publicImageId(from New API). Use 'ServerImageNo' parameter!!
 			// ServerProductCode:      		ncloud.String(serverProductCode), // In case using New vmSpecId(from New API). Use 'ServerSpecCode' parameter!!
-			LoginKeyName: 				ncloud.String(keyPairId),
-			VpcNo:        				ncloud.String(vpcId),
-			SubnetNo:     				ncloud.String(subnetId), // Applied for Zone-based control!!
+			LoginKeyName: ncloud.String(keyPairId),
+			VpcNo:        ncloud.String(vpcId),
+			SubnetNo:     ncloud.String(subnetId), // Applied for Zone-based control!!
 
 			// Note) If enabled and set "", an error will occur on VM creation with 'MemberServerImageInstanceNo'.
 			// ServerImageNo: 				ncloud.String(publicImageId), // Added for using imageId from New API
@@ -286,10 +288,10 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
 			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
 				{
-					NetworkInterfaceOrder: 		orderInt32, 
+					NetworkInterfaceOrder: orderInt32,
 					// If you don't specify 'NetworkInterfaceNo', a NetworkInterface is automatically generated and applied.
-					AccessControlGroupNoList: 	securityGroupIds,
-				},				
+					AccessControlGroupNoList: securityGroupIds,
+				},
 			},
 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
@@ -433,7 +435,7 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
 
-	instanceNoList := []*string{ncloud.String(vmIID.SystemId),}
+	instanceNoList := []*string{ncloud.String(vmIID.SystemId)}
 	var resultStatus string
 	if strings.EqualFold(string(vmStatus), "Suspending") {
 		resultStatus = "The VM is already in the process of Suspending."
@@ -492,7 +494,7 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 					}
 				}
 				time.Sleep(timeout)
-        	}
+			}
 		}
 		LoggingInfo(callLogInfo, callLogStart)
 	}
@@ -689,7 +691,7 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 		runResult, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
 		if err != nil {
 			cblogger.Infof("Return message : [%v]", err.Error())
-			
+
 			if strings.Contains(err.Error(), "The storage allocated to the server is being manipulated.") || strings.Contains(err.Error(), "The storage assigned to the server is in operation.") {
 				retryCount++
 				if retryCount >= 6 {
@@ -701,7 +703,7 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 					}
 				}
 				time.Sleep(timeout)
-        	}
+			}
 
 			newErr := fmt.Errorf("Failed to Terminate the VM instance on NCP VPC. : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -775,7 +777,7 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 					}
 				}
 				time.Sleep(timeout)
-        	}
+			}
 
 			newErr := fmt.Errorf("Failed to Terminate the VM instance on NCP VPC. : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -1056,15 +1058,6 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		cblogger.Infof("Finished to Get PublicIP InstanceNo")
 	}
 
-	netInterfaceName, err := vmHandler.getNetworkInterfaceName(NcpInstance.NetworkInterfaceNoList[0])
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Find NetworkInterface Name : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-
-	
-
 	// PublicIpID : Using for deleting the PublicIP
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
@@ -1085,15 +1078,14 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 			SystemId: *NcpInstance.ServerImageNo,
 		},
 
-		VMSpecName:       	ncloud.StringValue(NcpInstance.ServerSpecCode), // Old : ~.ServerProductCode
-		VpcIID:           	irs.IID{SystemId: *NcpInstance.VpcNo},          // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
-		SubnetIID:        	irs.IID{SystemId: *NcpInstance.SubnetNo},       // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
-		KeyPairIId:       	irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
-		NetworkInterface: 	*netInterfaceName,
-		PublicIP:         	*publicIp,
-		PrivateIP:        	*privateIp,
-		SSHAccessPoint:   	*publicIp + ":22",
-		KeyValueList:   	irs.StructToKeyValueList(NcpInstance),
+		VMSpecName:     ncloud.StringValue(NcpInstance.ServerSpecCode), // Old : ~.ServerProductCode
+		VpcIID:         irs.IID{SystemId: *NcpInstance.VpcNo},          // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		SubnetIID:      irs.IID{SystemId: *NcpInstance.SubnetNo},       // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		KeyPairIId:     irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
+		PublicIP:       *publicIp,
+		PrivateIP:      *privateIp,
+		SSHAccessPoint: *publicIp + ":22",
+		KeyValueList:   irs.StructToKeyValueList(NcpInstance),
 	}
 
 	// Get SecurityGroupInfo from DB
@@ -1118,6 +1110,56 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 			sgIIDs = append(sgIIDs, irs.IID{NameId: sgInfo.IId.NameId, SystemId: kv.Value})
 		}
 		vmInfo.SecurityGroupIIds = sgIIDs
+	}
+
+	// Build NICs info from GetNetworkInterfaceList filtered by InstanceNo
+	{
+		nicReq := &vserver.GetNetworkInterfaceListRequest{
+			RegionCode: ncloud.String(vmHandler.RegionInfo.Region),
+		}
+		nicResp, nicErr := vmHandler.VMClient.V2Api.GetNetworkInterfaceList(nicReq)
+		if nicErr == nil && nicResp != nil {
+			var vmNICs []irs.VMNICInfo
+			var allPrivateIPs []string
+			devIdx := 0
+			for _, ni := range nicResp.NetworkInterfaceList {
+				if ni.InstanceNo == nil || ncloud.StringValue(ni.InstanceNo) != ncloud.StringValue(NcpInstance.ServerInstanceNo) {
+					continue
+				}
+				nicInfo := irs.VMNICInfo{
+					DeviceIndex: devIdx,
+					IId: irs.IID{
+						NameId:   ncloud.StringValue(ni.NetworkInterfaceName),
+						SystemId: ncloud.StringValue(ni.NetworkInterfaceNo),
+					},
+					SubnetIID:  irs.IID{SystemId: ncloud.StringValue(ni.SubnetNo)},
+					MACAddress: ncloud.StringValue(ni.MacAddress),
+				}
+				primaryIP := ncloud.StringValue(ni.Ip)
+				var privateIPs []string
+				if primaryIP != "" {
+					privateIPs = append(privateIPs, primaryIP)
+				}
+				for _, secIP := range ni.SecondaryIpList {
+					if secIP != nil && *secIP != "" {
+						privateIPs = append(privateIPs, *secIP)
+					}
+				}
+				nicInfo.PrivateIPs = privateIPs
+				allPrivateIPs = append(allPrivateIPs, privateIPs...)
+				vmNICs = append(vmNICs, nicInfo)
+				if devIdx == 0 {
+					vmInfo.NetworkInterface = ncloud.StringValue(ni.NetworkInterfaceName)
+				}
+				devIdx++
+			}
+			if len(vmNICs) > 0 {
+				vmInfo.NICs = vmNICs
+			}
+			if len(allPrivateIPs) > 0 {
+				vmInfo.PrivateIPs = allPrivateIPs
+			}
+		}
 	}
 
 	// Set the VM Image Info
@@ -1465,7 +1507,7 @@ func (vmHandler *NcpVpcVMHandler) waitToBeSuspended(vmIID irs.IID) (irs.VMStatus
 			cblogger.Infof("The VM is not 'Suspended' yet, so wait for a second more.")
 			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly finished.", maxRetryCnt)					
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly finished.", maxRetryCnt)
 				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is not 'suspended', so it is forcibly finished..")
 			}
 		} else {
@@ -1532,7 +1574,7 @@ func (vmHandler *NcpVpcVMHandler) waitForDiskAttach(vmIID irs.IID) (irs.DiskStat
 			RegionInfo: vmHandler.RegionInfo,
 			VMClient:   vmHandler.VMClient,
 		}
-		curStatus, err := diskHandler.GetDiskStatus(irs.IID{SystemId: *storageNo,})
+		curStatus, err := diskHandler.GetDiskStatus(irs.IID{SystemId: *storageNo})
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Disk Status : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -1549,7 +1591,7 @@ func (vmHandler *NcpVpcVMHandler) waitForDiskAttach(vmIID irs.IID) (irs.DiskStat
 			}
 		} else {
 			return irs.DiskStatus("Succeeded"), nil
-		}		
+		}
 	}
 }
 
@@ -1559,7 +1601,7 @@ func (vmHandler *NcpVpcVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatu
 
 	var publicIPId string
 	for _, keyInfo := range vmInfo.KeyValueList {
-		if strings.EqualFold(keyInfo.Key, "PublicIpInstanceNo") {  // Public IP ID 
+		if strings.EqualFold(keyInfo.Key, "PublicIpInstanceNo") { // Public IP ID
 			publicIPId = keyInfo.Value
 			break
 		}
@@ -1625,8 +1667,8 @@ func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *str
 	for _, disk := range storageResult.BlockStorageInstanceList {
 		if strings.EqualFold(*disk.ServerInstanceNo, *vmId) && strings.EqualFold(*disk.BlockStorageType.Code, "BASIC") {
 			storageInstanceNo = disk.BlockStorageInstanceNo
-			storageSize 	  = strconv.FormatFloat(float64(*disk.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
-			deviceName 		  = disk.DeviceName
+			storageSize = strconv.FormatFloat(float64(*disk.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
+			deviceName = disk.DeviceName
 			if disk.BlockStorageDiskDetailType != nil {
 				codeName := ncloud.StringValue(disk.BlockStorageDiskDetailType.CodeName)
 				if strings.EqualFold(codeName, "SSD") || strings.EqualFold(codeName, "CB1") || strings.EqualFold(codeName, "CB2") {

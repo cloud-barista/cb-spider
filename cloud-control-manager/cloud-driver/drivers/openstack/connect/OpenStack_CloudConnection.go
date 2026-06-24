@@ -234,3 +234,18 @@ func (cloudConn *OpenStackCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandle
 	}
 	return &rdbmsHandler, nil
 }
+
+
+func (cloudConn *OpenStackCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := osrs.OpenStackNICHandler{Region: cloudConn.Region, NetworkClient: cloudConn.NetworkClient, ComputeClient: cloudConn.ComputeClient}
+	return &handler, nil
+}
+
+func (cloudConn *OpenStackCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("OpenStack Cloud Driver: called CreatePublicIPHandler()!")
+	handler := osrs.OpenStackPublicIPHandler{
+		Region:        cloudConn.Region,
+		NetworkClient: cloudConn.NetworkClient,
+	}
+	return &handler, nil
+}

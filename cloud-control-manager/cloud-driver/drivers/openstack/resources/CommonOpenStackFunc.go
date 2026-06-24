@@ -143,6 +143,14 @@ func GetNetworkByName(networkClient *gophercloud.ServiceClient, networkName stri
 	return nil, errors.New(fmt.Sprintf("could not found SecurityGroups with name %s ", networkName))
 }
 
+func GetNetworkByID(networkClient *gophercloud.ServiceClient, networkId string) (*networks.Network, error) {
+	net, err := networks.Get(context.TODO(), networkClient, networkId).Extract()
+	if err != nil {
+		return nil, err
+	}
+	return net, nil
+}
+
 func GetSubnetByID(networkClient *gophercloud.ServiceClient, subnetId string) (*subnets.Subnet, error) {
 	subnet, err := subnets.Get(context.TODO(), networkClient, subnetId).Extract()
 	if err != nil {

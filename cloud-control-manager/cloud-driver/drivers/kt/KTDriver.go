@@ -76,6 +76,8 @@ func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.SINGLE_VPC = true
 
 	drvCapabilityInfo.RDBMSHandler = false
+	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.NICHandler = false
 
 	return drvCapabilityInfo
 }

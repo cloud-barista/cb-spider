@@ -267,11 +267,12 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			Zone: &vpcv1.ZoneIdentity{
 				Name: vpcSubnet.Zone.Name,
 			},
-			PrimaryNetworkInterface: &vpcv1.NetworkInterfacePrototype{
-				Subnet: &vpcv1.SubnetIdentity{
-					ID: vpcSubnet.ID,
+			// VNI model: use PrimaryNetworkAttachment instead of PrimaryNetworkInterface.
+			PrimaryNetworkAttachment: &vpcv1.InstanceNetworkAttachmentPrototype{
+				VirtualNetworkInterface: &vpcv1.InstanceNetworkAttachmentPrototypeVirtualNetworkInterfaceVirtualNetworkInterfacePrototypeInstanceNetworkAttachmentContext{
+					Subnet:         &vpcv1.SubnetIdentityByID{ID: vpcSubnet.ID},
+					SecurityGroups: sgIdentities,
 				},
-				SecurityGroups: sgIdentities,
 			},
 			Keys: []vpcv1.KeyIdentityIntf{
 				&vpcv1.KeyIdentity{
@@ -295,11 +296,12 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			Zone: &vpcv1.ZoneIdentity{
 				Name: vpcSubnet.Zone.Name,
 			},
-			PrimaryNetworkInterface: &vpcv1.NetworkInterfacePrototype{
-				Subnet: &vpcv1.SubnetIdentity{
-					ID: vpcSubnet.ID,
+			// VNI model: use PrimaryNetworkAttachment instead of PrimaryNetworkInterface.
+			PrimaryNetworkAttachment: &vpcv1.InstanceNetworkAttachmentPrototype{
+				VirtualNetworkInterface: &vpcv1.InstanceNetworkAttachmentPrototypeVirtualNetworkInterfaceVirtualNetworkInterfacePrototypeInstanceNetworkAttachmentContext{
+					Subnet:         &vpcv1.SubnetIdentityByID{ID: vpcSubnet.ID},
+					SecurityGroups: sgIdentities,
 				},
-				SecurityGroups: sgIdentities,
 			},
 			Keys: []vpcv1.KeyIdentityIntf{
 				&vpcv1.KeyIdentity{
@@ -416,27 +418,41 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, createErr
 	}
 
-	//  3-2. Bind FloatingIP
-	ipBindInfo := IBMIPBindReqInfo{
-		vmID:               *createInstance.ID,
-		floatingIPID:       *floatingIP.ID,
-		NetworkInterfaceID: *createInstance.PrimaryNetworkInterface.ID,
+	//  3-2. Bind FloatingIP via VNI model using UpdateFloatingIP.
+	// Get the VNI ID from the primary network attachment returned by CreateInstance.
+	// For VNI-model instances, PrimaryNetworkAttachment.VirtualNetworkInterface.ID holds the VNI ID.
+	// PrimaryNetworkInterface is always populated (as a read-only representation) but does not
+	// support AddInstanceNetworkInterfaceFloatingIP for VNI-model instances.
+	var vniID string
+	if createInstance.PrimaryNetworkAttachment != nil &&
+		createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface != nil &&
+		createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface.ID != nil {
+		vniID = *createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface.ID
 	}
-
-	_, err = floatingIPBind(ipBindInfo, vmHandler.VpcService, vmHandler.Ctx)
+	if vniID == "" {
+		// VNI ID unavailable — cannot bind floating IP without fallback to classic NIC model.
+		// NO FALLBACK: fail loudly.
+		err = errors.New("VNI ID not found in PrimaryNetworkAttachment; cannot bind floating IP in VNI model")
+		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+		if deleteErr != nil {
+			err = errors.New(err.Error() + "; " + deleteErr.Error())
+		}
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
+	}
+	_, err = floatingIPBindVNI(*floatingIP.ID, vniID, vmHandler.VpcService, vmHandler.Ctx)
 
 	if err != nil {
 		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
-		if err != nil {
-			if deleteErr != nil {
-				newErrText := err.Error() + deleteErr.Error()
-				err = errors.New(newErrText)
-			}
-			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
+		if deleteErr != nil {
+			err = errors.New(err.Error() + deleteErr.Error())
 		}
+		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VMInfo{}, createErr
 	}
 	createInstanceIId := irs.IID{
 		NameId:   *createInstance.Name,
@@ -835,43 +851,55 @@ func (vmHandler *IbmVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	return vmInfo, nil
 }
 
-type IBMIPBindReqInfo struct {
-	vmID               string
-	floatingIPID       string
-	NetworkInterfaceID string
-}
-
-func floatingIPBind(IPBindReqInfo IBMIPBindReqInfo, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.FloatingIP, error) {
-	if IPBindReqInfo.vmID == "" || IPBindReqInfo.floatingIPID == "" || IPBindReqInfo.NetworkInterfaceID == "" {
-		return vpcv1.FloatingIP{}, errors.New("invalid IDs")
+// floatingIPBindVNI associates a floating IP with a VNI (Virtual Network Interface) using
+// UpdateFloatingIP. This is the VNI-model replacement for the classic AddInstanceNetworkInterfaceFloatingIP.
+func floatingIPBindVNI(floatingIPID, vniID string, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.FloatingIP, error) {
+	if floatingIPID == "" || vniID == "" {
+		return vpcv1.FloatingIP{}, errors.New("floatingIPBindVNI: floatingIPID and vniID must not be empty")
 	}
-	addInstanceNetworkInterfaceFloatingIPOptions := &vpcv1.AddInstanceNetworkInterfaceFloatingIPOptions{}
-	addInstanceNetworkInterfaceFloatingIPOptions.SetID(IPBindReqInfo.floatingIPID)
-	addInstanceNetworkInterfaceFloatingIPOptions.SetInstanceID(IPBindReqInfo.vmID)
-	addInstanceNetworkInterfaceFloatingIPOptions.SetNetworkInterfaceID(IPBindReqInfo.NetworkInterfaceID)
-	floatingIP, _, err := vpcService.AddInstanceNetworkInterfaceFloatingIPWithContext(ctx, addInstanceNetworkInterfaceFloatingIPOptions)
+	patch := &vpcv1.FloatingIPPatch{
+		Target: &vpcv1.FloatingIPTargetPatch{
+			ID: &vniID,
+		},
+	}
+	patchMap, err := patch.AsPatch()
+	if err != nil {
+		return vpcv1.FloatingIP{}, fmt.Errorf("floatingIPBindVNI: failed to build patch: %w", err)
+	}
+	updateOpts := &vpcv1.UpdateFloatingIPOptions{
+		ID:              &floatingIPID,
+		FloatingIPPatch: patchMap,
+	}
+	fip, _, err := vpcService.UpdateFloatingIPWithContext(ctx, updateOpts)
 	if err != nil {
 		return vpcv1.FloatingIP{}, err
 	}
-	return *floatingIP, nil
+	return *fip, nil
 }
 
-func floatingIPUnBind(IPBindReqInfo IBMIPBindReqInfo, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
-	if IPBindReqInfo.vmID == "" || IPBindReqInfo.floatingIPID == "" || IPBindReqInfo.NetworkInterfaceID == "" {
-		return false, errors.New("invalid IDs")
+// floatingIPUnBindVNI disassociates a floating IP from its current target (VNI) by patching
+// the target to nil, then deletes the floating IP. This is the VNI-model replacement for
+// the classic RemoveInstanceNetworkInterfaceFloatingIP + DeleteFloatingIP sequence.
+func floatingIPUnBindVNI(floatingIPID string, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
+	if floatingIPID == "" {
+		return false, errors.New("floatingIPUnBindVNI: floatingIPID must not be empty")
 	}
-	removeInstanceNetworkInterfaceFloatingIPOptions := &vpcv1.RemoveInstanceNetworkInterfaceFloatingIPOptions{}
-	removeInstanceNetworkInterfaceFloatingIPOptions.SetID(IPBindReqInfo.floatingIPID)
-	removeInstanceNetworkInterfaceFloatingIPOptions.SetInstanceID(IPBindReqInfo.vmID)
-	removeInstanceNetworkInterfaceFloatingIPOptions.SetNetworkInterfaceID(IPBindReqInfo.NetworkInterfaceID)
-	_, err := vpcService.RemoveInstanceNetworkInterfaceFloatingIPWithContext(ctx, removeInstanceNetworkInterfaceFloatingIPOptions)
+	// Disassociate by patching target to nil (empty FloatingIPTargetPatch removes the association).
+	patch := map[string]interface{}{
+		"target": nil,
+	}
+	updateOpts := &vpcv1.UpdateFloatingIPOptions{
+		ID:              &floatingIPID,
+		FloatingIPPatch: patch,
+	}
+	_, _, err := vpcService.UpdateFloatingIPWithContext(ctx, updateOpts)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("floatingIPUnBindVNI: failed to disassociate floating IP %s: %w", floatingIPID, err)
 	}
-	deleteFloatingIPOptions := vpcService.NewDeleteFloatingIPOptions(IPBindReqInfo.floatingIPID)
+	deleteFloatingIPOptions := vpcService.NewDeleteFloatingIPOptions(floatingIPID)
 	_, err = vpcService.DeleteFloatingIPWithContext(ctx, deleteFloatingIPOptions)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("floatingIPUnBindVNI: failed to delete floating IP %s: %w", floatingIPID, err)
 	}
 	return true, nil
 }
@@ -1146,24 +1174,38 @@ func deleteInstance(instanceId string, vpcService *vpcv1.VpcV1, ctx context.Cont
 	return err
 }
 
+// removeFloatingIps removes all floating IPs associated with any VNI attached to the instance.
+// Uses the VNI model: ListInstanceNetworkAttachments → per VNI: ListFloatingIps(TargetID=vniID)
+// → UpdateFloatingIP(target=nil) + DeleteFloatingIP.
 func removeFloatingIps(instance vpcv1.Instance, vpcService *vpcv1.VpcV1, ctx context.Context) error {
-	instanceNetworkInterfaceOptions := &vpcv1.GetInstanceNetworkInterfaceOptions{}
-	instanceNetworkInterfaceOptions.SetID(*instance.PrimaryNetworkInterface.ID)
-	instanceNetworkInterfaceOptions.SetInstanceID(*instance.ID)
-	networkInterface, _, err := vpcService.GetInstanceNetworkInterfaceWithContext(ctx, instanceNetworkInterfaceOptions)
-	if err != nil {
-		return err
+	if instance.ID == nil {
+		return errors.New("removeFloatingIps: instance ID is nil")
 	}
-	if networkInterface.FloatingIps != nil {
-		for _, floatingIp := range networkInterface.FloatingIps {
-			ipBindInfo := IBMIPBindReqInfo{
-				vmID:               *instance.ID,
-				floatingIPID:       *floatingIp.ID,
-				NetworkInterfaceID: *instance.PrimaryNetworkInterface.ID,
+	attachments, _, err := vpcService.ListInstanceNetworkAttachmentsWithContext(ctx, &vpcv1.ListInstanceNetworkAttachmentsOptions{
+		InstanceID: instance.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("removeFloatingIps: failed to list network attachments for instance %s: %w", *instance.ID, err)
+	}
+	for _, att := range attachments.NetworkAttachments {
+		if att.VirtualNetworkInterface == nil || att.VirtualNetworkInterface.ID == nil {
+			continue
+		}
+		vniID := *att.VirtualNetworkInterface.ID
+		// List floating IPs targeting this VNI.
+		listFIPOpts := &vpcv1.ListFloatingIpsOptions{}
+		listFIPOpts.SetTargetID(vniID)
+		fipCollection, _, listFIPErr := vpcService.ListFloatingIpsWithContext(ctx, listFIPOpts)
+		if listFIPErr != nil {
+			return fmt.Errorf("removeFloatingIps: failed to list floating IPs for VNI %s: %w", vniID, listFIPErr)
+		}
+		for _, fip := range fipCollection.FloatingIps {
+			if fip.ID == nil {
+				continue
 			}
-			_, err := floatingIPUnBind(ipBindInfo, vpcService, ctx)
-			if err != nil {
-				return err
+			_, unbindErr := floatingIPUnBindVNI(*fip.ID, vpcService, ctx)
+			if unbindErr != nil {
+				return unbindErr
 			}
 		}
 	}
@@ -1202,6 +1244,9 @@ type vmNetworkInfo struct {
 	PublicIP          string
 	AccessPoint       string
 	SecurityGroupIIds []irs.IID
+	NICs              []irs.VMNICInfo
+	PrivateIPs        []string
+	PublicIPs         []string
 }
 
 func (vmHandler *IbmVMHandler) getBootVolumeInfo(instance vpcv1.Instance) (rootDiskSize string) {
@@ -1220,56 +1265,143 @@ func (vmHandler *IbmVMHandler) getBootVolumeInfo(instance vpcv1.Instance) (rootD
 	return ""
 }
 
-// networkDone <- vmHandler.getNetworkInfo(*instance.ID, *instance.PrimaryNetworkInterface.ID, *instance.VPC.ID)
+// getNetworkInfo collects network information using the VNI model.
+// Strategy:
+//  1. ListInstanceNetworkAttachments → per attachment get VNI ID, subnet, primaryIP
+//  2. GetVirtualNetworkInterface(vniID) → security groups
+//  3. ListFloatingIps(TargetID=vniID) → floating IPs for each VNI
+//
+// The classic GetInstanceNetworkInterface / ListInstanceNetworkInterfaces APIs still return
+// read-only representations for VNI-model instances (subnet, primaryIP) but do NOT return
+// SecurityGroups or FloatingIps for VNI-model NICs. Therefore we do NOT use them for those
+// fields and instead query the VNI directly.
 func (vmHandler *IbmVMHandler) getNetworkInfo(instance vpcv1.Instance) vmNetworkInfo {
-	// Network Get
 	var instanceId = ""
-	var instancePrimaryNIId = ""
 	var vpcId = ""
 	if instance.ID != nil {
 		instanceId = *instance.ID
 	}
-	if instance.PrimaryNetworkInterface != nil && instance.PrimaryNetworkInterface.ID != nil {
-		instancePrimaryNIId = *instance.PrimaryNetworkInterface.ID
-	}
 	if instance.VPC != nil && instance.VPC.ID != nil {
 		vpcId = *instance.VPC.ID
 	}
-	if instanceId == "" || instancePrimaryNIId == "" {
+	if instanceId == "" {
 		return vmNetworkInfo{}
 	}
+
 	info := vmNetworkInfo{}
-	instanceNetworkInterfaceOptions := &vpcv1.GetInstanceNetworkInterfaceOptions{}
-	instanceNetworkInterfaceOptions.SetID(instancePrimaryNIId)
-	instanceNetworkInterfaceOptions.SetInstanceID(instanceId)
-	networkInterface, _, err := vmHandler.VpcService.GetInstanceNetworkInterfaceWithContext(vmHandler.Ctx, instanceNetworkInterfaceOptions)
-	if err == nil {
-		// SET IP
-		info.NetworkInterface = *networkInterface.Name
-		if networkInterface.FloatingIps != nil && len(networkInterface.FloatingIps) > 0 {
-			info.PublicIP = *networkInterface.FloatingIps[0].Address
-			info.AccessPoint = info.PublicIP
-		}
-		if vpcId == "" {
-			info.SecurityGroupIIds = []irs.IID{}
-			return info
-		}
-		// SET SG
+
+	// Step 1: list network attachments to get VNI IDs and basic NIC info.
+	attachments, _, attErr := vmHandler.VpcService.ListInstanceNetworkAttachmentsWithContext(vmHandler.Ctx, &vpcv1.ListInstanceNetworkAttachmentsOptions{
+		InstanceID: &instanceId,
+	})
+	if attErr != nil || attachments == nil {
+		return info
+	}
+
+	// Determine default SG ID for filtering (same logic as before).
+	var defaultSGId string
+	if vpcId != "" {
 		getVpcOptions := &vpcv1.GetVPCOptions{}
 		getVpcOptions.SetID(vpcId)
 		vpc, _, _ := vmHandler.VpcService.GetVPCWithContext(vmHandler.Ctx, getVpcOptions)
-		var sgIIds []irs.IID
-		if vpc != nil && vpc.DefaultSecurityGroup != nil {
-			defaultSGId := *vpc.DefaultSecurityGroup.ID
-			vmSecurityGroups := networkInterface.SecurityGroups
-			for _, seg := range vmSecurityGroups {
-				if defaultSGId != *seg.ID {
-					sgIIds = append(sgIIds, irs.IID{NameId: *seg.Name, SystemId: *seg.ID})
+		if vpc != nil && vpc.DefaultSecurityGroup != nil && vpc.DefaultSecurityGroup.ID != nil {
+			defaultSGId = *vpc.DefaultSecurityGroup.ID
+		}
+	}
+
+	var allPublicIPs []string
+	var allPrivateIPs []string
+
+	for deviceIndex, att := range attachments.NetworkAttachments {
+		if att.VirtualNetworkInterface == nil || att.VirtualNetworkInterface.ID == nil {
+			continue
+		}
+		vniID := *att.VirtualNetworkInterface.ID
+
+		nicInfo := irs.VMNICInfo{
+			DeviceIndex: deviceIndex,
+		}
+
+		// Attachment provides name, subnet, primaryIP directly.
+		if att.VirtualNetworkInterface.Name != nil {
+			nicInfo.IId = irs.IID{NameId: *att.VirtualNetworkInterface.Name, SystemId: vniID}
+		} else {
+			nicInfo.IId = irs.IID{SystemId: vniID}
+		}
+		if att.Subnet != nil && att.Subnet.ID != nil {
+			subnetName := ""
+			if att.Subnet.Name != nil {
+				subnetName = *att.Subnet.Name
+			}
+			nicInfo.SubnetIID = irs.IID{NameId: subnetName, SystemId: *att.Subnet.ID}
+		}
+		var privateIPs []string
+		if att.PrimaryIP != nil && att.PrimaryIP.Address != nil {
+			privateIPs = append(privateIPs, *att.PrimaryIP.Address)
+		}
+		nicInfo.PrivateIPs = privateIPs
+		allPrivateIPs = append(allPrivateIPs, privateIPs...)
+
+		// Step 2: GetVirtualNetworkInterface for security groups.
+		vni, _, vniErr := vmHandler.VpcService.GetVirtualNetworkInterfaceWithContext(vmHandler.Ctx, &vpcv1.GetVirtualNetworkInterfaceOptions{
+			ID: &vniID,
+		})
+		if vniErr == nil && vni != nil {
+			// Primary NIC name from VNI if not set above.
+			if nicInfo.IId.NameId == "" && vni.Name != nil {
+				nicInfo.IId.NameId = *vni.Name
+			}
+			// Security groups: collect for first (primary) attachment only.
+			if deviceIndex == 0 {
+				var sgIIds []irs.IID
+				for _, sg := range vni.SecurityGroups {
+					if sg.ID == nil {
+						continue
+					}
+					if defaultSGId != "" && defaultSGId == *sg.ID {
+						continue // skip default SG (same filter as before)
+					}
+					sgName := ""
+					if sg.Name != nil {
+						sgName = *sg.Name
+					}
+					sgIIds = append(sgIIds, irs.IID{NameId: sgName, SystemId: *sg.ID})
+				}
+				info.SecurityGroupIIds = sgIIds
+			}
+			// NIC name for info.NetworkInterface (primary NIC only).
+			if deviceIndex == 0 && vni.Name != nil {
+				info.NetworkInterface = *vni.Name
+			}
+		}
+
+		// Step 3: ListFloatingIps(TargetID=vniID) for public IPs on this VNI.
+		listFIPOpts := &vpcv1.ListFloatingIpsOptions{}
+		listFIPOpts.SetTargetID(vniID)
+		fipCollection, _, fipErr := vmHandler.VpcService.ListFloatingIpsWithContext(vmHandler.Ctx, listFIPOpts)
+		var publicIPs []string
+		if fipErr == nil && fipCollection != nil {
+			for _, fip := range fipCollection.FloatingIps {
+				if fip.Address != nil {
+					publicIPs = append(publicIPs, *fip.Address)
 				}
 			}
 		}
-		info.SecurityGroupIIds = sgIIds
+		nicInfo.PublicIPs = publicIPs
+		allPublicIPs = append(allPublicIPs, publicIPs...)
+
+		// Set top-level PublicIP/AccessPoint from primary attachment.
+		if deviceIndex == 0 && len(publicIPs) > 0 {
+			info.PublicIP = publicIPs[0]
+			info.AccessPoint = publicIPs[0]
+		}
+
+		info.NICs = append(info.NICs, nicInfo)
 	}
+
+	info.PrivateIPs = allPrivateIPs
+	info.PublicIPs = allPublicIPs
+
 	return info
 }
 
@@ -1337,10 +1469,22 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		case keyIID := <-keyDone:
 			vmInfo.KeyPairIId = keyIID
 		case netInfo := <-networkDone:
+			if len(netInfo.NICs) > 0 {
+				vmInfo.NICs = netInfo.NICs
+			} else {
+				// Fallback if ListInstanceNetworkInterfaces failed
+				vmInfo.NICs = append(vmInfo.NICs, irs.VMNICInfo{IId: irs.IID{NameId: netInfo.NetworkInterface, SystemId: netInfo.NetworkInterface}})
+			}
 			vmInfo.NetworkInterface = netInfo.NetworkInterface
 			vmInfo.PublicIP = netInfo.PublicIP
 			vmInfo.AccessPoint = netInfo.AccessPoint
 			vmInfo.SecurityGroupIIds = netInfo.SecurityGroupIIds
+			if len(netInfo.PrivateIPs) > 0 {
+				vmInfo.PrivateIPs = netInfo.PrivateIPs
+			}
+			if len(netInfo.PublicIPs) > 0 {
+				vmInfo.PublicIPs = netInfo.PublicIPs
+			}
 		case volumeRootDiskSize := <-volumeDone:
 			vmInfo.RootDiskSize = volumeRootDiskSize
 		}

@@ -187,3 +187,14 @@ func (cloudConn *TencentCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler,
 	handler := trs.TencentRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.CDBClient, VMClient: cloudConn.VMClient}
 	return &handler, nil
 }
+
+func (cloudConn *TencentCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := trs.TencentNICHandler{Region: cloudConn.Region, VPCClient: cloudConn.VNetworkClient}
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("Tencent Cloud Driver: called CreatePublicIPHandler()!")
+	handler := trs.TencentPublicIPHandler{Region: cloudConn.Region, VPCClient: cloudConn.VNetworkClient}
+	return &handler, nil
+}

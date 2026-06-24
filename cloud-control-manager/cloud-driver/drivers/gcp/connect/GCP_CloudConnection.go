@@ -98,11 +98,21 @@ func (cloudConn *GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 // 	return &vNicHandler, nil
 // }
 
-// func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-// 	cblogger.Info("GCP Cloud Driver: called CreatePublicIPHandler()!")
-// 	publicIPHandler := gcprs.GCPPublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.Credential}
-// 	return &publicIPHandler, nil
-// }
+func (cloudConn *GCPCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := gcprs.GCPNICHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, Credential: cloudConn.Credential}
+	return &handler, nil
+}
+
+func (cloudConn *GCPCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreatePublicIPHandler()!")
+	handler := gcprs.GCPPublicIPHandler{
+		Region:     cloudConn.Region,
+		Ctx:        cloudConn.Ctx,
+		Client:     cloudConn.PublicIPClient,
+		Credential: cloudConn.Credential,
+	}
+	return &handler, nil
+}
 
 func (cloudConn *GCPCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("GCP Cloud Driver: called CreateVMHandler()!")

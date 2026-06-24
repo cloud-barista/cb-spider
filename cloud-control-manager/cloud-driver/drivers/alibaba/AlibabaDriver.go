@@ -77,6 +77,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.QuotaInfoHandler = true
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.PublicIPHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = true
 

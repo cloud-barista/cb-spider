@@ -132,11 +132,10 @@ func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandle
 	return &vNicHandler, nil
 }*/
 
-/*func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-	cblogger.Info("Azure Cloud Driver: called CreatePublicIPHandler()!")
-	publicIPHandler := azrs.AzurePublicIPHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.PublicIPClient, cloudConn.IPConfigClient}
-	return &publicIPHandler, nil
-}*/
+func (cloudConn *AzureCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := azrs.AzureNICHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, NicClient: cloudConn.VNicClient, VMClient: cloudConn.VMClient}
+	return &handler, nil
+}
 
 func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVMHandler()!")
@@ -330,4 +329,15 @@ func (cloudConn *AzureCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, e
 		BackupsClient:            cloudConn.MySQLBackupsClient,
 	}
 	return &rdbmsHandler, nil
+}
+
+func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreatePublicIPHandler()!")
+	handler := azrs.AzurePublicIPHandler{
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+		PublicIPClient: cloudConn.PublicIPClient,
+		NicClient:      cloudConn.VNicClient,
+	}
+	return &handler, nil
 }

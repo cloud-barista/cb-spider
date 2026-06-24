@@ -15,6 +15,18 @@ import (
 	"time"
 )
 
+// VMNICInfo represents a NIC as attached to a specific VM, including device-level context.
+type VMNICInfo struct {
+	IId         IID    `json:"IId"`                   // {NameId: Spider NIC name or CSP ID, SystemId: CSP NIC ID}
+	DeviceIndex int    `json:"DeviceIndex"`            // Attachment order: 0=eth0 (primary), 1=eth1, ...
+
+	PrivateIPs []string `json:"PrivateIPs,omitempty"` // All private IPs on this NIC (primary first, then secondary)
+	PublicIPs  []string `json:"PublicIPs,omitempty"`  // All public IPs on this NIC (1:1 NAT per private IP)
+
+	MACAddress string `json:"MACAddress,omitempty"`   // Hardware MAC address
+	SubnetIID  IID    `json:"SubnetIID,omitempty"`    // Subnet this NIC belongs to
+}
+
 type ImageType string
 
 const (
@@ -112,11 +124,17 @@ type VMInfo struct {
 	VMUserId     string `json:"VMUserId" validate:"required" example:"cb-user"`                     // cb-user or Administrator
 	VMUserPasswd string `json:"VMUserPasswd,omitempty" validate:"omitempty" example:"password1234"` // Only for Windows
 
-	NetworkInterface string `json:"NetworkInterface" validate:"required" example:"eni-12345678"`
-	PublicIP         string `json:"PublicIP" validate:"required" example:"1.2.3.4"`
-	PublicDNS        string `json:"PublicDNS,omitempty" validate:"omitempty" example:"ec2-1-2-3-4.compute-1.amazonaws.com"`
-	PrivateIP        string `json:"PrivateIP" validate:"required" example:"192.168.1.1"`
-	PrivateDNS       string `json:"PrivateDNS,omitempty" validate:"omitempty" example:"ip-192-168-1-1.ec2.internal"`
+	NICs []VMNICInfo `json:"NICs,omitempty" validate:"omitempty"` // all attached NICs with device context
+
+	NetworkInterface string `json:"NetworkInterface" validate:"required" example:"eni-12345678"` // Primary NIC ID (eth0); kept for backward compatibility
+
+	PublicIP   string   `json:"PublicIP" validate:"required" example:"1.2.3.4"`                                          // Primary public IP (eth0, for convenience)
+	PublicIPs  []string `json:"PublicIPs,omitempty" validate:"omitempty"`                                              // All public IPs across all NICs (flat)
+	PublicDNS  string   `json:"PublicDNS,omitempty" validate:"omitempty" example:"ec2-1-2-3-4.compute-1.amazonaws.com"` // Public DNS of eth0
+
+	PrivateIP  string   `json:"PrivateIP" validate:"required" example:"192.168.1.1"`   // Primary private IP (eth0, for convenience)
+	PrivateIPs []string `json:"PrivateIPs,omitempty" validate:"omitempty"`               // All private IPs across all NICs (flat)
+	PrivateDNS string   `json:"PrivateDNS,omitempty" validate:"omitempty" example:"ip-192-168-1-1.ec2.internal"` // Private DNS of eth0
 
 	Platform Platform `json:"Platform" validate:"required" example:"LINUX"` // LINUX | WINDOWS
 

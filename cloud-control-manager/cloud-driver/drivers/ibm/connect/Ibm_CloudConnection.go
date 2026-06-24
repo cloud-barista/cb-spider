@@ -243,3 +243,18 @@ func (cloudConn *IbmCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, err
 	}
 	return &rdbmsHandler, nil
 }
+
+func (cloudConn *IbmCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := ibmrs.IbmNICHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, VpcService: cloudConn.VpcService}
+	return &handler, nil
+}
+
+func (cloudConn *IbmCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreatePublicIPHandler()!")
+	handler := ibmrs.IbmPublicIPHandler{
+		Region:     cloudConn.Region,
+		Ctx:        cloudConn.Ctx,
+		VpcService: cloudConn.VpcService,
+	}
+	return &handler, nil
+}

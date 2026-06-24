@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -738,7 +739,9 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		}
 	}
 
-	if !reflect.ValueOf(curVm.PublicIpAddresses).IsNil() {
+	// Store primary public IP from DescribeInstances — used as authoritative value
+	// before NIC-level data is fetched.
+	if !reflect.ValueOf(curVm.PublicIpAddresses).IsNil() && len(curVm.PublicIpAddresses) > 0 {
 		vmInfo.PublicIP = *curVm.PublicIpAddresses[0]
 	}
 
@@ -763,8 +766,67 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		}
 	}
 
-	if !reflect.ValueOf(curVm.PrivateIpAddresses).IsNil() {
+	// Fix 10: Fetch all NICs attached to this VM via DescribeNetworkInterfaces with
+	// attachment.instance-id filter, then build proper VMNICInfo per NIC.
+	// Pass primary private IP from DescribeInstances for reliable primary NIC identification.
+	primaryPrivIP := ""
+	if !reflect.ValueOf(curVm.PrivateIpAddresses).IsNil() && len(curVm.PrivateIpAddresses) > 0 {
+		primaryPrivIP = *curVm.PrivateIpAddresses[0]
+	}
+	vmInfo.NICs = vmHandler.fetchVMNICs(*curVm.InstanceId, primaryPrivIP)
+
+	// Derive flat PrivateIPs / PublicIPs and primary IP from NIC list.
+	var allPrivateIPs, allPublicIPs []string
+	for _, nic := range vmInfo.NICs {
+		allPrivateIPs = append(allPrivateIPs, nic.PrivateIPs...)
+		allPublicIPs = append(allPublicIPs, nic.PublicIPs...)
+	}
+	// Set primary PrivateIP from primary NIC (DeviceIndex == 0).
+	// PublicIP is already set from DescribeInstances above (authoritative) — do not override.
+	for _, nic := range vmInfo.NICs {
+		if nic.DeviceIndex == 0 {
+			if len(nic.PrivateIPs) > 0 {
+				vmInfo.PrivateIP = nic.PrivateIPs[0]
+			}
+			if nic.IId.NameId != "" {
+				vmInfo.NetworkInterface = nic.IId.NameId
+			}
+			break
+		}
+	}
+	// Fallback: use CVM flat arrays if NIC fetch returned nothing.
+	if vmInfo.PrivateIP == "" && !reflect.ValueOf(curVm.PrivateIpAddresses).IsNil() && len(curVm.PrivateIpAddresses) > 0 {
 		vmInfo.PrivateIP = *curVm.PrivateIpAddresses[0]
+	}
+	if vmInfo.PublicIP == "" && !reflect.ValueOf(curVm.PublicIpAddresses).IsNil() && len(curVm.PublicIpAddresses) > 0 {
+		vmInfo.PublicIP = *curVm.PublicIpAddresses[0]
+	}
+	if len(allPrivateIPs) > 0 {
+		vmInfo.PrivateIPs = allPrivateIPs
+	} else if !reflect.ValueOf(curVm.PrivateIpAddresses).IsNil() {
+		for _, ip := range curVm.PrivateIpAddresses {
+			if ip != nil {
+				vmInfo.PrivateIPs = append(vmInfo.PrivateIPs, *ip)
+			}
+		}
+	}
+	if len(allPublicIPs) > 0 {
+		// Filter out empty strings for PublicIPs flat list
+		var filteredPub []string
+		for _, ip := range allPublicIPs {
+			if ip != "" {
+				filteredPub = append(filteredPub, ip)
+			}
+		}
+		if len(filteredPub) > 0 {
+			vmInfo.PublicIPs = filteredPub
+		}
+	} else if !reflect.ValueOf(curVm.PublicIpAddresses).IsNil() {
+		for _, ip := range curVm.PublicIpAddresses {
+			if ip != nil {
+				vmInfo.PublicIPs = append(vmInfo.PublicIPs, *ip)
+			}
+		}
 	}
 
 	if !reflect.ValueOf(curVm.Tags).IsNil() {
@@ -832,6 +894,99 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	// vmInfo.KeyValueList = keyValueList
 
 	return vmInfo, nil
+}
+
+// fetchVMNICs calls DescribeNetworkInterfaces with an attachment.instance-id filter.
+// primaryPrivIP: the primary private IP from DescribeInstances — used to identify the
+// primary NIC reliably when Attachment.DeviceIndex / Primary fields are unreliable.
+func (vmHandler *TencentVMHandler) fetchVMNICs(instanceId string, primaryPrivIP string) []irs.VMNICInfo {
+	req := tencentvpc.NewDescribeNetworkInterfacesRequest()
+	req.Filters = []*tencentvpc.Filter{
+		{
+			Name:   common.StringPtr("attachment.instance-id"),
+			Values: []*string{common.StringPtr(instanceId)},
+		},
+	}
+	req.Limit = common.Uint64Ptr(100)
+
+	resp, err := vmHandler.VPCClient.DescribeNetworkInterfaces(req)
+	if err != nil {
+		cblogger.Warnf("fetchVMNICs: DescribeNetworkInterfaces failed for instance %s: %v", instanceId, err)
+		return nil
+	}
+
+	// First pass: identify which NIC contains the primary private IP.
+	// This is the most reliable way — DescribeInstances always returns the correct primary IP.
+	primaryNICIdx := -1
+	if primaryPrivIP != "" {
+		for i, nic := range resp.Response.NetworkInterfaceSet {
+			for _, pip := range nic.PrivateIpAddressSet {
+				if pip.PrivateIpAddress != nil && *pip.PrivateIpAddress == primaryPrivIP {
+					primaryNICIdx = i
+					break
+				}
+			}
+			if primaryNICIdx >= 0 {
+				break
+			}
+		}
+	}
+
+	var nics []irs.VMNICInfo
+	secondaryIdx := 1
+	for i, nic := range resp.Response.NetworkInterfaceSet {
+		nicInfo := irs.VMNICInfo{}
+
+		// DeviceIndex: use IP-based primary detection first (most reliable),
+		// then Attachment.DeviceIndex, then Primary flag, then sequential index.
+		if i == primaryNICIdx {
+			nicInfo.DeviceIndex = 0
+		} else if nic.Attachment != nil && nic.Attachment.DeviceIndex != nil && *nic.Attachment.DeviceIndex != 0 {
+			nicInfo.DeviceIndex = int(*nic.Attachment.DeviceIndex)
+		} else if nic.Primary != nil && *nic.Primary {
+			nicInfo.DeviceIndex = 0
+		} else {
+			nicInfo.DeviceIndex = secondaryIdx
+			secondaryIdx++
+		}
+
+		// MACAddress
+		if nic.MacAddress != nil {
+			nicInfo.MACAddress = *nic.MacAddress
+		}
+
+		// IId
+		if nic.NetworkInterfaceId != nil {
+			nicInfo.IId = irs.IID{NameId: *nic.NetworkInterfaceId, SystemId: *nic.NetworkInterfaceId}
+		}
+
+		// SubnetIID
+		if nic.SubnetId != nil {
+			nicInfo.SubnetIID = irs.IID{NameId: *nic.SubnetId, SystemId: *nic.SubnetId}
+		}
+
+		// Build parallel PrivateIPs[] and PublicIPs[] from PrivateIpAddressSet
+		for _, pip := range nic.PrivateIpAddressSet {
+			privateIP := ""
+			if pip.PrivateIpAddress != nil {
+				privateIP = *pip.PrivateIpAddress
+			}
+			publicIP := ""
+			if pip.PublicIpAddress != nil {
+				publicIP = *pip.PublicIpAddress
+			}
+			nicInfo.PrivateIPs = append(nicInfo.PrivateIPs, privateIP)
+			nicInfo.PublicIPs = append(nicInfo.PublicIPs, publicIP)
+		}
+
+		nics = append(nics, nicInfo)
+	}
+
+	// Sort by DeviceIndex so NIC[0] (primary) always appears first.
+	sort.Slice(nics, func(i, j int) bool {
+		return nics[i].DeviceIndex < nics[j].DeviceIndex
+	})
+	return nics
 }
 
 func (vmHandler *TencentVMHandler) ListVM() ([]*irs.VMInfo, error) {

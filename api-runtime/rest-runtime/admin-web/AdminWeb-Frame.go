@@ -282,6 +282,13 @@ func Top(c echo.Context) error {
                 </a>
 
                 <br>
+
+                <!-- PublicIP Management -->
+                <a href="publicip/region not set" target="main_frame" id="publicipHref" onclick="selectMenu('publicipHref')">
+                    <font size=2>3.PublicIP</font>
+                </a>
+
+                <br>
                 <br>
 
                 <!-- PMKS(K8S) Management -->

@@ -522,6 +522,15 @@ THE SOFTWARE.
     .ssh-access-cell {
         text-align: left;
     }
+    .ssh-ip-select {
+        font-size: 12px;
+        font-family: 'Courier New', Courier, monospace;
+        padding: 2px 4px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        background-color: #f9f9f9;
+        max-width: 160px;
+    }
     .copy-icon-btn {
         background: none;
         border: none;
@@ -1448,13 +1457,36 @@ THE SOFTWARE.
                     <span class="vm-start-time" data-time="{{$vm.StartTime}}"></span>
                 </td>    
                 <td class="ssh-access-cell">
-                    {{if $vm.PublicIP}}
+                    {{if $vm.PublicIPs}}
+                        {{if gt (len $vm.PublicIPs) 1}}
+                        {{/* Multiple Public IPs → dropdown selector */}}
+                        • Public IP:
+                        <select id="ssh-ip-{{$vm.IId.NameId}}" class="ssh-ip-select">
+                            {{range $ip := $vm.PublicIPs}}
+                            <option value="{{$ip}}">{{$ip}}</option>
+                            {{end}}
+                        </select>
+                        <button class="copy-icon-btn" onclick="copyToClipboard(document.getElementById('ssh-ip-{{$vm.IId.NameId}}').value)">📋</button>
+                        <br> •
+                        <div class="ssh-connect-btn"
+                            onclick="openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: document.getElementById('ssh-ip-{{$vm.IId.NameId}}').value, keyName: '{{$vm.KeyPairIId.NameId}}' });">
+                            <span class="ssh-terminal-style">SSH ▸</span>
+                        </div>
+                        {{else}}
+                        {{/* Single Public IP → original behavior */}}
+                        • Public IP: {{$vm.PublicIP}}
+                        <button class="copy-icon-btn" onclick="copyToClipboard('{{$vm.PublicIP}}')">📋</button>
+                        <br> •
+                        <div class="ssh-connect-btn"
+                            onclick="openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: '{{$vm.PublicIP}}', keyName: '{{$vm.KeyPairIId.NameId}}' });">
+                            <span class="ssh-terminal-style">SSH: {{$vm.PublicIP}}</span>
+                        </div>
+                        {{end}}
+                    {{else if $vm.PublicIP}}
                     • Public IP: {{$vm.PublicIP}}
-                    <button class="copy-icon-btn" onclick="copyToClipboard('{{$vm.PublicIP}}')">
-                        📋
-                    </button>
-                    <br> • 
-                    <div class="ssh-connect-btn" 
+                    <button class="copy-icon-btn" onclick="copyToClipboard('{{$vm.PublicIP}}')">📋</button>
+                    <br> •
+                    <div class="ssh-connect-btn"
                         onclick="openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: '{{$vm.PublicIP}}', keyName: '{{$vm.KeyPairIId.NameId}}' });">
                         <span class="ssh-terminal-style">SSH: {{$vm.PublicIP}}</span>
                     </div>
@@ -1504,7 +1536,7 @@ THE SOFTWARE.
                             rootDiskSize: '{{$vm.RootDiskSize}}',
                             rootDeviceName: '{{$vm.RootDeviceName}}',
                             dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}}, {{end}}{{$disk.NameId}}{{end}}'],
-                            networkInterface: '{{$vm.NetworkInterface}}',
+                            nics: [{{range $i, $n := $vm.NICs}}{{if $i}},{{end}}{name:'{{$n.IId.NameId}}',idx:{{$n.DeviceIndex}},priv:'{{if $n.PrivateIPs}}{{index $n.PrivateIPs 0}}{{end}}',pub:'{{if $n.PublicIPs}}{{index $n.PublicIPs 0}}{{end}}',mac:'{{$n.MACAddress}}',subnet:'{{$n.SubnetIID.NameId}}',privIPs:[{{range $j,$p := $n.PrivateIPs}}{{if $j}},{{end}}'{{$p}}'{{end}}],pubIPs:[{{range $j,$p := $n.PublicIPs}}{{if $j}},{{end}}'{{$p}}'{{end}}]}{{end}}],
                             publicIP: '{{$vm.PublicIP}}',
                             publicDNS: '{{$vm.PublicDNS}}',
                             privateIP: '{{$vm.PrivateIP}}',
@@ -2216,7 +2248,7 @@ THE SOFTWARE.
                         rootDiskSize: '${vmData.RootDiskSize}',
                         rootDeviceName: '${vmData.RootDeviceName}',
                         dataDisks: ['${vmData.DataDiskIIDs.map(disk => disk.NameId).join("', '")}'],
-                        networkInterface: '${vmData.NetworkInterface}',
+                        nics: ${JSON.stringify((vmData.NICs || []).map(n => ({name: n.IId?.NameId || n.IId?.SystemId || '', idx: n.DeviceIndex || 0, priv: n.PrivateIP || '', pub: n.PublicIP || '', mac: n.MACAddress || '', subnet: n.SubnetIID?.NameId || n.SubnetIID?.SystemId || ''})))},
                         publicIP: '${vmData.PublicIP}',
                         publicDNS: '${vmData.PublicDNS}',
                         privateIP: '${vmData.PrivateIP}',
@@ -3293,7 +3325,26 @@ THE SOFTWARE.
                     <th>Network</th>
                     <td>
                         <ul class="bullet-list">
-                            <li>NIC: ${vmInfo.networkInterface || 'N/A'}</li>
+                            ${(vmInfo.nics && vmInfo.nics.length > 0)
+                                ? vmInfo.nics.map(n => {
+                                    const name = n.name || 'N/A';
+                                    // Build private→public IP pairs
+                                    const privIPs = n.privIPs && n.privIPs.length ? n.privIPs : (n.priv ? [n.priv] : []);
+                                    const pubIPs  = n.pubIPs  && n.pubIPs.length  ? n.pubIPs  : (n.pub  ? [n.pub]  : []);
+                                    const ipLines = privIPs.map((pip, i) => {
+                                        const pub = pubIPs[i] || '';
+                                        return pub ? `${pip} → ${pub}` : pip;
+                                    }).join(', ');
+                                    const detail = [
+                                        `eth${n.idx}`,
+                                        ipLines ? `IP: ${ipLines}` : '',
+                                        n.mac    ? `MAC: ${n.mac}`       : '',
+                                        n.subnet ? `Subnet: ${n.subnet}` : '',
+                                    ].filter(Boolean).join(' | ');
+                                    return `<li><b>NIC[${n.idx}]</b> ${name}<br>&nbsp;&nbsp;&nbsp;${detail}</li>`;
+                                }).join('')
+                                : '<li>NIC: N/A</li>'
+                            }
                             <li>Public IP: ${vmInfo.publicIP || 'N/A'}</li>
                             <li>Public DNS: ${vmInfo.publicDNS || 'N/A'}</li>
                             <li>Private IP: ${vmInfo.privateIP || 'N/A'}</li>

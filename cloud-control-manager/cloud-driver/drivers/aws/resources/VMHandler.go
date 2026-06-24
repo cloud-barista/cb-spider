@@ -1029,6 +1029,69 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		vmInfo.PublicIP = *instance.PublicIpAddress
 	}
 
+	// Collect all network interfaces (ENIs) with device context.
+	var allPublicIPs []string
+	var vmNICs []irs.VMNICInfo
+	for _, ni := range instance.NetworkInterfaces {
+		if ni.NetworkInterfaceId == nil {
+			continue
+		}
+		nicInfo := irs.VMNICInfo{
+			IId:        irs.IID{NameId: aws.StringValue(ni.NetworkInterfaceId), SystemId: aws.StringValue(ni.NetworkInterfaceId)},
+			MACAddress: aws.StringValue(ni.MacAddress),
+			SubnetIID:  irs.IID{SystemId: aws.StringValue(ni.SubnetId)},
+		}
+		if ni.Attachment != nil && ni.Attachment.DeviceIndex != nil {
+			nicInfo.DeviceIndex = int(aws.Int64Value(ni.Attachment.DeviceIndex))
+		}
+		// Collect all private IPs and their associated public IPs (1:1 NAT per private IP)
+		var privateIPs, publicIPs []string
+		for _, pip := range ni.PrivateIpAddresses {
+			if pip.PrivateIpAddress != nil {
+				privateIPs = append(privateIPs, aws.StringValue(pip.PrivateIpAddress))
+				pubIP := ""
+				if pip.Association != nil && pip.Association.PublicIp != nil {
+					pubIP = aws.StringValue(pip.Association.PublicIp)
+				}
+				publicIPs = append(publicIPs, pubIP)
+			}
+		}
+		// Fallback: if the primary private IP has no associated public IP at the per-IP level,
+		// check the NIC-level association (e.g. EIP attached to the NIC as a whole).
+		if len(privateIPs) > 0 && publicIPs[0] == "" && ni.Association != nil && ni.Association.PublicIp != nil {
+			publicIPs[0] = aws.StringValue(ni.Association.PublicIp)
+		}
+		nicInfo.PrivateIPs = privateIPs
+		nicInfo.PublicIPs = publicIPs
+
+		// VM-level flat IP lists + primary IPs from eth0
+		allPublicIPs = append(allPublicIPs, publicIPs...)
+		if nicInfo.DeviceIndex == 0 {
+			if len(privateIPs) > 0 {
+				vmInfo.PrivateIP = privateIPs[0]
+			}
+			if len(publicIPs) > 0 {
+				vmInfo.PublicIP = publicIPs[0]
+			}
+			vmInfo.NetworkInterface = aws.StringValue(ni.NetworkInterfaceId)
+		}
+		vmNICs = append(vmNICs, nicInfo)
+	}
+	if len(allPublicIPs) > 0 {
+		vmInfo.PublicIPs = allPublicIPs
+	}
+	// Collect all private IPs across all NICs for PrivateIPs (flat list)
+	var allPrivateIPs []string
+	for _, nic := range vmNICs {
+		allPrivateIPs = append(allPrivateIPs, nic.PrivateIPs...)
+	}
+	if len(allPrivateIPs) > 0 {
+		vmInfo.PrivateIPs = allPrivateIPs
+	}
+	if len(vmNICs) > 0 {
+		vmInfo.NICs = vmNICs
+	}
+
 	if !reflect.ValueOf(instance.PublicDnsName).IsNil() {
 		vmInfo.PublicDNS = *instance.PublicDnsName
 	}
@@ -1105,7 +1168,6 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		}
 
 		if !reflect.ValueOf(instance.NetworkInterfaces[0].Attachment).IsNil() {
-			vmInfo.NetworkInterface = *instance.NetworkInterfaces[0].Attachment.AttachmentId
 		}
 
 		for _, security := range instance.NetworkInterfaces[0].Groups {
@@ -1264,7 +1326,6 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		}
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].Attachment).IsNil() {
-			vmInfo.NetworkInterface = *reservation.Instances[0].NetworkInterfaces[0].Attachment.AttachmentId
 		}
 
 		for _, security := range reservation.Instances[0].NetworkInterfaces[0].Groups {

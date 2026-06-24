@@ -45,6 +45,10 @@
         .text-menu:hover {
             text-decoration: underline;
         }
+        .menu-selected {
+            background-color: #e8f0fe;
+            border-left: 3px solid #0645AD;
+        }
         .divider {
             width: 80%;
             height: 1px;
@@ -71,10 +75,13 @@
                 disk: "/spider/adminweb/disk",
                 myimage: "/spider/adminweb/myimage",
                 nlb: "/spider/adminweb/nlb",
+                publicip: "/spider/adminweb/publicip",
+                nic: "/spider/adminweb/nic",
                 cluster: "/spider/adminweb/cluster",
                 s3: "/spider/adminweb/s3",
                 filesystem: "/spider/adminweb/filesystem",
-                rdbms: "/spider/adminweb/rdbms"
+                rdbms: "/spider/adminweb/rdbms",
+                topology: "/spider/adminweb/topology"
             };
 
             const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
@@ -133,15 +140,31 @@
             window.open('/spider/adminweb/sysstats', 'SysStatsWindow', 'width=740,height=1400');            
         }
 
+        // Menus without dedicated icons → map to an existing base icon
+        const menuIconBase = {
+            'nic':      'disk',
+            'publicip': 'disk',
+            'rdbms':    'disk',
+            'topology': 'vpc',
+            'filesystem': 'filesystem'
+        };
+        function getIconBase(menu) {
+            return menuIconBase[menu] || menu;
+        }
+
         function changeSelectedImage(selectedMenu) {
-            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms'];
+            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'topology'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
+                const menuEl    = imgElement ? imgElement.closest('.menu-item') : null;
                 if (imgElement) {
+                    const base = getIconBase(menu);
                     if (menu === selectedMenu) {
-                        imgElement.src = `./images/left-menu/${menu}_selected.png`;
+                        imgElement.src = `./images/left-menu/${base}_selected.png`;
+                        if (menuEl) menuEl.classList.add('menu-selected');
                     } else {
-                        imgElement.src = `./images/left-menu/${menu}.png`;
+                        imgElement.src = `./images/left-menu/${base}.png`;
+                        if (menuEl) menuEl.classList.remove('menu-selected');
                     }
                 }
             });
@@ -149,11 +172,13 @@
 
         window.addEventListener('message', function(event) {
             if (event.data.type === 'deselectLeftMenu') {
-                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms'];
+                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'topology'];
                 menus.forEach(menu => {
                     const imgElement = document.getElementById(menu + '-img');
+                    const menuEl    = imgElement ? imgElement.closest('.menu-item') : null;
                     if (imgElement) {
-                        imgElement.src = `./images/left-menu/${menu}.png`;
+                        imgElement.src = `./images/left-menu/${getIconBase(menu)}.png`;
+                        if (menuEl) menuEl.classList.remove('menu-selected');
                     }
                 });
             }
@@ -191,6 +216,14 @@
         <img id="vm-img" src="./images/left-menu/vm.png" alt="VM Icon">
         <div class="menu-text">VM</div>
     </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('nic', event)">
+        <img id="nic-img" src="./images/left-menu/disk.png" alt="NIC Icon" onerror="this.src='./images/left-menu/disk.png'">
+        <div class="menu-text">NIC</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('publicip', event)">
+        <img id="publicip-img" src="./images/left-menu/disk.png" alt="PublicIP Icon">
+        <div class="menu-text">PublicIP</div>
+    </div>
     <div class="menu-item" onclick="checkConnectionAndRedirect('disk', event)">
         <img id="disk-img" src="./images/left-menu/disk.png" alt="Disk Icon">
         <div class="menu-text">Disk</div>
@@ -218,9 +251,13 @@
         <div class="menu-text">FS (WIP)</div>
     </div>
     <div class="menu-item" onclick="checkConnectionAndRedirect('rdbms', event)">
-        <img id="rdbms-img" src="./images/left-menu/rdbms.png" alt="RDBMS Icon" onerror="this.src='./images/left-menu/disk.png'">
+        <img id="rdbms-img" src="./images/left-menu/disk.png" alt="RDBMS Icon">
         <div class="menu-text">RDBMS</div>
     </div>
     <div class="divider"></div> <!-- Divider after RDBMS -->
+    <div class="menu-item" onclick="checkConnectionAndRedirect('topology', event)">
+        <img id="topology-img" src="./images/left-menu/vpc.png" alt="Topology Icon">
+        <div class="menu-text">Topology</div>
+    </div>
 </body>
 </html>

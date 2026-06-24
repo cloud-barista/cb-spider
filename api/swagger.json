@@ -2231,6 +2231,69 @@
                 }
             }
         },
+        "/countnic": {
+            "get": {
+                "description": "Get the total number of NICs registered across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Count All NICs",
+                "operationId": "count-all-nics",
+                "responses": {
+                    "200": {
+                        "description": "Total count of NICs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countnic/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of NICs for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Count NICs by Connection",
+                "operationId": "count-nic-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of NICs for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/countnlb": {
             "get": {
                 "description": "Get the total number of Network Load Balancers (NLBs) across all connections.",
@@ -2281,6 +2344,69 @@
                 "responses": {
                     "200": {
                         "description": "Total count of NLBs for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countpublicip": {
+            "get": {
+                "description": "Get the total number of Public IPs registered across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Count All Public IPs",
+                "operationId": "count-all-publicips",
+                "responses": {
+                    "200": {
+                        "description": "Total count of Public IPs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countpublicip/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of Public IPs for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Count Public IPs by Connection",
+                "operationId": "count-publicip-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of Public IPs for the connection",
                         "schema": {
                             "$ref": "#/definitions/spider.CountResponse"
                         }
@@ -5647,6 +5773,427 @@
                 }
             }
         },
+        "/nic": {
+            "get": {
+                "description": "Retrieve a list of Network Interface Cards.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "List NICs",
+                "operationId": "list-nic",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of NICs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Network Interface Card (NIC).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Create NIC",
+                "operationId": "create-nic",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a NIC",
+                        "name": "NICCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created NIC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nic/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific NIC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Get NIC",
+                "operationId": "get-nic",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the NIC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a NIC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Delete NIC",
+                "operationId": "delete-nic",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nic/{Name}/attach": {
+            "put": {
+                "description": "Attach a NIC to a VM instance.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Attach NIC to VM",
+                "operationId": "attach-nic",
+                "parameters": [
+                    {
+                        "description": "Request body for attaching a NIC to a VM",
+                        "name": "NICAttachRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICAttachRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated NIC info",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nic/{Name}/detach": {
+            "put": {
+                "description": "Detach a NIC from its VM instance.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Detach NIC from VM",
+                "operationId": "detach-nic",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the detach operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nic/{Name}/osconfigscript": {
+            "get": {
+                "description": "Return a bash script to be executed inside the VM OS after a secondary NIC is attached.\nAWS uses DHCP-based routing and returns an empty script.\nAzure, Alibaba, Tencent, IBM, and OpenStack require manual OS-level interface\nand routing table configuration; this endpoint returns the ready-to-run script.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Get NIC OS Configuration Script",
+                "operationId": "get-nic-osconfigscript",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OS configuration script",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICOSConfigScriptResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nic/{Name}/privateip": {
+            "post": {
+                "description": "Add a secondary private IP to a NIC. Leave PrivateIP empty for CSP auto-assignment.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Add Private IP to NIC",
+                "operationId": "add-nic-privateip",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "NICPrivateIPRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICPrivateIPRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated NIC info",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nic/{Name}/privateip/{IP}": {
+            "delete": {
+                "description": "Remove a secondary private IP from a NIC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Remove Private IP from NIC",
+                "operationId": "remove-nic-privateip",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The private IP address to remove",
+                        "name": "IP",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/nlb": {
             "get": {
                 "description": "Retrieve a list of Network Load Balancers (NLBs) associated with a specific connection.",
@@ -6469,6 +7016,318 @@
                     },
                     "404": {
                         "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/publicip": {
+            "get": {
+                "description": "Retrieve a list of Public IP addresses.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "List Public IPs",
+                "operationId": "list-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Public IPs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Allocate a new Public IP address.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Create Public IP",
+                "operationId": "create-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a Public IP",
+                        "name": "PublicIPCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created Public IP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/publicip/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Public IP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Get Public IP",
+                "operationId": "get-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Public IP",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Public IP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Release (delete) a Public IP address.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Delete Public IP",
+                "operationId": "delete-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Public IP to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/publicip/{Name}/associate": {
+            "put": {
+                "description": "Associate a Public IP address with a VM.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Associate Public IP with VM",
+                "operationId": "associate-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body for associating a Public IP with a VM",
+                        "name": "PublicIPAssociateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPAssociateRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Public IP",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated Public IP info",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/publicip/{Name}/disassociate": {
+            "put": {
+                "description": "Remove the VM association from a Public IP address.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Disassociate Public IP from VM",
+                "operationId": "disassociate-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body containing the Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Public IP",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the disassociate operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -7805,6 +8664,95 @@
                 }
             }
         },
+        "/regnic": {
+            "post": {
+                "description": "Register an existing NIC with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Register NIC",
+                "operationId": "register-nic",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a NIC",
+                        "name": "NICRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered NIC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NICInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regnic/{Name}": {
+            "delete": {
+                "description": "Unregister a NIC with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NIC Management]"
+                ],
+                "summary": "Unregister NIC",
+                "operationId": "unregister-nic",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a NIC",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NIC to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regnlb": {
             "post": {
                 "description": "Register a new Network Load Balancer (NLB) with the specified name and CSP ID.",
@@ -7885,6 +8833,119 @@
                     {
                         "type": "string",
                         "description": "The name of the NLB to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regpublicip": {
+            "post": {
+                "description": "Register a new Public IP with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Register Public IP",
+                "operationId": "register-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a Public IP",
+                        "name": "PublicIPRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered Public IP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regpublicip/{Name}": {
+            "delete": {
+                "description": "Unregister a Public IP with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[PublicIP Management]"
+                ],
+                "summary": "Unregister Public IP",
+                "operationId": "unregister-publicip",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a Public IP",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Public IP to unregister",
                         "name": "Name",
                         "in": "path",
                         "required": true
@@ -10184,6 +11245,140 @@
                 }
             }
         },
+        "/topology/layout": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Topology]"
+                ],
+                "summary": "List all saved topology layout versions",
+                "operationId": "list-topology-layouts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection config name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of saved versions",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.TopologyLayoutInfo"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Topology]"
+                ],
+                "summary": "Save (upsert) a named topology layout version",
+                "operationId": "save-topology-layout",
+                "parameters": [
+                    {
+                        "description": "Layout to save",
+                        "name": "SaveTopologyLayoutRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.SaveTopologyLayoutRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Topology]"
+                ],
+                "summary": "Delete one named topology layout version",
+                "operationId": "delete-topology-layout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection config name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Version label to delete",
+                        "name": "VersionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/topology/layout/version": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Topology]"
+                ],
+                "summary": "Get one saved topology layout version (full LayoutJSON)",
+                "operationId": "get-topology-layout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection config name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Version label",
+                        "name": "VersionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Full layout info",
+                        "schema": {
+                            "$ref": "#/definitions/spider.TopologyLayoutInfo"
+                        }
+                    }
+                }
+            }
+        },
         "/version": {
             "get": {
                 "description": "Retrieves the version information of CB-Spider.",
@@ -11986,6 +13181,30 @@
                 }
             }
         },
+        "spider.TopologyLayoutInfo": {
+            "type": "object",
+            "properties": {
+                "connectionName": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "\"connectionName::versionName\"",
+                    "type": "string"
+                },
+                "layoutJSON": {
+                    "type": "string"
+                },
+                "savedAt": {
+                    "type": "string"
+                },
+                "thumbnailBase64": {
+                    "type": "string"
+                },
+                "versionName": {
+                    "type": "string"
+                }
+            }
+        },
         "spider.VMFavoriteInfo": {
             "type": "object",
             "properties": {
@@ -12963,6 +14182,134 @@
                 "MyImageUnavailable"
             ]
         },
+        "spider.NICInfo": {
+            "type": "object",
+            "required": [
+                "CreatedTime",
+                "IId",
+                "PrivateIP",
+                "Status",
+                "SubnetIID",
+                "VpcIID"
+            ],
+            "properties": {
+                "CreatedTime": {
+                    "type": "string"
+                },
+                "DeviceIndex": {
+                    "description": "0=primary, 1,2,...=secondary",
+                    "type": "integer"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "MACAddress": {
+                    "type": "string"
+                },
+                "OwnerVM": {
+                    "description": "VM this NIC is attached to",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "PrivateIP": {
+                    "description": "Primary private IP (convenience)",
+                    "type": "string"
+                },
+                "PrivateIPs": {
+                    "description": "All private IPs (primary first, then secondary)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "PublicIP": {
+                    "description": "Primary public IP (convenience)",
+                    "type": "string"
+                },
+                "PublicIPs": {
+                    "description": "Public IPs index-aligned to PrivateIPs (\"\" = no EIP for that IP)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "SecurityGroupIIDs": {
+                    "description": "Attached security groups",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "Status": {
+                    "$ref": "#/definitions/spider.NICStatus"
+                },
+                "SubnetIID": {
+                    "description": "Subnet this NIC belongs to",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "VpcIID": {
+                    "description": "VPC this NIC belongs to",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                }
+            }
+        },
+        "spider.NICStatus": {
+            "type": "string",
+            "enum": [
+                "Available",
+                "Attached",
+                "Deleting",
+                "Error",
+                "NotFound"
+            ],
+            "x-enum-comments": {
+                "NICAttached": "Attached to a VM",
+                "NICAvailable": "Created, not attached to any VM",
+                "NICNotFound": "Registered in Spider but not found in CSP"
+            },
+            "x-enum-descriptions": [
+                "Created, not attached to any VM",
+                "Attached to a VM",
+                "",
+                "",
+                "Registered in Spider but not found in CSP"
+            ],
+            "x-enum-varnames": [
+                "NICAvailable",
+                "NICAttached",
+                "NICDeleting",
+                "NICError",
+                "NICNotFound"
+            ]
+        },
         "spider.NLBInfo": {
             "description": "Network Load Balancer (NLB) Information",
             "type": "object",
@@ -13334,6 +14681,104 @@
                 }
             }
         },
+        "spider.PublicIPInfo": {
+            "type": "object",
+            "required": [
+                "CreatedTime",
+                "IId",
+                "PublicIPAddress",
+                "Status"
+            ],
+            "properties": {
+                "CreatedTime": {
+                    "description": "Allocation time",
+                    "type": "string"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "description": "CSP-specific additional info",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "OwnedNIC": {
+                    "description": "Associated NIC (NameId=Spider NIC name, SystemId=CSP NIC ID)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "OwnedPrivateIP": {
+                    "description": "The private IP on the NIC that this Public IP is mapped to",
+                    "type": "string"
+                },
+                "OwnedVM": {
+                    "description": "Associated VM (when Status is Associated)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "PublicIPAddress": {
+                    "description": "Allocated public IP address",
+                    "type": "string",
+                    "example": "52.10.20.30"
+                },
+                "Status": {
+                    "description": "Current status",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.PublicIPStatus"
+                        }
+                    ],
+                    "example": "Available"
+                },
+                "TagList": {
+                    "description": "Tags",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
+        "spider.PublicIPStatus": {
+            "type": "string",
+            "enum": [
+                "Available",
+                "Associated",
+                "Deleting",
+                "Error",
+                "NotFound"
+            ],
+            "x-enum-comments": {
+                "PublicIPNotFound": "Registered in Spider but not found in CSP"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "Registered in Spider but not found in CSP"
+            ],
+            "x-enum-varnames": [
+                "PublicIPAvailable",
+                "PublicIPAssociated",
+                "PublicIPDeleting",
+                "PublicIPError",
+                "PublicIPNotFound"
+            ]
+        },
         "spider.Quota": {
             "type": "object",
             "required": [
@@ -13650,7 +15095,9 @@
                 "cluster",
                 "nodegroup",
                 "filesystem",
-                "rdbms"
+                "rdbms",
+                "publicip",
+                "nic"
             ],
             "x-enum-varnames": [
                 "ALL",
@@ -13667,7 +15114,9 @@
                 "CLUSTER",
                 "NODEGROUP",
                 "FILESYSTEM",
-                "RDBMS"
+                "RDBMS",
+                "PUBLICIP",
+                "NIC"
             ]
         },
         "spider.RegionInfo": {
@@ -13983,7 +15432,15 @@
                         "$ref": "#/definitions/spider.KeyValue"
                     }
                 },
+                "NICs": {
+                    "description": "all attached NICs with device context",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.VMNICInfo"
+                    }
+                },
                 "NetworkInterface": {
+                    "description": "Primary NIC ID (eth0); kept for backward compatibility",
                     "type": "string",
                     "example": "eni-12345678"
                 },
@@ -13997,20 +15454,38 @@
                     "example": "LINUX"
                 },
                 "PrivateDNS": {
+                    "description": "Private DNS of eth0",
                     "type": "string",
                     "example": "ip-192-168-1-1.ec2.internal"
                 },
                 "PrivateIP": {
+                    "description": "Primary private IP (eth0, for convenience)",
                     "type": "string",
                     "example": "192.168.1.1"
                 },
+                "PrivateIPs": {
+                    "description": "All private IPs across all NICs (flat)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "PublicDNS": {
+                    "description": "Public DNS of eth0",
                     "type": "string",
                     "example": "ec2-1-2-3-4.compute-1.amazonaws.com"
                 },
                 "PublicIP": {
+                    "description": "Primary public IP (eth0, for convenience)",
                     "type": "string",
                     "example": "1.2.3.4"
+                },
+                "PublicIPs": {
+                    "description": "All public IPs across all NICs (flat)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "Region": {
                     "description": "example:\"{Region: 'us-east-1', Zone: 'us-east-1a'}\"",
@@ -14094,6 +15569,49 @@
                 },
                 "VpcIID": {
                     "description": "example:\"{NameId: 'vpc-01', SystemId: 'vpc-12345678'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                }
+            }
+        },
+        "spider.VMNICInfo": {
+            "type": "object",
+            "properties": {
+                "DeviceIndex": {
+                    "description": "Attachment order: 0=eth0 (primary), 1=eth1, ...",
+                    "type": "integer"
+                },
+                "IId": {
+                    "description": "{NameId: Spider NIC name or CSP ID, SystemId: CSP NIC ID}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "MACAddress": {
+                    "description": "Hardware MAC address",
+                    "type": "string"
+                },
+                "PrivateIPs": {
+                    "description": "All private IPs on this NIC (primary first, then secondary)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "PublicIPs": {
+                    "description": "All public IPs on this NIC (1:1 NAT per private IP)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "SubnetIID": {
+                    "description": "Subnet this NIC belongs to",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.IID"
@@ -15360,11 +16878,19 @@
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
+                "nichandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
                 "nlbhandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
                 "priceInfoHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "publicIPHandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
@@ -15888,6 +17414,166 @@
                 }
             }
         },
+        "spider.NICAttachRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "VMName"
+                    ],
+                    "properties": {
+                        "VMName": {
+                            "type": "string",
+                            "example": "my-vm-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NICCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name",
+                        "SubnetName",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "Name": {
+                            "type": "string",
+                            "example": "nic-01"
+                        },
+                        "SecurityGroupNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "SubnetName": {
+                            "type": "string",
+                            "example": "subnet-01"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NICListResponse": {
+            "type": "object",
+            "properties": {
+                "nic": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.NICInfo"
+                    }
+                }
+            }
+        },
+        "spider.NICOSConfigScriptResponse": {
+            "type": "object",
+            "properties": {
+                "ConnectionName": {
+                    "description": "ConnectionName used to generate this script.",
+                    "type": "string",
+                    "example": "azure-koreacentral"
+                },
+                "NICName": {
+                    "description": "NIC name the script applies to.",
+                    "type": "string",
+                    "example": "my-nic-01"
+                },
+                "Script": {
+                    "description": "Shell script to run inside the VM OS as root after AttachNIC.\nEmpty string means no OS configuration is required (e.g. AWS).",
+                    "type": "string",
+                    "example": "#!/bin/bash\n..."
+                }
+            }
+        },
+        "spider.NICPrivateIPRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "properties": {
+                        "PrivateIP": {
+                            "description": "Leave empty for auto-assign",
+                            "type": "string",
+                            "example": "10.0.1.50"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NICRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "eni-0abc1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "nic-01"
+                        }
+                    }
+                }
+            }
+        },
         "spider.NLBAddVMsRequest": {
             "type": "object",
             "required": [
@@ -16301,6 +17987,115 @@
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                }
+            }
+        },
+        "spider.PublicIPAssociateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "properties": {
+                        "NICName": {
+                            "description": "Non-NCP: required",
+                            "type": "string",
+                            "example": "nic-01"
+                        },
+                        "PrivateIP": {
+                            "description": "Optional: specific private IP on NIC",
+                            "type": "string",
+                            "example": "10.0.1.11"
+                        },
+                        "VMName": {
+                            "description": "NCP: required",
+                            "type": "string",
+                            "example": "my-vm-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.PublicIPCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name"
+                    ],
+                    "properties": {
+                        "Name": {
+                            "type": "string",
+                            "example": "publicip-01"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "spider.PublicIPListResponse": {
+            "type": "object",
+            "properties": {
+                "publicip": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.PublicIPInfo"
+                    }
+                }
+            }
+        },
+        "spider.PublicIPRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "eipalloc-0abc1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "publicip-01"
+                        }
                     }
                 }
             }
@@ -16776,6 +18571,31 @@
                     "example": 1024
                 },
                 "VersionID": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.SaveTopologyLayoutRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "LayoutJSON",
+                "VersionName"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string"
+                },
+                "LayoutJSON": {
+                    "description": "positions JSON",
+                    "type": "string"
+                },
+                "ThumbnailBase64": {
+                    "description": "base64 PNG",
+                    "type": "string"
+                },
+                "VersionName": {
+                    "description": "user label",
                     "type": "string"
                 }
             }
