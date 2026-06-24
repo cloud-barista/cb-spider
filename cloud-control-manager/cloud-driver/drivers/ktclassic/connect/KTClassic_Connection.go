@@ -145,6 +145,14 @@ func (cloudConn *KtCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, erro
 	return nil, fmt.Errorf("KT Classic Cloud Driver: RDBMSHandler not supported")
 }
 
+func (cloudConn *KtCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	return nil, fmt.Errorf("KT Classic Cloud Driver: NICHandler not supported")
+}
+
+func (cloudConn *KtCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	return nil, fmt.Errorf("KT Classic Cloud Driver: PublicIPHandler not supported")
+}
+
 func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("KT Cloud Driver: called IsConnected()!")
 	if cloudConn == nil {

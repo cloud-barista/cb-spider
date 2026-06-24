@@ -1400,7 +1400,7 @@ func (nlbHandler *AzureNLBHandler) getVMIIDsByLoadBalancerBackendAddresses(vpcID
 		vmFound := false
 
 		for _, vNICName := range vNICNames {
-			if strings.ToLower(*vNICName) == strings.ToLower(vm.NetworkInterface) {
+			if strings.ToLower(*vNICName) == strings.ToLower((func() string { if len(vm.NICs) > 0 { return vm.NICs[0].IId.SystemId }; return "" })()) {
 				for _, ip := range ips {
 					if vm.PrivateIP == *ip {
 						vmIIds = append(vmIIds, vm.IId)

@@ -44,6 +44,10 @@ type CloudConnection interface {
 
 	CreateRDBMSHandler() (irs.RDBMSHandler, error)
 
+	CreatePublicIPHandler() (irs.PublicIPHandler, error)
+
+	CreateNICHandler() (irs.NICHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }

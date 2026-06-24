@@ -187,3 +187,18 @@ func (cloudConn *NhnCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, err
 	}
 	return &rdbmsHandler, nil
 }
+
+func (cloudConn *NhnCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := nhnrs.NhnCloudNICHandler{RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient, VMClient: cloudConn.VMClient}
+	return &handler, nil
+}
+
+func (cloudConn *NhnCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("NHN Cloud Driver: called CreatePublicIPHandler()!")
+	handler := nhnrs.NhnCloudPublicIPHandler{
+		RegionInfo:    cloudConn.RegionInfo,
+		NetworkClient: cloudConn.NetworkClient,
+		VMClient:      cloudConn.VMClient,
+	}
+	return &handler, nil
+}

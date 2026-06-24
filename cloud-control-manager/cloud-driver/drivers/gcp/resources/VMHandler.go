@@ -592,7 +592,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			Zone:   vmHandler.Region.Zone,
 		},
 		VMUserId:          "cb-user",
-		NetworkInterface:  vm.NetworkInterfaces[0].Name,
+		NICs: func() []irs.VMNICInfo { var nics []irs.VMNICInfo; for _, ni := range vm.NetworkInterfaces { nics = append(nics, irs.VMNICInfo{IId: irs.IID{NameId: ni.Name, SystemId: ni.Name}}) }; return nics }(),
 		SecurityGroupIIds: securityTag,
 		VMSpecName:        vm.MachineType,
 		KeyPairIId: irs.IID{
@@ -600,14 +600,14 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			SystemId: vm.Labels["keypair"],
 		},
 		ImageIId:  vmHandler.getImageInfo(vm.Disks[0].Source),
-		PublicIP:  vm.NetworkInterfaces[0].AccessConfigs[0].NatIP,
-		PrivateIP: vm.NetworkInterfaces[0].NetworkIP,
+		PublicIP:  (func() string { if len(vm.NICs) > 0 { return vm.NICs[0].SystemId }; return "" })()s[0].AccessConfigs[0].NatIP,
+		PrivateIP: (func() string { if len(vm.NICs) > 0 { return vm.NICs[0].SystemId }; return "" })()s[0].NetworkIP,
 		VpcIID:    vmReqInfo.VpcIID,
 		SubnetIID: vmReqInfo.SubnetIID,
 		KeyValueList: []irs.KeyValue{
-			{"SubNetwork", vm.NetworkInterfaces[0].Subnetwork},
-			{"AccessConfigName", vm.NetworkInterfaces[0].AccessConfigs[0].Name},
-			{"NetworkTier", vm.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
+			{"SubNetwork", (func() string { if len(vm.NICs) > 0 { return vm.NICs[0].SystemId }; return "" })()s[0].Subnetwork},
+			{"AccessConfigName", (func() string { if len(vm.NICs) > 0 { return vm.NICs[0].SystemId }; return "" })()s[0].AccessConfigs[0].Name},
+			{"NetworkTier", (func() string { if len(vm.NICs) > 0 { return vm.NICs[0].SystemId }; return "" })()s[0].AccessConfigs[0].NetworkTier},
 			{"DiskDeviceName", vm.Disks[0].DeviceName},
 			{"DiskName", vm.Disks[0].Source},
 		},
@@ -1246,7 +1246,8 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			Zone: extractZoneName(server.Zone),
 		},
 		VMUserId:          "cb-user",
-		NetworkInterface:  server.NetworkInterfaces[0].Name,
+		NICs:             gcpBuildVMNICInfos(server.NetworkInterfaces),
+		NetworkInterface: (func() string { if len(server.NetworkInterfaces) > 0 { return server.NetworkInterfaces[0].Name }; return "" })(),
 		SecurityGroupIIds: iIdBox.Items,
 		KeyPairIId: irs.IID{
 			NameId:   server.Labels["keypair"],
@@ -1277,6 +1278,18 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		// 	{"Kind", server.Kind},
 		// 	{"ZoneUrl", server.Zone},
 		// },
+	}
+
+	// Populate flat PrivateIPs / PublicIPs across all NICs
+	for _, ni := range server.NetworkInterfaces {
+		if ni.NetworkIP != "" {
+			vmInfo.PrivateIPs = append(vmInfo.PrivateIPs, ni.NetworkIP)
+		}
+		for _, ac := range ni.AccessConfigs {
+			if ac.NatIP != "" {
+				vmInfo.PublicIPs = append(vmInfo.PublicIPs, ac.NatIP)
+			}
+		}
 	}
 
 	vmInfo.ImageType = vmHandler.getImageType(server.SourceMachineImage)
@@ -1322,6 +1335,35 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	vmInfo.KeyValueList = irs.StructToKeyValueList(server)
 	return vmInfo
+}
+
+// gcpBuildVMNICInfos builds a []VMNICInfo from GCP NetworkInterfaces, including DeviceIndex,
+// PrivateIPs, PublicIPs (from AccessConfigs), and SubnetIID.
+func gcpBuildVMNICInfos(networkInterfaces []*compute.NetworkInterface) []irs.VMNICInfo {
+	var nics []irs.VMNICInfo
+	for idx, ni := range networkInterfaces {
+		nicInfo := irs.VMNICInfo{
+			IId:         irs.IID{NameId: ni.Name, SystemId: ni.Name},
+			DeviceIndex: idx,
+			PrivateIPs:  []string{ni.NetworkIP},
+			// GCP does not expose hardware MAC addresses via the Instances API.
+			MACAddress: "",
+		}
+		// Subnet IID from ni.Subnetwork URL
+		if ni.Subnetwork != "" {
+			subnetParts := strings.Split(ni.Subnetwork, "/")
+			subnetName := subnetParts[len(subnetParts)-1]
+			nicInfo.SubnetIID = irs.IID{NameId: subnetName, SystemId: subnetName}
+		}
+		// Public IPs from AccessConfigs (one-to-one NAT)
+		for _, ac := range ni.AccessConfigs {
+			if ac.NatIP != "" {
+				nicInfo.PublicIPs = append(nicInfo.PublicIPs, ac.NatIP)
+			}
+		}
+		nics = append(nics, nicInfo)
+	}
+	return nics
 }
 
 func extractZoneName(zoneURL string) string {

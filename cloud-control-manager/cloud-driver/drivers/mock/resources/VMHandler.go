@@ -167,7 +167,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		VMUserId:     vmReqInfo.VMUserId,
 		VMUserPasswd: vmReqInfo.VMUserPasswd,
 
-		NetworkInterface: "mockni0",
+		NICs: []irs.VMNICInfo{{IId: irs.IID{NameId: "mockni0", SystemId: "mockni0"}}},
 		PublicIP:         "4.3.2.1",
 		PublicDNS:        vmReqInfo.IId.NameId + ".spider.barista.com",
 		PrivateIP:        "1.2.3.4",
@@ -519,7 +519,7 @@ func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
 
 		VMUserId:         srcInfo.VMUserId,
 		VMUserPasswd:     srcInfo.VMUserPasswd,
-		NetworkInterface: srcInfo.NetworkInterface,
+		NICs: srcInfo.NICs,
 		PublicIP:         srcInfo.PublicIP,
 		PublicDNS:        srcInfo.PublicDNS,
 		PrivateIP:        srcInfo.PrivateIP,

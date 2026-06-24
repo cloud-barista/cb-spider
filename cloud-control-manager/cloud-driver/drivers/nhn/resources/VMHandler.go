@@ -31,12 +31,15 @@ import (
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/blockstorage/v2/volumes"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/attachinterfaces"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/floatingips"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/keypairs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/startstop"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
+	nhnl3fips "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/layer3/floatingips"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/ports"
 
 	//	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
 
@@ -1011,7 +1014,6 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 			SystemId: server.KeyName,
 		},
 		// VMUserPasswd:      "N/A",
-		NetworkInterface: server.HostID,
 	}
 	vmInfo.StartTime = convertedTime
 
@@ -1120,30 +1122,133 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		}
 	}
 
-	// # Get Subnet and NetworkInterface Info
-	if !strings.EqualFold(vmInfo.PublicIP, "") {
-		// Subnet, Network Interface Info
-		nhnPort, err := getPortWithDeviceId(vmHandler.NetworkClient, vmInfo.IId.SystemId)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the NHN Cloud Port Info!! : [%v] ", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		} else if nhnPort != nil {
-			// Subnet Info
-			if len(nhnPort.FixedIPs) > 0 {
-				vmInfo.SubnetIID.SystemId = nhnPort.FixedIPs[0].SubnetID
+	// # Get Subnet and NetworkInterface Info via attachinterfaces
+	{
+		pager := attachinterfaces.List(vmHandler.VMClient, server.ID)
+		allPages, aiErr := pager.AllPages()
+		if aiErr == nil {
+			ifaces, aiErr2 := attachinterfaces.ExtractInterfaces(allPages)
+			if aiErr2 == nil {
+				var vmNICs []irs.VMNICInfo
+				var allPrivateIPs []string
+				var allPublicIPs []string
+				for idx, iface := range ifaces {
+					nicNameId := iface.PortID
+					if p, pErr := ports.Get(vmHandler.NetworkClient, iface.PortID).Extract(); pErr == nil {
+						if p.Name != "" {
+							nicNameId = p.Name
+						} else if p.Description != "" {
+							nicNameId = p.Description
+						}
+					}
+					nicInfo := irs.VMNICInfo{
+						DeviceIndex: idx,
+						IId:         irs.IID{NameId: nicNameId, SystemId: iface.PortID},
+						MACAddress:  iface.MACAddr,
+					}
+					// SubnetIID from first FixedIP
+					if len(iface.FixedIPs) > 0 {
+						subnetID := iface.FixedIPs[0].SubnetID
+						nicInfo.SubnetIID = irs.IID{SystemId: subnetID}
+						nhnVpcsubnet, _ := getVpcsubnetWithId(vmHandler.NetworkClient, subnetID)
+						if nhnVpcsubnet != nil {
+							nicInfo.SubnetIID.NameId = nhnVpcsubnet.Name
+						}
+						if idx == 0 {
+							vmInfo.SubnetIID = nicInfo.SubnetIID
+						}
+					}
+					// PrivateIPs from FixedIPs
+					var privateIPs []string
+					for _, fip := range iface.FixedIPs {
+						if fip.IPAddress != "" {
+							privateIPs = append(privateIPs, fip.IPAddress)
+						}
+					}
+					nicInfo.PrivateIPs = privateIPs
+					allPrivateIPs = append(allPrivateIPs, privateIPs...)
+					if idx == 0 {
+						vmInfo.NetworkInterface = nicNameId
+						if len(privateIPs) > 0 {
+							vmInfo.PrivateIP = privateIPs[0]
+						}
+					}
+					// PublicIPs via layer3 floating IPs filtered by PortID
+					floatingPager := nhnl3fips.List(vmHandler.NetworkClient, nhnl3fips.ListOpts{PortID: iface.PortID})
+					floatingPages, ferr := floatingPager.AllPages()
+					if ferr == nil {
+						fips, ferr2 := nhnl3fips.ExtractFloatingIPs(floatingPages)
+						if ferr2 == nil {
+							var publicIPs []string
+							for _, fip := range fips {
+								if fip.FloatingIP != "" {
+									publicIPs = append(publicIPs, fip.FloatingIP)
+								}
+							}
+							nicInfo.PublicIPs = publicIPs
+							allPublicIPs = append(allPublicIPs, publicIPs...)
+							if idx == 0 && len(publicIPs) > 0 {
+								vmInfo.PublicIP = publicIPs[0]
+							}
+						}
+					}
+					vmNICs = append(vmNICs, nicInfo)
+				}
+				if len(vmNICs) > 0 {
+					vmInfo.NICs = vmNICs
+				}
+				if len(allPrivateIPs) > 0 {
+					vmInfo.PrivateIPs = allPrivateIPs
+				}
+				if len(allPublicIPs) > 0 {
+					vmInfo.PublicIPs = allPublicIPs
+				}
 			}
+		}
+	}
 
-			nhnVpcsubnet, err := getVpcsubnetWithId(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Get the Subnet Info!! : [%v] ", err)
-				cblogger.Error(newErr.Error())
-				return irs.VMInfo{}, newErr
-			} else if nhnVpcsubnet != nil {
-				vmInfo.SubnetIID.NameId = nhnVpcsubnet.Name
+	// Fallback: if attachinterfaces failed or returned no NIC name, list ports by device_id
+	if vmInfo.NetworkInterface == "" {
+		portPages, portErr := ports.List(vmHandler.NetworkClient, ports.ListOpts{DeviceID: server.ID}).AllPages()
+		if portErr == nil {
+			portList, portErr2 := ports.ExtractPorts(portPages)
+			if portErr2 == nil {
+				for idx, p := range portList {
+					nicNameId := p.Name
+					if nicNameId == "" {
+						nicNameId = p.ID
+					}
+					if idx == 0 {
+						vmInfo.NetworkInterface = nicNameId
+					}
+					if vmInfo.NICs == nil {
+						nicInfo := irs.VMNICInfo{
+							DeviceIndex: idx,
+							IId:         irs.IID{NameId: nicNameId, SystemId: p.ID},
+							MACAddress:  p.MACAddress,
+						}
+						if len(p.FixedIPs) > 0 {
+							subnetID := p.FixedIPs[0].SubnetID
+							nicInfo.SubnetIID = irs.IID{SystemId: subnetID}
+							nhnVpcsubnet, _ := getVpcsubnetWithId(vmHandler.NetworkClient, subnetID)
+							if nhnVpcsubnet != nil {
+								nicInfo.SubnetIID.NameId = nhnVpcsubnet.Name
+							}
+							if idx == 0 {
+								vmInfo.SubnetIID = nicInfo.SubnetIID
+							}
+							var privateIPs []string
+							for _, fip := range p.FixedIPs {
+								if fip.IPAddress != "" {
+									privateIPs = append(privateIPs, fip.IPAddress)
+								}
+							}
+							nicInfo.PrivateIPs = privateIPs
+						}
+						vmInfo.NICs = append(vmInfo.NICs, nicInfo)
+					}
+				}
 			}
-			// Network Interface Info
-			vmInfo.NetworkInterface = nhnPort.ID
 		}
 	}
 

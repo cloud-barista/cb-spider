@@ -34,7 +34,9 @@ const (
 
 	FILESYSTEM RSType = "filesystem"
 
-	RDBMS RSType = "rdbms"
+	RDBMS    RSType = "rdbms"
+	PUBLICIP RSType = "publicip"
+	NIC      RSType = "nic"
 )
 
 func RSTypeString(rsType RSType) string {
@@ -67,6 +69,10 @@ func RSTypeString(rsType RSType) string {
 		return "FileSystem"
 	case RDBMS:
 		return "Relational Database"
+	case PUBLICIP:
+		return "Public IP"
+	case NIC:
+		return "Network Interface Card"
 	default:
 		return string(rsType) + " is not supported Resource!!"
 
@@ -106,6 +112,10 @@ func StringToRSType(str string) (RSType, error) {
 		return FILESYSTEM, nil
 	case "rdbms":
 		return RDBMS, nil
+	case "publicip":
+		return PUBLICIP, nil
+	case "nic":
+		return NIC, nil
 	default:
 		return "", fmt.Errorf("%s is not a valid resource type", str)
 	}

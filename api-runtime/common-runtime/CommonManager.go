@@ -46,6 +46,8 @@ const (
 	NODEGROUP  string = string(cres.NODEGROUP)
 	FILESYSTEM string = string(cres.FILESYSTEM)
 	RDBMS      string = string(cres.RDBMS)
+	PUBLICIP   string = string(cres.PUBLICIP)
+	NIC        string = string(cres.NIC)
 )
 
 func RSTypeString(rsType string) string {
@@ -63,6 +65,8 @@ var myImageSPLock = splock.New()
 var clusterSPLock = splock.New()
 var fsSPLock = splock.New()
 var rdbmsSPLock = splock.New()
+var publicipSPLock = splock.New()
+var nicSPLock = splock.New()
 
 // vpcSharedResourceSPLock protects VPC-level shared resources (e.g., GCP Service Networking Peering, Azure Private DNS Zone)
 // that are created/deleted per VPC but shared by multiple RDBMS instances.

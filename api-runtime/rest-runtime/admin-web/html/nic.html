@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NIC Management</title>
+<style>
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    .header-container { display: flex; align-items: flex-end; }
+    .header-container img { margin-right: 10px; height: 28px; }
+    .header-container h1 { font-size: 16px; margin: 0; }
+    .content { margin-top: 70px; }
+    #searchInput { width: 190px; font-family: Arial, sans-serif; padding-right: 2.5cm; }
+    #clearSearch { position: absolute; right: 0.1cm; top: 50%; transform: translateY(-50%); border: none; background-color: transparent; cursor: pointer; }
+    .searchContainer { position: relative; display: flex; align-items: center; padding-left: 0.5cm; }
+    .fixed-header {
+        position: fixed; top: 0; width: 97%; background-color: white; z-index: 1000;
+        display: flex; justify-content: space-between; padding: 10px 20px;
+        align-items: center; box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons { display: flex; align-items: center; }
+    .fixed-action-buttons button { margin-left: 10px; }
+    .header-with-progress { display: flex; align-items: center; margin-bottom: 0; }
+    .progress-bar-container {
+        width: 600px; margin-left: 10px; margin-bottom: 10px; height: 22px;
+        background-color: #f0f5ff; border-radius: 4px; overflow: hidden;
+        display: none; position: relative; z-index: 2000;
+    }
+    @keyframes shimmer {
+        0%   { background-position: -600px 0; }
+        100% { background-position: 600px 0; }
+    }
+    .progress-bar {
+        width: 0; height: 100%; border-radius: 4px; transition: width 0.6s ease;
+        background: linear-gradient(90deg, #cce6ff 25%, #e8f4ff 50%, #cce6ff 75%);
+        background-size: 1200px 100%;
+        animation: shimmer 1.6s infinite linear;
+    }
+    #timeDisplay { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 14px; color: #333; z-index: 30; }
+    .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }
+    th, td { border: 1px solid black; padding: 6px; position: relative; }
+    th { background-color: #f2f2f2; font-size: 13px; text-align: center; }
+    td { text-align: left; }
+    .column-num { width: 3%; text-align: center; }
+    .center-align { text-align: center; }
+    .check-column { width: 3%; text-align: center; }
+    .highlight { background-color: #fffab6; }
+    .overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white; padding: 20px; border-radius: 5px;
+        font-family: Arial, sans-serif; font-size: 12px; position: relative; min-width: 340px;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0; color: #d9534f; border: 1px solid #ccc;
+        border-radius: 4px; cursor: pointer; position: absolute; top: 10px; right: 10px;
+    }
+    .form-group { display: flex; align-items: center; margin-bottom: 10px; }
+    .form-group label { flex: 1; text-align: right; margin-right: 10px; min-width: 80px; }
+    .form-group input, .form-group select { flex: 2; }
+    .sg-custom-select { flex: 2; position: relative; }
+    .sg-selected-display {
+        border: 1px solid #ccc; border-radius: 3px; padding: 4px 8px;
+        cursor: pointer; background: #f3f3fd; display: flex; justify-content: space-between; align-items: center;
+    }
+    .sg-dropdown-list {
+        display: none; position: absolute; top: 100%; left: 0; width: 100%;
+        border: 1px solid #ccc; background: white; max-height: 150px; overflow-y: auto;
+        z-index: 3000; border-radius: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .sg-dropdown-list.open { display: block; }
+    .sg-dropdown-item { padding: 5px 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .sg-dropdown-item:hover { background: #f0f0f0; }
+    .sg-note { font-size: 11px; color: #888; margin-top: 3px; }
+    .tag-input-group { display: flex; align-items: center; flex: 2; }
+    #nic-tag-container { display: flex; flex-direction: column; }
+    .name-cell { width: 13%; font-size: 13px; font-weight: bold; }
+    .system-id-text {
+        display: block; font-size: 12px; font-weight: normal; color: #666;
+        max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+    }
+    .ip-column { width: 20%; text-align: center; font-family: monospace; }
+    .ip-row { display: flex; align-items: center; gap: 4px; margin: 2px 0; font-family: monospace; font-size: 12px; }
+    .ip-priv { color: #333; }
+    .ip-arrow { color: #aaa; font-size: 11px; }
+    .ip-pub {
+        background-color: #e8f4f8; border: 1px solid #b8d9e8;
+        border-radius: 3px; padding: 0 5px; color: #1a5276; font-weight: bold;
+        cursor: pointer;
+    }
+    .ip-pub:hover { background-color: #cce5f0; }
+    .detach-pub-btn {
+        font-size: 10px; padding: 0px 3px; border-radius: 3px; border: 1px solid #dc3545;
+        background: transparent; color: #dc3545; cursor: pointer; line-height: 1.4;
+    }
+    .detach-pub-btn:hover { background-color: #dc3545; color: white; }
+    .del-pip-btn {
+        font-size: 10px; padding: 0px 3px; border-radius: 3px; border: 1px solid #999;
+        background: transparent; color: #999; cursor: pointer; line-height: 1.4;
+    }
+    .del-pip-btn:hover { background-color: #999; color: white; }
+    .add-pip-btn {
+        font-size: 10px; padding: 1px 6px; border-radius: 3px; border: 1px solid #28a745;
+        background: transparent; color: #28a745; cursor: pointer; margin-top: 4px;
+    }
+    .add-pip-btn:hover { background-color: #28a745; color: white; }
+    .status-column { width: 7%; text-align: center; }
+    .status-available { color: #28a745; font-weight: bold; }
+    .status-attached { color: #007bff; font-weight: bold; }
+    .status-error { color: #dc3545; font-weight: bold; }
+    .subnet-column { width: 11%; text-align: center; }
+    .subnet-column td { font-size: 11px; }
+    .vm-column { width: 16%; text-align: center; }
+    .sg-column { width: 10%; text-align: center; }
+    .sg-column td { font-size: 11px; }
+    .misc-column { width: 13%; text-align: left; }
+    .misc-content { max-height: 2.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .more-btn { display: none; background-color: transparent; border: none; color: blue; text-decoration: underline; cursor: pointer; }
+    .misc-cell .more-btn { position: absolute; right: 5px; bottom: 5px; }
+    .os-cfg-btn {
+        display: block; margin-top: 4px; font-size: 11px; padding: 2px 6px;
+        border-radius: 4px; border: 1px solid #6366f1; background: transparent;
+        color: #6366f1; cursor: pointer; white-space: nowrap;
+    }
+    .os-cfg-btn:hover { background: #6366f1; color: white; }
+    .os-guide-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center;
+    }
+    .os-guide-content {
+        background: white; border-radius: 8px; padding: 24px; max-width: 640px; width: 95%;
+        position: relative; font-family: Arial, sans-serif; font-size: 13px;
+    }
+    .os-guide-title { font-size: 15px; font-weight: bold; margin-bottom: 12px; }
+    .os-guide-meta { background: #f0f5ff; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; line-height: 1.7; }
+    .os-guide-cmd {
+        background: #1e1e2e; color: #cdd6f4; border-radius: 6px; padding: 14px 16px;
+        font-family: monospace; font-size: 12px; line-height: 1.8; white-space: pre; overflow-x: auto;
+    }
+    .os-guide-reason {
+        background: #fff8e1; border-left: 3px solid #f59e0b; border-radius: 4px;
+        padding: 8px 12px; margin-bottom: 12px; font-size: 12px; line-height: 1.7; color: #555;
+    }
+    .os-guide-note { margin-top: 10px; font-size: 11px; color: #888; }
+    .os-guide-actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+    .os-guide-copy-btn { font-size: 12px; padding: 5px 12px; border-radius: 4px; border: 1px solid #6366f1; background: transparent; color: #6366f1; cursor: pointer; }
+    .os-guide-copy-btn:hover { background: #6366f1; color: white; }
+    .os-guide-ssh-btn  { font-size: 12px; padding: 5px 12px; border-radius: 4px; border: none; background: #28a745; color: white; cursor: pointer; }
+    .os-guide-ssh-btn:hover { background: #1e7e34; }
+    .os-guide-close-btn { font-size: 12px; padding: 5px 12px; border-radius: 4px; border: 1px solid #ccc; background: transparent; color: #555; cursor: pointer; }
+    .system-id-overlay {
+        display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 50%; max-width: 600px; background-color: white; border: 1px solid black;
+        padding: 20px; z-index: 2000; border-radius: 5px;
+    }
+    .system-id-overlay-content { position: relative; font-family: Arial, sans-serif; font-size: 14px; word-wrap: break-word; }
+    .copy-btn { background: none; border: none; font-size: 16px; cursor: pointer; margin-left: 10px; }
+    .vm-action-cell { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; white-space: nowrap; flex-wrap: nowrap; }
+    .vm-select { width: 130px; font-size: 12px; }
+    .attach-btn { font-size: 12px; padding: 3px 8px; border-radius: 4px; border: none; background-color: #007bff; color: #fff; cursor: pointer; }
+    .attach-btn:hover { background-color: #0056b3; }
+    .detach-btn { font-size: 12px; padding: 3px 8px; border-radius: 4px; border: none; background-color: #dc3545; color: #fff; cursor: pointer; }
+    .detach-btn:hover { background-color: #b02a37; }
+    .owner-vm-name { font-weight: bold; color: #333; }
+    .mac-text { font-family: monospace; font-size: 11px; color: #555; }
+    .res-link { color: #0645AD; text-decoration: none; cursor: pointer; }
+    .res-link:hover { text-decoration: underline; }
+    .res-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 5000; justify-content: center; align-items: center;
+    }
+    .res-overlay-box {
+        background: white; width: 88%; height: 82%; border-radius: 8px;
+        overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .res-overlay-header {
+        height: 34px; background: #f0f0f0; border-bottom: 1px solid #ddd;
+        display: flex; justify-content: flex-end; align-items: center; padding: 0 12px;
+        flex-shrink: 0;
+    }
+    .res-overlay-close {
+        background: none; border: none; cursor: pointer;
+        font-size: 22px; color: #555; line-height: 1; font-weight: bold;
+    }
+    .res-overlay-close:hover { color: #dc3545; }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/disk.png" alt="NIC Icon" onerror="this.src='/spider/adminweb/images/left-menu/disk.png'">
+            <h1>NIC (Network Interface Card) Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedNICs()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+ NIC</button>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>
+        </div>
+
+        <table id="nic-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="center-align name-cell">Name</th>
+                <th class="center-align ip-column">Private IP / Public IP</th>
+                <th class="center-align subnet-column">VPC / Subnet</th>
+                <th class="center-align status-column">Status</th>
+                <th class="center-align vm-column">VM (Attach / Detach)</th>
+                <th class="center-align sg-column">Security Groups</th>
+                <th class="center-align misc-column">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $nic := .NICs}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="name-cell">
+                    {{$nic.IId.NameId}}
+                    <span class="system-id-text" onclick="showSystemIdOverlay('{{$nic.IId.SystemId}}')">&nbsp;• {{$nic.IId.SystemId}}</span>
+                    {{if $nic.MACAddress}}<span class="mac-text">&nbsp;{{$nic.MACAddress}}</span>{{end}}
+                </td>
+                <td id="ipcell-{{$nic.IId.NameId}}" class="center-align ip-column">
+                    {{if $nic.PrivateIPs}}
+                        {{range $i, $priv := $nic.PrivateIPs}}
+                        <div class="ip-row">
+                            <span class="ip-priv">{{$priv}}</span>
+                            {{if and $nic.PublicIPs (index $nic.PublicIPs $i)}}
+                            {{$pubAddr := index $nic.PublicIPs $i}}
+                            {{$pubName := index $.PublicIPAddrToName $pubAddr}}
+                            {{/* Has public IP → show mapping + public IP detach button */}}
+                            <span class="ip-arrow">→</span>
+                            <span class="ip-pub" onclick="copyToClipboard('{{$pubAddr}}')">{{$pubAddr}}</span>
+                            {{if $pubName}}
+                            <button class="detach-pub-btn" onclick="detachPublicIPByName('{{$.ConnectionConfig}}', '{{$pubName}}')" title="Detach Public IP ({{$pubName}})">×</button>
+                            {{else}}
+                            <button class="detach-pub-btn" style="opacity:0.4;cursor:not-allowed;" title="Not in Spider registry - use PublicIP page">×</button>
+                            {{end}}
+                            {{else if gt $i 0}}
+                            {{/* Secondary private IP with no public IP → show delete button */}}
+                            <button class="del-pip-btn" onclick="removePrivateIP('{{$nic.IId.NameId}}', '{{$priv}}')" title="Remove this Private IP">−</button>
+                            {{end}}
+                        </div>
+                        {{end}}
+                        <button class="add-pip-btn" onclick="showAddPrivateIPOverlay('{{$nic.IId.NameId}}')">+ Private IP</button>
+                    {{else}}
+                        <div class="ip-row">
+                            <span class="ip-priv">{{$nic.PrivateIP}}</span>
+                            {{if $nic.PublicIP}}
+                            <span class="ip-arrow">→</span>
+                            <span class="ip-pub" onclick="copyToClipboard('{{$nic.PublicIP}}')">{{$nic.PublicIP}}</span>
+                            <button class="detach-pub-btn" onclick="detachPublicIPByAddr('{{$.ConnectionConfig}}', '{{$nic.PublicIP}}')" title="Detach Public IP">×</button>
+                            {{end}}
+                        </div>
+                        <button class="add-pip-btn" onclick="showAddPrivateIPOverlay('{{$nic.IId.NameId}}')">+ Private IP</button>
+                    {{end}}
+                </td>
+                <td class="center-align subnet-column">
+                    <span class="res-link" onclick="showResOverlay('/spider/adminweb/vpc/{{$.ConnectionConfig}}')">
+                        {{if $nic.VpcIID.NameId}}{{$nic.VpcIID.NameId}}{{else}}{{$nic.VpcIID.SystemId}}{{end}}
+                    </span> /<br>
+                    <span class="res-link" onclick="showResOverlay('/spider/adminweb/vpc/{{$.ConnectionConfig}}')">
+                        {{if $nic.SubnetIID.NameId}}{{$nic.SubnetIID.NameId}}{{else}}{{$nic.SubnetIID.SystemId}}{{end}}
+                    </span>
+                </td>
+                <td class="center-align status-column">
+                    {{if eq $nic.Status "Attached"}}
+                        <span class="status-attached">Attached</span>
+                    {{else if eq $nic.Status "Available"}}
+                        <span class="status-available">Available</span>
+                    {{else if eq $nic.Status "NotFound"}}
+                        <span class="status-error">NotFound</span>
+                    {{else}}
+                        <span>{{$nic.Status}}</span>
+                    {{end}}
+                </td>
+                <td id="vmcell-{{$nic.IId.NameId}}" class="center-align vm-column">
+                    {{if eq $nic.Status "Attached"}}
+                    <div class="vm-action-cell">
+                        <span class="owner-vm-name res-link" onclick="showResOverlay('/spider/adminweb/vm/{{$.ConnectionConfig}}')">
+                            {{if $nic.OwnerVM.NameId}}{{$nic.OwnerVM.NameId}}{{else}}(VM){{end}}
+                        </span>
+                        <button class="detach-btn" onclick="detachNIC('{{$nic.IId.NameId}}')">Detach</button>
+                    </div>
+                    {{else}}
+                    <div class="vm-action-cell">
+                        <select id="vm-select-{{$nic.IId.NameId}}" class="vm-select">
+                            <option value="" disabled selected>Select VM</option>
+                            {{range $vm := $.VMs}}
+                            <option value="{{$vm.IId.NameId}}">{{$vm.IId.NameId}}</option>
+                            {{end}}
+                        </select>
+                        <button class="attach-btn" onclick="attachNIC('{{$nic.IId.NameId}}', document.getElementById('vm-select-{{$nic.IId.NameId}}').value)">Attach</button>
+                    </div>
+                    {{end}}
+                </td>
+                <td class="center-align sg-column">
+                    {{range $sg := $nic.SecurityGroupIIDs}}
+                    <div style="font-size:11px;">
+                        <span class="res-link" onclick="showResOverlay('/spider/adminweb/securitygroup/{{$.ConnectionConfig}}')">
+                            {{if $sg.NameId}}{{$sg.NameId}}{{else}}{{$sg.SystemId}}{{end}}
+                        </span>
+                    </div>
+                    {{end}}
+                </td>
+                <td class="center-align misc-column misc-cell">
+                    <div class="misc-content">{{range $kv := $nic.KeyValueList}}{{$kv.Key}}: {{$kv.Value}}<br>{{end}}</div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                    {{if and (or (eq $.ProviderName "AZURE") (eq $.ProviderName "ALIBABA") (eq $.ProviderName "TENCENT") (eq $.ProviderName "IBM") (eq $.ProviderName "OPENSTACK") (eq $.ProviderName "NHN")) (eq $nic.Status "Attached") (gt (len $nic.PrivateIPs) 0)}}
+                    <button class="os-cfg-btn" onclick="showOSConfigGuide({{$index}})" title="VM OS Network Configuration Guide">🔧 OS Config</button>
+                    {{end}}
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$nic.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .NICs}}
+            <tr>
+                <td colspan="9" class="center-align">No NICs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <!-- Create NIC Overlay -->
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Create New NIC</h2>
+            <form id="addNICForm" onsubmit="event.preventDefault(); postNIC();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="nicName">Name:</label>
+                    <input type="text" id="nicName" required style="color:#3366CC; font-weight:bold;">
+                </div>
+                <div class="form-group">
+                    <label for="vpcSelect">VPC:</label>
+                    <select id="vpcSelect" required onchange="updateNICSubnets(); loadNICSecurityGroups();" style="background-color:#f3f3fd; flex:2;">
+                        <option value="">Loading VPCs...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="subnetSelect">Subnet:</label>
+                    <select id="subnetSelect" required style="background-color:#f3f3fd; flex:2;">
+                        <option value="">Select a VPC first</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Security Groups:</label>
+                    <div class="sg-custom-select">
+                        <div class="sg-selected-display" id="sgSelectedDisplay" onclick="toggleNICSGDropdown()">
+                            <span id="sgSelectedText">Select a VPC first</span>
+                            <span>▾</span>
+                        </div>
+                        <div class="sg-dropdown-list" id="sgDropdownList"></div>
+                    </div>
+                </div>
+                <p class="sg-note" style="text-align:right; padding-right:10px;">※ Security Groups: required for AWS/Alibaba/Tencent/NCP, optional for others</p>
+                <div class="form-group" style="padding-left:80px;">
+                    <label>Tags:</label>
+                    <div id="nic-tag-container"></div>
+                    <button type="button" onclick="addTagField()">+</button>
+                </div>
+                <div class="form-group" style="display:flex; justify-content:center; align-items:center; margin-top:20px;">
+                    <label for="nicCount" style="margin-right:5px;">#:</label>
+                    <input type="number" id="nicCount" value="1" min="1" max="10" style="width:50px; margin-right:10px;">
+                    <button type="submit">Create NIC</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left:10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resource Info Overlay (iframe popup) -->
+    <div id="res-overlay" class="res-overlay" onclick="if(event.target===this)closeResOverlay()">
+        <div class="res-overlay-box">
+            <div class="res-overlay-header">
+                <div class="res-overlay-close" onclick="closeResOverlay()">✕</div>
+            </div>
+            <iframe id="res-iframe" style="width:100%;flex:1;border:none;" src="about:blank"></iframe>
+        </div>
+    </div>
+
+    <!-- Add Private IP Overlay -->
+    <div id="add-pip-overlay" class="overlay" style="z-index:2000;">
+        <div class="overlay-content" style="min-width:280px;">
+            <button type="button" class="overlay-close-btn" onclick="closeAddPrivateIPOverlay()">X</button>
+            <h2>Add Private IP</h2>
+            <input type="hidden" id="pip-nic-name">
+            <div class="form-group">
+                <label for="new-private-ip">IP Address:</label>
+                <input type="text" id="new-private-ip" placeholder="e.g. 10.0.1.50 (empty = auto)" style="flex:2;">
+            </div>
+            <div class="form-group" style="justify-content:center; margin-top:15px;">
+                <button type="button" onclick="addPrivateIP()">Add</button>
+                <button type="button" onclick="closeAddPrivateIPOverlay()" style="margin-left:10px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- System ID Overlay -->
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+    <!-- Misc detail overlay -->
+    <div id="misc-overlay" class="overlay" style="z-index:2000;">
+        <div class="overlay-content" style="max-width:500px; word-break:break-all;">
+            <button type="button" class="overlay-close-btn" onclick="closeMiscOverlay()">X</button>
+            <h2>Details</h2>
+            <div id="misc-overlay-content" style="font-size:13px; line-height:1.6;"></div>
+        </div>
+    </div>
+
+    <!-- OS Network Config Guide overlay -->
+    <div id="os-guide-overlay" class="os-guide-overlay" onclick="if(event.target===this)closeOSGuide()">
+        <div class="os-guide-content">
+            <button class="overlay-close-btn" onclick="closeOSGuide()">X</button>
+            <div class="os-guide-title" id="os-guide-title">🔧 VM OS Network Configuration Guide</div>
+            <div class="os-guide-reason" id="os-guide-reason"></div>
+            <div class="os-guide-meta" id="os-guide-meta"></div>
+            <div class="os-guide-cmd" id="os-guide-cmd"></div>
+            <div class="os-guide-note" id="os-guide-note">
+                ⚠️ The commands above are temporary and will be lost after reboot.<br>
+                For permanent configuration and advanced settings, refer to the official guide:<br>
+                📖 <a id="os-guide-link" href="#" target="_blank" style="color:#6366f1;">Official Guide</a>
+            </div>
+            <div class="os-guide-actions">
+                <button class="os-guide-copy-btn" onclick="copyOSGuideCmd()">📋 Copy</button>
+                <button class="os-guide-close-btn" onclick="closeOSGuide()">Close</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+<script>
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+    const PROVIDER_NAME   = '{{.ProviderName}}';
+
+    // NIC data for OS Config Guide — pre-serialized server-side to avoid template complexity
+    const NIC_DATA = {{.NICDataJSON}};
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const creds = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = { ...fetchOptions.headers, 'Authorization': 'Basic ' + creds };
+        }
+        return fetchOptions;
+    }
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    // ---- VPC / Subnet / SG loaders ----
+    function loadNICVPCs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const vpcSelect = document.getElementById('vpcSelect');
+        fetch(`/spider/vpc?ConnectionName=${connConfig}`, { method: 'GET', headers: {'Content-Type':'application/json'} })
+        .then(r => r.json())
+        .then(data => {
+            vpcSelect.innerHTML = '';
+            if (data.vpc && data.vpc.length > 0) {
+                data.vpc.forEach(vpc => {
+                    const opt = document.createElement('option');
+                    opt.value = JSON.stringify(vpc.SubnetInfoList);
+                    opt.textContent = `${vpc.IId.NameId} (${vpc.IPv4_CIDR || ''})`;
+                    opt.dataset.vpcName = vpc.IId.NameId;
+                    vpcSelect.appendChild(opt);
+                });
+                updateNICSubnets();
+                loadNICSecurityGroups();
+            } else {
+                vpcSelect.innerHTML = '<option value="">No VPCs found</option>';
+            }
+        })
+        .catch(err => { vpcSelect.innerHTML = '<option value="">Error loading VPCs</option>'; });
+    }
+
+    function updateNICSubnets() {
+        const vpcSelect = document.getElementById('vpcSelect');
+        const subnetSelect = document.getElementById('subnetSelect');
+        subnetSelect.innerHTML = '';
+        if (!vpcSelect.value) { subnetSelect.innerHTML = '<option value="">Select a VPC first</option>'; return; }
+        let subnets;
+        try { subnets = JSON.parse(vpcSelect.value); } catch(e) { return; }
+        if (subnets && subnets.length > 0) {
+            subnets.forEach(subnet => {
+                const opt = document.createElement('option');
+                opt.value = subnet.IId.NameId;
+                opt.textContent = `${subnet.IId.NameId} (${subnet.IPv4_CIDR || ''})`;
+                subnetSelect.appendChild(opt);
+            });
+        } else {
+            subnetSelect.innerHTML = '<option value="">No subnets for this VPC</option>';
+        }
+    }
+
+    function loadNICSecurityGroups() {
+        const connConfig = document.getElementById('connConfig').value;
+        const vpcSelect = document.getElementById('vpcSelect');
+        const sgDropdownList = document.getElementById('sgDropdownList');
+        const sgSelectedText = document.getElementById('sgSelectedText');
+        if (!vpcSelect.value) return;
+        const vpcName = vpcSelect.options[vpcSelect.selectedIndex].dataset.vpcName;
+        fetch(`/spider/securitygroup/vpc/${vpcName}?ConnectionName=${connConfig}`, {
+            method: 'GET', headers: {'Content-Type':'application/json'}
+        })
+        .then(r => r.json())
+        .then(data => {
+            sgDropdownList.innerHTML = '';
+            if (data.securitygroup && data.securitygroup.length > 0) {
+                data.securitygroup.forEach((sg, i) => {
+                    const item = document.createElement('div');
+                    item.className = 'sg-dropdown-item';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox'; cb.value = sg.IId.NameId;
+                    cb.id = `sgcb-${sg.IId.NameId}`; cb.className = 'sg-checkbox';
+                    if (i === 0) cb.checked = true;
+                    cb.onchange = updateNICSGDisplay;
+                    const lbl = document.createElement('label');
+                    lbl.htmlFor = `sgcb-${sg.IId.NameId}`; lbl.textContent = sg.IId.NameId;
+                    item.appendChild(cb); item.appendChild(lbl);
+                    sgDropdownList.appendChild(item);
+                });
+                updateNICSGDisplay();
+            } else {
+                sgSelectedText.textContent = 'No security groups for this VPC';
+            }
+        })
+        .catch(() => { sgSelectedText.textContent = 'Error loading security groups'; });
+    }
+
+    function toggleNICSGDropdown() {
+        document.getElementById('sgDropdownList').classList.toggle('open');
+    }
+
+    function updateNICSGDisplay() {
+        const checked = Array.from(document.querySelectorAll('.sg-checkbox:checked')).map(c => c.value);
+        document.getElementById('sgSelectedText').textContent = checked.length > 0 ? checked.join(', ') : 'None selected (optional)';
+    }
+
+    // ---- Create ----
+    function postNIC() {
+        const connConfig = document.getElementById('connConfig').value;
+        const name = document.getElementById('nicName').value.trim();
+        const vpcSelect = document.getElementById('vpcSelect');
+        const vpcName = vpcSelect.options[vpcSelect.selectedIndex]?.dataset.vpcName || '';
+        const subnetName = document.getElementById('subnetSelect').value;
+        const sgNames = Array.from(document.querySelectorAll('.sg-checkbox:checked')).map(c => c.value);
+        if (!name || !subnetName) { alert("Name and Subnet are required."); return; }
+
+        const tagInputs = document.querySelectorAll('#nic-tag-container .tag-input-row');
+        const tags = Array.from(tagInputs).map(row => ({
+            Key: row.querySelector('.tag-key').value.trim(),
+            Value: row.querySelector('.tag-value').value.trim()
+        })).filter(t => t.Key);
+
+        const count = parseInt(document.getElementById('nicCount').value) || 1;
+
+        const promises = Array.from({ length: count }).map((_, i) => {
+            const nicName = count > 1 ? `${name}-${i + 1}` : name;
+            return fetchWithProgress('/spider/nic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ConnectionName: connConfig,
+                    ReqInfo: { Name: nicName, VPCName: vpcName, SubnetName: subnetName, SecurityGroupNames: sgNames, TagList: tags }
+                })
+            }, true).then(r => r.json());  // keepAlive=true
+        });
+
+        Promise.all(promises)
+            .then(results => {
+                const failed = results.filter(r => !r.IId);
+                if (failed.length > 0) { alert(`${failed.length} NIC creation(s) failed.`); }
+                else { location.reload(); }  // bar stays (keepAlive) until page unloads
+            })
+            .catch(err => { hideProgressBar(); alert("Error: " + err.message); });
+    }
+
+    // ---- Attach ----
+    function attachNIC(nicName, vmName) {
+        if (!vmName) { alert("Please select a VM."); return; }
+        const connConfig = document.getElementById('connConfig').value;
+        fetchWithProgress(`/spider/nic/${nicName}/attach`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, ReqInfo: { VMName: vmName } })
+        }, true)  // keepAlive=true: bar stays until reload
+        .then(r => {
+            if (r.ok) { location.reload(); return; }
+            return r.text().then(t => { hideProgressBar(); alert("Attach failed: " + t); });
+        })
+        .catch(err => { hideProgressBar(); alert("Error attaching: " + err.message); });
+    }
+
+    // ---- Detach ----
+    function detachNIC(nicName) {
+        if (!confirm(`Detach NIC "${nicName}" from its VM?`)) return;
+        const connConfig = document.getElementById('connConfig').value;
+        fetchWithProgress(`/spider/nic/${nicName}/detach`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        }, true)  // keepAlive=true: bar stays until reload
+        .then(r => {
+            if (r.ok) { location.reload(); return; }
+            return r.text().then(t => { hideProgressBar(); alert("Detach failed: " + t); });
+        })
+        .catch(err => { hideProgressBar(); alert("Error detaching: " + err.message); });
+    }
+
+    // ---- Delete ----
+    function deleteSelectedNICs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checked = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checked.length === 0) { alert("Please select NICs to delete."); return; }
+        if (!confirm(`Delete ${checked.length} NIC(s)?`)) return;
+        const promises = Array.from(checked).map(cb =>
+            fetchWithProgress(`/spider/nic/${cb.value}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: connConfig })
+            }).then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.message); }); return r.json(); })
+        );
+        Promise.all(promises).then(() => location.reload()).catch(err => alert("Error: " + err.message));
+    }
+
+    function toggleSelectAll(source) {
+        document.querySelectorAll('input[name="deleteCheckbox"]').forEach(cb => cb.checked = source.checked);
+    }
+
+    // ---- Resource Info Popup ----
+    function showResOverlay(url) {
+        document.getElementById('res-iframe').src = url;
+        const overlay = document.getElementById('res-overlay');
+        overlay.style.display = 'flex';
+        document.addEventListener('keydown', handleResOverlayEsc);
+    }
+    function closeResOverlay() {
+        document.getElementById('res-overlay').style.display = 'none';
+        document.getElementById('res-iframe').src = 'about:blank';
+        document.removeEventListener('keydown', handleResOverlayEsc);
+    }
+    function handleResOverlayEsc(e) { if (e.key === 'Escape') closeResOverlay(); }
+
+    // ---- Detach Public IP by address (look up PublicIP name first, then disassociate) ----
+    // Detach public IP using the Spider PublicIP name (pre-resolved server-side, no fetch needed)
+    function detachPublicIPByName(connConfig, pipName) {
+        if (!confirm(`Detach Public IP "${pipName}"?`)) return;
+        fetchWithProgress(`/spider/publicip/${pipName}/disassociate`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        }, true)
+        .then(r => {
+            if (!r.ok) return r.text().then(t => { alert('Detach Public IP failed: ' + t); location.reload(); });
+            location.reload();
+        })
+        .catch(err => { alert('Error: ' + err.message); location.reload(); });
+    }
+
+    // ---- Private IP Add/Remove ----
+    function showAddPrivateIPOverlay(nicName) {
+        document.getElementById('pip-nic-name').value = nicName;
+        document.getElementById('new-private-ip').value = '';
+        document.getElementById('add-pip-overlay').style.display = 'flex';
+    }
+    function closeAddPrivateIPOverlay() {
+        document.getElementById('add-pip-overlay').style.display = 'none';
+    }
+    function addPrivateIP() {
+        const connConfig = document.getElementById('connConfig').value;
+        const nicName   = document.getElementById('pip-nic-name').value;
+        const ip        = document.getElementById('new-private-ip').value.trim();
+        fetchWithProgress(`/spider/nic/${nicName}/privateip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, ReqInfo: { PrivateIP: ip } })
+        }).then(r => r.json()).then(data => {
+            if (data.IId) { closeAddPrivateIPOverlay(); location.reload(); }
+            else { alert("Add Private IP failed: " + JSON.stringify(data)); }
+        }).catch(err => alert("Error: " + err.message));
+    }
+    function removePrivateIP(nicName, ip) {
+        if (!confirm(`Remove private IP ${ip} from NIC "${nicName}"?`)) return;
+        const connConfig = document.getElementById('connConfig').value;
+        fetchWithProgress(`/spider/nic/${nicName}/privateip/${encodeURIComponent(ip)}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        }).then(r => r.json()).then(data => {
+            if (data.Result === 'true') { location.reload(); }
+            else { alert("Remove failed: " + JSON.stringify(data)); }
+        }).catch(err => alert("Error: " + err.message));
+    }
+
+    // ---- Tag helpers ----
+    function addTagField() {
+        const container = document.getElementById('nic-tag-container');
+        const row = document.createElement('div');
+        row.className = 'tag-input-row tag-input-group';
+        row.innerHTML = `
+            <input type="text" class="tag-key" placeholder="Key">
+            <input type="text" class="tag-value" placeholder="Value" style="margin-left:4px;">
+            <button type="button" onclick="this.parentElement.remove()" style="margin-left:4px;">-</button>`;
+        container.appendChild(row);
+    }
+
+    // ---- Overlay helpers ----
+    function showOverlay() {
+        const region = '{{.RegionName}}';
+        document.getElementById('nicName').value = `${region}-nic-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('nic-tag-container').innerHTML = '';
+        document.getElementById('sgSelectedText').textContent = 'Loading...';
+        document.getElementById('sgDropdownList').innerHTML = '';
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+        document.addEventListener('click', handleSGClickOutside);
+        loadNICVPCs();
+    }
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('sgDropdownList').classList.remove('open');
+        document.removeEventListener('keydown', handleOverlayEsc);
+        document.removeEventListener('click', handleSGClickOutside);
+    }
+    function handleOverlayEsc(e) { if (e.key === 'Escape') hideOverlay(); }
+    function handleSGClickOutside(e) {
+        const wrapper = document.getElementById('sgDropdownList');
+        const display = document.getElementById('sgSelectedDisplay');
+        if (wrapper && display && !wrapper.contains(e.target) && !display.contains(e.target)) {
+            wrapper.classList.remove('open');
+        }
+    }
+
+    function showSystemIdOverlay(systemId) {
+        document.getElementById('fullSystemId').textContent = systemId;
+        document.getElementById('system-id-overlay').style.display = 'block';
+        document.addEventListener('keydown', handleSysIdEsc);
+    }
+    function closeSystemIdOverlay() {
+        document.getElementById('system-id-overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleSysIdEsc);
+    }
+    function handleSysIdEsc(e) { if (e.key === 'Escape') closeSystemIdOverlay(); }
+    function copySystemId() {
+        const el = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        try { document.execCommand('copy'); } catch(e) {}
+        window.getSelection().removeAllRanges();
+        closeSystemIdOverlay();
+    }
+
+    // ---- OS Network Config Guide ----
+    let _osGuideSSHInfo = null;
+
+    // CSP-specific PBR reason text
+    const CSP_GUIDE = {
+        AZURE:     { url: 'https://learn.microsoft.com/en-us/azure/virtual-network/ip-services/virtual-network-multiple-ip-addresses-portal', label: 'Azure Multiple IP Addresses Guide' },
+        ALIBABA:   { url: 'https://www.alibabacloud.com/help/en/ecs/user-guide/assign-secondary-private-ip-addresses', label: 'Alibaba Cloud Secondary Private IP Guide' },
+        TENCENT:   { url: 'https://www.tencentcloud.com/document/product/576/18535', label: 'Tencent Cloud Multiple IP Addresses Guide' },
+        IBM:       { url: 'https://cloud.ibm.com/docs/vpc?topic=vpc-multiple-network-interfaces', label: 'IBM VPC Multiple Network Interfaces Guide' },
+        OPENSTACK: { url: 'https://docs.openstack.org/neutron/latest/admin/config-routed-networks.html', label: 'OpenStack Neutron Routed Networks Guide' },
+        NHN:       { url: 'https://docs.nhncloud.com/en/Network/VPC/en/overview/', label: 'NHN Cloud VPC Network Guide' },
+    };
+
+    const PBR_REASON = {
+        AZURE: `<b>Why PBR is required on Azure:</b> Azure routes inbound traffic to a secondary NIC's PublicIP via NAT, ` +
+               `but the VM OS uses the default route (Primary NIC) for outbound replies. ` +
+               `Without Policy-based Routing (PBR), response packets leave through the wrong interface and the connection fails. ` +
+               `AWS handles this automatically at the Hypervisor (Nitro) layer; Azure requires OS-level configuration.`,
+        ALIBABA: `<b>Why PBR is required on Alibaba Cloud:</b> Alibaba Cloud routes inbound traffic to a secondary NIC's EIP via NAT, ` +
+                 `but the VM OS sends responses through the default route (Primary NIC / eth0). ` +
+                 `Without Policy-based Routing (PBR), response packets are dropped or routed incorrectly. ` +
+                 `AWS handles this automatically at the Hypervisor layer; Alibaba Cloud requires OS-level configuration. ` +
+                 `Note: Secondary NICs on Alibaba Cloud may also need to be brought up via <code>dhclient</code> if not auto-configured.`,
+        TENCENT: `<b>Why PBR is required on Tencent Cloud:</b> Tencent Cloud routes inbound traffic to a secondary NIC's EIP via NAT, ` +
+                 `but the VM OS sends responses through the default route (Primary NIC / eth0). ` +
+                 `Without Policy-based Routing (PBR), response packets are dropped or routed incorrectly. ` +
+                 `AWS handles this automatically at the Hypervisor layer; Tencent Cloud requires OS-level configuration. ` +
+                 `Note: Secondary NICs on Tencent Cloud may also need to be brought up via <code>dhclient</code> if not auto-configured.`,
+        IBM:     `<b>Why PBR is required on IBM VPC:</b> IBM VPC routes inbound traffic to a secondary NIC's Floating IP via SDN NAT, ` +
+                 `but the VM OS sends responses through the default route (Primary NIC / eth0). ` +
+                 `Without Policy-based Routing (PBR), response packets leave through the wrong interface and the connection fails. ` +
+                 `AWS handles this automatically at the Hypervisor (Nitro) layer; IBM VPC requires OS-level configuration. ` +
+                 `Note: Secondary NICs on IBM VPC may also need to be brought up manually if not auto-configured.`,
+        OPENSTACK: `<b>Why PBR is required on OpenStack:</b> OpenStack Neutron routes inbound traffic to a secondary NIC's Floating IP via SDN NAT, ` +
+                   `but the VM OS sends responses through the default route (Primary NIC). ` +
+                   `Without Policy-based Routing (PBR), response packets leave through the wrong interface and the connection fails. ` +
+                   `AWS handles this automatically at the Hypervisor (Nitro) layer; OpenStack requires OS-level configuration. ` +
+                   `Note: Secondary NICs on OpenStack may also need to be brought up via <code>dhclient</code> if not auto-configured.`,
+        NHN:       `<b>Why PBR is required on NHN Cloud:</b> NHN Cloud Neutron routes inbound traffic to a secondary NIC's Floating IP via SDN NAT, ` +
+                   `but the VM OS sends responses through the default route (Primary NIC). ` +
+                   `Without Policy-based Routing (PBR), response packets leave through the wrong interface and the connection fails. ` +
+                   `AWS handles this automatically at the Hypervisor (Nitro) layer; NHN Cloud requires OS-level configuration. ` +
+                   `Note: Secondary NICs on NHN Cloud may also need to be brought up manually if not auto-configured.`,
+    };
+
+    async function showOSConfigGuide(nicIdx) {
+        const nic = NIC_DATA[nicIdx];
+        if (!nic) return;
+
+        const csp = PROVIDER_NAME.toUpperCase();
+        const connConfig = document.getElementById('connConfig').value;
+
+        document.getElementById('os-guide-title').textContent = `🔧 VM OS Network Configuration Guide (${csp.charAt(0) + csp.slice(1).toLowerCase()})`;
+        document.getElementById('os-guide-reason').innerHTML = PBR_REASON[csp] || '';
+        document.getElementById('os-guide-meta').innerHTML =
+            `<b>NIC:</b> ${nic.name}<br>` +
+            `<b>MAC:</b> ${nic.mac}<br>` +
+            `<b>Private IPs:</b> ${nic.privateIPs.join(', ')}<br>` +
+            `<b>VM:</b> ${nic.ownerVM}`;
+        document.getElementById('os-guide-cmd').textContent = 'Loading...';
+
+        const guide = CSP_GUIDE[csp];
+        const link = document.getElementById('os-guide-link');
+        if (guide && link) { link.href = guide.url; link.textContent = guide.label; }
+
+        document.getElementById('os-guide-overlay').style.display = 'flex';
+
+        try {
+            const resp = await fetch(
+                `/spider/nic/${encodeURIComponent(nic.name)}/osconfigscript?ConnectionName=${encodeURIComponent(connConfig)}`
+            );
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+            document.getElementById('os-guide-cmd').textContent =
+                data.Script ? data.Script.trimEnd() : '(No OS configuration required for this CSP)';
+        } catch (e) {
+            document.getElementById('os-guide-cmd').textContent = 'Error: ' + e.message;
+        }
+    }
+
+    function closeOSGuide() {
+        document.getElementById('os-guide-overlay').style.display = 'none';
+    }
+
+    function copyOSGuideCmd() {
+        const text = document.getElementById('os-guide-cmd').textContent;
+        navigator.clipboard.writeText(text).then(() => showToast('📋 Copied to clipboard'))
+            .catch(() => { /* fallback */ document.execCommand('copy'); });
+    }
+
+    function openOSGuideSSH() {
+        if (!_osGuideSSHInfo) return;
+        closeOSGuide();
+        openSSHAccess({ vmUserId: 'cb-user', publicIP: _osGuideSSHInfo.ip, keyName: '' });
+    }
+
+    // ---- showToast (simple) ----
+    function showToast(msg, duration) {
+        let t = document.getElementById('_nic_toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = '_nic_toast';
+            t.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;z-index:9999;transition:opacity 0.4s;pointer-events:none;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg; t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.opacity = '0'; }, duration || 2000);
+    }
+
+    // ---- SSH Access (same as VM page) ----
+    function openSSHAccess(vmInfo) {
+        let sshOverlay = document.getElementById('ssh-overlay');
+        if (!sshOverlay) {
+            sshOverlay = document.createElement('div');
+            sshOverlay.id = 'ssh-overlay';
+            sshOverlay.className = 'overlay';
+            sshOverlay.innerHTML = `
+                <div class="overlay-content" style="position:relative;">
+                    <button class="overlay-close-btn" onclick="closeSSHOverlay()">X</button>
+                    <h2>SSH Access</h2>
+                    <p>Connect to ${vmInfo.vmUserId}@${vmInfo.publicIP}</p>
+                    <form id="ssh-form">
+                        <label for="privatekey">Private Key:</label><br>
+                        <div id="dropZone" class="drop-zone">Drag &amp; Drop a key file here or paste it manually</div>
+                        <textarea id="privatekey" name="privatekey" rows="10" cols="30" required style="background-color:#fff5f5;">Private key for ${vmInfo.keyName}.</textarea><br>
+                        <button type="button" onclick="connectSSH('${vmInfo.vmUserId}','${vmInfo.publicIP}')">Connect</button>
+                        <button type="button" onclick="closeSSHOverlay()">Cancel</button>
+                    </form>
+                    <div id="terminal" style="display:none;"></div>
+                </div>`;
+            document.body.appendChild(sshOverlay);
+            setupDropZone();
+        } else {
+            sshOverlay.querySelector('#privatekey').value = `Private key for ${vmInfo.keyName}.`;
+            sshOverlay.querySelector('p').textContent = `Connect to ${vmInfo.vmUserId}@${vmInfo.publicIP}`;
+            sshOverlay.querySelector('#terminal').style.display = 'none';
+            sshOverlay.querySelector('#ssh-form').style.display = 'block';
+            sshOverlay.querySelector('button[onclick^="connectSSH"]').onclick = function() { connectSSH(vmInfo.vmUserId, vmInfo.publicIP); };
+        }
+        sshOverlay.style.display = 'flex';
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSSHOverlay(); });
+    }
+    function closeSSHOverlay() {
+        const o = document.getElementById('ssh-overlay');
+        if (o) o.style.display = 'none';
+    }
+    function connectSSH(user, ip) {
+        const privateKey = document.getElementById('privatekey').value;
+        const termDiv = document.getElementById('terminal');
+        document.getElementById('ssh-form').style.display = 'none';
+        termDiv.style.display = 'block';
+        if (termDiv._initialized) termDiv.innerHTML = '';
+        const term = new Terminal({ cursorBlink: true, cols: 100, rows: 30, scrollback: 5000 });
+        term.open(termDiv); termDiv._initialized = true;
+        const ws = new WebSocket("ws://" + location.host + "/spider/adminweb/sshwebterminal/ws?user=" + encodeURIComponent(user) + "&ip=" + encodeURIComponent(ip) + "&privatekey=" + encodeURIComponent(privateKey));
+        ws.onopen = () => term.write('Connected to SSH...\r\n');
+        ws.onmessage = e => { if (e.data.startsWith("Failed")) alert(e.data); else term.write(e.data); };
+        term.onData(d => ws.send(d));
+        ws.onclose = () => { term.write('Connection closed.\r\n'); term.dispose(); closeSSHOverlay(); };
+        ws.onerror = err => { alert("SSH connection failed: " + (err.message || err)); term.dispose(); closeSSHOverlay(); };
+    }
+    function setupDropZone() {
+        const dz = document.getElementById('dropZone');
+        if (!dz) return;
+        dz.addEventListener('dragover', e => e.preventDefault());
+        dz.addEventListener('drop', e => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => { document.getElementById('privatekey').value = ev.target.result; };
+            reader.readAsText(file);
+        });
+    }
+
+    function showMiscOverlay(btn) {
+        const content = btn.closest('.misc-cell').querySelector('.misc-content').innerHTML;
+        document.getElementById('misc-overlay-content').innerHTML = content;
+        document.getElementById('misc-overlay').style.display = 'flex';
+    }
+    function closeMiscOverlay() { document.getElementById('misc-overlay').style.display = 'none'; }
+
+    // ---- Search ----
+    function searchKeyword() {
+        const filter = document.getElementById('searchInput').value.toUpperCase().trim();
+        if (!filter) { clearSearchInput(); return; }
+        document.querySelectorAll('#nic-table tr').forEach((tr, i) => {
+            if (i === 0) return;
+            Array.from(tr.cells).forEach(td => {
+                td.classList.toggle('highlight', (td.textContent || td.innerText).toUpperCase().includes(filter));
+            });
+        });
+    }
+    function clearSearchInput() {
+        document.getElementById('searchInput').value = '';
+        document.querySelectorAll('#nic-table td.highlight').forEach(td => td.classList.remove('highlight'));
+    }
+
+    // ---- Progress bar ----
+    let _hideTimer = null;
+
+    // keepAlive=true: bar stays visible after fetch (caller will hide it manually or via reload)
+    function fetchWithProgress(url, options, keepAlive) {
+        showProgressBar();
+        const start = Date.now();
+        const timer = setInterval(() => {
+            const el = document.getElementById('timeDisplay');
+            if (el) el.textContent = `${((Date.now() - start) / 1000).toFixed(1)}s`;
+        }, 500);
+        return fetch(url, options)
+            .then(r => { if (!keepAlive) { clearInterval(timer); hideProgressBar(); } return r; })
+            .catch(e => { clearInterval(timer); hideProgressBar(); throw e; });
+    }
+    function showProgressBar() {
+        if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+        const b = document.getElementById('progressBar');
+        const c = document.getElementById('progressBarContainer');
+        b.style.transition = 'width 0.6s ease';
+        b.style.background = '';
+        b.style.animation = 'shimmer 1.6s infinite linear';
+        b.style.width = '0%';
+        c.style.display = 'block';
+        setTimeout(() => { b.style.width = '100%'; }, 60);
+    }
+    function hideProgressBar() {
+        if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+        const b = document.getElementById('progressBar');
+        const c = document.getElementById('progressBarContainer');
+        b.style.background = '#66b3ff';
+        b.style.animation = 'none';
+        _hideTimer = setTimeout(() => {
+            _hideTimer = null;
+            c.style.display = 'none';
+            b.style.background = '';
+            b.style.animation = 'shimmer 1.6s infinite linear';
+            b.style.width = '0%';
+            const el = document.getElementById('timeDisplay');
+            if (el) el.textContent = '';
+        }, 400);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.misc-cell').forEach(cell => {
+            const content = cell.querySelector('.misc-content');
+            const btn = cell.querySelector('.more-btn');
+            if (content && btn && content.scrollHeight > content.clientHeight + 2) btn.style.display = 'inline';
+        });
+    });
+</script>
+</html>

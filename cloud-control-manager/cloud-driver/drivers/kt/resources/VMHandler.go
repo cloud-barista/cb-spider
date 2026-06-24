@@ -26,9 +26,13 @@ import (
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	volumes2 "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/blockstorage/v2/volumes"
+	ktattachinterfaces "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/attachinterfaces"
 	volumeboot "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
 	keys "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/keypairs"
 	startstop "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/startstop"
+	ktl3fips "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/layer3/floatingips"
+	ktports "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/ports"
+	ktsubnets "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/pagination"
 
 	// flavors  "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/flavors"
@@ -1216,8 +1220,8 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			SystemId: vm.ID,
 		},
 		Region: irs.RegionInfo{
-			// Region: "N/A",
-			Zone: vmHandler.RegionInfo.Zone,
+			Region: vmHandler.RegionInfo.Region,
+			Zone:   vmHandler.RegionInfo.Zone,
 		},
 		KeyPairIId: irs.IID{
 			NameId:   vm.KeyName,
@@ -1255,6 +1259,72 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			addrMap := addr.(map[string]interface{})
 			if addrMap["OS-EXT-IPS:type"] == "fixed" {
 				vmInfo.PrivateIP = addrMap["addr"].(string)
+			}
+		}
+	}
+
+	// Build NICs info from attachinterfaces
+	{
+		pager := ktattachinterfaces.List(vmHandler.VMClient, vm.ID)
+		allPages, aiErr := pager.AllPages()
+		if aiErr == nil {
+			ifaces, aiErr2 := ktattachinterfaces.ExtractInterfaces(allPages)
+			if aiErr2 == nil {
+				var vmNICs []irs.VMNICInfo
+				var allPrivateIPs []string
+				for idx, iface := range ifaces {
+					nicNameId := iface.PortID
+					if p, pErr := ktports.Get(vmHandler.NetworkClient, iface.PortID).Extract(); pErr == nil && p.Name != "" {
+						nicNameId = p.Name
+					}
+					nicInfo := irs.VMNICInfo{
+						DeviceIndex: idx,
+						IId:         irs.IID{NameId: nicNameId, SystemId: iface.PortID},
+						MACAddress:  iface.MACAddr,
+					}
+					if len(iface.FixedIPs) > 0 {
+						subnetID := iface.FixedIPs[0].SubnetID
+						nicInfo.SubnetIID = irs.IID{SystemId: subnetID}
+						sub, subErr := ktsubnets.Get(vmHandler.NetworkClient, subnetID).ExtractSubnet()
+						if subErr == nil && sub != nil {
+							nicInfo.SubnetIID.NameId = sub.NetworkName // KT Cloud uses NetworkName (tier name)
+						}
+						if idx == 0 {
+							vmInfo.SubnetIID = nicInfo.SubnetIID
+						}
+					}
+					// Build FloatingIP map (fixedIP → publicIP)
+					fipMap := map[string]string{}
+					fipPages, fipErr := ktl3fips.List(vmHandler.NetworkClient, ktl3fips.ListOpts{PortID: iface.PortID}).AllPages()
+					if fipErr == nil {
+						if fips, fipErr2 := ktl3fips.ExtractFloatingIPs(fipPages); fipErr2 == nil {
+							for _, fip := range fips {
+								fipMap[fip.FixedIP] = fip.FloatingIP
+							}
+						}
+					}
+					var privateIPs []string
+					var publicIPs []string
+					for _, fip := range iface.FixedIPs {
+						if fip.IPAddress != "" {
+							privateIPs = append(privateIPs, fip.IPAddress)
+							publicIPs = append(publicIPs, fipMap[fip.IPAddress])
+						}
+					}
+					nicInfo.PrivateIPs = privateIPs
+					nicInfo.PublicIPs = publicIPs
+					allPrivateIPs = append(allPrivateIPs, privateIPs...)
+					if idx == 0 {
+						vmInfo.NetworkInterface = nicNameId
+					}
+					vmNICs = append(vmNICs, nicInfo)
+				}
+				if len(vmNICs) > 0 {
+					vmInfo.NICs = vmNICs
+				}
+				if len(allPrivateIPs) > 0 {
+					vmInfo.PrivateIPs = allPrivateIPs
+				}
 			}
 		}
 	}

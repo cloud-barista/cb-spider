@@ -111,3 +111,11 @@ func (cloudConn *OracleConnection) CreateQuotaInfoHandler() (irs.QuotaInfoHandle
 func (cloudConn *OracleConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	return nil, errors.New("Oracle Driver: RDBMSHandler not implemented")
 }
+
+func (cloudConn *OracleConnection) CreateNICHandler() (irs.NICHandler, error) {
+	return nil, errors.New("Oracle Driver: NICHandler not implemented")
+}
+
+func (cloudConn *OracleConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	return nil, errors.New("Oracle Driver: PublicIPHandler not implemented")
+}

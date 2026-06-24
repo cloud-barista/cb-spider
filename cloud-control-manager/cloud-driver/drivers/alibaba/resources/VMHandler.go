@@ -855,8 +855,110 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 		vmInfo.DataDiskIIDs = dataDiskList
 	}
 
-	if len(instanceInfo.NetworkInterfaces.NetworkInterface) > 0 {
-		vmInfo.NetworkInterface = instanceInfo.NetworkInterfaces.NetworkInterface[0].NetworkInterfaceId
+	// Collect all NICs with DeviceIndex, PrivateIPs, and PublicIPs (AWS-compatible pattern).
+	// Alibaba ECS returns NICs ordered: index 0 is the primary (eth0) NIC.
+	var allPublicIPs []string
+	var vmNICs []irs.VMNICInfo
+	for deviceIndex, ni := range instanceInfo.NetworkInterfaces.NetworkInterface {
+		nicInfo := irs.VMNICInfo{
+			IId:        irs.IID{NameId: ni.NetworkInterfaceId, SystemId: ni.NetworkInterfaceId},
+			MACAddress: ni.MacAddress,
+			DeviceIndex: deviceIndex,
+		}
+		if ni.VSwitchId != "" {
+			nicInfo.SubnetIID = irs.IID{SystemId: ni.VSwitchId}
+		}
+		var privateIPs, publicIPs []string
+		for _, pip := range ni.PrivateIpSets.PrivateIpSet {
+			if pip.PrivateIpAddress != "" {
+				privateIPs = append(privateIPs, pip.PrivateIpAddress)
+				pubIP := ""
+				if pip.AssociatedPublicIp.PublicIpAddress != "" {
+					pubIP = pip.AssociatedPublicIp.PublicIpAddress
+				}
+				publicIPs = append(publicIPs, pubIP)
+			}
+		}
+		// Fallback: use PrimaryIpAddress if PrivateIpSets is empty
+		if len(privateIPs) == 0 && ni.PrimaryIpAddress != "" {
+			privateIPs = []string{ni.PrimaryIpAddress}
+			publicIPs = []string{""}
+		}
+
+		// DescribeInstances does NOT return EIP info for ENI-level EIP associations
+		// (InstanceType=NetworkInterface). Fetch EIPs per NIC via DescribeEipAddresses.
+		if ni.NetworkInterfaceId != "" {
+			eipReq := vpc.CreateDescribeEipAddressesRequest()
+			eipReq.RegionId = vmHandler.Region.Region
+			eipReq.AssociatedInstanceType = "NetworkInterface"
+			eipReq.AssociatedInstanceId = ni.NetworkInterfaceId
+			eipReq.PageSize = "50"
+			if eipResp, eipErr := vmHandler.VpcClient.DescribeEipAddresses(eipReq); eipErr == nil {
+				// Build a privateIP→EIP map for this NIC
+				eipMap := make(map[string]string) // privateIP → publicIP
+				for _, eip := range eipResp.EipAddresses.EipAddress {
+					if eip.PrivateIpAddress != "" && eip.IpAddress != "" {
+						eipMap[eip.PrivateIpAddress] = eip.IpAddress
+					} else if eip.IpAddress != "" && len(privateIPs) > 0 {
+						// No PrivateIpAddress field: map to primary IP of this NIC
+						eipMap[privateIPs[0]] = eip.IpAddress
+					}
+				}
+				// Overlay EIP info onto publicIPs (index-aligned with privateIPs)
+				for i, privIP := range privateIPs {
+					if pub, ok := eipMap[privIP]; ok && pub != "" {
+						if i < len(publicIPs) {
+							publicIPs[i] = pub
+						} else {
+							publicIPs = append(publicIPs, pub)
+						}
+					}
+				}
+			}
+		}
+
+		// For the primary NIC (index 0), also check instance-level EIP/PublicIP.
+		// Instance-level EIPs (InstanceType=EcsInstance) are NOT returned by ENI-level DescribeEipAddresses.
+		// They appear in instanceInfo.EipAddress or instanceInfo.PublicIpAddress instead.
+		if deviceIndex == 0 && len(publicIPs) > 0 && publicIPs[0] == "" {
+			instancePubIP := ""
+			if instanceInfo.EipAddress.IpAddress != "" {
+				instancePubIP = instanceInfo.EipAddress.IpAddress
+			} else if len(instanceInfo.PublicIpAddress.IpAddress) > 0 {
+				instancePubIP = instanceInfo.PublicIpAddress.IpAddress[0]
+			}
+			if instancePubIP != "" {
+				publicIPs[0] = instancePubIP
+			}
+		}
+
+		nicInfo.PrivateIPs = privateIPs
+		nicInfo.PublicIPs = publicIPs
+		allPublicIPs = append(allPublicIPs, publicIPs...)
+		// Primary NIC (index 0) sets VM-level IPs
+		if deviceIndex == 0 {
+			if len(privateIPs) > 0 {
+				vmInfo.PrivateIP = privateIPs[0]
+			}
+			if len(publicIPs) > 0 && publicIPs[0] != "" {
+				vmInfo.PublicIP = publicIPs[0]
+			}
+			vmInfo.NetworkInterface = ni.NetworkInterfaceId
+		}
+		vmNICs = append(vmNICs, nicInfo)
+	}
+	if len(allPublicIPs) > 0 {
+		vmInfo.PublicIPs = allPublicIPs
+	}
+	var allPrivateIPs []string
+	for _, nic := range vmNICs {
+		allPrivateIPs = append(allPrivateIPs, nic.PrivateIPs...)
+	}
+	if len(allPrivateIPs) > 0 {
+		vmInfo.PrivateIPs = allPrivateIPs
+	}
+	if len(vmNICs) > 0 {
+		vmInfo.NICs = vmNICs
 	}
 
 	//vmInfo.VMUserId = "root"
@@ -864,8 +966,11 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 
 	//2021-05-11 VM생성 후 WaitForRun()을 사용하지 않기 위해 추가
 	//VM을 생성하자 마자 조회하면 PrivateIpAddress 정보가 없음.
-	if len(instanceInfo.VpcAttributes.PrivateIpAddress.IpAddress) > 0 {
-		vmInfo.PrivateIP = instanceInfo.VpcAttributes.PrivateIpAddress.IpAddress[0]
+	// Fallback: if no NICs returned yet, use VpcAttributes
+	if vmInfo.PrivateIP == "" {
+		if len(instanceInfo.VpcAttributes.PrivateIpAddress.IpAddress) > 0 {
+			vmInfo.PrivateIP = instanceInfo.VpcAttributes.PrivateIpAddress.IpAddress[0]
+		}
 	}
 
 	/*
@@ -878,8 +983,11 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 	//VMUserPasswd
 	//NetworkInterfaceId
 
-	if len(instanceInfo.PublicIpAddress.IpAddress) > 0 {
-		vmInfo.PublicIP = instanceInfo.PublicIpAddress.IpAddress[0]
+	// Fallback: if no public IP from NICs, use instance-level PublicIpAddress
+	if vmInfo.PublicIP == "" {
+		if len(instanceInfo.PublicIpAddress.IpAddress) > 0 {
+			vmInfo.PublicIP = instanceInfo.PublicIpAddress.IpAddress[0]
+		}
 	}
 
 	for _, security := range instanceInfo.SecurityGroupIds.SecurityGroupId {

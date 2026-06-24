@@ -70,6 +70,12 @@ const (
 
 	//=========== RDBMS
 	RDBMS RES_TYPE = "RDBMS"
+
+	//=========== PublicIP
+	PUBLICIP RES_TYPE = "PUBLICIP"
+
+	//=========== NIC
+	NIC RES_TYPE = "NIC"
 )
 
 type CALLLogger struct {

@@ -120,13 +120,10 @@ func (cloudConn *AlibabaCloudConnection) CreateVNicHandler() (irs.VNicHandler, e
 }
 */
 
-/*
-func (cloudConn *AlibabaCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-	cblogger.Info("Alibaba Cloud Driver: called CreatePublicIPHandler()!")
-	publicIPHandler := alirs.AlibabaPublicIPHandler{cloudConn.Region, cloudConn.PublicIPClient}
-	return &publicIPHandler, nil
+func (cloudConn *AlibabaCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := alirs.AlibabaNICHandler{Region: cloudConn.Region, EcsClient: cloudConn.VMClient}
+	return &handler, nil
 }
-*/
 
 func (cloudConn *AlibabaCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateVMHandler()!")
@@ -209,4 +206,10 @@ func (cloudConn *AlibabaCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler,
 	cblogger.Info("Alibaba Cloud Driver: called CreateRDBMSHandler()!")
 	rdbmsHandler := alirs.AlibabaRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient}
 	return &rdbmsHandler, nil
+}
+
+func (cloudConn *AlibabaCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreatePublicIPHandler()!")
+	handler := alirs.AlibabaPublicIPHandler{Region: cloudConn.Region, VpcClient: cloudConn.VpcClient}
+	return &handler, nil
 }

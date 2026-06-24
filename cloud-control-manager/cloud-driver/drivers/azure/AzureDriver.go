@@ -101,6 +101,8 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 	drvCapabilityInfo.QuotaInfoHandler = true
 
+	drvCapabilityInfo.PublicIPHandler = true
+
 	drvCapabilityInfo.VPC_CIDR = true
 
 	return drvCapabilityInfo

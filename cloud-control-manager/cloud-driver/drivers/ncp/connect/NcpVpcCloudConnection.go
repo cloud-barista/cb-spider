@@ -221,3 +221,18 @@ func (cloudConn *NcpVpcCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, 
 	}
 	return &rdbmsHandler, nil
 }
+
+func (cloudConn *NcpVpcCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	handler := ncprs.NcpVpcNICHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient, VpcClient: cloudConn.VpcClient}
+	return &handler, nil
+}
+
+func (cloudConn *NcpVpcCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreatePublicIPHandler()!")
+	handler := ncprs.NcpVpcPublicIPHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		VMClient:       cloudConn.VmClient,
+	}
+	return &handler, nil
+}

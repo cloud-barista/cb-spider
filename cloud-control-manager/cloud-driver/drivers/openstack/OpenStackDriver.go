@@ -66,6 +66,7 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPC_CIDR = false
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.PublicIPHandler = true
 
 	return drvCapabilityInfo
 }

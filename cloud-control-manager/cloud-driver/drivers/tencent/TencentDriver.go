@@ -69,6 +69,7 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPC_CIDR = true
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.PublicIPHandler = true
 
 	return drvCapabilityInfo
 }

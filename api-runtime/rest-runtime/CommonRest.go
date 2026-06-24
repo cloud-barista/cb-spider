@@ -39,6 +39,8 @@ const (
 	CLUSTER   string = string(cres.CLUSTER)
 	NODEGROUP string = string(cres.NODEGROUP)
 	RDBMS     string = string(cres.RDBMS)
+	PUBLICIP  string = string(cres.PUBLICIP)
+	NIC       string = string(cres.NIC)
 )
 
 //================ Common Request & Response

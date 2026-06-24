@@ -63,6 +63,8 @@ func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPC_CIDR = true
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.NICHandler = false
 
 	return drvCapabilityInfo
 }

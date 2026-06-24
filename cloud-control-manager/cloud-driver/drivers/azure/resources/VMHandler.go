@@ -984,12 +984,12 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 			SubnetName: vmInfo.SubnetIID.NameId,
 		}
 		cleanResources := CleanVMClientRequestResource{
-			"", vmInfo.NetworkInterface, "",
+			"", (func() string { if len(vmInfo.NICs) > 0 { return vmInfo.NICs[0].IId.SystemId }; return "" })(), "",
 		}
 		if vm.Properties.StorageProfile.OSDisk.Name != nil {
 			cleanResources.VmDiskName = *vm.Properties.StorageProfile.OSDisk.Name
 		}
-		vNic, vNicErr := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, vmInfo.NetworkInterface, nil)
+		vNic, vNicErr := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, (func() string { if len(vmInfo.NICs) > 0 { return vmInfo.NICs[0].IId.SystemId }; return "" })(), nil)
 		if vNicErr != nil {
 			return vNicErr
 		}
@@ -1055,59 +1055,100 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 		//vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
 	}
 
-	// Get VNic ID
+	// Get VNic IDs — iterate all NICs on the VM and build VMNICInfo for each.
 	niList := server.Properties.NetworkProfile.NetworkInterfaces
-	var VNicId string
-	for _, ni := range niList {
-		if ni.ID != nil {
-			VNicId = *ni.ID
+	sgSet := false
+	for nicIdx, niRef := range niList {
+		if niRef.ID == nil {
+			continue
 		}
-	}
+		nicIdArr := strings.Split(*niRef.ID, "/")
+		nicName := nicIdArr[len(nicIdArr)-1]
+		if nicIdx == 0 {
+			vmInfo.NetworkInterface = nicName
+		}
 
-	// Get VNic
-	nicIdArr := strings.Split(VNicId, "/")
-	nicName := nicIdArr[len(nicIdArr)-1]
-	vNic, _ := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, nicName, nil)
-	vmInfo.NetworkInterface = nicName
+		vNicResp, err := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, nicName, nil)
+		if err != nil {
+			cblogger.Warnf("mappingServerInfo: failed to get NIC %s: %v", nicName, err)
+			vmInfo.NICs = append(vmInfo.NICs, irs.VMNICInfo{
+				IId:         irs.IID{NameId: nicName, SystemId: *niRef.ID},
+				DeviceIndex: nicIdx,
+			})
+			continue
+		}
+		vNic := vNicResp.Interface
 
-	// Get SecurityGroup
-	sgGroupIdArr := strings.Split(*vNic.Properties.NetworkSecurityGroup.ID, "/")
-	sgGroupName := sgGroupIdArr[len(sgGroupIdArr)-1]
-	vmInfo.SecurityGroupIIds = []irs.IID{
-		{
-			NameId:   sgGroupName,
-			SystemId: *vNic.Properties.NetworkSecurityGroup.ID,
-		},
-	}
+		nicInfo := irs.VMNICInfo{
+			IId:         irs.IID{NameId: nicName, SystemId: *niRef.ID},
+			DeviceIndex: nicIdx,
+		}
 
-	// Get PrivateIP, PublicIpId
-	for _, ip := range vNic.Properties.IPConfigurations {
-		if ip.Properties.Primary != nil && *ip.Properties.Primary {
-			// PrivateIP 정보 설정
-			vmInfo.PrivateIP = *ip.Properties.PrivateIPAddress
+		// MAC address
+		if vNic.Properties != nil && vNic.Properties.MacAddress != nil {
+			nicInfo.MACAddress = *vNic.Properties.MacAddress
+		}
 
-			// PublicIP 정보 조회 및 설정
-			if ip.Properties.PublicIPAddress != nil {
-				publicIPId := *ip.Properties.PublicIPAddress.ID
-				publicIPIdArr := strings.Split(publicIPId, "/")
-				publicIPName := publicIPIdArr[len(publicIPIdArr)-1]
-
-				publicIP, _ := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, nil)
-				if publicIP.Properties.IPAddress != nil {
-					vmInfo.PublicIP = *publicIP.Properties.IPAddress
-				}
+		if vNic.Properties != nil {
+			// Security group (use first NIC's NSG for vmInfo.SecurityGroupIIds)
+			if !sgSet && vNic.Properties.NetworkSecurityGroup != nil && vNic.Properties.NetworkSecurityGroup.ID != nil {
+				sgGroupIdArr := strings.Split(*vNic.Properties.NetworkSecurityGroup.ID, "/")
+				sgGroupName := sgGroupIdArr[len(sgGroupIdArr)-1]
+				vmInfo.SecurityGroupIIds = []irs.IID{{NameId: sgGroupName, SystemId: *vNic.Properties.NetworkSecurityGroup.ID}}
+				sgSet = true
 			}
 
-			// Get Subnet
-			subnetIdArr := strings.Split(*ip.Properties.Subnet.ID, "/")
-			subnetName := subnetIdArr[len(subnetIdArr)-1]
-			vmInfo.SubnetIID = irs.IID{NameId: subnetName, SystemId: *ip.Properties.Subnet.ID}
+			// Collect private and public IPs from all IP configurations
+			for _, ip := range vNic.Properties.IPConfigurations {
+				if ip == nil || ip.Properties == nil {
+					continue
+				}
 
-			// Get VPC
-			vpcIdArr := subnetIdArr[:len(subnetIdArr)-2]
-			vpcName := vpcIdArr[len(vpcIdArr)-1]
-			vmInfo.VpcIID = irs.IID{NameId: vpcName, SystemId: strings.Join(vpcIdArr, "/")}
+				privateAddr := ""
+				if ip.Properties.PrivateIPAddress != nil {
+					privateAddr = *ip.Properties.PrivateIPAddress
+					nicInfo.PrivateIPs = append(nicInfo.PrivateIPs, privateAddr)
+					vmInfo.PrivateIPs = append(vmInfo.PrivateIPs, privateAddr)
+				}
+
+				publicAddr := ""
+				if ip.Properties.PublicIPAddress != nil && ip.Properties.PublicIPAddress.ID != nil {
+					publicIPIdArr := strings.Split(*ip.Properties.PublicIPAddress.ID, "/")
+					publicIPName := publicIPIdArr[len(publicIPIdArr)-1]
+					publicIPResp, pubErr := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, nil)
+					if pubErr == nil && publicIPResp.Properties != nil && publicIPResp.Properties.IPAddress != nil {
+						publicAddr = *publicIPResp.Properties.IPAddress
+					}
+				}
+				nicInfo.PublicIPs = append(nicInfo.PublicIPs, publicAddr)
+				if publicAddr != "" {
+					vmInfo.PublicIPs = append(vmInfo.PublicIPs, publicAddr)
+				}
+
+				// Primary IP configuration: fill vmInfo convenience fields and Subnet/VPC
+				if ip.Properties.Primary != nil && *ip.Properties.Primary {
+					if privateAddr != "" && vmInfo.PrivateIP == "" {
+						vmInfo.PrivateIP = privateAddr
+					}
+					if publicAddr != "" && vmInfo.PublicIP == "" {
+						vmInfo.PublicIP = publicAddr
+					}
+					if ip.Properties.Subnet != nil && ip.Properties.Subnet.ID != nil {
+						subnetIdArr := strings.Split(*ip.Properties.Subnet.ID, "/")
+						subnetName := subnetIdArr[len(subnetIdArr)-1]
+						nicInfo.SubnetIID = irs.IID{NameId: subnetName, SystemId: *ip.Properties.Subnet.ID}
+						if nicIdx == 0 {
+							vmInfo.SubnetIID = nicInfo.SubnetIID
+							vpcIdArr := subnetIdArr[:len(subnetIdArr)-2]
+							vpcName := vpcIdArr[len(vpcIdArr)-1]
+							vmInfo.VpcIID = irs.IID{NameId: vpcName, SystemId: strings.Join(vpcIdArr, "/")}
+						}
+					}
+				}
+			}
 		}
+
+		vmInfo.NICs = append(vmInfo.NICs, nicInfo)
 	}
 	osType := getOSTypeByVM(server)
 	if osType == irs.WINDOWS {
@@ -1234,7 +1275,7 @@ func (vmHandler *AzureVMHandler) mappingScaleSetServerInfo(server armcompute.Vir
 	// Get VNic
 	nicIdArr := strings.Split(VNicId, "/")
 	nicName := nicIdArr[len(nicIdArr)-1]
-	vmInfo.NetworkInterface = nicName
+	vmInfo.NICs = append(vmInfo.NICs, irs.VMNICInfo{IId: irs.IID{NameId: nicName, SystemId: nicName}})
 
 	for _, config := range server.Properties.NetworkProfileConfiguration.NetworkInterfaceConfigurations {
 		if *config.Name == nicName {

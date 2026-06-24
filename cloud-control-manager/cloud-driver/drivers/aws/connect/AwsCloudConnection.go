@@ -146,14 +146,13 @@ func (cloudConn *AwsCloudConnection) CreateVNicHandler() (irs.VNicHandler, error
 
 	return &handler, nil
 }
+*/
 
-func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-	cblogger.Info("Start")
-	handler := ars.AwsPublicIPHandler{cloudConn.Region, cloudConn.PublicIPClient}
-
+func (cloudConn *AwsCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsNICHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
-*/
 
 func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	handler := ars.AwsVmSpecHandler{Region: cloudConn.Region, Client: cloudConn.VmSpecClient}
@@ -251,5 +250,11 @@ func (cloudConn *AwsCloudConnection) CreateMonitoringHandler() (irs.MonitoringHa
 func (cloudConn *AwsCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	tagHandler := cloudConn.CreateAwsTagHandler()
 	handler := ars.AwsRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient, EC2Client: cloudConn.VNetworkClient, TagHandler: &tagHandler}
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsPublicIPHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
