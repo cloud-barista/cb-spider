@@ -212,7 +212,7 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 		Region:     vmSpecHandler.RegionInfo.Region,
 		Name:       *vmSpec.ServerSpecCode,
 		VCpu:       irs.VCpuInfo{Count: String(*vmSpec.CpuCount), ClockGHz: "-1"},
-		MemSizeMiB: irs.ConvertByteToMiBInt64(*vmSpec.MemorySize), // Byte -> MiB
+		MemSizeMiB: irs.ConvertByteToMiBInt64(int64(*vmSpec.MemorySize)), // Byte -> MiB
 		DiskSizeGB: diskSize,
 
 		KeyValueList: irs.StructToKeyValueList(vmSpec),
