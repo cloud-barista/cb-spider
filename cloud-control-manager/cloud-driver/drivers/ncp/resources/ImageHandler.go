@@ -176,7 +176,7 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 	if len(serverImage.BlockStorageMappingList) > 0 {
 		blockStorageMapping := serverImage.BlockStorageMappingList[0]
 		if blockStorageMapping.BlockStorageSize != nil {
-			blockStorageSize = irs.ConvertByteToGBInt64(*blockStorageMapping.BlockStorageSize)
+			blockStorageSize = irs.ConvertByteToGBInt64(int64(*blockStorageMapping.BlockStorageSize))
 		} else {
 			blockStorageSize = "-1"
 		}
