@@ -1209,6 +1209,9 @@ func existNotDeletedClusterWithTagInVpc(csClient *cs2015.Client, regionId, vpcId
 		}
 		if strings.EqualFold(*cluster.VpcId, vpcId) {
 			for _, tag := range cluster.Tags {
+				if tag == nil || tag.Key == nil || tag.Value == nil {
+					continue
+				}
 				if strings.EqualFold(*tag.Key, tagKey) &&
 					strings.EqualFold(*tag.Value, tagValue) {
 					clusterListWithTagInVpc = append(clusterListWithTagInVpc, cluster)

@@ -1267,6 +1267,9 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 			isMasterUpgrading := true
 			isMasterUpgradeIndicated := strings.Contains(targetCluster.MasterKubeVersion, "-->")
 			for _, tag := range (*tags).Items {
+				if tag.Name == nil {
+					continue
+				}
 				if isTagStatusOf(*tag.Name, MasterUpgradeStatus) {
 					if compareTag(*tag.Name, MasterUpgradeStatus, WAITING) {
 						if isMasterUpgradeIndicated {

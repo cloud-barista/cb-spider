@@ -1738,11 +1738,15 @@ func (nvch *NcpVpcClusterHandler) convertNodeGroup(nodeGroupOutput *vnks.Describ
 		nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
 
 		if nodeGroupTagList == nil {
-			nodeGroupTagList[NODEGROUP_TAG] = nodeGroupName // 값이없으면 nodeGroupName이랑 같은값으로 set.
+			nodeGroupTagList = make(map[string]*string)
+			nodeGroupTagList[NODEGROUP_TAG] = nodeGroupName
 		}
 		nodeGroupTag := ""
 		for key, val := range nodeGroupTagList {
-			if strings.EqualFold("key", NODEGROUP_TAG) {
+			if val == nil {
+				continue
+			}
+			if strings.EqualFold(key, "value") || strings.EqualFold(key, NODEGROUP_TAG) {
 				nodeGroupTag = *val
 				break
 			}
