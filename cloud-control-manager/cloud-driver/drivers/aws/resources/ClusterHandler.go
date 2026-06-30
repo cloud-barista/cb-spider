@@ -1899,7 +1899,10 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	}
 	nodeGroupTag := ""
 	for key, val := range nodeGroupTagList {
-		if strings.EqualFold("key", NODEGROUP_TAG) {
+		if val == nil {
+			continue
+		}
+		if strings.EqualFold(key, "value") || strings.EqualFold(key, NODEGROUP_TAG) {
 			nodeGroupTag = *val
 			break
 		}

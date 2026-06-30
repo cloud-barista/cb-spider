@@ -29,7 +29,7 @@ import (
 )
 
 // calllogger
-// 공통로거 만들기 이전까지 사용
+// Used before creating a common logger
 // var once sync.Once
 // var calllogger *logrus.Logger
 
@@ -66,7 +66,7 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 		return irs.ClusterInfo{}, err
 	}
 
-	// 클러스터 생성 요청 변환
+	// Convert cluster creation request
 	request, err := getCreateClusterRequest(clusterHandler, clusterReqInfo)
 	if err != nil {
 		err := fmt.Errorf("Failed to Get Create Cluster Request :  %v", err)
@@ -84,12 +84,12 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	}
 	calllogger.Info(call.String(callLogInfo))
 
-	// NodeGroup 생성 정보가 있는경우 생성을 시도한다.
-	// 현재는 생성 시도를 안한다. 생성하기로 결정되면 아래 주석을 풀어서 사용한다.
-	// 이유:
-	// - Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
-	// - Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
-	// - 성공할때까지 대기한 후에 생성을 시도해야 한다.
+	// If there is NodeGroup creation information, attempt creation.
+	// Currently, creation is not attempted. If decided to create, uncomment below.
+	// Reason:
+	// - NodeGroup creation is possible only after Cluster creation is complete.
+	// - Cluster creation takes at least 10 minutes.
+	// - Must wait until success before attempting creation.
 	// for _, node_group := range clusterReqInfo.NodeGroupList {
 	// 	res, err := clusterHandler.AddNodeGroup(clusterReqInfo.IId, node_group)
 	// 	if err != nil {
@@ -200,7 +200,7 @@ func (clusterHandler *TencentClusterHandler) AddNodeGroup(clusterIID irs.IID, no
 		return irs.NodeGroupInfo{}, err
 	}
 
-	// 노드 그룹 생성 요청 변환
+	// Convert node group creation request
 	// get cluster info. to get security_group_id
 	request, err := getNodeGroupRequest(clusterHandler, clusterIID.SystemId, nodeGroupReqInfo)
 	if err != nil {
@@ -445,7 +445,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	} else {
 		cblogger.Info(fmt.Sprintf("res in JSON format: %s", string(jsonRes)))
 	}
-	// description에서 security group 이름 추출
+	// Extract security group name from description
 	security_group_id := ""
 	re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
 	found := re.FindString(*res.Response.Clusters[0].ClusterDescription)
@@ -485,29 +485,42 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		Status:      cluster_status,
 		CreatedTime: datetime,
 		AccessInfo:  accessInfo,
-		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
+		// KeyValueList: []irs.KeyValue{}, // Input flatten data
 	}
 
-	// Tags가 있는지 확인하고 추가
+	// Check and add if tags exist
 	if res.Response.Clusters[0].TagSpecification != nil {
 		var tagList []irs.KeyValue
-		for _, tag := range res.Response.Clusters[0].TagSpecification {
-
-			for _, tag := range tag.Tags {
-				tagList = append(clusterInfo.KeyValueList, irs.KeyValue{
-					Key:   *tag.Key,
-					Value: *tag.Value,
+		for _, tagSpec := range res.Response.Clusters[0].TagSpecification {
+			if tagSpec == nil || tagSpec.Tags == nil {
+				continue
+			}
+			for _, tag := range tagSpec.Tags {
+				if tag == nil {
+					continue
+				}
+				key := ""
+				if tag.Key != nil {
+					key = *tag.Key
+				}
+				value := ""
+				if tag.Value != nil {
+					value = *tag.Value
+				}
+				tagList = append(tagList, irs.KeyValue{
+					Key:   key,
+					Value: value,
 				})
 			}
-			clusterInfo.TagList = tagList
 		}
+		clusterInfo.TagList = tagList
 	}
 
-	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	// 2025-03-13 Changed to use StructToKeyValueList
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(res.Response.Clusters[0])
-	// k,v 추출 & 추가
+	// Extract & add k, v
 
-	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
+	// KeyValueList: []irs.KeyValue{}, // Input flatten data
 	// temp, err := json.Marshal(*res.Response.Clusters[0])
 	// if err != nil {
 	// 	err := fmt.Errorf("Failed to Marshal Cluster Info :  %v", err)
@@ -755,7 +768,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		}
 	}
 
-	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	// 2025-03-13 Changed to use StructToKeyValueList
 	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(res.Response.NodePool)
 	// add key value list
 
@@ -822,17 +835,17 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 		ClusterCIDR: common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
 	}
 
-	// security_group_name을 저장하는 방법이 없음.
-	// description에 securityp_group_name을 저장해서 사용함.
-	// 향후, 추가 정보가 필요하면, description에 json 문서를 저장하는 방식으로 사용할 수도 있음.
+	// No way to store security_group_name.
+	// Stored and used security_group_name in description.
+	// In the future, if additional information is required, a json document can be stored in the description.
 	//
-	// 정보검색은
-	// 사용자가 필요에 따라서 다른 description내용을 추가할 수 도 있으니,
-	// "#CB-SPIDER:PMKS:SECURITYGROUP:ID"을 포함하는 Line을 찾아서 처리
-	// >> regex로 구현
+	// Information search:
+	// Since users may add other descriptions as needed,
+	// search for the line containing "#CB-SPIDER:PMKS:SECURITYGROUP:ID".
+	// >> implemented with regex
 	// ------------------------------------------------------------
-	// subnet_id 저장이 안됨
-	// description 정보에 저장해서 사용
+	// subnet_id cannot be stored.
+	// Stored and used in description.
 	// SubnetId:       common.StringPtr(clusterInfo.Network.SubnetIIDs[0].SystemId),
 	// " #CB-SPIDER:PMKS:SUBNET:ID:"
 	desc_str := `#CB-SPIDER:PMKS:SECURITYGROUP:ID:%s #CB-SPIDER:PMKS:SUBNET:ID:%s`
@@ -901,7 +914,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 
 	// '{"LaunchConfigurationName":"name","InstanceType":"S3.MEDIUM2","ImageId":"img-pi0ii46r"}'
 	// "SystemDisk": { "DiskType" : "CLOUD_BSSD", "DiskSize": 50 },
-	// ImageId를 설정하면 에러 발생, 설정안됨.
+	// Error occurs if ImageId is set, not set.
 	launch_config_json_str := `{
 		"InstanceType": "%s",
 		"SecurityGroupIds": ["%s"],
@@ -941,7 +954,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		// },
 	}
 	if nodeGroupReqInfo.ImageIID.SystemId != "" {
-		// 등록 가능한 이미지 이름 목록: https://www.tencentcloud.com/document/product/457/46750
+		// List of registrable image names: https://www.tencentcloud.com/document/product/457/46750
 		request.NodePoolOs = common.StringPtr(nodeGroupReqInfo.ImageIID.SystemId) // ex: "tlinux3.1x86_64"
 	}
 	// request.ContainerRuntime = common.StringPtr("docker")
