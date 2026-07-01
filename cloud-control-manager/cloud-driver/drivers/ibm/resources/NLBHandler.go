@@ -939,8 +939,13 @@ func (nlbHandler *IbmNLBHandler) getRawNLBById(nlbID string) (vpcv1.LoadBalancer
 }
 func (nlbHandler *IbmNLBHandler) getListenerInfo(nlb vpcv1.LoadBalancer) (irs.ListenerInfo, error) {
 	listenerInfo := irs.ListenerInfo{}
-	if len(nlb.PublicIps) > 0 {
+	if len(nlb.PublicIps) > 0 && nlb.PublicIps[0].Address != nil {
 		listenerInfo.IP = *nlb.PublicIps[0].Address
+	}
+	// IBM assigns a fully qualified domain name (hostname) to the load balancer,
+	// which is used as the NLB's DNS name.
+	if nlb.Hostname != nil {
+		listenerInfo.DNSName = *nlb.Hostname
 	}
 	if len(nlb.Listeners) > 0 {
 		listeners := nlb.Listeners
@@ -1351,11 +1356,15 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}
-	_, err = nlbHandler.checkUpdatableNLB(*nlb.ID)
+	// checkUpdatableNLB waits until the NLB reaches the "active" state and returns
+	// the up-to-date load balancer. The object returned by CreateLoadBalancer is still
+	// in "create_pending" state and has no public IPs assigned yet, so we must use the
+	// refreshed one to populate the Listener's IP/DNSName.
+	activeNLB, err := nlbHandler.checkUpdatableNLB(*nlb.ID)
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}
-	return *nlb, nil
+	return activeNLB, nil
 }
 
 func (nlbHandler *IbmNLBHandler) getVMGroup(nlb vpcv1.LoadBalancer) (irs.VMGroupInfo, error) {
