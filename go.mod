@@ -27,7 +27,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.94
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.1064
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
-	golang.org/x/crypto v0.50.0
+	golang.org/x/crypto v0.51.0
 	golang.org/x/oauth2 v0.36.0
 	google.golang.org/api v0.272.0
 	google.golang.org/grpc v1.80.0 // indirect
@@ -89,7 +89,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdb v1.3.94
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs v1.1.8
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.0.964
-	golang.org/x/mod v0.34.0
+	golang.org/x/mod v0.35.0
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
@@ -217,12 +217,12 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	go.mongodb.org/mongo-driver v1.17.7 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/term v0.42.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.43.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
