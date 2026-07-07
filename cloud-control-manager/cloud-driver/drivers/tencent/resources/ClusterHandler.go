@@ -446,19 +446,20 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		cblogger.Info(fmt.Sprintf("res in JSON format: %s", string(jsonRes)))
 	}
 	// Extract security group name from description
+	// NOTE: '@' delimiter is used instead of '#' to comply with Tencent CVM tag value restrictions.
 	security_group_id := ""
-	re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
+	re := regexp.MustCompile(`\S*@CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
 	found := re.FindString(*res.Response.Clusters[0].ClusterDescription)
 	if found != "" {
-		split := strings.Split(found, "#CB-SPIDER:PMKS:SECURITYGROUP:ID:")
+		split := strings.Split(found, "@CB-SPIDER:PMKS:SECURITYGROUP:ID:")
 		security_group_id = split[1]
 	}
 
 	subnet_id := ""
-	re = regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SUBNET:ID:\S*`)
+	re = regexp.MustCompile(`\S*@CB-SPIDER:PMKS:SUBNET:ID:\S*`)
 	found = re.FindString(*res.Response.Clusters[0].ClusterDescription)
 	if found != "" {
-		split := strings.Split(found, "#CB-SPIDER:PMKS:SUBNET:ID:")
+		split := strings.Split(found, "@CB-SPIDER:PMKS:SUBNET:ID:")
 		subnet_id = split[1]
 	}
 
@@ -841,14 +842,17 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	//
 	// Information search:
 	// Since users may add other descriptions as needed,
-	// search for the line containing "#CB-SPIDER:PMKS:SECURITYGROUP:ID".
+	// search for the line containing "@CB-SPIDER:PMKS:SECURITYGROUP:ID".
 	// >> implemented with regex
 	// ------------------------------------------------------------
 	// subnet_id cannot be stored.
 	// Stored and used in description.
 	// SubnetId:       common.StringPtr(clusterInfo.Network.SubnetIIDs[0].SystemId),
-	// " #CB-SPIDER:PMKS:SUBNET:ID:"
-	desc_str := `#CB-SPIDER:PMKS:SECURITYGROUP:ID:%s #CB-SPIDER:PMKS:SUBNET:ID:%s`
+	// " @CB-SPIDER:PMKS:SUBNET:ID:"
+	// NOTE: '@' is used instead of '#' because Tencent CVM tag values do not allow '#'.
+	//       TKE internally propagates ClusterDescription as a CVM tag value during Auto Scaling scale-out,
+	//       causing RunInstances to fail with "tag value contains illegal characters" when '#' is present.
+	desc_str := `@CB-SPIDER:PMKS:SECURITYGROUP:ID:%s @CB-SPIDER:PMKS:SUBNET:ID:%s`
 	desc_str = fmt.Sprintf(desc_str, clusterInfo.Network.SecurityGroupIIDs[0].SystemId, clusterInfo.Network.SubnetIIDs[0].SystemId)
 
 	var tags []*tke.Tag
@@ -863,7 +867,7 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 		ClusterName:        common.StringPtr(clusterInfo.IId.NameId),
 		VpcId:              common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
 		ClusterVersion:     common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
-		ClusterDescription: common.StringPtr(desc_str),            // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
+		ClusterDescription: common.StringPtr(desc_str),            // option, @CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
 		TagSpecification: []*tke.TagSpecification{{
 			ResourceType: common.StringPtr("cluster"),
 			Tags:         tags,
