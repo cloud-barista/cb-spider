@@ -64,7 +64,7 @@ require (
 	github.com/alibabacloud-go/tea v1.3.11
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20251103105234-6cbc5279b7fb
-	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20260414095107-3f44f8d184a6
+	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20260712154229-92f96cb02863
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20260522111605-48d0ba7e7251
 	github.com/glebarez/go-sqlite v1.21.2
 	github.com/glebarez/sqlite v1.11.0
