@@ -131,7 +131,8 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 
  O Shared FileSystem (NAS) volume 생성시 아래의 사항을 참고
 
-   - NAS volume 생성시, 기 생성되어있는 하나의 subnet(Tier)이 필수적으로 지정되어야함.
+   - NAS volume 생성시, volume 이름에 underscore(_) 외의 특수문자는 포함할 수 없음.
+   - NAS volume 생성 요청시, 기 생성되어있는 하나의 subnet(Tier) 이름이 필수적으로 지정되어야함.
       - Spider의 'Access Subnet Name' parameter로서 subnet(Tier) name 입력 필요
       - NAS 생성 요청시, 본 driver 내부적으로 그 subnet(Tier) 기준으로 NAS volume 생성에 필요한 shared network이 먼저 생성됨.
    - CB-Spider에서 Shared FileSystem용 protocol은 현재 'NFS' 기준으로 지원함.(CIFS는 미지원)
