@@ -1242,7 +1242,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		cblogger.Debug(getSGErr)
 		// return irs.VMInfo{}, getSGErr
 	}
-	if countSgKvList(*sgInfo) > 0 {
+	if sgInfo != nil && countSgKvList(*sgInfo) > 0 {
 		// Since S/G is managed as a file, the systemID is the same as the name ID.
 		var sgIIDs []irs.IID
 		for _, kv := range sgInfo.KeyValueInfoList {
@@ -1822,7 +1822,7 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 		return false, newErr
 	}
 
-	cblogger.Info("Cloud driver: called listFirewallRule()!!")
+	cblogger.Info("listFirewallRule()!!")
 	fwRuleList, err := vmHandler.listFirewallRule()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Firewall Rule List. [%v]", err)
@@ -1834,6 +1834,8 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 		cblogger.Debug(newErr.Error())
 		return true, nil // Not false, newErr
 	}
+	// cblogger.Infof("/n＃ fwRuleList :")
+	// spew.Dump(fwRuleList)
 
 	policyIDs, err := vmHandler.findFirewallPolicyIDsByIP(fwRuleList, ip)
 	if err != nil {
@@ -1850,6 +1852,7 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 
 	// Deletes all firewall rules matching the given policyIDs.
 	for _, policyID := range policyIDs {
+		cblogger.Infof("＃ PolicyID: %s", policyID)
 		result := rules.Delete(vmHandler.NetworkClient, policyID)
 		if result.Err != nil {
 			errMsg := result.Err.Error()
