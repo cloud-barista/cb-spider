@@ -464,7 +464,10 @@ func DeletePublicIP(connectionName string, rsType string, nameID string, force s
 	result, err := handler.DeletePublicIP(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

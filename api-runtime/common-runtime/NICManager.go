@@ -294,7 +294,14 @@ func DeleteNIC(connectionName string, rsType string, nameID string, force string
 
 	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 	result, err := handler.DeleteNIC(driverIId)
-	if err != nil { cblog.Error(err); if force != "true" { return false, err } }
+	if err != nil {
+		cblog.Error(err)
+		if checkNotFoundError(err) {
+			force = "true"
+		} else if force != "true" {
+			return false, err
+		}
+	}
 	if force != "true" && !result { return false, nil }
 
 	_, err = infostore.DeleteByConditions(&NICIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)

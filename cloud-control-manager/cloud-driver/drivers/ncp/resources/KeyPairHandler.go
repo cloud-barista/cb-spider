@@ -11,6 +11,7 @@ package resources
 import (
 	"fmt"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -36,7 +37,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error
 
 	keypairReq := vserver.GetLoginKeyListRequest{
 		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
-		KeyName: 	nil,
+		KeyName:    nil,
 	}
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
@@ -83,7 +84,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPair
 
 	keypairReq := vserver.CreateLoginKeyRequest{
 		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
-		KeyName: 	ncloud.String(keyPairReqInfo.IId.NameId),
+		KeyName:    ncloud.String(keyPairReqInfo.IId.NameId),
 	}
 	// Creates a new  keypair with the given name
 	callLogStart := call.Start()
@@ -139,15 +140,15 @@ func (keyPairHandler *NcpVpcKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairI
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyIID.NameId, "GetKey()")
 
-	var keyNameId string
-	if keyIID.SystemId == "" {
+	keyNameId := keyIID.SystemId
+	if keyNameId == "" {
 		keyNameId = keyIID.NameId
 	}
 
 	// NCP VPC Key does not have SystemId, so the unique NameId value is also applied to the SystemId when create it.
 	keypairReq := vserver.GetLoginKeyListRequest{
 		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
-		KeyName: 	ncloud.String(keyNameId),
+		KeyName:    ncloud.String(keyNameId),
 	}
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
@@ -240,15 +241,15 @@ func mappingKeyPairInfo(ncpKeyPair *vserver.LoginKey) irs.KeyPairInfo {
 	// NCP Key does not have SystemId, so the unique NameId value is also applied to the SystemId
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
-			NameId:   	*ncpKeyPair.KeyName,
-			SystemId: 	*ncpKeyPair.KeyName,
+			NameId:   *ncpKeyPair.KeyName,
+			SystemId: *ncpKeyPair.KeyName,
 		},
-		Fingerprint: 	*ncpKeyPair.Fingerprint,
-		PublicKey:   	"N/A",
+		Fingerprint: *ncpKeyPair.Fingerprint,
+		PublicKey:   "N/A",
 		// PublicKey:  	*NcpKeyPairList.PublicKey, // Creates Error
-		PrivateKey: 	"N/A",
-		VMUserID:   	lnxUserName,
-		KeyValueList:   irs.StructToKeyValueList(ncpKeyPair),
+		PrivateKey:   "N/A",
+		VMUserID:     lnxUserName,
+		KeyValueList: irs.StructToKeyValueList(ncpKeyPair),
 	}
 	return keyPairInfo
 }
@@ -260,7 +261,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
 
 	keypairReq := vserver.GetLoginKeyListRequest{
 		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
-		KeyName: 	nil,
+		KeyName:    nil,
 	}
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
@@ -280,7 +281,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
 			var iid irs.IID
 			iid.NameId = *keyPair.KeyName
 			iid.SystemId = *keyPair.KeyName
-	
+
 			iidList = append(iidList, &iid)
 		}
 	}
