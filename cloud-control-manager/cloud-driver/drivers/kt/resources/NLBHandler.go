@@ -8,6 +8,7 @@
 //
 // by ETRI Team, 2024.02.
 // Updated by ETRI Team, 2025.11.
+// Updated by ETRI Team, 2026.07.
 
 package resources
 
@@ -18,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -93,22 +93,7 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		return irs.NLBInfo{}, newErr
 	}
 
-	/*
-		vpcHandler := KTVpcVPCHandler{
-			RegionInfo:    nlbHandler.RegionInfo,
-			NetworkClient: nlbHandler.NetworkClient, // Required!!
-		}
-		tierId, getError := vpcHandler.getTierIdWithTierName(NlbSubnetName)
-		if getError != nil {
-			newErr := fmt.Errorf("Failed to Get the Tier ID of the 'NLB-Subnet' : [%v]", getError)
-			cblogger.Error(newErr.Error())
-			return irs.NLBInfo{}, newErr
-		} else {
-			cblogger.Infof("# Tier ID of NLB-SUBNET : %s", *tierId)
-		}
-	*/
-
-	// Get subnet where VMGroup VMs belong
+	// Get Tier Network ID where VMGroup VMs belong
 	vmGroupTierNetId, err := nlbHandler.getTierNetIdOfVMGroup(ctx, nlbReqInfo.VMGroup)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VMGroup Subnet ID : %w", err)
@@ -220,22 +205,6 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		loggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
-
-	// createTagOpts := ktvpclb.CreateTagOpts{
-	// 	NlbID:           	strconv.Itoa(ktNLB.NlbID),  			// Required
-	// 	Tag:         		publicIp, 								// Required
-	// }
-	// _, tagErr := ktvpclb.CreateTag(nlbHandler.NLBClient, createTagOpts).Extract() // Not 'NetworkClient'
-	// if tagErr != nil {
-	// 	newErr := fmt.Errorf("Failed to Create the Tag : [%v]", tagErr.Error())
-	// 	cblogger.Error(newErr.Error())
-	// 	loggingError(callLogInfo, newErr)
-	// 	return irs.NLBInfo{}, newErr
-	// }
-	// loggingInfo(callLogInfo, start)
-
-	// cblogger.Info("\n### Creating New Tag!!")
-	// time.Sleep(time.Second * 3)
 
 	nlbIID := irs.IID{SystemId: nlbIdStr}
 	nlbInfo, getErr := nlbHandler.GetNLB(nlbIID)
@@ -444,16 +413,6 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	/*
-		ktNLB, err := nlbHandler.getKtNlbInfo(nlbIID.SystemId)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get KT Cloud NLB info!! [%v]", err)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return false, newErr
-		}
-	*/
-
 	// Delete FirewallRules
 	dellVmErr := nlbHandler.deleteAllVMs(nlbIID)
 	if dellVmErr != nil {
@@ -504,8 +463,8 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	// Caution) Before deleting the StaticNAT, must first delete the firewall settings.
 	// Delete FirewallRules, Static NAT and Public IP
 	if !strings.EqualFold(publicIp, "") {
-
 		// Delete FirewallRules
+		cblogger.Info("### Deleting Firewall Rules of the StaticNAT!!")
 		_, dellFwErr := vmHandler.removeFirewallRules(publicIp)
 		if dellFwErr != nil {
 			cblogger.Error(dellFwErr.Error())
@@ -603,15 +562,7 @@ func (nlbHandler *KTVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 		loggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
 	}
-	nlbSubnetId := ktNLB.NetworkID
-	cblogger.Infof("NLB is in subnet (tier): %s", nlbSubnetId)
-
-	type VMInfo struct {
-		VmID      string
-		PrivateIP string
-		SubnetID  string
-		VMName    string
-	}
+	nlbTierNetworkId := ktNLB.NetworkID
 
 	vmHandler := KTVpcVMHandler{
 		RegionInfo:    nlbHandler.RegionInfo,
@@ -622,6 +573,22 @@ func (nlbHandler *KTVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 	vpcHandler := KTVpcVPCHandler{
 		RegionInfo:    nlbHandler.RegionInfo,
 		NetworkClient: nlbHandler.NetworkClient,
+	}
+
+	nlbTierRefId, getTierErr := vpcHandler.getTierIdWithNetworkId(nlbTierNetworkId)
+	if getTierErr != nil {
+		newErr := fmt.Errorf("Failed to Get TierRefId with NLB Tier Network ID [%s]: %w", nlbTierNetworkId, getTierErr)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+	cblogger.Infof("NLB is in Subnet(tier): %s", *nlbTierRefId)
+
+	type VMInfo struct {
+		VmID      string
+		PrivateIP string
+		SubnetID  string
+		VMName    string
 	}
 
 	var vmInfo VMInfo
@@ -661,20 +628,20 @@ func (nlbHandler *KTVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 				return irs.VMGroupInfo{}, newErr
 			}
 
-			// Get tier ID from tier name
-			tierRefId, getNetErr := vpcHandler.getTierRefIdWithTierName(subnetName)
+			// Get tier Network ID from tier name
+			vmTierRefId, getNetErr := vpcHandler.getTierRefIdWithTierName(subnetName)
 			if getNetErr != nil {
 				newErr := fmt.Errorf("Failed to Get tier ID with name [%s]: %w", subnetName, getNetErr)
 				cblogger.Error(newErr.Error())
 				loggingError(callLogInfo, newErr)
 				return irs.VMGroupInfo{}, newErr
 			}
-			vmInfo.SubnetID = *tierRefId
+			vmInfo.SubnetID = *vmTierRefId
 
 			// Validate VM is in the same subnet as NLB
-			if vmInfo.SubnetID != nlbSubnetId {
+			if *nlbTierRefId != vmInfo.SubnetID {
 				newErr := fmt.Errorf("KT Cloud NLB requires all VMs to be in the same subnet as the NLB. NLB is in subnet '%s', but VM '%s' is in subnet '%s'. Please ensure the VM is in the same subnet as the NLB",
-					nlbSubnetId, vmIID.NameId, vmInfo.SubnetID)
+					*nlbTierRefId, vmIID.NameId, vmInfo.SubnetID)
 				cblogger.Error(newErr.Error())
 				loggingError(callLogInfo, newErr)
 				return irs.VMGroupInfo{}, newErr
@@ -1066,7 +1033,7 @@ func (nlbHandler *KTVpcNLBHandler) getNlbServiceIdWithVMId(nlbId string, vmId st
 	}
 
 	if strings.EqualFold(serviceID, "") {
-		newErr := fmt.Errorf("Failed to Find the Service ID with the VM ID!!")
+		newErr := fmt.Errorf("Failed to Find the Service ID with the VM ID(%s)!!", vmId)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
@@ -1624,16 +1591,6 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 	}
 	cblogger.Infof("External network ID: %s", *extNetId)
 
-	// Get tier network ID
-	networkId, err := vpcHandler.getNetworkIdWithTierId(ktNLB.NetworkID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Tier Network ID: %w", err)
-		cblogger.Error(newErr.Error())
-		loggingError(callLogInfo, newErr)
-		return newErr
-	}
-	cblogger.Infof("Tier network ID: %s", *networkId)
-
 	// Convert service type to protocol
 	protocol := ktNLB.ServiceType
 	var protocols []string
@@ -1656,7 +1613,7 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 		cblogger.Infof("Creating firewall rules for protocol: %s", curProtocol)
 
 		// Create inbound firewall rule
-		if err := nlbHandler.createStaticNatInboundFirewallRule(ktNLB, publicIP, staticNatId, curProtocol, *extNetId, *networkId); err != nil {
+		if err := nlbHandler.createStaticNatInboundFirewallRule(ktNLB, publicIP, staticNatId, curProtocol, *extNetId); err != nil {
 			newErr := fmt.Errorf("Failed to create inbound firewall rule for %s: %w", curProtocol, err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
@@ -1664,7 +1621,7 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 		}
 
 		// Create outbound firewall rule
-		if err := nlbHandler.createStaticNatOutboundFirewallRule(ktNLB, curProtocol, *extNetId, *networkId); err != nil {
+		if err := nlbHandler.createStaticNatOutboundFirewallRule(ktNLB, curProtocol, *extNetId, ktNLB.NetworkID); err != nil {
 			newErr := fmt.Errorf("Failed to create outbound firewall rule for %s: %w", curProtocol, err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
@@ -1676,7 +1633,7 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 }
 
 // ### createInboundFirewallRule creates an inbound firewall rule for the specified protocol 'fot StaticNAT'
-func (nlbHandler *KTVpcNLBHandler) createStaticNatInboundFirewallRule(ktNLB *ktvpclb.LoadBalancer, publicIP, staticNatId, protocol, extNetId, networkId string) error {
+func (nlbHandler *KTVpcNLBHandler) createStaticNatInboundFirewallRule(ktNLB *ktvpclb.LoadBalancer, publicIP, staticNatId, protocol, extNetId string) error {
 	cblogger.Info("KT Cloud VPC Driver: called createInboundFirewallRule()")
 	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", ktNLB.NlbID, "createInboundFirewallRule()")
 
