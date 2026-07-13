@@ -97,7 +97,6 @@ func GetSecurityGroup(vmID string) (*SecurityGroupInfo, error) {
 	err := infostore.Get(&sgInfo, KEY_COLUMN_NAME, vmID)
 	if err != nil {
 		cblogger.Debug(err)
-		// return nil, err
 	}
 
 	return &sgInfo, err
