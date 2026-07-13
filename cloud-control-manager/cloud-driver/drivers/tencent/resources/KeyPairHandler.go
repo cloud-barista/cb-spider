@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -343,7 +344,7 @@ func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 		//cblogger.Debug(keyPairInfo)
 		return keyPairInfo, nil
 	} else {
-		return irs.KeyPairInfo{}, errors.New("I couldn't find the information.")
+		return irs.KeyPairInfo{}, fmt.Errorf("The KeyPair [%s] not found", keyIID.SystemId)
 	}
 }
 
