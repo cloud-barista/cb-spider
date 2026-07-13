@@ -14,6 +14,7 @@ package resources
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -655,6 +656,9 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 	}
 
 	cblogger.Info("securityInfo : ", securityInfo)
+	if securityInfo.IId.SystemId == "" {
+		return irs.SecurityInfo{}, fmt.Errorf("The SecurityGroup [%s] not found", securityGroupTag)
+	}
 	return securityInfo, nil
 }
 
