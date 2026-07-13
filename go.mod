@@ -64,13 +64,14 @@ require (
 	github.com/alibabacloud-go/tea v1.3.11
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20251103105234-6cbc5279b7fb
-	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20260712154229-92f96cb02863
+	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20260713072217-58ff4a0ab139
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20260522111605-48d0ba7e7251
 	github.com/glebarez/go-sqlite v1.21.2
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-openapi/strfmt v0.25.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/goccy/go-json v0.10.5
+	github.com/gophercloud/gophercloud v1.14.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-version v1.6.0
 	github.com/itchyny/gojq v0.12.17
