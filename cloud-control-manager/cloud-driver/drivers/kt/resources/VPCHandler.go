@@ -736,9 +736,10 @@ func (vpcHandler *KTVpcVPCHandler) getNetworkIdWithTierId(tierId string) (*strin
 	return &subnetAdrsList[0].NetworkID, nil
 }
 
-func (vpcHandler *KTVpcVPCHandler) getTierIdWithTierName(tierName string) (*string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called getTierIdWithTierName()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, tierName, "getTierIdWithTierName()")
+
+func (vpcHandler *KTVpcVPCHandler) getTierNetIdWithTierName(tierName string) (*string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called getTierNetIdWithTierName()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, tierName, "getTierNetIdWithTierName()")
 
 	if strings.EqualFold(tierName, "") {
 		newErr := fmt.Errorf("Invalid Subnet(Tier) Name!!")
@@ -757,38 +758,75 @@ func (vpcHandler *KTVpcVPCHandler) getTierIdWithTierName(tierName string) (*stri
 	}
 	loggingInfo(callLogInfo, start)
 
-	var tierId string
+	var tierNetId string
 	for _, subnet := range subnets {
 		if strings.EqualFold(subnet.RefName, tierName) {
-			tierId = subnet.RefID
+			tierNetId = subnet.NetworkID // Not RefId but NetworkID
 			break
 		}
 	}
-	if strings.EqualFold(tierId, "") {
+	if strings.EqualFold(tierNetId, "") {
 		newErr := fmt.Errorf("Failed to Find the Subnet(Tier) ID!!")
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
-	return &tierId, nil
+	return &tierNetId, nil
 }
 
-func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierId(tierId string) (*string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called getVPCIdWithTierId()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, tierId, "getVPCIdWithTierId()")
+func (vpcHandler *KTVpcVPCHandler) getTierRefIdWithTierName(tierName string) (*string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called getTierRefIdWithTierName()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, tierName, "getTierRefIdWithTierName()")
 
-	if strings.EqualFold(tierId, "") {
-		newErr := fmt.Errorf("Invalid Subnet(Tier) ID!!")
+	if strings.EqualFold(tierName, "") {
+		newErr := fmt.Errorf("Invalid Subnet(Tier) Name!!")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	// cblogger.Infof("# Subnet(Tier) ID to Find Network ID : %s", tierId)
+
+	// Get Subnet list
+	start := call.Start()
+	subnets, err := vpcHandler.listKTSubnet() // ALL Subnet : TRUST and UNTRUST
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Subnet list!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	loggingInfo(callLogInfo, start)
+
+	var tierRefId string
+	for _, subnet := range subnets {
+		if strings.EqualFold(subnet.RefName, tierName) {
+			tierRefId = subnet.RefID // Not NetworkID but RefID
+			break
+		}
+	}
+	if strings.EqualFold(tierRefId, "") {
+		newErr := fmt.Errorf("Failed to Find the Subnet(Tier) ID!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	return &tierRefId, nil
+}
+
+// Get VPC ID with Tier 'NetworkID'
+func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierNetId(tierNetworkId string) (*string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called getVPCIdWithTierNetId()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, tierNetworkId, "getVPCIdWithTierNetId()")
+
+	if strings.EqualFold(tierNetworkId, "") {
+		newErr := fmt.Errorf("Invalid Subnet(Tier) NetworkID!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	cblogger.Infof("# Subnet(Tier) Network ID to Find Network ID : %s", tierNetworkId)
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 	1,
-		Size: 	20,
-		RefID: 	tierId, // Tier Id
+		Page: 		1,
+		Size: 		20,
+		NetworkID: 	tierNetworkId, // Tier NetworkID (Not RefID parameter)
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
@@ -821,10 +859,77 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierId(tierId string) (*string, e
 			return nil, newErr
 		}
 	}
+	if !strings.EqualFold(subnetAdrsList[0].VpcID, "") {
+		cblogger.Infof("# VPC ID : [%s]", subnetAdrsList[0].VpcID)
+	}	
 
 	// Caution!!
 	if len(subnetAdrsList) == 0 || strings.EqualFold(subnetAdrsList[0].VpcID, "") {
-		newErr := fmt.Errorf("No NetworkId found with the TierId")
+		newErr := fmt.Errorf("No NetworkId found with the Tier NetworkId")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	return &subnetAdrsList[0].VpcID, nil
+}
+
+// Get VPC ID with Tier 'RefID'
+func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierRefId(tierRefId string) (*string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called getVPCIdWithTierRefId()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, tierRefId, "getVPCIdWithTierRefId()")
+
+	if strings.EqualFold(tierRefId, "") {
+		newErr := fmt.Errorf("Invalid Subnet(Tier) RefID!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	cblogger.Infof("# Subnet(Tier) Network ID to Find Network ID : %s", tierRefId)
+
+	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
+	listOpts := subnets.ListOpts{
+		Page: 		1,
+		Size: 		20,
+		RefID: 	tierRefId, // Tier RefID (Not NetworkID parameter)
+	}
+	start := call.Start()
+	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
+	loggingInfo(callLogInfo, start)
+	
+	var subnetAdrsList []*subnets.Subnet
+	err := pager.EachPage(func(page pagination.Page) (bool, error) {
+		subnetlist, err := subnets.ExtractSubnets(page)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Extract Subnet list : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return false, newErr
+		}
+		if len(subnetlist) < 1 {
+			newErr := fmt.Errorf("Failed to Get Any Subnet Info.")
+			cblogger.Infof("No Subent found : %v", newErr)
+			return false, newErr
+		}
+		for _, subnet := range subnetlist {
+			subnetAdrsList = append(subnetAdrsList, &subnet)
+		}
+	
+		return true, nil
+	})
+	if err != nil {
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get Subnet list : [%v]", err)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return nil, newErr
+		}
+	}
+	if !strings.EqualFold(subnetAdrsList[0].VpcID, "") {
+		cblogger.Infof("# VPC ID : [%s]", subnetAdrsList[0].VpcID)
+	}	
+
+	// Caution!!
+	if len(subnetAdrsList) == 0 || strings.EqualFold(subnetAdrsList[0].VpcID, "") {
+		newErr := fmt.Errorf("No NetworkId found with the Tier NetworkId")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
@@ -1032,7 +1137,7 @@ func (vpcHandler *KTVpcVPCHandler) getSubnet(subnetIID irs.IID) (irs.SubnetInfo,
         cblogger.Infof("Using provided SystemId (TierId): %s", tierId)
     } else {
         // Get tier ID from tier name
-        tierIdPtr, getErr := vpcHandler.getTierIdWithTierName(subnetIID.NameId)
+        tierIdPtr, getErr := vpcHandler.getTierRefIdWithTierName(subnetIID.NameId)
         if getErr != nil {
             newErr := fmt.Errorf("failed to get tier ID with name [%s]: %w", subnetIID.NameId, getErr)
             cblogger.Error(newErr.Error())

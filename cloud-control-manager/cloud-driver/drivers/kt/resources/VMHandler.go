@@ -9,6 +9,7 @@
 // by ETRI, 2022.12.
 // Updated by ETRI 2024.01.
 // Updated by ETRI 2025.11.
+// Updated by ETRI 2026.07.
 
 package resources
 
@@ -1241,7 +1242,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		cblogger.Debug(getSGErr)
 		// return irs.VMInfo{}, getSGErr
 	}
-	if countSgKvList(*sgInfo) > 0 {
+	if sgInfo != nil && countSgKvList(*sgInfo) > 0 {
 		// Since S/G is managed as a file, the systemID is the same as the name ID.
 		var sgIIDs []irs.IID
 		for _, kv := range sgInfo.KeyValueInfoList {
@@ -1328,15 +1329,18 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			}
 		}
 	}
-
-	netInfo, err := vmHandler.getNetIDsWithPrivateIP(vmInfo.PrivateIP)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get PortForwarding Info. [%v]", err)
-		cblogger.Debug(newErr.Error())
-		// return irs.VMInfo{}, nil
-		// return irs.VMInfo{}, newErr
+	
+	var netInfo *NetworkInfo
+	if !strings.EqualFold(vmInfo.PrivateIP, "") {
+		var getNetErr error
+		netInfo, getNetErr = vmHandler.getNetIDsWithPrivateIP(vmInfo.PrivateIP)
+		if getNetErr != nil {
+			newErr := fmt.Errorf("Failed to Get PortForwarding Info. [%v]", getNetErr)
+			cblogger.Debug(newErr.Error())
+			// return irs.VMInfo{}, nil
+			// return irs.VMInfo{}, newErr
+		}
 	}
-
 	// cblogger.Info("\n\n### netInfo : ")
 	// spew.Dump(netInfo)
 	// cblogger.Info("\n")
@@ -1358,17 +1362,17 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 	// 	cblogger.Infof("# OsNetwork ID : %s", OsNetId)
 	// }
 
-	tierId, getNetErr := vpcHandler.getTierIdWithTierName(vmInfo.SubnetIID.NameId)
+	tierRefId, getNetErr := vpcHandler.getTierRefIdWithTierName(vmInfo.SubnetIID.NameId)
 	if getNetErr != nil {
 		newErr := fmt.Errorf("Failed to Get the OsNetwork ID with the Tier Name : [%v]", getNetErr)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}
-	if tierId != nil {
-		vmInfo.SubnetIID.SystemId = *tierId // Caution!!) Not Tier 'NetworkId' but 'TierId' to Create VM through REST API!!
+	if tierRefId != nil {
+		vmInfo.SubnetIID.SystemId = *tierRefId // Caution!!) Not Tier 'NetworkId' but 'tierRefId' to Create VM through REST API!!
 	}
 
-	vpcId, err := vpcHandler.getVPCIdWithTierId(*tierId)
+	vpcId, err := vpcHandler.getVPCIdWithTierRefId(*tierRefId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VPC ID with teh OsNetwork ID. [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -1818,7 +1822,7 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 		return false, newErr
 	}
 
-	cblogger.Info("Cloud driver: called listFirewallRule()!!")
+	cblogger.Info("listFirewallRule()!!")
 	fwRuleList, err := vmHandler.listFirewallRule()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Firewall Rule List. [%v]", err)
@@ -1830,6 +1834,8 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 		cblogger.Debug(newErr.Error())
 		return true, nil // Not false, newErr
 	}
+	// cblogger.Infof("/n＃ fwRuleList :")
+	// spew.Dump(fwRuleList)
 
 	policyIDs, err := vmHandler.findFirewallPolicyIDsByIP(fwRuleList, ip)
 	if err != nil {
@@ -1846,6 +1852,7 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 
 	// Deletes all firewall rules matching the given policyIDs.
 	for _, policyID := range policyIDs {
+		cblogger.Infof("＃ PolicyID: %s", policyID)
 		result := rules.Delete(vmHandler.NetworkClient, policyID)
 		if result.Err != nil {
 			errMsg := result.Err.Error()
@@ -2226,7 +2233,7 @@ func (vmHandler *KTVpcVMHandler) getVmPrivateIpAndNetIdWithVMId(vmId string) (st
 		RegionInfo:    vmHandler.RegionInfo,
 		NetworkClient: vmHandler.NetworkClient, // Required!!
 	}
-	tierId, getOsNetErr := vpcHandler.getTierIdWithTierName(subnetName)
+	tierId, getOsNetErr := vpcHandler.getTierRefIdWithTierName(subnetName)
 	if getOsNetErr != nil {
 		newErr := fmt.Errorf("Failed to Get the OsNetwork ID with the Tier Name : [%v]", getOsNetErr)
 		cblogger.Error(newErr.Error())

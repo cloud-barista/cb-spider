@@ -8,6 +8,7 @@
 //
 // by ETRI Team, 2024.02.
 // Updated by ETRI Team, 2025.11.
+// Updated by ETRI Team, 2026.07.
 
 package resources
 
@@ -18,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -40,7 +40,7 @@ type KTVpcNLBHandler struct {
 }
 
 const (
-	DefaultNLBOption      string = "roundrobin" // NLBOption : roundrobin / leastconnection / leastresponse / sourceiphash /
+	DefaultNLBOption      string = "ROUNDROBIN" // NLBOption : ROUNDROBIN | LEASTCONNECTION | LEASTRESPONSE | SOURCEIPHASH | SRCIPSRCPORTHASH
 	DefaultHealthCheckURL string = "abc.kt.com"
 )
 
@@ -93,42 +93,39 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		return irs.NLBInfo{}, newErr
 	}
 
-	/*
-		vpcHandler := KTVpcVPCHandler{
-			RegionInfo:    nlbHandler.RegionInfo,
-			NetworkClient: nlbHandler.NetworkClient, // Required!!
-		}
-		tierId, getError := vpcHandler.getTierIdWithTierName(NlbSubnetName)
-		if getError != nil {
-			newErr := fmt.Errorf("Failed to Get the Tier ID of the 'NLB-Subnet' : [%v]", getError)
-			cblogger.Error(newErr.Error())
-			return irs.NLBInfo{}, newErr
-		} else {
-			cblogger.Infof("# Tier ID of NLB-SUBNET : %s", *tierId)
-		}
-	*/
-
-	// Get subnet where VMGroup VMs belong
-	vmGroupSubnetId, err := nlbHandler.getSubnetOfVMGroup(ctx, nlbReqInfo.VMGroup)
+	// Get Tier Network ID where VMGroup VMs belong
+	vmGroupTierNetId, err := nlbHandler.getTierNetIdOfVMGroup(ctx, nlbReqInfo.VMGroup)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VMGroup Subnet ID : %w", err)
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
-	cblogger.Infof("VMGroup Subnet ID: %s", vmGroupSubnetId)
+	cblogger.Infof("VMGroup Tier Network ID: %s", vmGroupTierNetId)
 
 	cblogger.Info("### Start to Create New NLB!!")
+	servicePort, err := strconv.Atoi(nlbReqInfo.Listener.Port)
+	if err != nil {
+		newErr := fmt.Errorf("Invalid Listener Port : [%w]", err)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.NLBInfo{}, newErr
+	}
+	
+	healthCheckURL := ""
+	if strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "HTTP") || strings.EqualFold(nlbReqInfo.HealthChecker.Protocol, "HTTPS") {
+		healthCheckURL = DefaultHealthCheckURL
+	}
+
 	createOpts := ktvpclb.CreateOpts{
-		Name:            nlbReqInfo.IId.NameId,             // Required
-		ZoneID:          nlbHandler.RegionInfo.Zone,        // Required
-		NlbOption:       DefaultNLBOption,                  // Required
-		ServiceIP:       "",                                // Required. KT Cloud Virtual IP. $$$ In case of an empty value(""), it is newly created.
-		ServicePort:     nlbReqInfo.Listener.Port,          // Required
+		Name:            nlbReqInfo.IId.NameId,             // Required. Load Balancer name
+		NlbOption:       DefaultNLBOption,                  // Load Balancer option
+		ServiceIP:       "",                                // KT Cloud Virtual IP. $$$ In case of an empty value(""), it is newly created.
+		ServicePort:     servicePort,                       // Required
 		ServiceType:     nlbReqInfo.Listener.Protocol,      // Required
-		HealthCheckType: nlbReqInfo.HealthChecker.Protocol, // Required
-		HealthCheckURL:  DefaultHealthCheckURL,             // URL when the HealthCheckType (above) is 'http' or 'https'.
-		NetworkID:       vmGroupSubnetId,                   // Required. Caution!!) Not Tier 'ID' but 'NetworkID' of the Tier!!
+		HealthCheckType: nlbReqInfo.HealthChecker.Protocol, // Health Check type
+		HealthCheckURL:  healthCheckURL,                    // URL when the HealthCheckType (above) is 'HTTP' or 'HTTPS'.
+		NetworkID:       vmGroupTierNetId,                  // Required. Caution!!) Not Tier 'ID' but 'NetworkID' of the Tier!!
 	}
 	start := call.Start()
 	resp, err := ktvpclb.Create(nlbHandler.NLBClient, createOpts).ExtractCreate() // Not 'NetworkClient'
@@ -140,39 +137,26 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 	}
 	loggingInfo(callLogInfo, start)
 
-	nlbIdStr := strconv.Itoa(resp.Createnlbresponse.NLBId)
+	nlbIdStr := resp.Data.LoadBalancerID
 	cblogger.Infof("# ID of the NLB being created : %s", nlbIdStr)
 	cblogger.Infof("# Full API Response: %+v", resp)
 
-	// Check if API returned an error (check ErrorCode, ErrorText, or DisplayText)
-	if resp.Createnlbresponse.ErrorCode != "" || resp.Createnlbresponse.ErrorText != "" ||
-		(resp.Createnlbresponse.DisplayText != "" && resp.Createnlbresponse.NLBId == 0) {
-		// DisplayText often contains error messages like "internal server error"
-		newErr := fmt.Errorf("KT Cloud NLB creation failed - ErrorCode: %s, ErrorText: %s, DisplayText: %s",
-			resp.Createnlbresponse.ErrorCode,
-			resp.Createnlbresponse.ErrorText,
-			resp.Createnlbresponse.DisplayText)
-		cblogger.Error(newErr.Error())
-		loggingError(callLogInfo, newErr)
-		return irs.NLBInfo{}, newErr
-	}
-
-	// Check if NLB creation was successful
-	if resp.Createnlbresponse.NLBId == 0 {
-		// NLB ID 0 usually indicates creation failure
-		cblogger.Warn("Received NLB ID 0 from KT Cloud (no explicit error in response).")
+	// Check if NLB creation was successful. The new API returns the new LB id in 'data.loadbalancerId'.
+	if strings.EqualFold(nlbIdStr, "") {
+		// An empty ID usually indicates creation failure
+		cblogger.Warn("Received an empty NLB ID from KT Cloud (no explicit error in response).")
 
 		// Check if VMs were provided
 		hasVMs := nlbReqInfo.VMGroup.VMs != nil && len(*nlbReqInfo.VMGroup.VMs) > 0
 		if !hasVMs {
-			newErr := fmt.Errorf("KT Cloud NLB creation returned ID 0. KT Cloud may require at least one VM to create NLB. Please add VMs to the NLB request and try again")
+			newErr := fmt.Errorf("KT Cloud NLB creation returned an empty ID. KT Cloud may require at least one VM to create NLB. Please add VMs to the NLB request and try again")
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
 			return irs.NLBInfo{}, newErr
 		}
 
-		// If VMs were provided but still got ID 0, wait and try to find by name
-		cblogger.Warn("VMs were provided but received ID 0. Waiting and searching by name...")
+		// If VMs were provided but still got an empty ID, wait and try to find by name
+		cblogger.Warn("VMs were provided but received an empty ID. Waiting and searching by name...")
 		time.Sleep(time.Second * 15)
 
 		foundNLB, findErr := nlbHandler.getKtNlbWithName(nlbReqInfo.IId.NameId)
@@ -183,7 +167,7 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			return irs.NLBInfo{}, newErr
 		}
 
-		nlbIdStr = strconv.Itoa(foundNLB.NlbID)
+		nlbIdStr = foundNLB.NlbID
 		cblogger.Infof("Found NLB by name with ID: %s", nlbIdStr)
 	} else {
 		// # Note) KtNlbInfo.State is info. related to VMGroup HealthInfo. (not related to the operational status.)
@@ -221,22 +205,6 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		loggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
-
-	// createTagOpts := ktvpclb.CreateTagOpts{
-	// 	NlbID:           	strconv.Itoa(ktNLB.NlbID),  			// Required
-	// 	Tag:         		publicIp, 								// Required
-	// }
-	// _, tagErr := ktvpclb.CreateTag(nlbHandler.NLBClient, createTagOpts).Extract() // Not 'NetworkClient'
-	// if tagErr != nil {
-	// 	newErr := fmt.Errorf("Failed to Create the Tag : [%v]", tagErr.Error())
-	// 	cblogger.Error(newErr.Error())
-	// 	loggingError(callLogInfo, newErr)
-	// 	return irs.NLBInfo{}, newErr
-	// }
-	// loggingInfo(callLogInfo, start)
-
-	// cblogger.Info("\n### Creating New Tag!!")
-	// time.Sleep(time.Second * 3)
 
 	nlbIID := irs.IID{SystemId: nlbIdStr}
 	nlbInfo, getErr := nlbHandler.GetNLB(nlbIID)
@@ -313,11 +281,17 @@ func (nlbHandler *KTVpcNLBHandler) createVMGroup(nlbId string, nlbReqInfo irs.NL
 	}
 
 	for _, vm := range vmInfoList {
+		serviceType := ""
+		if strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTP") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTPS") {
+			serviceType = nlbReqInfo.Listener.Protocol
+		}
+
 		addOpts := ktvpclb.AddServerOpts{
-			NlbID:      nlbId,                   // Required
-			VMID:       vm.VmID,                 // Required
-			IPAddress:  vm.PrivateIP,            // Required
-			PublicPort: nlbReqInfo.VMGroup.Port, // Required
+			NlbID:       nlbId,                   // Required
+			VMID:        vm.VmID,                 // Required
+			IPAddress:   vm.PrivateIP,            // Required
+			PublicPort:  nlbReqInfo.VMGroup.Port, // Required
+			ServiceType: serviceType,             // HTTP | HTTPS only
 		}
 		start := call.Start()
 		_, err := ktvpclb.AddServer(nlbHandler.NLBClient, addOpts).Extract() // Not 'NetworkClient'
@@ -350,7 +324,7 @@ func (nlbHandler *KTVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var nlbCount int
 
 	listOpts := ktvpclb.ListOpts{
-		ZoneID: nlbHandler.RegionInfo.Zone,
+		Size: 2000, // Max page size, to list all NLBs in a single page
 	}
 	// Paginate through results
 	err := ktvpclb.List(nlbHandler.NLBClient, listOpts).EachPage(func(page pagination.Page) (bool, error) {
@@ -439,16 +413,6 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	/*
-		ktNLB, err := nlbHandler.getKtNlbInfo(nlbIID.SystemId)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get KT Cloud NLB info!! [%v]", err)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return false, newErr
-		}
-	*/
-
 	// Delete FirewallRules
 	dellVmErr := nlbHandler.deleteAllVMs(nlbIID)
 	if dellVmErr != nil {
@@ -499,8 +463,8 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	// Caution) Before deleting the StaticNAT, must first delete the firewall settings.
 	// Delete FirewallRules, Static NAT and Public IP
 	if !strings.EqualFold(publicIp, "") {
-
 		// Delete FirewallRules
+		cblogger.Info("### Deleting Firewall Rules of the StaticNAT!!")
 		_, dellFwErr := vmHandler.removeFirewallRules(publicIp)
 		if dellFwErr != nil {
 			cblogger.Error(dellFwErr.Error())
@@ -598,15 +562,7 @@ func (nlbHandler *KTVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 		loggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
 	}
-	nlbSubnetId := ktNLB.NetworkID
-	cblogger.Infof("NLB is in subnet (tier): %s", nlbSubnetId)
-
-	type VMInfo struct {
-		VmID      string
-		PrivateIP string
-		SubnetID  string
-		VMName    string
-	}
+	nlbTierNetworkId := ktNLB.NetworkID
 
 	vmHandler := KTVpcVMHandler{
 		RegionInfo:    nlbHandler.RegionInfo,
@@ -617,6 +573,22 @@ func (nlbHandler *KTVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 	vpcHandler := KTVpcVPCHandler{
 		RegionInfo:    nlbHandler.RegionInfo,
 		NetworkClient: nlbHandler.NetworkClient,
+	}
+
+	nlbTierRefId, getTierErr := vpcHandler.getTierIdWithNetworkId(nlbTierNetworkId)
+	if getTierErr != nil {
+		newErr := fmt.Errorf("Failed to Get TierRefId with NLB Tier Network ID [%s]: %w", nlbTierNetworkId, getTierErr)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+	cblogger.Infof("NLB is in Subnet(tier): %s", *nlbTierRefId)
+
+	type VMInfo struct {
+		VmID      string
+		PrivateIP string
+		SubnetID  string
+		VMName    string
 	}
 
 	var vmInfo VMInfo
@@ -656,20 +628,20 @@ func (nlbHandler *KTVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 				return irs.VMGroupInfo{}, newErr
 			}
 
-			// Get tier ID from tier name
-			tierId, getNetErr := vpcHandler.getTierIdWithTierName(subnetName)
+			// Get tier Network ID from tier name
+			vmTierRefId, getNetErr := vpcHandler.getTierRefIdWithTierName(subnetName)
 			if getNetErr != nil {
 				newErr := fmt.Errorf("Failed to Get tier ID with name [%s]: %w", subnetName, getNetErr)
 				cblogger.Error(newErr.Error())
 				loggingError(callLogInfo, newErr)
 				return irs.VMGroupInfo{}, newErr
 			}
-			vmInfo.SubnetID = *tierId
+			vmInfo.SubnetID = *vmTierRefId
 
 			// Validate VM is in the same subnet as NLB
-			if vmInfo.SubnetID != nlbSubnetId {
+			if *nlbTierRefId != vmInfo.SubnetID {
 				newErr := fmt.Errorf("KT Cloud NLB requires all VMs to be in the same subnet as the NLB. NLB is in subnet '%s', but VM '%s' is in subnet '%s'. Please ensure the VM is in the same subnet as the NLB",
-					nlbSubnetId, vmIID.NameId, vmInfo.SubnetID)
+					*nlbTierRefId, vmIID.NameId, vmInfo.SubnetID)
 				cblogger.Error(newErr.Error())
 				loggingError(callLogInfo, newErr)
 				return irs.VMGroupInfo{}, newErr
@@ -697,11 +669,17 @@ func (nlbHandler *KTVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 	vmGroupPort := vmGroupInfo.Port
 
 	for _, vm := range vmInfoList {
+		serviceType := ""
+		if strings.EqualFold(ktNLB.ServiceType, "HTTP") || strings.EqualFold(ktNLB.ServiceType, "HTTPS") {
+			serviceType = ktNLB.ServiceType
+		}
+
 		addOpts := ktvpclb.AddServerOpts{
-			NlbID:      nlbIID.SystemId, // Required
-			VMID:       vm.VmID,         // Required
-			IPAddress:  vm.PrivateIP,    // Required
-			PublicPort: vmGroupPort,     // Required
+			NlbID:       nlbIID.SystemId, // Required
+			VMID:        vm.VmID,         // Required
+			IPAddress:   vm.PrivateIP,    // Required
+			PublicPort:  vmGroupPort,     // Required
+			ServiceType: serviceType,     // HTTP | HTTPS only
 		}
 		start := call.Start()
 		_, err := ktvpclb.AddServer(nlbHandler.NLBClient, addOpts).Extract() // Not 'NetworkClient'
@@ -803,7 +781,8 @@ func (nlbHandler *KTVpcNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		}
 
 		removeOpts := ktvpclb.RemoveServerOpts{
-			ServiceID: serviceId, // Required. Not VMID
+			NlbID:     nlbIID.SystemId, // Required
+			ServiceID: serviceId,       // Required. Not VMID
 		}
 		start := call.Start()
 		_, rmErr := ktvpclb.RemoveServer(nlbHandler.NLBClient, removeOpts).Extract() // Not 'NetworkClient'
@@ -866,7 +845,7 @@ func (nlbHandler *KTVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Hea
 
 		allVMs = append(allVMs, irs.IID{NameId: vmName, SystemId: vm.VmID})
 
-		if strings.EqualFold(vm.VmState, "UP") {
+		if strings.EqualFold(vm.MonitorState, "UP") {
 			// cblogger.Infof("\n### [%s] is Healthy VM.", vm.Name)
 			healthVMs = append(healthVMs, irs.IID{NameId: vmName, SystemId: vm.VmID})
 		} else {
@@ -890,7 +869,7 @@ func (nlbHandler *KTVpcNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healt
 func (nlbHandler *KTVpcNLBHandler) getListenerInfo(nlb *ktvpclb.LoadBalancer) (irs.ListenerInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getListenerInfo()")
 
-	nlbId := strconv.Itoa(nlb.NlbID)
+	nlbId := nlb.NlbID
 	InitLog()
 	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getListenerInfo()")
 
@@ -904,7 +883,7 @@ func (nlbHandler *KTVpcNLBHandler) getListenerInfo(nlb *ktvpclb.LoadBalancer) (i
 	listenerInfo := irs.ListenerInfo{
 		Protocol: nlb.ServiceType,
 		IP:       nlb.ServiceIP,
-		Port:     nlb.ServicePort,
+		Port:     strconv.Itoa(nlb.ServicePort),
 		// DNSName:		"NA",
 		// CspID: 		"NA",
 		// KeyValueList:   irs.StructToKeyValueList(nlb),
@@ -915,7 +894,7 @@ func (nlbHandler *KTVpcNLBHandler) getListenerInfo(nlb *ktvpclb.LoadBalancer) (i
 func (nlbHandler *KTVpcNLBHandler) getHealthCheckerInfo(nlb *ktvpclb.LoadBalancer) (irs.HealthCheckerInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getHealthCheckerInfo()")
 
-	nlbId := strconv.Itoa(nlb.NlbID)
+	nlbId := nlb.NlbID
 	InitLog()
 	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getHealthCheckerInfo()")
 
@@ -928,7 +907,7 @@ func (nlbHandler *KTVpcNLBHandler) getHealthCheckerInfo(nlb *ktvpclb.LoadBalance
 
 	healthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol: nlb.HealthCheckType,
-		Port:     nlb.ServicePort,
+		Port:     strconv.Itoa(nlb.ServicePort),
 		// CspID: 		"NA",
 	}
 	return healthCheckerInfo, nil
@@ -968,15 +947,15 @@ func (nlbHandler *KTVpcNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupInfo
 		// Return VMGroupInfo with basic protocol and port info from NLB, even when no VMs exist
 		vmGroupInfo := irs.VMGroupInfo{
 			Protocol: ktNLB.ServiceType,
-			Port:     ktNLB.ServicePort,
+			Port:     strconv.Itoa(ktNLB.ServicePort),
 			VMs:      &[]irs.IID{}, // Empty VM list
 		}
 		return vmGroupInfo, nil
 	}
 
 	vmGroupInfo := irs.VMGroupInfo{
-		Protocol: ktNLB.ServiceType,       // Caution!!
-		Port:     nlbVmList[0].PublicPort, // In case, Any VM exists
+		Protocol: ktNLB.ServiceType,                    // Caution!!
+		Port:     strconv.Itoa(nlbVmList[0].PublicPort), // In case, Any VM exists
 		// CspID:    	"NA",
 		KeyValueList: irs.StructToKeyValueList(nlbVmList[0]),
 	}
@@ -1002,7 +981,7 @@ func (nlbHandler *KTVpcNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupInfo
 
 		keyValue := irs.KeyValue{
 			Key:   vmName + "_ServiceId",
-			Value: strconv.Itoa(vm.ServiceID),
+			Value: vm.ServiceID,
 		}
 		vmGroupInfo.KeyValueList = append(vmGroupInfo.KeyValueList, keyValue)
 
@@ -1048,13 +1027,13 @@ func (nlbHandler *KTVpcNLBHandler) getNlbServiceIdWithVMId(nlbId string, vmId st
 	var serviceID string
 	for _, vm := range nlbVmList {
 		if strings.EqualFold(vm.VmID, vmId) {
-			serviceID = strconv.Itoa(vm.ServiceID)
+			serviceID = vm.ServiceID
 			break
 		}
 	}
 
 	if strings.EqualFold(serviceID, "") {
-		newErr := fmt.Errorf("Failed to Find the Service ID with the VM ID!!")
+		newErr := fmt.Errorf("Failed to Find the Service ID with the VM ID(%s)!!", vmId)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
@@ -1065,12 +1044,17 @@ func (nlbHandler *KTVpcNLBHandler) getNlbServiceIdWithVMId(nlbId string, vmId st
 func (nlbHandler *KTVpcNLBHandler) mappingNlbInfo(nlb *ktvpclb.LoadBalancer) (irs.NLBInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called mappingNlbInfo()")
 
+	if strings.EqualFold(nlb.NetworkID, "") {
+		newErr := fmt.Errorf("Invalid nlb.NetworkID!!")
+		cblogger.Error(newErr.Error())		
+		return irs.NLBInfo{}, newErr
+	}
+
 	vpcHandler := KTVpcVPCHandler{
 		RegionInfo:    nlbHandler.RegionInfo,
 		NetworkClient: nlbHandler.NetworkClient,
 	}
-
-	vpcId, err := vpcHandler.getVPCIdWithTierId(nlb.NetworkID)
+	vpcId, err := vpcHandler.getVPCIdWithTierNetId(nlb.NetworkID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VPC ID with the Tier ID : [%w]", err)
 		cblogger.Error(newErr.Error())
@@ -1080,7 +1064,7 @@ func (nlbHandler *KTVpcNLBHandler) mappingNlbInfo(nlb *ktvpclb.LoadBalancer) (ir
 	nlbInfo := irs.NLBInfo{
 		IId: irs.IID{
 			NameId:   nlb.Name,
-			SystemId: strconv.Itoa(nlb.NlbID),
+			SystemId: nlb.NlbID,
 		},
 		VpcIID: irs.IID{
 			// NameId:   "N/A", // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
@@ -1102,7 +1086,7 @@ func (nlbHandler *KTVpcNLBHandler) mappingNlbInfo(nlb *ktvpclb.LoadBalancer) (ir
 	}
 
 	// Get NLB info from DB
-	nlbDbInfo, getSGErr := nim.GetNlb(strconv.Itoa(nlb.NlbID))
+	nlbDbInfo, getSGErr := nim.GetNlb(nlb.NlbID)
 	if getSGErr != nil {
 		cblogger.Debug(getSGErr)
 		// return irs.VMInfo{}, getSGErr
@@ -1129,7 +1113,7 @@ func (nlbHandler *KTVpcNLBHandler) mappingNlbInfo(nlb *ktvpclb.LoadBalancer) (ir
 		nlbInfo.HealthChecker = healthCheckerInfo
 	}
 
-	vmGroupInfo, err := nlbHandler.getVMGroupInfo(strconv.Itoa(nlb.NlbID))
+	vmGroupInfo, err := nlbHandler.getVMGroupInfo(nlb.NlbID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VMGroup Info with the NLB ID : [%w]", err)
 		cblogger.Error(newErr.Error())
@@ -1152,8 +1136,7 @@ func (nlbHandler *KTVpcNLBHandler) getKtNlbInfo(nlbId string) (*ktvpclb.LoadBala
 
 	var nlbList []ktvpclb.LoadBalancer
 	listOpts := ktvpclb.ListOpts{
-		ZoneID: nlbHandler.RegionInfo.Zone,
-		NlbID:  nlbId,
+		NlbID: nlbId,
 	}
 	// Paginate through results
 	err := ktvpclb.List(nlbHandler.NLBClient, listOpts).EachPage(func(page pagination.Page) (bool, error) {
@@ -1197,8 +1180,7 @@ func (nlbHandler *KTVpcNLBHandler) getKtNlbWithName(nlbName string) (*ktvpclb.Lo
 	}
 
 	listOpts := ktvpclb.ListOpts{
-		ZoneID: nlbHandler.RegionInfo.Zone,
-		Name:   nlbName,
+		Name: nlbName,
 	}
 	start := call.Start()
 	firstPage, err := ktvpclb.List(nlbHandler.NLBClient, listOpts).FirstPage() // Not '~.AllPages()'
@@ -1333,7 +1315,7 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 
 	// Register NLB info to DB
 	providerName := "KTVPC"
-	nlbDbInfo, regErr := nim.RegisterNlb(strconv.Itoa(ktNLB.NlbID), providerName, keyValueList)
+	nlbDbInfo, regErr := nim.RegisterNlb(ktNLB.NlbID, providerName, keyValueList)
 	if regErr != nil {
 		cblogger.Error(regErr)
 		return regErr
@@ -1407,7 +1389,7 @@ func (nlbHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", "ListIID()", "ListIID()")
 
 	listOpts := ktvpclb.ListOpts{
-		ZoneID: nlbHandler.RegionInfo.Zone,
+		Size: 2000, // Max page size, to list all NLBs in a single page
 	}
 	start := call.Start()
 	firstPage, err := ktvpclb.List(nlbHandler.NLBClient, listOpts).FirstPage() // Not 'NetworkClient', Not 'AllPages()'
@@ -1434,7 +1416,7 @@ func (nlbHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 	for _, nlb := range nlbList {
 		iid := &irs.IID{
 			NameId:   nlb.Name,
-			SystemId: strconv.Itoa(nlb.NlbID),
+			SystemId: nlb.NlbID,
 		}
 		iidList = append(iidList, iid)
 	}
@@ -1444,9 +1426,9 @@ func (nlbHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 // getSubnetOfVMGroup finds the subnet (tier) where VMs in the VMGroup belong
 // Returns the subnet ID after validating all VMs are in the same subnet
 // KT Cloud NLB requires at least one VM and all VMs must be in the same subnet
-func (nlbHandler *KTVpcNLBHandler) getSubnetOfVMGroup(ctx context.Context, vmGroup irs.VMGroupInfo) (string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called getSubnetOfVMGroup()")
-	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", "VMGroup", "getSubnetOfVMGroup()")
+func (nlbHandler *KTVpcNLBHandler) getTierNetIdOfVMGroup(ctx context.Context, vmGroup irs.VMGroupInfo) (string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called getTierNetIdOfVMGroup()")
+	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", "VMGroup", "getTierNetIdOfVMGroup()")
 
 	// KT Cloud NLB requires at least one VM because NLB operates at subnet level
 	if vmGroup.VMs == nil || len(*vmGroup.VMs) == 0 {
@@ -1479,7 +1461,7 @@ func (nlbHandler *KTVpcNLBHandler) getSubnetOfVMGroup(ctx context.Context, vmGro
 
 	// Validate all VMs and collect their subnet IDs
 	vms := *vmGroup.VMs
-	var subnetIds []string
+	var tierNetIds []string
 	var vmNames []string
 
 	cblogger.Infof("Validating %d VMs for subnet consistency", len(vms))
@@ -1530,8 +1512,8 @@ func (nlbHandler *KTVpcNLBHandler) getSubnetOfVMGroup(ctx context.Context, vmGro
 			return "", newErr
 		}
 
-		// Get tier ID from tier name
-		tierId, getNetErr := vpcHandler.getTierIdWithTierName(subnetName)
+		// Get tier Network ID from tier name
+		tierNetId, getNetErr := vpcHandler.getTierNetIdWithTierName(subnetName)
 		if getNetErr != nil {
 			newErr := fmt.Errorf("Failed to Get tier ID with name [%s]: %w", subnetName, getNetErr)
 			cblogger.Error(newErr.Error())
@@ -1539,40 +1521,40 @@ func (nlbHandler *KTVpcNLBHandler) getSubnetOfVMGroup(ctx context.Context, vmGro
 			return "", newErr
 		}
 
-		subnetIds = append(subnetIds, *tierId)
-		vmNames = append(vmNames, vmIID.NameId)
+		tierNetIds 	= append(tierNetIds, *tierNetId)
+		vmNames		= append(vmNames, vmIID.NameId)
 
-		cblogger.Infof("VM %s (ID: %s) is in subnet %s (tier name: %s)", vmIID.NameId, vmId, *tierId, subnetName)
+		cblogger.Infof("VM %s (ID: %s) is in subnet %s (tier name: %s)", vmIID.NameId, vmId, *tierNetId, subnetName)
 	}
 
 	// Validate all VMs are in the same subnet
-	if len(subnetIds) == 0 {
+	if len(tierNetIds) == 0 {
 		newErr := fmt.Errorf("No valid VMs found in VMGroup")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return "", newErr
 	}
 
-	firstSubnetId := subnetIds[0]
-	for i := 1; i < len(subnetIds); i++ {
-		if subnetIds[i] != firstSubnetId {
+	firstTierNetId := tierNetIds[0]
+	for i := 1; i < len(tierNetIds); i++ {
+		if tierNetIds[i] != firstTierNetId {
 			newErr := fmt.Errorf("KT Cloud NLB requires all VMs to be in the same subnet. VM '%s' is in subnet '%s', but VM '%s' is in subnet '%s'. Please ensure all VMs in the VMGroup are in the same subnet",
-				vmNames[0], firstSubnetId, vmNames[i], subnetIds[i])
+				vmNames[0], firstTierNetId, vmNames[i], tierNetIds[i])
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
 			return "", newErr
 		}
 	}
 
-	cblogger.Infof("All %d VMs validated - all are in subnet %s", len(vms), firstSubnetId)
-	return firstSubnetId, nil
+	cblogger.Infof("All %d VMs validated - all are in subnet %s", len(vms), firstTierNetId)
+	return firstTierNetId, nil
 }
 
 // createFirewallRulesForNLB creates inbound and outbound firewall rules for NLB
 // Supports TCP, UDP, and ICMP protocols with proper error handling and logging
 func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.LoadBalancer, publicIP, staticNatId string) error {
 	cblogger.Info("KT Cloud VPC Driver: called createFirewallRulesForNLB()")
-	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", strconv.Itoa(ktNLB.NlbID), "createFirewallRulesForNLB()")
+	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", ktNLB.NlbID, "createFirewallRulesForNLB()")
 
 	if ktNLB == nil {
 		newErr := fmt.Errorf("Invalid NLB info")
@@ -1609,16 +1591,6 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 	}
 	cblogger.Infof("External network ID: %s", *extNetId)
 
-	// Get tier network ID
-	networkId, err := vpcHandler.getNetworkIdWithTierId(ktNLB.NetworkID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Tier Network ID: %w", err)
-		cblogger.Error(newErr.Error())
-		loggingError(callLogInfo, newErr)
-		return newErr
-	}
-	cblogger.Infof("Tier network ID: %s", *networkId)
-
 	// Convert service type to protocol
 	protocol := ktNLB.ServiceType
 	var protocols []string
@@ -1641,7 +1613,7 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 		cblogger.Infof("Creating firewall rules for protocol: %s", curProtocol)
 
 		// Create inbound firewall rule
-		if err := nlbHandler.createStaticNatInboundFirewallRule(ktNLB, publicIP, staticNatId, curProtocol, *extNetId, *networkId); err != nil {
+		if err := nlbHandler.createStaticNatInboundFirewallRule(ktNLB, publicIP, staticNatId, curProtocol, *extNetId); err != nil {
 			newErr := fmt.Errorf("Failed to create inbound firewall rule for %s: %w", curProtocol, err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
@@ -1649,7 +1621,7 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 		}
 
 		// Create outbound firewall rule
-		if err := nlbHandler.createStaticNatOutboundFirewallRule(ktNLB, curProtocol, *extNetId, *networkId); err != nil {
+		if err := nlbHandler.createStaticNatOutboundFirewallRule(ktNLB, curProtocol, *extNetId, ktNLB.NetworkID); err != nil {
 			newErr := fmt.Errorf("Failed to create outbound firewall rule for %s: %w", curProtocol, err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
@@ -1661,9 +1633,9 @@ func (nlbHandler *KTVpcNLBHandler) createFirewallRulesForNLB(ktNLB *ktvpclb.Load
 }
 
 // ### createInboundFirewallRule creates an inbound firewall rule for the specified protocol 'fot StaticNAT'
-func (nlbHandler *KTVpcNLBHandler) createStaticNatInboundFirewallRule(ktNLB *ktvpclb.LoadBalancer, publicIP, staticNatId, protocol, extNetId, networkId string) error {
+func (nlbHandler *KTVpcNLBHandler) createStaticNatInboundFirewallRule(ktNLB *ktvpclb.LoadBalancer, publicIP, staticNatId, protocol, extNetId string) error {
 	cblogger.Info("KT Cloud VPC Driver: called createInboundFirewallRule()")
-	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", strconv.Itoa(ktNLB.NlbID), "createInboundFirewallRule()")
+	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", ktNLB.NlbID, "createInboundFirewallRule()")
 
 	cblogger.Infof("Start to create firewall inbound rule for protocol: [%s]", protocol)
 
@@ -1697,12 +1669,12 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatInboundFirewallRule(ktNLB *ktv
 		}
 	} else {
 		// TCP and UDP with port forwarding
-		comment := "Allow inbound - " + protocol + " - " + ktNLB.ServicePort + " to " + ktNLB.ServicePort
+		comment := "Allow inbound - " + protocol + " - " + strconv.Itoa(ktNLB.ServicePort) + " to " + strconv.Itoa(ktNLB.ServicePort)
 		inboundFWOpts = &rules.CreateOpts{
 			Action:      true, // accept
 			Protocol:    protocol,
-			StartPort:   ktNLB.ServicePort,
-			EndPort:     ktNLB.ServicePort,
+			StartPort:   strconv.Itoa(ktNLB.ServicePort),
+			EndPort:     strconv.Itoa(ktNLB.ServicePort),
 			SrcNetwork:  []string{extNetId},
 			StaticNatId: staticNatId, // Caution!!
 			SrcAddress:  []string{srcIPAdds},
@@ -1746,7 +1718,7 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatInboundFirewallRule(ktNLB *ktv
 // createOutboundFirewallRule creates an outbound firewall rule for the specified protocol
 func (nlbHandler *KTVpcNLBHandler) createStaticNatOutboundFirewallRule(ktNLB *ktvpclb.LoadBalancer, protocol, extNetId, networkId string) error {
 	cblogger.Info("KT Cloud VPC Driver: called createOutboundFirewallRule()")
-	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", strconv.Itoa(ktNLB.NlbID), "createOutboundFirewallRule()")
+	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", ktNLB.NlbID, "createOutboundFirewallRule()")
 
 	cblogger.Infof("Start to create firewall outbound rule for protocol: [%s]", protocol)
 
@@ -1780,12 +1752,12 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatOutboundFirewallRule(ktNLB *kt
 		}
 	} else {
 		// TCP and UDP with ports
-		comment := "Allow outbound - " + protocol + " - " + ktNLB.ServicePort + " to " + ktNLB.ServicePort
+		comment := "Allow outbound - " + protocol + " - " + strconv.Itoa(ktNLB.ServicePort) + " to " + strconv.Itoa(ktNLB.ServicePort)
 		outboundFWOpts = &rules.CreateOpts{
 			Action:     true, // accept
 			Protocol:   protocol,
-			StartPort:  ktNLB.ServicePort,
-			EndPort:    ktNLB.ServicePort,
+			StartPort:  strconv.Itoa(ktNLB.ServicePort),
+			EndPort:    strconv.Itoa(ktNLB.ServicePort),
 			SrcNetwork: []string{networkId},
 			DstNetwork: []string{extNetId},
 			SrcAddress: []string{srcCIDR},
@@ -1849,8 +1821,7 @@ func (nlbHandler *KTVpcNLBHandler) checkNLBExists(ctx context.Context, nlbName s
 	}
 
 	listOpts := ktvpclb.ListOpts{
-		Name:   nlbName,
-		ZoneID: nlbHandler.RegionInfo.Zone,
+		Name: nlbName,
 	}
 
 	var nlbExists bool
@@ -1871,7 +1842,7 @@ func (nlbHandler *KTVpcNLBHandler) checkNLBExists(ctx context.Context, nlbName s
 
 		if len(loadBalancers) > 0 {
 			nlbExists = true
-			cblogger.Infof("NLB with name [%s] already exists (ID: %d)", nlbName, loadBalancers[0].NlbID)
+			cblogger.Infof("NLB with name [%s] already exists (ID: %s)", nlbName, loadBalancers[0].NlbID)
 			return false, nil // Stop pagination
 		}
 
@@ -2036,16 +2007,17 @@ func (nlbHandler *KTVpcNLBHandler) deleteAllVMsFromNLB(nlbIID irs.IID) (int, err
 	var removeErrors []string
 
 	for _, vm := range nlbVmList {
-		cblogger.Infof("Removing VM [%s] (ServiceID: %d) from NLB", vm.VmID, vm.ServiceID)
+		cblogger.Infof("Removing VM [%s] (ServiceID: %s) from NLB", vm.VmID, vm.ServiceID)
 
 		removeOpts := ktvpclb.RemoveServerOpts{
-			ServiceID: strconv.Itoa(vm.ServiceID),
+			NlbID:     nlbIID.SystemId,
+			ServiceID: vm.ServiceID,
 		}
 
 		start := call.Start()
 		_, rmErr := ktvpclb.RemoveServer(nlbHandler.NLBClient, removeOpts).Extract()
 		if rmErr != nil {
-			errMsg := fmt.Sprintf("Failed to Remove VM [%s] (ServiceID: %d): %v", vm.VmID, vm.ServiceID, rmErr)
+			errMsg := fmt.Sprintf("Failed to Remove VM [%s] (ServiceID: %s): %v", vm.VmID, vm.ServiceID, rmErr)
 			cblogger.Error(errMsg)
 			removeErrors = append(removeErrors, errMsg)
 			loggingError(callLogInfo, rmErr)
