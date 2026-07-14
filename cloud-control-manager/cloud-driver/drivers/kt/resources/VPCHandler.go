@@ -140,7 +140,7 @@ func (vpcHandler *KTVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
     listOpts := networks.ListOpts{
         Page: 1,
-        Size: 20,    
+        Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
     pager := networks.List(vpcHandler.NetworkClient, listOpts)
@@ -291,7 +291,7 @@ func (vpcHandler *KTVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.II
 		loggingError(callLogInfo, newErr)
 		return false, newErr
 	}
-	cblogger.Info("\n### Waiting for Deleting the Subnet!! Subnet NetworkId: %s", *networkId)
+	cblogger.Infof("\n### Waiting for Deleting the Subnet!! Subnet NetworkId: %s", *networkId)
 	vpcHandler.waitForSubnetDeletion(*networkId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to wait for the subnet creation: %v", err)
@@ -492,7 +492,7 @@ func (vpcHandler *KTVpcVPCHandler) listKTVPC() ([]*networks.VPC, error) {
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
     listOpts := networks.ListOpts{
         Page: 1,
-        Size: 20,    
+        Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
     pager := networks.List(vpcHandler.NetworkClient, listOpts)
@@ -536,8 +536,8 @@ func (vpcHandler *KTVpcVPCHandler) listKTSubnet() ([]*subnets.Subnet, error) {
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
     listOpts := subnets.ListOpts{
         Page: 			1,
-        Size: 			20,
-		NetworkType: 	"ALL", // [Optional] [default: trust] TRUST / UNTRUST / ALL
+        Size: 			2000, 	// Max page size, to list all data in a single page
+		NetworkType: 	"ALL", 	// [Optional] [default: trust] TRUST / UNTRUST / ALL
 	}
 	start := call.Start()
     pager := subnets.List(vpcHandler.NetworkClient, listOpts)
@@ -630,9 +630,9 @@ func (vpcHandler *KTVpcVPCHandler) getTierIdWithNetworkId(networkId string) (*st
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 1,
-		Size: 20,
-		NetworkID: networkId, // Tier NetworkId
+		Page: 		1,
+		Size: 		2000, 		// Max page size, to list all data in a single page
+		NetworkID: 	networkId, 	// Tier NetworkId
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
@@ -690,9 +690,9 @@ func (vpcHandler *KTVpcVPCHandler) getNetworkIdWithTierId(tierId string) (*strin
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 1,
-		Size: 20,
-		RefID: tierId, // Tier Id
+		Page: 	1,
+		Size: 	2000, 	// Max page size, to list all data in a single page
+		RefID: 	tierId, // Tier Ref Id
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
@@ -825,8 +825,8 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierNetId(tierNetworkId string) (
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
 		Page: 		1,
-		Size: 		20,
-		NetworkID: 	tierNetworkId, // Tier NetworkID (Not RefID parameter)
+		Size: 		2000, 			// Max page size, to list all data in a single page
+		NetworkID: 	tierNetworkId, 	// Tier NetworkID (Not RefID parameter)
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
@@ -888,9 +888,9 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierRefId(tierRefId string) (*str
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 		1,
-		Size: 		20,
-		RefID: 	tierRefId, // Tier RefID (Not NetworkID parameter)
+		Page: 	1,
+		Size: 	2000, 		// Max page size, to list all data in a single page
+		RefID: 	tierRefId, 	// Tier RefID (Not NetworkID parameter)
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
@@ -944,7 +944,7 @@ func (vpcHandler *KTVpcVPCHandler) ListIID() ([]*irs.IID, error) {
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
     listOpts := networks.ListOpts{
         Page: 1,
-        Size: 20,    
+        Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
     pager := networks.List(vpcHandler.NetworkClient, listOpts)
