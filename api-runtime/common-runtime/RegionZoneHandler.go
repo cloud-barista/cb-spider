@@ -272,7 +272,11 @@ func ListRegionZonePreConfig(driverName string, credentialName string) ([]*cres.
 	infoList, err := handler.ListRegionZone()
 	if err != nil {
 		cblog.Error(err)
-		return nil, err
+		if len(infoList) == 0 {
+			return nil, err
+		}
+		// Partial results: some regions failed, but continue with what succeeded.
+		cblog.Info("ListRegionZonePreConfig(): continuing with partial results despite errors")
 	}
 
 	if infoList == nil || len(infoList) <= 0 {

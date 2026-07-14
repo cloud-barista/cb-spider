@@ -2,7 +2,9 @@ package resources
 
 import (
 	"errors"
+	"net/http"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -33,9 +35,12 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 		go func(region *ec2.Region) {
 			defer wg.Done()
 
+			httpClient := &http.Client{Timeout: 10 * time.Second}
 			sess, err := session.NewSession(&aws.Config{
 				Credentials: regionZoneHandler.Client.Config.Credentials,
 				Region:      region.RegionName,
+				HTTPClient:  httpClient,
+				MaxRetries:  aws.Int(0),
 			})
 			if err != nil {
 				cblogger.Error(err)
