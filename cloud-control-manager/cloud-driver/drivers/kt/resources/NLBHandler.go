@@ -324,7 +324,7 @@ func (nlbHandler *KTVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var nlbCount int
 
 	listOpts := ktvpclb.ListOpts{
-		Size: 2000, // Max page size, to list all NLBs in a single page
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	// Paginate through results
 	err := ktvpclb.List(nlbHandler.NLBClient, listOpts).EachPage(func(page pagination.Page) (bool, error) {
@@ -1389,7 +1389,7 @@ func (nlbHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", "ListIID()", "ListIID()")
 
 	listOpts := ktvpclb.ListOpts{
-		Size: 2000, // Max page size, to list all NLBs in a single page
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
 	firstPage, err := ktvpclb.List(nlbHandler.NLBClient, listOpts).FirstPage() // Not 'NetworkClient', Not 'AllPages()'
@@ -1872,7 +1872,7 @@ func (nlbHandler *KTVpcNLBHandler) listKTStaticNat() ([]*nat.StaticNAT, error) {
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := nat.ListOpts{
 		Page: 1,
-		Size: 20,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
 	pager := nat.List(nlbHandler.NetworkClient, listOpts) // NetworkClient

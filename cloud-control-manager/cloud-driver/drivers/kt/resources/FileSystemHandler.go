@@ -605,6 +605,57 @@ func (filesystemHandler *KTVpcFileSystemHandler) waitForShareDeleted(shareID str
 	return fmt.Errorf("timed out waiting for NAS share %s to be completely deleted", shareID)
 }
 
+func isInternalServerError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(strings.ToLower(err.Error()), "internal server error")
+}
+
+func (filesystemHandler *KTVpcFileSystemHandler) findShareNetworkByNameAndTier(name, tierID string) (*sharenetworks.ShareNetwork, error) {
+	listOpts := sharenetworks.ListOpts{}
+	allPages, err := sharenetworks.ListDetail(filesystemHandler.NASClient, listOpts).AllPages()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list share networks: %w", err)
+	}
+
+	shareNetworkList, err := sharenetworks.ExtractShareNetworks(allPages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract share networks: %w", err)
+	}
+
+	for idx := range shareNetworkList {
+		shareNetwork := shareNetworkList[idx]
+		if strings.EqualFold(strings.TrimSpace(shareNetwork.Name), name) &&
+			strings.EqualFold(strings.TrimSpace(shareNetwork.NeutronNetID), tierID) {
+			return &shareNetwork, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (filesystemHandler *KTVpcFileSystemHandler) resolveShareNetworkAfterInternalServerError(name, tierID string) (string, error) {
+	cblogger.Info("KT Cloud Driver: called resolveShareNetworkAfterInternalServerError()")
+	
+	for attempt := 0; attempt < 3; attempt++ {
+		shareNetwork, err := filesystemHandler.findShareNetworkByNameAndTier(name, tierID)
+		if err != nil {
+			return "", err
+		}
+		if shareNetwork != nil && strings.TrimSpace(shareNetwork.ID) != "" {
+			return strings.TrimSpace(shareNetwork.ID), nil
+		}
+
+		if attempt < 2 {
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	return "", nil
+}
+
 func (filesystemHandler *KTVpcFileSystemHandler) createSharenetwork(subnetNameID string) (string, error) {
 	cblogger.Info("KT Cloud Driver: called createSharenetwork()")
 	
@@ -647,7 +698,33 @@ func (filesystemHandler *KTVpcFileSystemHandler) createSharenetwork(subnetNameID
 
 	createdShareNetwork, err := sharenetworks.Create(filesystemHandler.NASClient, createOpts).Extract()
 	if err != nil {
-		return "", fmt.Errorf("failed to create share network for Subnet NameID %s (Tier ID %s): %w", subnetNameID, tierID, err)
+		if !isInternalServerError(err) {
+			return "", fmt.Errorf("failed to create share network for Subnet NameID %s (Tier ID %s): %w", subnetNameID, tierID, err)
+		}
+
+		cblogger.Warnf("failed to create share network for Subnet NameID %s (Tier ID %s) due to Internal Server Error; retrying once: %v", subnetNameID, tierID, err)
+
+		// Note) When requesting the creation of a shared network on KT Cloud, the shared network is sometimes created successfully, but an Internal Server Error may occur.
+		createdShareNetwork, err = sharenetworks.Create(filesystemHandler.NASClient, createOpts).Extract()
+		if err != nil {
+			if !isInternalServerError(err) {
+				return "", fmt.Errorf("failed to create share network for Subnet NameID %s (Tier ID %s) on retry: %w", subnetNameID, tierID, err)
+			}
+
+			cblogger.Warnf("retry create share network for Subnet NameID %s (Tier ID %s) also returned Internal Server Error; trying to resolve an existing share network instead: %v", subnetNameID, tierID, err)
+
+			shareNetworkID, resolveErr := filesystemHandler.resolveShareNetworkAfterInternalServerError(subnetNameID, tierID)
+			if resolveErr != nil {
+				return "", fmt.Errorf("failed to resolve share network for Subnet NameID %s (Tier ID %s) after repeated Internal Server Error: %w", subnetNameID, tierID, resolveErr)
+			}
+			if shareNetworkID != "" {
+				cblogger.Infof("### Reusing existing share network after Internal Server Error. ID: %s", shareNetworkID)
+				return shareNetworkID, nil
+			}
+
+			cblogger.Warnf("share network creation for Subnet NameID %s (Tier ID %s) returned Internal Server Error twice, but no existing share network was found; skipping error return as requested", subnetNameID, tierID)
+			return "", nil
+		}
 	}
 
 	if createdShareNetwork == nil || createdShareNetwork.ID == "" {
@@ -690,9 +767,9 @@ func (filesystemHandler *KTVpcFileSystemHandler) listKTSubnet() ([]*subnets.Subn
 	}
 
 	listOpts := subnets.ListOpts{
-		Page:        1,
-		Size:        20,
-		NetworkType: "ALL",
+		Page:       	1,
+		Size: 			2000, // Max page size, to list all info in a single page
+		NetworkType: 	"ALL",
 	}
 
 	pager := subnets.List(filesystemHandler.NetworkClient, listOpts)
@@ -722,7 +799,7 @@ func (filesystemHandler *KTVpcFileSystemHandler) listKTVPC() ([]*networks.VPC, e
 
 	listOpts := networks.ListOpts{
 		Page: 1,
-		Size: 20,
+		Size: 2000, // Max page size, to list all info in a single page
 	}
 
 	pager := networks.List(filesystemHandler.NetworkClient, listOpts)

@@ -1617,7 +1617,7 @@ func (vmHandler *KTVpcVMHandler) listFirewallRule() ([]rules.FirewallRule, error
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := rules.ListOpts{
 		Page: 1,
-		Size: 20,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	pager := rules.List(vmHandler.NetworkClient, listOpts) // Caution!!) Not VMClient but NetworkClient
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
@@ -1656,7 +1656,7 @@ func (vmHandler *KTVpcVMHandler) listPortForwarding() ([]portforward.PortForward
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := portforward.ListOpts{
 		Page: 1,
-		Size: 20,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	pager := portforward.List(vmHandler.NetworkClient, listOpts)
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
@@ -1884,7 +1884,7 @@ func (vmHandler *KTVpcVMHandler) removePortForwardingRules(publicIp string) (boo
 	// 1. List all port forwarding rules with pagination
 	listOpts := portforward.ListOpts{
 		Page: 1,
-		Size: 20,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	pager := portforward.List(vmHandler.NetworkClient, listOpts)
 
@@ -2405,7 +2405,7 @@ func (vmHandler *KTVpcVMHandler) findPublicIPIDByIP(publicIPAddress string) (str
 	// List all floating IPs with pagination
 	listOpts := ips.ListOpts{
 		Page: 1,
-		Size: 20,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	pager := ips.List(vmHandler.NetworkClient, listOpts)
 

@@ -34,7 +34,10 @@ func (h *KTVpcPublicIPHandler) ListIID() ([]*irs.IID, error) {
 	hiscallInfo := getCallLogScheme(h.RegionInfo.Zone, call.PUBLICIP, "ListIID", "floatingips.List()")
 	start := call.Start()
 
-	listOpts := ips.ListOpts{Page: 1, Size: 100}
+	listOpts := ips.ListOpts{
+		Page: 1, 
+		Size: 2000, // Max page size, to list all data in a single page
+	}	
 	pager := ips.List(h.NetworkClient, listOpts)
 
 	var iidList []*irs.IID
@@ -92,7 +95,10 @@ func (h *KTVpcPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
 	hiscallInfo := getCallLogScheme(h.RegionInfo.Zone, call.PUBLICIP, "All", "floatingips.List()")
 	start := call.Start()
 
-	listOpts := ips.ListOpts{Page: 1, Size: 100}
+	listOpts := ips.ListOpts{
+		Page: 1,
+		Size: 2000, // Max page size, to list all data in a single page
+	}
 	pager := ips.List(h.NetworkClient, listOpts)
 
 	var infoList []*irs.PublicIPInfo
@@ -142,7 +148,10 @@ func (h *KTVpcPublicIPHandler) GetPublicIP(publicIPIID irs.IID) (irs.PublicIPInf
 		}
 	} else {
 		// Search by listing
-		listOpts := ips.ListOpts{Page: 1, Size: 100}
+		listOpts := ips.ListOpts{
+			Page: 1,
+			Size: 2000, // Max page size, to list all data in a single page
+		}
 		pager := ips.List(h.NetworkClient, listOpts)
 		pager.EachPage(func(page pagination.Page) (bool, error) {
 			fipList, listErr := ips.ExtractFloatingIPs(page)
