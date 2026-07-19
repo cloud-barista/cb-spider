@@ -50,7 +50,13 @@ func StartBackupScheduler(ctx context.Context, cfg BackupConfig) {
 func performBackup(cfg BackupConfig) {
 	startTime := time.Now()
 
-	// Check if source DB file exists
+	if !IsSQLite() {
+		// SQLite-only backup policy: external PostgreSQL backup is user-managed.
+		cblog.Warn("[MSB] Backup is available only for embedded SQLite MetaDB. Skipping backup.")
+		return
+	}
+
+	// SQLite uses file-based meta DB
 	if _, err := os.Stat(DB_FILE_PATH); os.IsNotExist(err) {
 		cblog.Warnf("[MSB] Meta DB file not found: %s. Skipping backup.", DB_FILE_PATH)
 		return

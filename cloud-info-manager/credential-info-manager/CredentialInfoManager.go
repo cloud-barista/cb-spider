@@ -36,7 +36,7 @@ const PROVIDER_NAME_COLUMN = "provider_name"
 type CredentialInfo struct {
 	CredentialName   string           `json:"CredentialName" gorm:"primaryKey" validate:"required" example:"credential01"` // The name of the credential, used as a unique identifier.
 	ProviderName     string           `json:"ProviderName" validate:"required" example:"AWS"`                              // The name of the cloud provider (e.g., AWS, Azure, GCP).
-	KeyValueInfoList infostore.KVList `json:"KeyValueInfoList" gorm:"type:blob" validate:"required"`                       // Key-value pairs for credential authentication.
+	KeyValueInfoList infostore.KVList `json:"KeyValueInfoList" gorm:"type:text" validate:"required"`                       // Key-value pairs for credential authentication.
 }
 
 //====================================================================

@@ -10,13 +10,18 @@
 package infostore
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
+	"time"
 
 	// Use pure Go SQLite driver (no CGO required)
 	"github.com/glebarez/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -28,6 +33,18 @@ import (
 var cblog *logrus.Logger
 
 var DB_FILE_PATH string
+var DB_ENGINE string
+var DB_DSN string
+var dbConfigErr error
+var sharedDB *gorm.DB
+var sharedSQLDB *sql.DB
+var openOnce sync.Once
+var openErr error
+
+const (
+	dbEngineSQLite   = "sqlite"
+	dbEnginePostgres = "postgres"
+)
 
 func init() {
 	cblog = cblogger.GetLogger("CLOUD-BARISTA")
@@ -37,15 +54,46 @@ func init() {
 	DB_FILE_PATH = DB_PATH + "/cb-spider.db"
 	/*###############################################################*/
 
-	// if no path, makes it
-	_, err := os.Stat(DB_PATH)
-	if os.IsNotExist(err) {
-		err := os.Mkdir(DB_PATH, 0755)
-		if err != nil {
-			cblog.Fatal(err)
-			return
+	DB_ENGINE, DB_DSN, dbConfigErr = resolveMetaDBConfig()
+	if dbConfigErr != nil {
+		cblog.Errorf("[MSDB] %v", dbConfigErr)
+	}
+
+	if DB_ENGINE == dbEngineSQLite {
+		// if no path, makes it
+		_, err := os.Stat(DB_PATH)
+		if os.IsNotExist(err) {
+			err := os.Mkdir(DB_PATH, 0755)
+			if err != nil {
+				cblog.Fatal(err)
+				return
+			}
 		}
 	}
+
+	cblog.Infof("[MSDB] Meta DB engine: %s", DB_ENGINE)
+}
+
+func resolveMetaDBConfig() (string, string, error) {
+	metaDBURL := strings.TrimSpace(os.Getenv("SPIDER_METADB_URL"))
+	if metaDBURL == "" {
+		return dbEngineSQLite, "", nil
+	}
+
+	lowerURL := strings.ToLower(metaDBURL)
+	if strings.HasPrefix(lowerURL, "postgres://") || strings.HasPrefix(lowerURL, "postgresql://") {
+		return dbEnginePostgres, metaDBURL, nil
+	}
+
+	return dbEngineSQLite, "", fmt.Errorf("invalid SPIDER_METADB_URL format: %q (expected: postgresql://user:pass@host:port/dbname)", metaDBURL)
+}
+
+func IsPostgres() bool {
+	return DB_ENGINE == dbEnginePostgres
+}
+
+func IsSQLite() bool {
+	return !IsPostgres()
 }
 
 func Ping() error {
@@ -73,13 +121,27 @@ func Ping() error {
 // @Description A list of key-value pairs, where each entry is a key and its associated value.
 type KVList []icdrs.KeyValue
 
-func (o *KVList) Scan(src any) error {
-	bytes := []byte(src.(string))
-	err := json.Unmarshal(bytes, o)
-	if err != nil {
-		return err
+func unmarshalJSONFromDB(src any, out any) error {
+	switch v := src.(type) {
+	case nil:
+		return nil
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return nil
+		}
+		return json.Unmarshal([]byte(v), out)
+	case []byte:
+		if len(v) == 0 {
+			return nil
+		}
+		return json.Unmarshal(v, out)
+	default:
+		return fmt.Errorf("unsupported JSON source type: %T", src)
 	}
-	return nil
+}
+
+func (o *KVList) Scan(src any) error {
+	return unmarshalJSONFromDB(src, o)
 }
 
 func (o KVList) Value() (driver.Value, error) {
@@ -98,12 +160,7 @@ func (o KVList) Value() (driver.Value, error) {
 type AZList []string
 
 func (o *AZList) Scan(src any) error {
-	bytes := []byte(src.(string))
-	err := json.Unmarshal(bytes, o)
-	if err != nil {
-		return err
-	}
-	return nil
+	return unmarshalJSONFromDB(src, o)
 }
 
 func (o AZList) Value() (driver.Value, error) {
@@ -119,20 +176,70 @@ func (o AZList) Value() (driver.Value, error) {
 
 // Meta DB Opener
 func Open() (*gorm.DB, error) {
-
-	// Turn-on error logs of gorm: db, err := gorm.Open(sqlite.Open(DB_FILE_PATH), &gorm.Config{})
-	db, err := gorm.Open(sqlite.Open(DB_FILE_PATH+"?_busy_timeout=60000"), &gorm.Config{ // busy timneout: 1 minutes
-		Logger: logger.Default.LogMode(logger.Silent)})
-	if err != nil {
-		db = nil
-		return nil, err
+	if dbConfigErr != nil {
+		return nil, dbConfigErr
 	}
 
-	return db, nil
+	openOnce.Do(func() {
+		sharedDB, openErr = openSharedDB()
+		if openErr != nil {
+			return
+		}
+
+		sharedSQLDB, openErr = sharedDB.DB()
+		if openErr != nil {
+			sharedDB = nil
+			return
+		}
+
+		configureConnectionPool(sharedSQLDB)
+	})
+
+	if openErr != nil {
+		return nil, openErr
+	}
+
+	return sharedDB, nil
+}
+
+func openSharedDB() (*gorm.DB, error) {
+	if IsPostgres() {
+		return gorm.Open(postgres.Open(DB_DSN), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+	}
+
+	return gorm.Open(sqlite.Open(DB_FILE_PATH+"?_busy_timeout=60000"), &gorm.Config{ // busy timeout: 1 minute
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+}
+
+func configureConnectionPool(sqlDB *sql.DB) {
+	if IsPostgres() {
+		sqlDB.SetMaxOpenConns(20)
+		sqlDB.SetMaxIdleConns(5)
+		sqlDB.SetConnMaxLifetime(30 * time.Minute)
+		sqlDB.SetConnMaxIdleTime(10 * time.Minute)
+		return
+	}
+
+	// SQLite works best with a very small pool because it is file-based.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	sqlDB.SetConnMaxLifetime(0)
+	sqlDB.SetConnMaxIdleTime(0)
 }
 
 // Meta DB Closer
 func Close(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+
+	if sharedDB != nil && db == sharedDB {
+		return nil
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return err
@@ -186,7 +293,7 @@ func Get(info interface{}, columnName string, columnValue string) error {
 
 	if err := db.First(&info, columnName+" = ?", columnValue).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf(columnValue + ": does not exist!")
+			return fmt.Errorf("%s: does not exist!", columnValue)
 		} else {
 			return fmt.Errorf(columnValue+": %v", err)
 		}
@@ -224,7 +331,7 @@ func Delete(info interface{}, columName string, columnValue string) (bool, error
 
 	if err := db.Delete(&info, columName+" = ?", columnValue).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return false, fmt.Errorf(columnValue + ": does not exist!")
+			return false, fmt.Errorf("%s: does not exist!", columnValue)
 		} else {
 			return false, fmt.Errorf(columnValue+": %v", err)
 		}
@@ -525,7 +632,7 @@ func DeleteByConditions(info interface{}, columnName1 string, columnValue1 strin
 
 	if err := db.Delete(&info, columnName1+" = ? AND "+columnName2+" = ?", columnValue1, columnValue2).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return false, fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
+			return false, fmt.Errorf("%s, %s: does not exist!", columnValue1, columnValue2)
 		} else {
 			return false, fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
 		}
@@ -547,7 +654,7 @@ func DeleteBy3Conditions(info interface{}, columnName1 string, columnValue1 stri
 
 	if err := db.Delete(&info, columnName1+" = ? AND "+columnName2+" = ?  AND "+columnName3+" = ?", columnValue1, columnValue2, columnValue3).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return false, fmt.Errorf(columnValue1 + ", " + columnValue2 + ": does not exist!")
+			return false, fmt.Errorf("%s, %s: does not exist!", columnValue1, columnValue2)
 		} else {
 			return false, fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
 		}

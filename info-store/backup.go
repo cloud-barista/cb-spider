@@ -22,13 +22,22 @@ import (
 )
 
 const BACKUP_FILE_PREFIX = "cb-spider_backup_"
-const BACKUP_FILE_SUFFIX = ".db"
+const SQLITE_BACKUP_FILE_SUFFIX = ".db"
 const BACKUP_TIME_FORMAT = "20060102_150405"
 
-// BackupMetaDB performs an online backup of the meta DB using SQLite3 VACUUM INTO.
-// This is safe to call while the DB is being read/written by the Spider server.
+// BackupMetaDB performs a SQLite MetaDB backup.
 // Returns the backup file path on success.
 func BackupMetaDB(backupDir string) (string, error) {
+	if !IsSQLite() {
+		return "", fmt.Errorf("Spider backup supports embedded SQLite MetaDB only")
+	}
+
+	return backupSQLiteMetaDB(backupDir)
+}
+
+// backupSQLiteMetaDB performs an online backup using SQLite3 VACUUM INTO.
+// This is safe to call while the DB is being read/written by the Spider server.
+func backupSQLiteMetaDB(backupDir string) (string, error) {
 	// Ensure backup directory exists
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create backup directory '%s': %w", backupDir, err)
@@ -36,7 +45,7 @@ func BackupMetaDB(backupDir string) (string, error) {
 
 	// Generate backup file name with timestamp
 	timestamp := time.Now().Format(BACKUP_TIME_FORMAT)
-	backupFileName := BACKUP_FILE_PREFIX + timestamp + BACKUP_FILE_SUFFIX
+	backupFileName := BACKUP_FILE_PREFIX + timestamp + SQLITE_BACKUP_FILE_SUFFIX
 	backupFilePath := filepath.Join(backupDir, backupFileName)
 
 	// Open a direct connection to the source DB for VACUUM INTO
@@ -104,7 +113,7 @@ func listBackupFiles(backupDir string) ([]string, error) {
 			continue
 		}
 		name := entry.Name()
-		if strings.HasPrefix(name, BACKUP_FILE_PREFIX) && strings.HasSuffix(name, BACKUP_FILE_SUFFIX) {
+		if strings.HasPrefix(name, BACKUP_FILE_PREFIX) && strings.HasSuffix(name, SQLITE_BACKUP_FILE_SUFFIX) {
 			backups = append(backups, name)
 		}
 	}

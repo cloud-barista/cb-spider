@@ -108,6 +108,8 @@ The [**Quick Start Guide**](https://github.com/cloud-barista/cb-spider/wiki/Quic
 | [Quick Start Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide) | Start server & create VMs on AWS + GCP in minutes |
 | [Docker-based Start Guide](https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide) | Run CB-Spider using Docker |
 | [Source-based Start Guide](https://github.com/cloud-barista/cb-spider/wiki/Source-based-Start-Guide) | Build and run from source |
+| [Server Configurations](https://github.com/cloud-barista/cb-spider/wiki/CB%E2%80%90Spider-Server-Configuration) | Configure CB-Spider server settings |
+| [Authentication Guide](https://github.com/cloud-barista/cb-spider/wiki/Authentication-Guide) | Configure REST API authentication |
 | [How to get CSP Credentials](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-CSP-Credentials) | Obtain credentials for each cloud provider |
 
 ### API & Tools
