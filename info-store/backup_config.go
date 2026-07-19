@@ -42,6 +42,15 @@ func LoadBackupConfig() BackupConfig {
 		MaxCount:  DEFAULT_BACKUP_MAX_COUNT,
 	}
 
+	// External PostgreSQL MetaDB is user-managed, so Spider backup scheduler is disabled.
+	if IsPostgres() {
+		if v := strings.TrimSpace(os.Getenv("SPIDER_BACKUP_ENABLED")); v != "" {
+			cblog.Infof("[MSB] SPIDER_BACKUP_ENABLED='%s' is ignored because SPIDER_METADB_URL is set (external PostgreSQL mode).", v)
+		}
+		cfg.Enabled = false
+		return cfg
+	}
+
 	// SPIDER_BACKUP_ENABLED
 	if v := os.Getenv("SPIDER_BACKUP_ENABLED"); v != "" {
 		switch strings.ToLower(strings.TrimSpace(v)) {
