@@ -14,7 +14,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -76,16 +78,77 @@ func init() {
 
 func resolveMetaDBConfig() (string, string, error) {
 	metaDBURL := strings.TrimSpace(os.Getenv("SPIDER_METADB_URL"))
-	if metaDBURL == "" {
+
+	metaDBUser := strings.TrimSpace(os.Getenv("SPIDER_METADB_USER"))
+	metaDBPassword := strings.TrimSpace(os.Getenv("SPIDER_METADB_PASSWORD"))
+	metaDBEndpoint := strings.TrimSpace(os.Getenv("SPIDER_METADB_ENDPOINT"))
+	metaDBDatabase := strings.TrimSpace(os.Getenv("SPIDER_METADB_DATABASE"))
+	metaDBSSLMode := strings.TrimSpace(os.Getenv("SPIDER_METADB_SSLMODE"))
+	metaDBConnectTimeout := strings.TrimSpace(os.Getenv("SPIDER_METADB_CONNECT_TIMEOUT"))
+
+	hasURLConfig := metaDBURL != ""
+	hasKVConfig := metaDBUser != "" || metaDBPassword != "" || metaDBEndpoint != "" ||
+		metaDBDatabase != "" || metaDBSSLMode != "" || metaDBConnectTimeout != ""
+
+	if hasURLConfig && hasKVConfig {
+		return dbEngineSQLite, "", fmt.Errorf("invalid MetaDB configuration: use only one mode (SPIDER_METADB_URL or SPIDER_METADB_{USER,PASSWORD,ENDPOINT,DATABASE,SSLMODE,CONNECT_TIMEOUT})")
+	}
+
+	if !hasURLConfig && !hasKVConfig {
 		return dbEngineSQLite, "", nil
 	}
 
-	lowerURL := strings.ToLower(metaDBURL)
-	if strings.HasPrefix(lowerURL, "postgres://") || strings.HasPrefix(lowerURL, "postgresql://") {
-		return dbEnginePostgres, metaDBURL, nil
+	if hasURLConfig {
+		lowerURL := strings.ToLower(metaDBURL)
+		if strings.HasPrefix(lowerURL, "postgres://") || strings.HasPrefix(lowerURL, "postgresql://") {
+			return dbEnginePostgres, metaDBURL, nil
+		}
+
+		return dbEngineSQLite, "", fmt.Errorf("invalid SPIDER_METADB_URL format: %q (expected: postgresql://user:pass@host:port/dbname)", metaDBURL)
 	}
 
-	return dbEngineSQLite, "", fmt.Errorf("invalid SPIDER_METADB_URL format: %q (expected: postgresql://user:pass@host:port/dbname)", metaDBURL)
+	missing := []string{}
+	if metaDBUser == "" {
+		missing = append(missing, "SPIDER_METADB_USER")
+	}
+	if metaDBPassword == "" {
+		missing = append(missing, "SPIDER_METADB_PASSWORD")
+	}
+	if metaDBEndpoint == "" {
+		missing = append(missing, "SPIDER_METADB_ENDPOINT")
+	}
+	if metaDBDatabase == "" {
+		missing = append(missing, "SPIDER_METADB_DATABASE")
+	}
+	if len(missing) > 0 {
+		return dbEngineSQLite, "", fmt.Errorf("invalid MetaDB key-value configuration: missing required variable(s): %s", strings.Join(missing, ", "))
+	}
+
+	if metaDBConnectTimeout != "" {
+		if _, err := strconv.Atoi(metaDBConnectTimeout); err != nil {
+			return dbEngineSQLite, "", fmt.Errorf("invalid SPIDER_METADB_CONNECT_TIMEOUT: %q (must be an integer in seconds)", metaDBConnectTimeout)
+		}
+	}
+
+	dbURL := &url.URL{
+		Scheme: "postgresql",
+		User:   url.UserPassword(metaDBUser, metaDBPassword),
+		Host:   metaDBEndpoint,
+		Path:   "/" + metaDBDatabase,
+	}
+
+	query := url.Values{}
+	if metaDBSSLMode != "" {
+		query.Set("sslmode", metaDBSSLMode)
+	}
+	if metaDBConnectTimeout != "" {
+		query.Set("connect_timeout", metaDBConnectTimeout)
+	}
+	if len(query) > 0 {
+		dbURL.RawQuery = query.Encode()
+	}
+
+	return dbEnginePostgres, dbURL.String(), nil
 }
 
 func IsPostgres() bool {
