@@ -639,6 +639,14 @@ func getRoutes() []route {
 
 		//-- for dashboard
 		{"GET", "/counts3/:ConnectionName", CountS3BucketsByConnection},
+
+		// CB-Spider Special Features for S3 Object Storage Management
+		{"POST", "/regs3", RegisterS3Bucket},
+		{"DELETE", "/regs3/:Name", UnregisterS3Bucket},
+		{"GET", "/alls3", ListAllS3Buckets},
+		{"GET", "/alls3info", ListAllS3BucketInfo},
+		{"GET", "/counts3", CountAllS3Buckets},
+		{"DELETE", "/csps3/:Id", DeleteCSPS3Bucket},
 	}
 
 	// Add AdminWeb and Swagger routes conditionally

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
 	"github.com/minio/minio-go/v7"
 )
@@ -3537,4 +3538,206 @@ func CountS3BucketsByConnection(c echo.Context) error {
 	jsonResult.Count = int(count)
 
 	return c.JSON(http.StatusOK, jsonResult)
+}
+
+// ============================================================================
+// CB-Spider Special Features: Register/Unregister/ListAll/CountAll/DeleteCSP
+// ============================================================================
+
+// S3BucketRegisterRequest represents the request body for registering an S3 Bucket.
+type S3BucketRegisterRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	ReqInfo        struct {
+		Name  string `json:"Name" validate:"required" example:"my-bucket"`
+		CSPId string `json:"CSPId" validate:"required" example:"my-csp-bucket-name"`
+	} `json:"ReqInfo" validate:"required"`
+}
+
+// S3BucketWithIIDResponse is the REST response wrapper for S3BucketWithIID.
+type S3BucketWithIIDResponse struct {
+	NameId       string    `json:"NameId" validate:"required" example:"my-bucket"`
+	SystemId     string    `json:"SystemId" validate:"required" example:"my-csp-bucket-name"`
+	CreationDate time.Time `json:"CreationDate"`
+}
+
+// registerS3Bucket godoc
+// @ID register-s3-bucket
+// @Summary Register S3 Bucket
+// @Description Register an existing CSP S3 bucket into CB-Spider metadata with a user-defined name. (CB-Spider special feature)
+// @Tags [S3 Object Storage Management]
+// @Accept  json
+// @Produce  json
+// @Param S3BucketRegisterRequest body restruntime.S3BucketRegisterRequest true "Request body for registering an S3 Bucket"
+// @Success 200 {object} S3BucketWithIIDResponse "Details of the registered S3 Bucket"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /regs3 [post]
+func RegisterS3Bucket(c echo.Context) error {
+	cblog.Info("call RegisterS3Bucket()")
+
+	req := S3BucketRegisterRequest{}
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	userIId := cres.IID{NameId: req.ReqInfo.Name, SystemId: req.ReqInfo.CSPId}
+
+	result, err := cmrt.RegisterS3Bucket(req.ConnectionName, userIId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// unregisterS3Bucket godoc
+// @ID unregister-s3-bucket
+// @Summary Unregister S3 Bucket
+// @Description Remove an S3 bucket mapping from CB-Spider metadata without deleting it from the CSP. (CB-Spider special feature)
+// @Tags [S3 Object Storage Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering an S3 Bucket"
+// @Param Name path string true "The name of the S3 Bucket to unregister"
+// @Success 200 {object} BooleanInfo "Result of the unregister operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /regs3/{Name} [delete]
+func UnregisterS3Bucket(c echo.Context) error {
+	cblog.Info("call UnregisterS3Bucket()")
+
+	var req ConnectionRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	result, err := cmrt.UnregisterS3Bucket(req.ConnectionName, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+// listAllS3Buckets godoc
+// @ID list-all-s3-bucket
+// @Summary List All S3 Buckets in a Connection
+// @Description Retrieve a comprehensive list of all S3 Buckets associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP. (CB-Spider special feature)
+// @Tags [S3 Object Storage Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list S3 Buckets for"
+// @Success 200 {object} AllResourceListResponse "List of all S3 Buckets within the specified connection, including Buckets in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /alls3 [get]
+func ListAllS3Buckets(c echo.Context) error {
+	cblog.Info("call ListAllS3Buckets()")
+
+	var req ConnectionRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+
+	allBucketList, err := cmrt.ListAllS3Buckets(req.ConnectionName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &allBucketList)
+}
+
+// listAllS3BucketInfo godoc
+// @ID list-all-s3-bucket-info
+// @Summary List All S3 Bucket Info
+// @Description Retrieve detailed info of all S3 Buckets associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP. (CB-Spider special feature)
+// @Tags [S3 Object Storage Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list S3 Bucket info for"
+// @Success 200 {object} cmrt.AllS3BucketInfoList "Detailed info of all S3 Buckets within the specified connection"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /alls3info [get]
+func ListAllS3BucketInfo(c echo.Context) error {
+	cblog.Info("call ListAllS3BucketInfo()")
+
+	var req ConnectionRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+
+	allBucketInfoList, err := cmrt.ListAllS3BucketInfo(req.ConnectionName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &allBucketInfoList)
+}
+
+// countAllS3Buckets godoc
+// @ID count-all-s3-bucket
+// @Summary Count All S3 Buckets
+// @Description Get the total number of S3 Buckets registered across all connections. (CB-Spider special feature)
+// @Tags [S3 Object Storage Management]
+// @Produce  json
+// @Success 200 {object} CountResponse "Total count of S3 Buckets"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /counts3 [get]
+func CountAllS3Buckets(c echo.Context) error {
+	cblog.Info("call CountAllS3Buckets()")
+
+	count, err := cmrt.CountAllS3Buckets()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	jsonResult := CountResponse{
+		Count: int(count),
+	}
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+// deleteCSPS3Bucket godoc
+// @ID delete-csp-s3-bucket
+// @Summary Delete CSP S3 Bucket
+// @Description Delete a specified CSP S3 Bucket directly from the CSP without affecting CB-Spider metadata. (CB-Spider special feature)
+// @Tags [S3 Object Storage Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP S3 Bucket"
+// @Param Id path string true "The CSP S3 Bucket ID (system name) to delete"
+// @Success 200 {object} BooleanInfo "Result of the delete operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /csps3/{Id} [delete]
+func DeleteCSPS3Bucket(c echo.Context) error {
+	cblog.Info("call DeleteCSPS3Bucket()")
+
+	var req ConnectionRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	result, err := cmrt.DeleteCSPS3Bucket(req.ConnectionName, c.Param("Id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+	return c.JSON(http.StatusOK, &resultInfo)
 }

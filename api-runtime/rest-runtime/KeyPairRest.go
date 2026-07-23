@@ -230,11 +230,14 @@ func ListAllKey(c echo.Context) error {
 // listAllKeyPairInfo godoc
 // @ID list-all-keypair-info
 // @Summary List All KeyPair Info
-// @Description Retrieve a list of KeyPair information associated with all connections.
+// @Description Retrieve a comprehensive list of all KeyPair information associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
-// @Success 200 {object} AllResourceInfoListResponse "List of KeyPair information associated with all connections"
+// @Param ConnectionName query string true "The name of the Connection to list KeyPair information for"
+// @Success 200 {object} AllResourceInfoListResponse "List of all KeyPair information within the specified connection, including KeyPairs in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /allkeypairinfo [get]
 func ListAllKeyPairInfo(c echo.Context) error { return listAllResourceInfo(c, cres.KEY) }

@@ -284,11 +284,14 @@ func ListVpcSecurity(c echo.Context) error {
 // listAllSecurityGroupInfo godoc
 // @ID list-all-securitygroup-info
 // @Summary List All SecurityGroup Info
-// @Description Retrieve a list of Security Group information associated with all connections.
+// @Description Retrieve a comprehensive list of all Security Group information associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
-// @Success 200 {object} AllResourceInfoListResponse "List of all Security Group information"
+// @Param ConnectionName query string true "The name of the Connection to list Security Group information for"
+// @Success 200 {object} AllResourceInfoListResponse "List of all Security Group information within the specified connection, including Security Groups in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /allsecuritygroupinfo [get]
 func ListAllSecurityGroupInfo(c echo.Context) error { return listAllResourceInfo(c, cres.SG) }

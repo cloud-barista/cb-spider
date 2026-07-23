@@ -175,7 +175,7 @@
         },
         "/alldiskinfo": {
             "get": {
-                "description": "Retrieve a list of all Disk information associated with all connections.",
+                "description": "Retrieve a comprehensive list of all Disk information associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -187,11 +187,32 @@
                 ],
                 "summary": "List All Disk Info",
                 "operationId": "list-all-disk-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Disk information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "List of all Disk information across all connections",
+                        "description": "List of all Disk information within the specified connection, including Disks in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
-                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
                         }
                     },
                     "500": {
@@ -256,7 +277,7 @@
         },
         "/allkeypairinfo": {
             "get": {
-                "description": "Retrieve a list of KeyPair information associated with all connections.",
+                "description": "Retrieve a comprehensive list of all KeyPair information associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -268,11 +289,32 @@
                 ],
                 "summary": "List All KeyPair Info",
                 "operationId": "list-all-keypair-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list KeyPair information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "List of KeyPair information associated with all connections",
+                        "description": "List of all KeyPair information within the specified connection, including KeyPairs in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
                         }
                     },
                     "500": {
@@ -541,7 +583,7 @@
         },
         "/allrdbmsinfo": {
             "get": {
-                "description": "Retrieve a list of all RDBMS information associated with all connections.",
+                "description": "Retrieve a comprehensive list of all RDBMS information associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -553,11 +595,122 @@
                 ],
                 "summary": "List All RDBMS Info",
                 "operationId": "list-all-rdbms-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list RDBMS information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "List of all RDBMS information across all connections",
+                        "description": "List of all RDBMS information within the specified connection, including RDBMS in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/alls3": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all S3 Buckets associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP. (CB-Spider special feature)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "List All S3 Buckets in a Connection",
+                "operationId": "list-all-s3-bucket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list S3 Buckets for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all S3 Buckets within the specified connection, including Buckets in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/alls3info": {
+            "get": {
+                "description": "Retrieve detailed info of all S3 Buckets associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP. (CB-Spider special feature)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "List All S3 Bucket Info",
+                "operationId": "list-all-s3-bucket-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list S3 Bucket info for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detailed info of all S3 Buckets within the specified connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllS3BucketInfoList"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
                         }
                     },
                     "500": {
@@ -622,7 +775,7 @@
         },
         "/allsecuritygroupinfo": {
             "get": {
-                "description": "Retrieve a list of Security Group information associated with all connections.",
+                "description": "Retrieve a comprehensive list of all Security Group information associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -634,11 +787,32 @@
                 ],
                 "summary": "List All SecurityGroup Info",
                 "operationId": "list-all-securitygroup-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Security Group information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "List of all Security Group information",
+                        "description": "List of all Security Group information within the specified connection, including Security Groups in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
                         }
                     },
                     "500": {
@@ -2483,6 +2657,33 @@
                 }
             }
         },
+        "/counts3": {
+            "get": {
+                "description": "Get the total number of S3 Buckets registered across all connections. (CB-Spider special feature)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Count All S3 Buckets",
+                "operationId": "count-all-s3-bucket",
+                "responses": {
+                    "200": {
+                        "description": "Total count of S3 Buckets",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/counts3/{ConnectionName}": {
             "get": {
                 "description": "Get the total number of S3 buckets for a specific connection.",
@@ -3260,6 +3461,66 @@
                     {
                         "type": "string",
                         "description": "The CSP RDBMS ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/csps3/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP S3 Bucket directly from the CSP without affecting CB-Spider metadata. (CB-Spider special feature)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Delete CSP S3 Bucket",
+                "operationId": "delete-csp-s3-bucket",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP S3 Bucket",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP S3 Bucket ID (system name) to delete",
                         "name": "Id",
                         "in": "path",
                         "required": true
@@ -9092,6 +9353,119 @@
                 }
             }
         },
+        "/regs3": {
+            "post": {
+                "description": "Register an existing CSP S3 bucket into CB-Spider metadata with a user-defined name. (CB-Spider special feature)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Register S3 Bucket",
+                "operationId": "register-s3-bucket",
+                "parameters": [
+                    {
+                        "description": "Request body for registering an S3 Bucket",
+                        "name": "S3BucketRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered S3 Bucket",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketWithIIDResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regs3/{Name}": {
+            "delete": {
+                "description": "Remove an S3 bucket mapping from CB-Spider metadata without deleting it from the CSP. (CB-Spider special feature)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Object Storage Management]"
+                ],
+                "summary": "Unregister S3 Bucket",
+                "operationId": "unregister-s3-bucket",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering an S3 Bucket",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the S3 Bucket to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regsecuritygroup": {
             "post": {
                 "description": "Register a new Security Group with the specified name and CSP ID.",
@@ -12973,6 +13347,37 @@
         }
     },
     "definitions": {
+        "spider.AllS3BucketInfoList": {
+            "type": "object",
+            "properties": {
+                "ResourceType": {
+                    "type": "string"
+                },
+                "allListInfo": {
+                    "type": "object",
+                    "properties": {
+                        "MappedInfoList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.S3BucketWithIID"
+                            }
+                        },
+                        "OnlyCSPInfoList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.S3BucketWithIID"
+                            }
+                        },
+                        "OnlySpiderList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "spider.DeletedResourceInfoList": {
             "type": "object",
             "required": [
@@ -13130,6 +13535,20 @@
                     "type": "string"
                 },
                 "systemNetSent": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3BucketWithIID": {
+            "type": "object",
+            "properties": {
+                "creationDate": {
+                    "type": "string"
+                },
+                "nameId": {
+                    "type": "string"
+                },
+                "systemId": {
                     "type": "string"
                 }
             }
@@ -18418,6 +18837,56 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "spider.S3BucketRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "my-csp-bucket-name"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "my-bucket"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.S3BucketWithIIDResponse": {
+            "type": "object",
+            "required": [
+                "NameId",
+                "SystemId"
+            ],
+            "properties": {
+                "CreationDate": {
+                    "type": "string"
+                },
+                "NameId": {
+                    "type": "string",
+                    "example": "my-bucket"
+                },
+                "SystemId": {
+                    "type": "string",
+                    "example": "my-csp-bucket-name"
                 }
             }
         },
