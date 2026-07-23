@@ -19,6 +19,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
 	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
@@ -3570,4 +3571,461 @@ func CountS3BucketsByConnection(connectionName string) (int64, error) {
 	}
 
 	return count, nil
+}
+
+// ============================================================================
+// CB-Spider Special Features: Register/Unregister/ListAll/CountAll/DeleteCSP
+// ============================================================================
+
+// AllS3BucketList is the response structure for listing all S3 buckets with categorization.
+type AllS3BucketList struct {
+	AllList struct {
+		MappedList     []*cres.IID `json:"MappedList"`
+		OnlySpiderList []*cres.IID `json:"OnlySpiderList"`
+		OnlyCSPList    []*cres.IID `json:"OnlyCSPList"`
+	}
+}
+
+// AllS3BucketInfoList is the response structure for listing all S3 bucket info with categorization.
+type AllS3BucketInfoList struct {
+	ResourceType string `json:"ResourceType"`
+	AllListInfo  struct {
+		MappedInfoList  []*S3BucketWithIID `json:"MappedInfoList"`
+		OnlySpiderList  []*cres.IID        `json:"OnlySpiderList"`
+		OnlyCSPInfoList []*S3BucketWithIID `json:"OnlyCSPInfoList"`
+	}
+}
+
+// RegisterS3Bucket registers an existing CSP S3 bucket into CB-Spider metadata.
+// UserIID{NameId=user-name, SystemId=CSP-bucket-name}
+func RegisterS3Bucket(connectionName string, userIID cres.IID) (*S3BucketWithIID, error) {
+	cblog.Info("call RegisterS3Bucket()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// Check if already registered
+	exist, err := infostore.HasByConditions(&S3BucketIIDInfo{}, "connection_name", connectionName, "name_id", userIID.NameId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if exist {
+		return nil, fmt.Errorf("S3 Bucket '%s' already exists in connection '%s'", userIID.NameId, connectionName)
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	var creationDate time.Time
+	if connInfo.ProviderName == "AZURE" {
+		bucketInfo, err := getAzureBucket(connInfo, &S3BucketIIDInfo{
+			ConnectionName: connectionName,
+			NameId:         userIID.NameId,
+			SystemId:       userIID.SystemId,
+			Region:         connInfo.Region,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("S3 Bucket '%s' not found in CSP: %v", userIID.SystemId, err)
+		}
+		creationDate = bucketInfo.CreationDate
+	} else {
+		client, err := NewS3Client(connInfo)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		exists, err := client.BucketExists(ctx, userIID.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		if !exists {
+			return nil, fmt.Errorf("S3 Bucket '%s' not found in CSP for connection '%s'", userIID.SystemId, connectionName)
+		}
+		buckets, err := client.ListBuckets(ctx)
+		if err == nil {
+			for _, b := range buckets {
+				if b.Name == userIID.SystemId {
+					creationDate = b.CreationDate
+					break
+				}
+			}
+		}
+	}
+
+	iidInfo := S3BucketIIDInfo{
+		ConnectionName: connectionName,
+		NameId:         userIID.NameId,
+		SystemId:       userIID.SystemId,
+		Region:         connInfo.Region,
+	}
+	err = infostore.Insert(&iidInfo)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	return &S3BucketWithIID{
+		NameId:       userIID.NameId,
+		SystemId:     userIID.SystemId,
+		CreationDate: creationDate,
+	}, nil
+}
+
+// UnregisterS3Bucket removes a bucket mapping from CB-Spider metadata without deleting from CSP.
+func UnregisterS3Bucket(connectionName string, nameId string) (bool, error) {
+	cblog.Info("call UnregisterS3Bucket()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	nameId, err = EmptyCheckAndTrim("nameId", nameId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	exist, err := infostore.HasByConditions(&S3BucketIIDInfo{}, "connection_name", connectionName, "name_id", nameId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+	if !exist {
+		return false, fmt.Errorf("S3 Bucket '%s' does not exist in connection '%s'", nameId, connectionName)
+	}
+
+	_, err = infostore.DeleteByConditions(&S3BucketIIDInfo{}, "connection_name", connectionName, "name_id", nameId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	return true, nil
+}
+
+// listAllCSPS3Buckets fetches all bucket system IDs from CSP for a given connection.
+func listAllCSPS3Buckets(connInfo *S3ConnectionInfo) ([]string, error) {
+	if connInfo.ProviderName == "AZURE" {
+		client, _, err := newAzureBlobClient(connInfo)
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		var names []string
+		pager := client.NewListContainersPager(nil)
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to list Azure containers: %w", err)
+			}
+			for _, item := range page.ContainerItems {
+				if item.Name != nil {
+					names = append(names, *item.Name)
+				}
+			}
+		}
+		return names, nil
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	buckets, err := client.ListBuckets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, b := range buckets {
+		names = append(names, b.Name)
+	}
+	return names, nil
+}
+
+// ListAllS3Buckets lists all S3 buckets for a connection, categorized into
+// MappedList (in both SP and CSP), OnlySpiderList (only in SP), OnlyCSPList (only in CSP).
+func ListAllS3Buckets(connectionName string) (AllS3BucketList, error) {
+	cblog.Info("call ListAllS3Buckets()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return AllS3BucketList{}, err
+	}
+
+	var iidInfoList []*S3BucketIIDInfo
+	err = infostore.ListByCondition(&iidInfoList, "connection_name", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return AllS3BucketList{}, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return AllS3BucketList{}, err
+	}
+
+	cspNames, err := listAllCSPS3Buckets(connInfo)
+	if err != nil {
+		cblog.Error(err)
+		return AllS3BucketList{}, err
+	}
+
+	var allResult AllS3BucketList
+	emptyList := []*cres.IID{}
+
+	spList := make([]*cres.IID, 0, len(iidInfoList))
+	for _, info := range iidInfoList {
+		spList = append(spList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+	}
+
+	if len(spList) == 0 && len(cspNames) == 0 {
+		allResult.AllList.MappedList = emptyList
+		allResult.AllList.OnlySpiderList = emptyList
+		allResult.AllList.OnlyCSPList = emptyList
+		return allResult, nil
+	}
+
+	if len(cspNames) == 0 {
+		allResult.AllList.MappedList = emptyList
+		allResult.AllList.OnlyCSPList = emptyList
+		allResult.AllList.OnlySpiderList = spList
+		return allResult, nil
+	}
+
+	if len(spList) == 0 {
+		onlyCSP := make([]*cres.IID, 0, len(cspNames))
+		for _, name := range cspNames {
+			onlyCSP = append(onlyCSP, &cres.IID{NameId: name, SystemId: name})
+		}
+		allResult.AllList.MappedList = emptyList
+		allResult.AllList.OnlySpiderList = emptyList
+		allResult.AllList.OnlyCSPList = onlyCSP
+		return allResult, nil
+	}
+
+	mappedList := []*cres.IID{}
+	onlySpiderList := []*cres.IID{}
+	for _, spIID := range spList {
+		found := false
+		for _, cspName := range cspNames {
+			if spIID.SystemId == cspName {
+				mappedList = append(mappedList, spIID)
+				found = true
+				break
+			}
+		}
+		if !found {
+			onlySpiderList = append(onlySpiderList, spIID)
+		}
+	}
+
+	onlyCSPList := []*cres.IID{}
+	for _, cspName := range cspNames {
+		isMapped := false
+		for _, mapped := range mappedList {
+			if cspName == mapped.SystemId {
+				isMapped = true
+				break
+			}
+		}
+		if !isMapped {
+			onlyCSPList = append(onlyCSPList, &cres.IID{NameId: cspName, SystemId: cspName})
+		}
+	}
+
+	allResult.AllList.MappedList = mappedList
+	allResult.AllList.OnlySpiderList = onlySpiderList
+	allResult.AllList.OnlyCSPList = onlyCSPList
+
+	return allResult, nil
+}
+
+// ListAllS3BucketInfo lists detailed S3 bucket info for a connection, categorized into
+// MappedInfoList, OnlySpiderList, and OnlyCSPInfoList.
+func ListAllS3BucketInfo(connectionName string) (AllS3BucketInfoList, error) {
+	cblog.Info("call ListAllS3BucketInfo()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return AllS3BucketInfoList{}, err
+	}
+
+	var iidInfoList []*S3BucketIIDInfo
+	err = infostore.ListByCondition(&iidInfoList, "connection_name", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return AllS3BucketInfoList{}, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return AllS3BucketInfoList{}, err
+	}
+
+	// Get all CSP buckets with creation dates
+	type cspBucketEntry struct {
+		Name         string
+		CreationDate time.Time
+	}
+	var cspEntries []cspBucketEntry
+
+	if connInfo.ProviderName == "AZURE" {
+		client, _, err := newAzureBlobClient(connInfo)
+		if err != nil {
+			return AllS3BucketInfoList{}, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		pager := client.NewListContainersPager(nil)
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return AllS3BucketInfoList{}, fmt.Errorf("failed to list Azure containers: %w", err)
+			}
+			for _, item := range page.ContainerItems {
+				if item.Name != nil {
+					lastModified := time.Time{}
+					if item.Properties != nil && item.Properties.LastModified != nil {
+						lastModified = *item.Properties.LastModified
+					}
+					cspEntries = append(cspEntries, cspBucketEntry{Name: *item.Name, CreationDate: lastModified})
+				}
+			}
+		}
+	} else {
+		client, err := NewS3Client(connInfo)
+		if err != nil {
+			return AllS3BucketInfoList{}, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		buckets, err := client.ListBuckets(ctx)
+		if err != nil {
+			return AllS3BucketInfoList{}, err
+		}
+		for _, b := range buckets {
+			cspEntries = append(cspEntries, cspBucketEntry{Name: b.Name, CreationDate: b.CreationDate})
+		}
+	}
+
+	var allResult AllS3BucketInfoList
+	allResult.ResourceType = "s3bucket"
+
+	mappedInfoList := []*S3BucketWithIID{}
+	onlySpiderList := []*cres.IID{}
+	for _, spInfo := range iidInfoList {
+		found := false
+		for _, csp := range cspEntries {
+			if spInfo.SystemId == csp.Name {
+				mappedInfoList = append(mappedInfoList, &S3BucketWithIID{
+					NameId:       spInfo.NameId,
+					SystemId:     spInfo.SystemId,
+					CreationDate: csp.CreationDate,
+				})
+				found = true
+				break
+			}
+		}
+		if !found {
+			onlySpiderList = append(onlySpiderList, &cres.IID{NameId: spInfo.NameId, SystemId: spInfo.SystemId})
+		}
+	}
+
+	onlyCSPInfoList := []*S3BucketWithIID{}
+	for _, csp := range cspEntries {
+		isMapped := false
+		for _, mapped := range mappedInfoList {
+			if csp.Name == mapped.SystemId {
+				isMapped = true
+				break
+			}
+		}
+		if !isMapped {
+			onlyCSPInfoList = append(onlyCSPInfoList, &S3BucketWithIID{
+				NameId:       csp.Name,
+				SystemId:     csp.Name,
+				CreationDate: csp.CreationDate,
+			})
+		}
+	}
+
+	allResult.AllListInfo.MappedInfoList = mappedInfoList
+	allResult.AllListInfo.OnlySpiderList = onlySpiderList
+	allResult.AllListInfo.OnlyCSPInfoList = onlyCSPInfoList
+
+	return allResult, nil
+}
+
+// CountAllS3Buckets counts all S3 buckets across all connections.
+func CountAllS3Buckets() (int64, error) {
+	var info S3BucketIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+	return count, nil
+}
+
+// DeleteCSPS3Bucket deletes an S3 bucket directly from CSP by system ID without affecting CB-Spider metadata.
+func DeleteCSPS3Bucket(connectionName string, systemId string) (bool, error) {
+	cblog.Info("call DeleteCSPS3Bucket()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	if connInfo.ProviderName == "AZURE" {
+		err := deleteAzureBucket(connInfo, systemId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		return true, nil
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = client.RemoveBucket(ctx, systemId)
+	if err != nil {
+		cblog.Error(err)
+		return false, fmt.Errorf("failed to delete CSP S3 bucket '%s': %v", systemId, err)
+	}
+
+	return true, nil
 }

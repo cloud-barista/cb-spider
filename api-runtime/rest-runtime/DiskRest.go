@@ -239,11 +239,14 @@ func ListAllDisk(c echo.Context) error {
 // listAllDiskInfo godoc
 // @ID list-all-disk-info
 // @Summary List All Disk Info
-// @Description Retrieve a list of all Disk information associated with all connections.
+// @Description Retrieve a comprehensive list of all Disk information associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
-// @Success 200 {object} AllResourceListResponse "List of all Disk information across all connections"
+// @Param ConnectionName query string true "The name of the Connection to list Disk information for"
+// @Success 200 {object} AllResourceInfoListResponse "List of all Disk information within the specified connection, including Disks in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /alldiskinfo [get]
 func ListAllDiskInfo(c echo.Context) error { return listAllResourceInfo(c, cres.DISK) }

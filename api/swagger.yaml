@@ -1,5 +1,25 @@
 basePath: /spider
 definitions:
+  spider.AllS3BucketInfoList:
+    properties:
+      ResourceType:
+        type: string
+      allListInfo:
+        properties:
+          MappedInfoList:
+            items:
+              $ref: '#/definitions/spider.S3BucketWithIID'
+            type: array
+          OnlyCSPInfoList:
+            items:
+              $ref: '#/definitions/spider.S3BucketWithIID'
+            type: array
+          OnlySpiderList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+        type: object
+    type: object
   spider.DeletedResourceInfoList:
     properties:
       DeletedIIDList:
@@ -113,6 +133,15 @@ definitions:
       systemNetReceived:
         type: string
       systemNetSent:
+        type: string
+    type: object
+  spider.S3BucketWithIID:
+    properties:
+      creationDate:
+        type: string
+      nameId:
+        type: string
+      systemId:
         type: string
     type: object
   spider.SystemInfo:
@@ -3915,6 +3944,41 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.S3BucketRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: my-csp-bucket-name
+            type: string
+          Name:
+            example: my-bucket
+            type: string
+        required:
+        - CSPId
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.S3BucketWithIIDResponse:
+    properties:
+      CreationDate:
+        type: string
+      NameId:
+        example: my-bucket
+        type: string
+      SystemId:
+        example: my-csp-bucket-name
+        type: string
+    required:
+    - NameId
+    - SystemId
+    type: object
   spider.S3Error:
     properties:
       Code:
@@ -4656,15 +4720,33 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of all Disk information associated with all connections.
+      description: Retrieve a comprehensive list of all Disk information associated
+        with a specific connection, <br> including those mapped between CB-Spider
+        and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
       operationId: list-all-disk-info
+      parameters:
+      - description: The name of the Connection to list Disk information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: List of all Disk information across all connections
+          description: List of all Disk information within the specified connection,
+            including Disks in CB-Spider only, CSP only, and mapped between both.
           schema:
-            $ref: '#/definitions/spider.AllResourceListResponse'
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
         "500":
           description: Internal Server Error
           schema:
@@ -4714,15 +4796,33 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of KeyPair information associated with all connections.
+      description: Retrieve a comprehensive list of all KeyPair information associated
+        with a specific connection, <br> including those mapped between CB-Spider
+        and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
       operationId: list-all-keypair-info
+      parameters:
+      - description: The name of the Connection to list KeyPair information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: List of KeyPair information associated with all connections
+          description: List of all KeyPair information within the specified connection,
+            including KeyPairs in CB-Spider only, CSP only, and mapped between both.
           schema:
             $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
         "500":
           description: Internal Server Error
           schema:
@@ -4930,15 +5030,33 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of all RDBMS information associated with all connections.
+      description: Retrieve a comprehensive list of all RDBMS information associated
+        with a specific connection, <br> including those mapped between CB-Spider
+        and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
       operationId: list-all-rdbms-info
+      parameters:
+      - description: The name of the Connection to list RDBMS information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: List of all RDBMS information across all connections
+          description: List of all RDBMS information within the specified connection,
+            including RDBMS in CB-Spider only, CSP only, and mapped between both.
           schema:
-            $ref: '#/definitions/spider.AllResourceListResponse'
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
         "500":
           description: Internal Server Error
           schema:
@@ -4946,6 +5064,73 @@ paths:
       summary: List All RDBMS Info
       tags:
       - '[RDBMS Management]'
+  /alls3:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all S3 Buckets associated with
+        a specific connection, <br> including those mapped between CB-Spider and the
+        CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP. (CB-Spider special feature)
+      operationId: list-all-s3-bucket
+      parameters:
+      - description: The name of the Connection to list S3 Buckets for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all S3 Buckets within the specified connection, including
+            Buckets in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All S3 Buckets in a Connection
+      tags:
+      - '[S3 Object Storage Management]'
+  /alls3info:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve detailed info of all S3 Buckets associated with a specific
+        connection, <br> including those mapped between CB-Spider and the CSP, <br>
+        only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+        (CB-Spider special feature)
+      operationId: list-all-s3-bucket-info
+      parameters:
+      - description: The name of the Connection to list S3 Bucket info for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Detailed info of all S3 Buckets within the specified connection
+          schema:
+            $ref: '#/definitions/spider.AllS3BucketInfoList'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All S3 Bucket Info
+      tags:
+      - '[S3 Object Storage Management]'
   /allsecuritygroup:
     get:
       consumes:
@@ -4990,16 +5175,35 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of Security Group information associated with all
-        connections.
+      description: Retrieve a comprehensive list of all Security Group information
+        associated with a specific connection, <br> including those mapped between
+        CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br>
+        and only existing in the CSP.
       operationId: list-all-securitygroup-info
+      parameters:
+      - description: The name of the Connection to list Security Group information
+          for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: List of all Security Group information
+          description: List of all Security Group information within the specified
+            connection, including Security Groups in CB-Spider only, CSP only, and
+            mapped between both.
           schema:
             $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
         "500":
           description: Internal Server Error
           schema:
@@ -6278,6 +6482,25 @@ paths:
       summary: Count RDBMS by Connection
       tags:
       - '[RDBMS Management]'
+  /counts3:
+    get:
+      description: Get the total number of S3 Buckets registered across all connections.
+        (CB-Spider special feature)
+      operationId: count-all-s3-bucket
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of S3 Buckets
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All S3 Buckets
+      tags:
+      - '[S3 Object Storage Management]'
   /counts3/{ConnectionName}:
     get:
       description: Get the total number of S3 buckets for a specific connection.
@@ -6825,6 +7048,48 @@ paths:
       summary: Delete CSP RDBMS
       tags:
       - '[RDBMS Management]'
+  /csps3/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP S3 Bucket directly from the CSP without
+        affecting CB-Spider metadata. (CB-Spider special feature)
+      operationId: delete-csp-s3-bucket
+      parameters:
+      - description: Request body for deleting a CSP S3 Bucket
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP S3 Bucket ID (system name) to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP S3 Bucket
+      tags:
+      - '[S3 Object Storage Management]'
   /cspsecuritygroup/{Id}:
     delete:
       consumes:
@@ -10784,6 +11049,85 @@ paths:
       summary: Unregister RDBMS
       tags:
       - '[RDBMS Management]'
+  /regs3:
+    post:
+      consumes:
+      - application/json
+      description: Register an existing CSP S3 bucket into CB-Spider metadata with
+        a user-defined name. (CB-Spider special feature)
+      operationId: register-s3-bucket
+      parameters:
+      - description: Request body for registering an S3 Bucket
+        in: body
+        name: S3BucketRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3BucketRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered S3 Bucket
+          schema:
+            $ref: '#/definitions/spider.S3BucketWithIIDResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register S3 Bucket
+      tags:
+      - '[S3 Object Storage Management]'
+  /regs3/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove an S3 bucket mapping from CB-Spider metadata without deleting
+        it from the CSP. (CB-Spider special feature)
+      operationId: unregister-s3-bucket
+      parameters:
+      - description: Request body for unregistering an S3 Bucket
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the S3 Bucket to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister S3 Bucket
+      tags:
+      - '[S3 Object Storage Management]'
   /regsecuritygroup:
     post:
       consumes:
