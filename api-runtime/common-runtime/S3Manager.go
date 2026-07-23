@@ -3623,16 +3623,29 @@ func RegisterS3Bucket(connectionName string, userIID cres.IID) (*S3BucketWithIID
 		return nil, err
 	}
 
+	// For Tencent COS, AppId is required as a suffix in the CSP bucket name.
+	// If the user provides a name without the AppId suffix, append it automatically.
+	systemId := userIID.SystemId
+	if connInfo.ProviderName == "TENCENT" {
+		if connInfo.AppId == "" {
+			return nil, fmt.Errorf("failed to retrieve Tencent AppId from CAM API")
+		}
+		if !strings.HasSuffix(systemId, "-"+connInfo.AppId) {
+			systemId = systemId + "-" + connInfo.AppId
+			cblog.Infof("Tencent COS RegisterS3Bucket: Appending AppId to bucket name: %s -> %s", userIID.SystemId, systemId)
+		}
+	}
+
 	var creationDate time.Time
 	if connInfo.ProviderName == "AZURE" {
 		bucketInfo, err := getAzureBucket(connInfo, &S3BucketIIDInfo{
 			ConnectionName: connectionName,
 			NameId:         userIID.NameId,
-			SystemId:       userIID.SystemId,
+			SystemId:       systemId,
 			Region:         connInfo.Region,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("S3 Bucket '%s' not found in CSP: %v", userIID.SystemId, err)
+			return nil, fmt.Errorf("S3 Bucket '%s' not found in CSP: %v", systemId, err)
 		}
 		creationDate = bucketInfo.CreationDate
 	} else {
@@ -3644,18 +3657,18 @@ func RegisterS3Bucket(connectionName string, userIID cres.IID) (*S3BucketWithIID
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		exists, err := client.BucketExists(ctx, userIID.SystemId)
+		exists, err := client.BucketExists(ctx, systemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		if !exists {
-			return nil, fmt.Errorf("S3 Bucket '%s' not found in CSP for connection '%s'", userIID.SystemId, connectionName)
+			return nil, fmt.Errorf("S3 Bucket '%s' not found in CSP for connection '%s'", systemId, connectionName)
 		}
 		buckets, err := client.ListBuckets(ctx)
 		if err == nil {
 			for _, b := range buckets {
-				if b.Name == userIID.SystemId {
+				if b.Name == systemId {
 					creationDate = b.CreationDate
 					break
 				}
@@ -3666,7 +3679,7 @@ func RegisterS3Bucket(connectionName string, userIID cres.IID) (*S3BucketWithIID
 	iidInfo := S3BucketIIDInfo{
 		ConnectionName: connectionName,
 		NameId:         userIID.NameId,
-		SystemId:       userIID.SystemId,
+		SystemId:       systemId,
 		Region:         connInfo.Region,
 	}
 	err = infostore.Insert(&iidInfo)
@@ -3677,7 +3690,7 @@ func RegisterS3Bucket(connectionName string, userIID cres.IID) (*S3BucketWithIID
 
 	return &S3BucketWithIID{
 		NameId:       userIID.NameId,
-		SystemId:     userIID.SystemId,
+		SystemId:     systemId,
 		CreationDate: creationDate,
 	}, nil
 }
