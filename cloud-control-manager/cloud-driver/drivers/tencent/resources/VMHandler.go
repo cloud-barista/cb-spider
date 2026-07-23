@@ -675,6 +675,9 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		VMUserId:   "cb-user",
 		//KeyPairIId: irs.IID{SystemId: *curVm.},
 	}
+	if curVm.InstanceName != nil {
+		vmInfo.IId.NameId = *curVm.InstanceName
+	}
 
 	if !reflect.ValueOf(curVm.ImageId).IsNil() {
 		imageIID := irs.IID{SystemId: *curVm.ImageId}
