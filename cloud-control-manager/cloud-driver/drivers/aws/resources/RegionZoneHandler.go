@@ -14,6 +14,23 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
+const regionZoneHTTPTimeout = 10 * time.Second
+
+func newRegionZoneEC2Client(baseClient *ec2.EC2, regionName *string) (*ec2.EC2, error) {
+	httpClient := &http.Client{Timeout: regionZoneHTTPTimeout}
+	sess, err := session.NewSession(&aws.Config{
+		Credentials: baseClient.Config.Credentials,
+		Region:      regionName,
+		HTTPClient:  httpClient,
+		MaxRetries:  aws.Int(0),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return ec2.New(sess), nil
+}
+
 type AwsRegionZoneHandler struct {
 	Region idrv.RegionInfo
 	Client *ec2.EC2
@@ -28,6 +45,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	}
 
 	var errlist []error
+	var errlistMu sync.Mutex
 	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(responseRegions.Regions))
 	var wg sync.WaitGroup
 	for _, region := range responseRegions.Regions {
@@ -35,23 +53,19 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 		go func(region *ec2.Region) {
 			defer wg.Done()
 
-			httpClient := &http.Client{Timeout: 10 * time.Second}
-			sess, err := session.NewSession(&aws.Config{
-				Credentials: regionZoneHandler.Client.Config.Credentials,
-				Region:      region.RegionName,
-				HTTPClient:  httpClient,
-				MaxRetries:  aws.Int(0),
-			})
+			tempclient, err := newRegionZoneEC2Client(regionZoneHandler.Client, region.RegionName)
 			if err != nil {
 				cblogger.Error(err)
+				return
 			}
-			tempclient := ec2.New(sess)
 
 			responseZones, err := DescribeAvailabilityZones(tempclient, false)
 			if err != nil {
 				cblogger.Infof("error on [%s]", *region.RegionName)
-				cblogger.Infof(err.Error())
+				cblogger.Info(err.Error())
+				errlistMu.Lock()
 				errlist = append(errlist, err)
+				errlistMu.Unlock()
 			} else {
 				var zoneInfoList []irs.ZoneInfo
 				for _, zone := range responseZones.AvailabilityZones {
@@ -82,8 +96,11 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 
 	if len(errlist) > 0 {
 		errlistjoin := errors.Join(errlist...)
-		cblogger.Error("ListRegionZone() error : ", errlistjoin)
-		return regionZoneInfoList, errlistjoin
+		if len(regionZoneInfoList) == 0 {
+			cblogger.Error("ListRegionZone() error : ", errlistjoin)
+			return nil, errlistjoin
+		}
+		cblogger.Warnf("ListRegionZone(): returning partial results with %d region errors: %v", len(errlist), errlistjoin)
 	}
 
 	return regionZoneInfoList, nil
@@ -99,14 +116,11 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 	var regionZoneInfo irs.RegionZoneInfo
 	for _, region := range responseRegions.Regions {
 		cblogger.Debug("#################### region.RegionName", region.RegionName)
-		sess, err := session.NewSession(&aws.Config{
-			Credentials: regionZoneHandler.Client.Config.Credentials,
-			Region:      region.RegionName,
-		})
+		tempclient, err := newRegionZoneEC2Client(regionZoneHandler.Client, region.RegionName)
 		if err != nil {
 			cblogger.Error(err)
+			continue
 		}
-		tempclient := ec2.New(sess)
 
 		responseZones, err := DescribeAvailabilityZones(tempclient, false)
 		if err != nil {
@@ -161,23 +175,19 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListOrgZone() (string, error) {
 
 	for _, region := range responseRegions.Regions {
 
-		sess, err := session.NewSession(&aws.Config{
-			Credentials: regionZoneHandler.Client.Config.Credentials,
-			Region:      region.RegionName,
-		})
+		tempclient, err := newRegionZoneEC2Client(regionZoneHandler.Client, region.RegionName)
 		if err != nil {
 			cblogger.Errorf("NewSession err %s", *region.RegionName)
 			cblogger.Error(err)
-		} else {
-			tempclient := ec2.New(sess)
+			continue
+		}
 
-			responseZones, err := DescribeAvailabilityZones(tempclient, false)
-			if err != nil {
-				cblogger.Errorf("DescribeAvailabilityZones err %s", *region.RegionName)
-				cblogger.Error(err)
-			} else {
-				responseZonesList = append(responseZonesList, responseZones)
-			}
+		responseZones, err := DescribeAvailabilityZones(tempclient, false)
+		if err != nil {
+			cblogger.Errorf("DescribeAvailabilityZones err %s", *region.RegionName)
+			cblogger.Error(err)
+		} else {
+			responseZonesList = append(responseZonesList, responseZones)
 
 		}
 	}
