@@ -1,6 +1,5 @@
 # Binaries
 bin/
-spiderwatch
 
 # PID file and log (created by 'make run')
 .spiderwatch.pid
