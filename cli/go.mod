@@ -1,6 +1,6 @@
 module github.com/cloud-barista/cb-spider/cli
 
-go 1.25.0
+go 1.26.2
 
 require (
 	github.com/TylerBrock/colorjson v0.0.0-20200706003622-8a50f05110d2

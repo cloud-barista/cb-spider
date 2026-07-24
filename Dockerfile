@@ -4,7 +4,7 @@
 
 # Note: --platform=$BUILDPLATFORM runs the builder natively on the host (e.g., amd64),
 # avoiding slow QEMU emulation. Cross-compilation is handled via TARGETOS/TARGETARCH.
-FROM --platform=$BUILDPLATFORM golang:1.25.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.2 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
