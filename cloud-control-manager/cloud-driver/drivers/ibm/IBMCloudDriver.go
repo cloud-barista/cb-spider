@@ -3,6 +3,7 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/IBM/cloud-databases-go-sdk/clouddatabasesv5"
@@ -24,6 +25,29 @@ type IbmCloudDriver struct{}
 
 const (
 	cspTimeout time.Duration = 6000
+)
+
+// iamAuthCache shares one IamAuthenticator (and its cached IAM token) per ApiKey.
+var (
+	iamAuthCache   = map[string]*core.IamAuthenticator{}
+	iamAuthCacheMu sync.Mutex
+)
+
+func getIamAuthenticator(apiKey string) *core.IamAuthenticator {
+	iamAuthCacheMu.Lock()
+	defer iamAuthCacheMu.Unlock()
+	if auth, ok := iamAuthCache[apiKey]; ok {
+		return auth
+	}
+	auth := &core.IamAuthenticator{ApiKey: apiKey}
+	iamAuthCache[apiKey] = auth
+	return auth
+}
+
+// regionEndpointCache caches the VPC endpoint per validated (region, zone) pair.
+var (
+	regionEndpointCache   = map[string]string{}
+	regionEndpointCacheMu sync.Mutex
 )
 
 func (IbmCloudDriver) GetDriverVersion() string {
@@ -69,78 +93,73 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	// Region & Zone Check
-	initVpcService, err := vpcv1.NewVpcV1(&vpcv1.VpcV1Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	var endPoint string
-	getRegionOptions := &vpcv1.GetRegionOptions{}
-	getRegionOptions.SetName(connectionInfo.RegionInfo.Region)
-	region, _, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
-	if err != nil {
-		return nil, err
-	} else {
+	auth := getIamAuthenticator(connectionInfo.CredentialInfo.ApiKey)
+
+	// Region & Zone Check (cached per region/zone pair)
+	endpointCacheKey := connectionInfo.RegionInfo.Region + "/" + connectionInfo.RegionInfo.Zone
+	regionEndpointCacheMu.Lock()
+	endPoint, cached := regionEndpointCache[endpointCacheKey]
+	regionEndpointCacheMu.Unlock()
+	if !cached {
+		initVpcService, err := vpcv1.NewVpcV1(&vpcv1.VpcV1Options{
+			Authenticator: auth,
+		})
+		if err != nil {
+			return nil, err
+		}
+		getRegionOptions := &vpcv1.GetRegionOptions{}
+		getRegionOptions.SetName(connectionInfo.RegionInfo.Region)
+		region, _, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
+		if err != nil {
+			return nil, err
+		}
 		getZoneOptions := &vpcv1.GetRegionZoneOptions{}
 		getZoneOptions.SetRegionName(*region.Name)
 		getZoneOptions.SetName(connectionInfo.RegionInfo.Zone)
-		_, _, err := initVpcService.GetRegionZoneWithContext(ctx, getZoneOptions)
+		_, _, err = initVpcService.GetRegionZoneWithContext(ctx, getZoneOptions)
 		if err != nil {
 			return nil, err
 		}
 		endPoint = *region.Endpoint + "/v1"
+		regionEndpointCacheMu.Lock()
+		regionEndpointCache[endpointCacheKey] = endPoint
+		regionEndpointCacheMu.Unlock()
 	}
 	vpcService, err := vpcv1.NewVpcV1(&vpcv1.VpcV1Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
-		URL: endPoint,
+		Authenticator: auth,
+		URL:           endPoint,
 	})
 	if err != nil {
 		return nil, err
 	}
 	clusterService, err := kubernetesserviceapiv1.NewKubernetesServiceApiV1(&kubernetesserviceapiv1.KubernetesServiceApiV1Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
+		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
 	}
 	taggingService, err := globaltaggingv1.NewGlobalTaggingV1(&globaltaggingv1.GlobalTaggingV1Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
+		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
 	}
 	searchService, err := globalsearchv2.NewGlobalSearchV2(&globalsearchv2.GlobalSearchV2Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
+		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	resourceControllerService, err := resourcecontrollerv2.NewResourceControllerV2(&resourcecontrollerv2.ResourceControllerV2Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
+		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	cloudDBService, err := clouddatabasesv5.NewCloudDatabasesV5(&clouddatabasesv5.CloudDatabasesV5Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
+		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
