@@ -408,7 +408,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	}
 
 	if *res.Response.TotalCount == 0 {
-		err := fmt.Errorf("Failed to Get Cluster: cluster_id: %s", cluster_id)
+		// NOTE: This message must contain a token recognized by common-runtime
+		// checkNotFoundError() ("not found" / "not exist"). DeleteCluster() polls
+		// GetCluster() until the cluster disappears from the CSP and ends the wait
+		// on that check; a message it cannot recognize turns a successful deletion
+		// into an error and leaves a stale ClusterIIDInfo in the meta DB.
+		err := fmt.Errorf("Cluster not found: cluster_id: %s", cluster_id)
 		cblogger.Error(err)
 		return nil, err
 	}
