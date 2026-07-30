@@ -13,11 +13,11 @@ package tencent
 import (
 	"regexp"
 
-	as "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/as/v20180419"
-	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common/profile"
-	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
-	vpc "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/vpc/v20170312"
+	as "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/as/v20180419"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
 
 func CreateCluster(secret_id string, secret_key string, region_id string, request *tke.CreateClusterRequest) (*tke.CreateClusterResponse, error) {
@@ -78,6 +78,21 @@ func DeleteCluster(secret_id string, secret_key string, region_id string, cluste
 	request.ClusterId = common.StringPtr(cluster_id)
 	request.InstanceDeleteMode = common.StringPtr("terminate") // or "retain"
 	response, err := client.DeleteCluster(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func GetClusterVersions(secret_id string, secret_key string, region_id string) (*tke.DescribeVersionsResponse, error) {
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, _ := tke.NewClient(credential, region_id, cpf)
+
+	request := tke.NewDescribeVersionsRequest()
+	response, err := client.DescribeVersions(request)
 	if err != nil {
 		return nil, err
 	}
@@ -333,6 +348,24 @@ func GetClusterEndpoint(secret_id string, secret_key string, region_id string, c
 	request := tke.NewDescribeClusterEndpointsRequest()
 	request.ClusterId = common.StringPtr(cluster_id)
 	response, err := client.DescribeClusterEndpoints(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func GetClusterEndpointStatus(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DescribeClusterEndpointStatusResponse, error) {
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, _ := tke.NewClient(credential, region_id, cpf)
+
+	request := tke.NewDescribeClusterEndpointStatusRequest()
+	request.ClusterId = common.StringPtr(cluster_id)
+	request.IsExtranet = common.BoolPtr(true)
+
+	response, err := client.DescribeClusterEndpointStatus(request)
 	if err != nil {
 		return nil, err
 	}

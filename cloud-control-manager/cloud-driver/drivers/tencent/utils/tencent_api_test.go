@@ -15,8 +15,8 @@ import (
 	"testing"
 
 	tencent "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/tencent"
-	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
 )
 
 var secret_id = os.Getenv("CLIENT_ID")

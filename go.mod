@@ -24,7 +24,7 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/swaggo/swag v1.16.6
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.415
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.94
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.136
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.1064
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	golang.org/x/crypto v0.52.0
@@ -84,11 +84,13 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/as v1.3.128
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cam v1.1.48
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdb v1.3.94
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs v1.1.8
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.0.964
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke v1.3.136
 	golang.org/x/mod v0.35.0
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
