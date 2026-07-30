@@ -797,6 +797,12 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 			}
 		}
 
+		// Delete the S/G info from DB
+		_, unRegErr := sim.UnRegisterSecurityGroup(vmIID.SystemId)
+		if unRegErr != nil {
+			cblogger.Debug(unRegErr.Error())
+		}
+
 		return irs.VMStatus("Terminating"), nil
 
 	case "Not Exist!!":

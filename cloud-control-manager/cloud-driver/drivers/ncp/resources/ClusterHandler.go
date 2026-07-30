@@ -382,6 +382,19 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 			no, _ := strconv.ParseInt(subnet.IId.SystemId, 10, 32)
 			lbPublicSubnetNo = int32(no)
 		} else {
+			// Skip any LOADB-type subnets (e.g. created by the NLB handler) from the
+			// worker-node subnet list — NCP rejects LOADB subnets in SubnetNoList.
+			isLoadb := false
+			for _, kv := range subnet.KeyValueList {
+				if strings.EqualFold(kv.Key, "UsageType") && strings.Contains(strings.ToUpper(kv.Value), usageTypeCodeLoadb) {
+					isLoadb = true
+					break
+				}
+			}
+			if isLoadb {
+				cblogger.Infof("Skipping LOADB subnet [%s/%s] from worker node subnet list", subnet.IId.NameId, subnet.IId.SystemId)
+				continue
+			}
 			no, _ := strconv.ParseInt(subnet.IId.SystemId, 10, 32)
 			subnetNoList = append(subnetNoList, int32(no))
 		}

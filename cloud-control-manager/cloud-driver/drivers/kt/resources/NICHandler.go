@@ -338,7 +338,7 @@ func (nicHandler *KTVpcNICHandler) mappingNICInfo(port *ports.Port) (irs.NICInfo
 
 		subnet, err := getSubnetWithId(nicHandler.NetworkClient, subnetID)
 		if err == nil {
-			nicInfo.SubnetIID.NameId = subnet.NetworkName // KT subnet name = tier name
+			nicInfo.SubnetIID.NameId = subnet.NetworkName // KT subnet name = tier name (for NIC display)
 			nicInfo.VpcIID = irs.IID{SystemId: subnet.NetworkID}
 			if net, netErr := networks.Get(nicHandler.NetworkClient, subnet.NetworkID).ExtractVPC(); netErr == nil {
 				nicInfo.VpcIID.NameId = net.Name
@@ -385,7 +385,6 @@ func (nicHandler *KTVpcNICHandler) mappingNICInfo(port *ports.Port) (irs.NICInfo
 	nicInfo.CreatedTime = time.Now()
 	return nicInfo, nil
 }
-
 
 // AddPrivateIP adds a secondary private IP to a KT Cloud VPC NIC (port) using ports.Update.
 func (h *KTVpcNICHandler) AddPrivateIP(nicIID irs.IID, privateIP string) (irs.NICInfo, error) {

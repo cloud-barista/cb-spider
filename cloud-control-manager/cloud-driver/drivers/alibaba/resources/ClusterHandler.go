@@ -866,10 +866,25 @@ func (ach *AlibabaClusterHandler) getClusterInfoWithoutNodeGroupList(regionId, c
 		return nil, err
 	}
 
-	secGroupAttr, err := aliDescribeSecurityGroupAttribute(ach.EcsClient, regionId, tea.StringValue(cluster.SecurityGroupId))
-	if err != nil {
-		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
-		return nil, err
+	var secGroupAttr *ecs2014.DescribeSecurityGroupAttributeResponseBody
+	{
+		const maxSGRetries = 10
+		const sgRetryInterval = 10 * time.Second
+		var sgErr error
+		for attempt := 1; attempt <= maxSGRetries; attempt++ {
+			secGroupAttr, sgErr = aliDescribeSecurityGroupAttribute(ach.EcsClient, regionId, tea.StringValue(cluster.SecurityGroupId))
+			if sgErr == nil {
+				break
+			}
+			cblogger.Warnf("getClusterInfoWithoutNodeGroupList: SG attribute attempt %d/%d failed: %v", attempt, maxSGRetries, sgErr)
+			if attempt < maxSGRetries {
+				time.Sleep(sgRetryInterval)
+			}
+		}
+		if sgErr != nil {
+			err = fmt.Errorf("failed to get ClusterInfo: %v", sgErr)
+			return nil, err
+		}
 	}
 
 	clusterInfo := &irs.ClusterInfo{

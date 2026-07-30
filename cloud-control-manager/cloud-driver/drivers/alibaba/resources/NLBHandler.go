@@ -26,12 +26,12 @@ type AlibabaNLBHandler struct {
 }
 
 type AlibabaNLBBackendServer struct {
-	ServerId    string
-	Port        int
-	Weight      int
-	Description string
-	Type        string
-	ServerIp    string
+	ServerId    string `json:"ServerId"`
+	Port        int    `json:"Port,omitempty"`
+	Weight      int    `json:"Weight"`
+	Description string `json:"Description,omitempty"`
+	Type        string `json:"Type"`
+	ServerIp    string `json:"ServerIp,omitempty"`
 }
 
 const (
@@ -321,33 +321,14 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	vms := make([]irs.IID, 0)
 	backendServerList := lbAttributeResponse.BackendServers.BackendServer
 	for _, backendServer := range backendServerList {
-		// vm 이름 때문에 조회 해야하나...
-		vmHandler := AlibabaVMHandler{Client: NLBHandler.VMClient}
-		vmIID := irs.IID{SystemId: backendServer.ServerId}
-		vmInfo, err := vmHandler.GetVM(vmIID)
-		if err != nil {
-			cblogger.Error(err.Error())
-			// vm 정보 조회 실패
-			// var inKeyValueList []irs.KeyValue
-			// keyValue := irs.KeyValue{"reason", err.Error()}
-			// inKeyValueList = append(inKeyValueList, keyValue)
-			// vmGroup.KeyValueList = inKeyValueList
-			vmGroup.KeyValueList = irs.StructToKeyValueList(err)
-		} else {
-			vmIID = vmInfo.IId
-			nlbInfo.VpcIID = vmInfo.VpcIID
-		}
-
-		vms = append(vms, vmIID)
+		// Return the ECS instance ID as SystemId; NLBManager resolves NameId from meta_db.
+		vms = append(vms, irs.IID{SystemId: backendServer.ServerId})
 	}
 
-	//VpcIID : vm 조회하면서 set함.
-	//vpcHandler := AlibabaVPCHandler{Client: NLBHandler.VpcClient}
-	//vpcInfo, err := vpcHandler.GetVPC(nlbInfo.VpcIID)
-	//if err != nil {
-	//
-	//}
-	//nlbInfo.VpcIID = vpcInfo.IId
+	// VpcIID: obtained directly from the CLB attribute response (no VM lookup needed).
+	if lbAttributeResponse.VpcId != "" {
+		nlbInfo.VpcIID = irs.IID{SystemId: lbAttributeResponse.VpcId}
+	}
 
 	// VMGroup
 	vmGroup.VMs = &vms
@@ -936,7 +917,11 @@ func (NLBHandler *AlibabaNLBHandler) addVMGroupInfo(nlbIID irs.IID, nlbReqInfo i
 	vmGroupRequest.LoadBalancerId = nlbIID.SystemId
 	vmGroupRequest.VServerGroupName = nlbIID.NameId // LB와 똑같은 이름 상관없음
 
-	vmHandler := AlibabaVMHandler{Client: NLBHandler.VMClient}
+	vmHandler := AlibabaVMHandler{
+		Client:    NLBHandler.VMClient,
+		VpcClient: NLBHandler.VpcClient,
+		Region:    NLBHandler.Region,
+	}
 
 	maxVmCount := 20
 	vmCount := len(*vmGroup.VMs)
@@ -1035,8 +1020,6 @@ func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo
 	backendServersRequest := slb.CreateAddBackendServersRequest()
 	backendServersRequest.LoadBalancerId = nlbIID.SystemId
 
-	vmHandler := AlibabaVMHandler{Client: NLBHandler.VMClient}
-
 	maxVmCount := 20
 	vmCount := len(*vmGroup.VMs)
 	if maxVmCount < vmCount {
@@ -1052,18 +1035,6 @@ func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo
 
 		backendServer := AlibabaNLBBackendServer{ServerId: vmIId.SystemId}
 
-		// vm 정보 조회해서 backendServer정보 set
-		vmInfo, err := vmHandler.GetVM(vmIId)
-		if err != nil {
-			return irs.VMGroupInfo{}, err
-		}
-		printToJson(vmInfo)
-		// IP
-		backendServer.ServerIp = vmInfo.PublicIP
-
-		// Port
-		backendServer.Port, _ = strconv.Atoi(vmGroup.Port)
-
 		// Weight
 		if vmIndex == vmCount-1 {
 			backendServer.Weight = remainingWeight
@@ -1072,7 +1043,9 @@ func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo
 			remainingWeight -= weight
 		}
 
-		// type( ecs : elastic compute service instance / eni : elastic network interface / eci : elastic container instance )
+		// Type: ecs (elastic compute service instance)
+		// ServerIp and Port are optional for ecs-type CLB backends and are omitted
+		// to avoid validation errors (empty/zero values rejected by the Alibaba API).
 		backendServer.Type = "ecs"
 
 		backendServerJson, err := json.Marshal(backendServer)
@@ -1082,10 +1055,7 @@ func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo
 		vms = append(vms, string(backendServerJson))
 
 		// vmGroup 정보 갱신
-		returnVms = append(returnVms, vmInfo.IId)
-		printToJson(vmInfo.IId)
-		printToJson(returnVms)
-		//vmIId.NameId = vmInfo.IId.NameId
+		returnVms = append(returnVms, vmIId)
 	}
 	backendServersRequest.BackendServers = "[" + strings.Join(vms, ",") + "]"
 	cblogger.Debug("backendServersRequest---")

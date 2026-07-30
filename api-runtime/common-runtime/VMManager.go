@@ -1730,18 +1730,32 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 			err = infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName,
 				OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
 			if err != nil {
-				cblog.Error(err)
-				return err
+				// Subnet may not be registered in Spider's metadb (e.g. pre-existing subnet,
+				// or stale metadb after subnet re-creation). Log and continue gracefully.
+				if checkNotFoundError(err) {
+					cblog.Info(err)
+				} else {
+					cblog.Error(err)
+					return err
+				}
 			}
 		} else {
 			err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
 				OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
 			if err != nil {
-				cblog.Error(err)
-				return err
+				// Subnet may not be registered in Spider's metadb (e.g. pre-existing subnet,
+				// or stale metadb after subnet re-creation). Log and continue gracefully.
+				if checkNotFoundError(err) {
+					cblog.Info(err)
+				} else {
+					cblog.Error(err)
+					return err
+				}
 			}
 		}
-		vmInfo.SubnetIID.NameId = iidInfo.NameId
+		if iidInfo.NameId != "" {
+			vmInfo.SubnetIID.NameId = iidInfo.NameId
+		}
 	}
 
 	// set SecurityGroups NameId

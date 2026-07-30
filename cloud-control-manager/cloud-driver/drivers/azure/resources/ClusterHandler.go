@@ -1592,9 +1592,14 @@ func applySecurityGroupList(sourceSecurity armnetwork.SecurityGroup, targetSecur
 			update := inboundsgRule
 			update.Properties.Priority = inboundsgRule.Properties.Priority
 			if *update.Properties.Priority >= 500 {
-				// AKS baseRule 회피
-				priority := *inboundsgRule.Properties.Priority + 100
-				update.Properties.Priority = &priority
+				// AKS baseRule 회피: +100 offset to avoid conflicts with AKS default rules.
+				// Skip rules whose adjusted priority would exceed Azure's 4096 limit.
+				adjusted := *inboundsgRule.Properties.Priority + 100
+				if adjusted > 4096 {
+					cblogger.Warnf("applySecurityGroupList: skipping rule %q — adjusted priority %d exceeds Azure max 4096", *inboundsgRule.Name, adjusted)
+					continue
+				}
+				update.Properties.Priority = &adjusted
 			}
 			poller, err := SecurityRulesClient.BeginCreateOrUpdate(ctx, sgresourceGroup, *targetsg.Name, *inboundsgRule.Name, *update, nil)
 			if err != nil {

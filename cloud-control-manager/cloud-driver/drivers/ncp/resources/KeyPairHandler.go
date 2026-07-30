@@ -15,6 +15,7 @@ import (
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -27,6 +28,7 @@ type NcpVpcKeyPairHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	RegionInfo     idrv.RegionInfo
 	VMClient       *vserver.APIClient
+	ClassicClient  *server.APIClient // fallback for deleteLoginKey
 }
 
 func (keyPairHandler *NcpVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
@@ -211,13 +213,27 @@ func (keyPairHandler *NcpVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, err
 	// keypairDelReq := server.DeleteLoginKeyRequest{
 	// 	KeyName: ncloud.String(keyIID.NameId),
 	// }
-
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.DeleteLoginKeys(&keypairDelReq)
 	if err != nil {
-		cblogger.Errorf("Failed to Delete the KeyPair : %s, %v", keyIID.NameId, err)
-		LoggingError(callLogInfo, err)
-		return false, err
+		cblogger.Warnf("VPC DeleteLoginKeys failed (1300/etc), trying Classic API fallback: %v", err)
+		// Fallback: NCP VPC login keys are shared with Classic; try server/v2/deleteLoginKey
+		if keyPairHandler.ClassicClient != nil {
+			classicReq := server.DeleteLoginKeyRequest{
+				KeyName: ncloud.String(keyIID.NameId),
+			}
+			_, classicErr := keyPairHandler.ClassicClient.V2Api.DeleteLoginKey(&classicReq)
+			if classicErr != nil {
+				cblogger.Errorf("Failed to Delete the KeyPair : %s, %v", keyIID.NameId, classicErr)
+				LoggingError(callLogInfo, classicErr)
+				return false, classicErr
+			}
+			cblogger.Infof("Classic API fallback succeeded for keypair: %s", keyIID.NameId)
+		} else {
+			cblogger.Errorf("Failed to Delete the KeyPair : %s, %v", keyIID.NameId, err)
+			LoggingError(callLogInfo, err)
+			return false, err
+		}
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
