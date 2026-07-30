@@ -211,13 +211,23 @@ func getAWSNLBShortID(inID string) string {
 	return inID
 }
 
+// checkNotFoundError reports whether err means "this resource does not exist in the CSP".
+//
+// CONTRACT FOR DRIVER AUTHORS: when a resource is absent, a driver MUST return an
+// error whose message contains "not found" or "not exist" (spaces and case are
+// ignored here). Delete and List flows in common-runtime depend on it:
+//   - DeleteXXX() polls GetXXX() until the resource is gone from the CSP and ends
+//     the wait on this check. A message it cannot recognize turns a successful
+//     deletion into an error and leaves a stale IID in the meta DB.
+//   - ListXXX() degrades to a stub IID instead of failing the whole listing.
 func checkNotFoundError(err error) bool {
 	msg := err.Error()
 	msg = strings.ReplaceAll(msg, " ", "")
 	msg = strings.ToLower(msg)
 
 	return strings.Contains(msg, "notexist") || strings.Contains(msg, "notfound") ||
-		strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm") || strings.Contains(msg, "noresult")
+		strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm") ||
+		strings.Contains(msg, "noresult")
 }
 
 func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
