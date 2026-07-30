@@ -289,8 +289,24 @@ var spiderImageInfo string
 func (r *Runner) startContainer(ctx context.Context, cfg *config.Config) error {
 	log.Infof("runner: pulling image %s", cfg.Spider.Image)
 	pullArgs := []string{"pull", cfg.Spider.Image}
-	if out, err := exec.CommandContext(ctx, "docker", pullArgs...).CombinedOutput(); err != nil {
-		return fmt.Errorf("runner: docker pull: %w - %s", err, strings.TrimSpace(string(out)))
+	const maxPullAttempts = 5
+	var pullErr error
+	for attempt := 1; attempt <= maxPullAttempts; attempt++ {
+		var out []byte
+		out, pullErr = exec.CommandContext(ctx, "docker", pullArgs...).CombinedOutput()
+		if pullErr == nil {
+			break
+		}
+		log.Warnf("runner: docker pull attempt %d/%d failed: %s", attempt, maxPullAttempts, strings.TrimSpace(string(out)))
+		if attempt < maxPullAttempts {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("runner: docker pull cancelled: %w", ctx.Err())
+			case <-time.After(2 * time.Second):
+			}
+		} else {
+			return fmt.Errorf("runner: docker pull: %w - %s", pullErr, strings.TrimSpace(string(out)))
+		}
 	}
 
 	// Capture the image digest and creation timestamp for traceability.
@@ -1618,6 +1634,16 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 	{
 		// 2. CREATE NLB
 		createOp := st.op("create", func() error {
+			vmGroup := nlbVMGroup{
+				Protocol: nlbCfg.TargetProtocol,
+				Port:     nlbCfg.TargetPort,
+			}
+			// Some CSPs (e.g. KT Cloud) require at least one VM at NLB creation time
+			// because the NLB operates at subnet level and needs a VM to determine the subnet.
+			// Include the test VM in the create body if it already exists.
+			if st.vmCreated {
+				vmGroup.VMs = []string{st.vmName}
+			}
 			body := nlbCreateBody{
 				ConnectionName: connection,
 				ReqInfo: nlbReqInfo{
@@ -1629,10 +1655,7 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 						Protocol: nlbCfg.ListenerProtocol,
 						Port:     nlbCfg.ListenerPort,
 					},
-					VMGroup: nlbVMGroup{
-						Protocol: nlbCfg.TargetProtocol,
-						Port:     nlbCfg.TargetPort,
-					},
+					VMGroup: vmGroup,
 					HealthChecker: nlbHealthChecker{
 						Protocol:  nlbCfg.HealthProtocol,
 						Port:      nlbCfg.HealthPort,
@@ -1707,12 +1730,34 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 			addBody.ReqInfo.VMs = []string{st.vmName}
 			b, _ := json.Marshal(addBody)
 			url := fmt.Sprintf("%s/nlb/%s/vms", apiBase, st.nlbName)
-			errBody, code, err := doReq(http.MethodPost, url, b)
-			if err != nil {
-				return err
-			}
-			if code >= 400 {
-				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
+			const maxAddVMRetries = 5
+			const addVMRetryInterval = 10 * time.Second
+			for attempt := 1; attempt <= maxAddVMRetries; attempt++ {
+				errBody, code, err := doReq(http.MethodPost, url, b)
+				if err != nil {
+					// Network-level error (e.g. connection reset, timeout) — retry.
+					log.Warnf("runner: NLB add-vm attempt %d/%d network error: %v", attempt, maxAddVMRetries, err)
+					if attempt == maxAddVMRetries {
+						return err
+					}
+					select {
+					case <-ctx.Done():
+						return fmt.Errorf("context cancelled: %w", ctx.Err())
+					case <-time.After(addVMRetryInterval):
+					}
+					b, _ = json.Marshal(addBody)
+					continue
+				}
+				if code >= 400 {
+					bodyStr := strings.ToLower(string(errBody))
+					// VM was already added during NLB creation (e.g. KT Cloud requires VM at create time).
+					if strings.Contains(bodyStr, "already exist") || strings.Contains(bodyStr, "already in") {
+						log.Infof("runner: NLB add-vm: VM already in NLB (added at creation), treating as success")
+						return nil
+					}
+					return fmt.Errorf("HTTP %d: %s", code, string(errBody))
+				}
+				return nil
 			}
 			return nil
 		})
@@ -2491,7 +2536,17 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 			for attempt := 1; attempt <= maxAttempts; attempt++ {
 				body, code, err := doReq(http.MethodGet, getURL, nil)
 				if err != nil {
-					return err
+					// Transient network error (e.g. IAM auth timeout) — log and continue polling.
+					log.Warnf("runner: cluster %s wait-ng-active attempt %d/%d network error (retrying): %v", st.clusterName, attempt, maxAttempts, err)
+					if attempt == maxAttempts {
+						return err
+					}
+					select {
+					case <-ctx.Done():
+						return fmt.Errorf("context cancelled waiting for cluster ng-active: %w", ctx.Err())
+					case <-time.After(pollInterval):
+					}
+					continue
 				}
 				if code >= 400 {
 					return fmt.Errorf("HTTP %d: %s", code, string(body))
@@ -2770,7 +2825,17 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 			for attempt := 1; attempt <= maxAttempts; attempt++ {
 				body, code, err := doReq(http.MethodGet, getURL, nil)
 				if err != nil {
-					return err
+					// Transient network error (e.g. IAM auth timeout) — log and continue polling.
+					log.Warnf("runner: cluster %s wait-active attempt %d/%d network error (retrying): %v", st.clusterName, attempt, maxAttempts, err)
+					if attempt == maxAttempts {
+						return err
+					}
+					select {
+					case <-ctx.Done():
+						return fmt.Errorf("context cancelled waiting for cluster Active: %w", ctx.Err())
+					case <-time.After(pollInterval):
+					}
+					continue
 				}
 				if code >= 400 {
 					return fmt.Errorf("HTTP %d: %s", code, string(body))
@@ -3577,7 +3642,46 @@ func (r *Runner) testCleanup(ctx context.Context, client *http.Client, cfg *conf
 	// 404 responses are treated as success (resource already gone).
 	if st.s3Created || inResources("s3") {
 		op := st.op("s3-delete", func() error {
-			// Use ?force to delete the bucket and all its objects in one call.
+			const s3Prefix = "spider-watch-"
+
+			// List all buckets and delete every one with the spider-watch- prefix.
+			// This catches buckets created in previous runs (their seq differs from st.s3Name).
+			listURL := fmt.Sprintf("%s/s3?ConnectionName=%s", apiBase, connection)
+			listBody, listCode, listErr := doReq(http.MethodGet, listURL, nil)
+			if listErr == nil && listCode < 400 {
+				var listResp struct {
+					Buckets struct {
+						Bucket []struct {
+							Name string `json:"Name"`
+						} `json:"Bucket"`
+					} `json:"Buckets"`
+				}
+				if jerr := json.Unmarshal(listBody, &listResp); jerr == nil {
+					for _, b := range listResp.Buckets.Bucket {
+						if !strings.HasPrefix(b.Name, s3Prefix) {
+							continue
+						}
+						delURL := fmt.Sprintf("%s/s3/%s?force&ConnectionName=%s", apiBase, b.Name, connection)
+						delBody, delCode, delErr := doReq(http.MethodDelete, delURL, nil)
+						if delErr != nil {
+							log.Warnf("runner: s3-delete bucket %s error: %v", b.Name, delErr)
+							continue
+						}
+						if delCode == http.StatusNotFound || isDoesNotExistBody(delBody) {
+							log.Infof("runner: s3-delete bucket %s already gone", b.Name)
+							continue
+						}
+						if delCode >= 400 {
+							log.Warnf("runner: s3-delete bucket %s HTTP %d: %s", b.Name, delCode, string(delBody))
+						} else {
+							log.Infof("runner: s3-delete bucket %s deleted", b.Name)
+						}
+					}
+					return nil
+				}
+			}
+
+			// Fallback: delete only the current-run bucket by name.
 			url := fmt.Sprintf("%s/s3/%s?force&ConnectionName=%s", apiBase, st.s3Name, connection)
 			body, code, err := doReq(http.MethodDelete, url, nil)
 			if err != nil {
@@ -4024,7 +4128,7 @@ func (r *Runner) testCleanup(ctx context.Context, client *http.Client, cfg *conf
 		rr.Operations = append(rr.Operations, op)
 	}
 	if st.kpCreated || inResources("keypair") {
-		op := delWithRetry("kp-delete", apiBase+"/keypair/"+st.kpName, 3)
+		op := delWithRetry("kp-delete", apiBase+"/keypair/"+st.kpName, 20)
 		rr.Operations = append(rr.Operations, op)
 	}
 	if st.sgCreated || inResources("securitygroup") {

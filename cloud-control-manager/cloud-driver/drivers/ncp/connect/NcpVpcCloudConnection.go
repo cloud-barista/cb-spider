@@ -21,6 +21,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
+	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
 	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
 	vmysql "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vmysql"
@@ -45,6 +46,7 @@ type NcpVpcCloudConnection struct {
 	VnasClient     *vnas.APIClient
 	MysqlClient    *vmysql.APIClient
 	PostgresClient *vpostgresql.APIClient
+	ClassicClient  *server.APIClient // fallback for Classic API operations
 }
 
 var cblogger *logrus.Logger
@@ -88,8 +90,12 @@ func (cloudConn *NcpVpcCloudConnection) CreateImageHandler() (irs.ImageHandler, 
 
 func (cloudConn *NcpVpcCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateKeyPairHandler()!")
-	keypairHandler := ncprs.NcpVpcKeyPairHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient}
-
+	keypairHandler := ncprs.NcpVpcKeyPairHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		VMClient:       cloudConn.VmClient,
+		ClassicClient:  cloudConn.ClassicClient,
+	}
 	return &keypairHandler, nil
 }
 

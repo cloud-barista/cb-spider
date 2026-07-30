@@ -1288,11 +1288,10 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 						nicInfo.SubnetIID = irs.IID{SystemId: subnetID}
 						sub, subErr := ktsubnets.Get(vmHandler.NetworkClient, subnetID).ExtractSubnet()
 						if subErr == nil && sub != nil {
-							nicInfo.SubnetIID.NameId = sub.NetworkName // KT Cloud uses NetworkName (tier name)
+							nicInfo.SubnetIID.NameId = sub.NetworkName // zone subnet name for NIC display
 						}
-						if idx == 0 {
-							vmInfo.SubnetIID = nicInfo.SubnetIID
-						}
+						// Note: vmInfo.SubnetIID is set from vm.Addresses key below (not from NIC loop),
+						// which gives the tier name directly (old approach, more reliable for KT Cloud).
 					}
 					// Build FloatingIP map (fixedIP → publicIP)
 					fipMap := map[string]string{}
@@ -1329,7 +1328,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			}
 		}
 	}
-	
+
 	var netInfo *NetworkInfo
 	if !strings.EqualFold(vmInfo.PrivateIP, "") {
 		var getNetErr error
@@ -1362,6 +1361,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 	// 	cblogger.Infof("# OsNetwork ID : %s", OsNetId)
 	// }
 
+	// Find the correct KT tier by name.
+	// vm.Addresses map key = tier name (e.g. "spider-watch") — this is set above and matches
+	// the RefName stored in Spider metadb via mappingSubnetInfo, so getTierRefIdWithTierName works correctly.
 	tierRefId, getNetErr := vpcHandler.getTierRefIdWithTierName(vmInfo.SubnetIID.NameId)
 	if getNetErr != nil {
 		newErr := fmt.Errorf("Failed to Get the OsNetwork ID with the Tier Name : [%v]", getNetErr)
@@ -1372,9 +1374,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		vmInfo.SubnetIID.SystemId = *tierRefId // Caution!!) Not Tier 'NetworkId' but 'tierRefId' to Create VM through REST API!!
 	}
 
-	vpcId, err := vpcHandler.getVPCIdWithTierRefId(*tierRefId)
+	vpcId, err := vpcHandler.getVPCIdWithTierRefId(vmInfo.SubnetIID.SystemId)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC ID with teh OsNetwork ID. [%v]", err)
+		newErr := fmt.Errorf("Failed to Get the VPC ID with the OsNetwork ID. [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}

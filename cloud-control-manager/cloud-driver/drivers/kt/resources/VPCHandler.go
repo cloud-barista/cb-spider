@@ -16,8 +16,10 @@ package resources
 import (
 	// "errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
@@ -32,7 +34,7 @@ import (
 )
 
 const (
-	DefaultVpcCIDR	string = "172.25.0.0/12" // CIDR of KT Cloud D Platform default VPC
+	DefaultVpcCIDR string = "172.25.0.0/12" // CIDR of KT Cloud D Platform default VPC
 )
 
 type KTVpcVPCHandler struct {
@@ -116,12 +118,12 @@ func (vpcHandler *KTVpcVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		return irs.VPCInfo{}, newErr
 	}
 
-    vpc, err := networks.Get(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractVPC()
-    if err != nil {
+	vpc, err := networks.Get(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractVPC()
+	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VPC info.")
 		cblogger.Error(newErr.Error())
-        return irs.VPCInfo{}, newErr
-    }
+		return irs.VPCInfo{}, newErr
+	}
 
 	vpcInfo, mapErr := vpcHandler.mappingVpcInfo(vpc)
 	if mapErr != nil {
@@ -138,21 +140,21 @@ func (vpcHandler *KTVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListVPC()", "ListVPC()")
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
-    listOpts := networks.ListOpts{
-        Page: 1,
-        Size: 2000, // Max page size, to list all data in a single page
+	listOpts := networks.ListOpts{
+		Page: 1,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
-    pager := networks.List(vpcHandler.NetworkClient, listOpts)
-    loggingInfo(callLogInfo, start)
+	pager := networks.List(vpcHandler.NetworkClient, listOpts)
+	loggingInfo(callLogInfo, start)
 
 	var vpcInfoList []*irs.VPCInfo
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-        vpcs, err := networks.ExtractVPCs(page)
-        if err != nil {
+		vpcs, err := networks.ExtractVPCs(page)
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Extract VPC list : [%v]", err)
 			cblogger.Error(newErr.Error())
-		    return false, newErr
+			return false, newErr
 		}
 
 		if len(vpcs) < 1 {
@@ -160,8 +162,8 @@ func (vpcHandler *KTVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			cblogger.Infof("No VPC found : %v", newErr)
 			return false, newErr
 		}
-    
-        for _, vpc := range vpcs {
+
+		for _, vpc := range vpcs {
 			vpcInfo, err := vpcHandler.mappingVpcInfo(&vpc)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Map the VPC Info : [%v]", err)
@@ -171,17 +173,17 @@ func (vpcHandler *KTVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			}
 			vpcInfoList = append(vpcInfoList, vpcInfo)
 		}
- 		return true, nil
+		return true, nil
 	})
-    if err != nil {
-        if err != nil {
+	if err != nil {
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Get VPC list : [%v]", err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
-		    return nil, newErr
+			return nil, newErr
 		}
-    }    
- 	return vpcInfoList, nil
+	}
+	return vpcInfoList, nil
 }
 
 // Note) KT Cloud (D platform) supports only one VPC that has been created.
@@ -274,7 +276,7 @@ func (vpcHandler *KTVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.II
 		return false, newErr
 	}
 	cblogger.Infof("\n# Subnet Id(TierId) to Remove : %s", subnetIID.SystemId)
-	
+
 	networkId, err := vpcHandler.getNetworkIdWithTierId(subnetIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Network ID!!")
@@ -317,11 +319,11 @@ func (vpcHandler *KTVpcVPCHandler) mappingVpcInfo(nvpc *networks.VPC) (*irs.VPCI
 	// Mapping VPC info.
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
-			NameId:   	nvpc.Name,
-			SystemId: 	nvpc.VpcID,
+			NameId:   nvpc.Name,
+			SystemId: nvpc.VpcID,
 		},
-		IPv4_CIDR: 		DefaultVpcCIDR, // CIDR of KT Cloud D Platform default VPC
-		KeyValueList:   irs.StructToKeyValueList(nvpc),
+		IPv4_CIDR:    DefaultVpcCIDR, // CIDR of KT Cloud D Platform default VPC
+		KeyValueList: irs.StructToKeyValueList(nvpc),
 	}
 
 	// Get Subnet list
@@ -337,8 +339,8 @@ func (vpcHandler *KTVpcVPCHandler) mappingVpcInfo(nvpc *networks.VPC) (*irs.VPCI
 	for _, subnet := range subnets {
 		// if !strings.EqualFold(subnet.RefName, "Private") && !strings.EqualFold(subnet.RefName, "DMZ") && !strings.EqualFold(subnet.RefName, "external") {
 		// $$$ When apply filtering
-			subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
-			subnetInfoList = append(subnetInfoList, *subnetInfo)
+		subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
+		subnetInfoList = append(subnetInfoList, *subnetInfo)
 		// }
 	}
 	vpcInfo.SubnetInfoList = subnetInfoList
@@ -350,12 +352,12 @@ func (vpcHandler *KTVpcVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs
 
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
-			NameId:   	subnet.RefName,
-			SystemId: 	subnet.RefID, // Caution!! Not 'subnet.NetworkID(Tier UUID)' but 'Tier ID based on OpenStack Neutron' to Create VM!!
+			NameId:   subnet.RefName,
+			SystemId: subnet.RefID, // Caution!! Not 'subnet.NetworkID(Tier UUID)' but 'Tier ID based on OpenStack Neutron' to Create VM!!
 		},
-		Zone:      		subnet.ZoneID,
-		IPv4_CIDR: 		subnet.CIDR,
-		KeyValueList:   irs.StructToKeyValueList(subnet),
+		Zone:         subnet.ZoneID,
+		IPv4_CIDR:    subnet.CIDR,
+		KeyValueList: irs.StructToKeyValueList(subnet),
 	}
 
 	keyValue := irs.KeyValue{}
@@ -389,22 +391,22 @@ func (vpcHandler *KTVpcVPCHandler) createSubnet(subnetReqInfo *irs.SubnetInfo) (
 	gatewayIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "1"
 
 	detailTierInfo := subnets.SubnetDetail{
-		CIDR:      	subnetReqInfo.IPv4_CIDR,
-		StartIP:   	vmStartIP, // For VM
-		EndIP:     	vmEndIP,
-		LBStartIP: 	lbStartIP, // For NLB
-		LBEndIP:   	lbEndIP,
-		BMStartIP: 	bmStartIP, // For BareMetal Machine
-		BMEndIP:   	bmEndIP,
-		GatewayIP:  gatewayIP,
+		CIDR:      subnetReqInfo.IPv4_CIDR,
+		StartIP:   vmStartIP, // For VM
+		EndIP:     vmEndIP,
+		LBStartIP: lbStartIP, // For NLB
+		LBEndIP:   lbEndIP,
+		BMStartIP: bmStartIP, // For BareMetal Machine
+		BMEndIP:   bmEndIP,
+		GatewayIP: gatewayIP,
 	}
 
 	// Create Subnet (No Zone info)
 	createOpts := subnets.CreateOpts{
-		Name:       subnetReqInfo.IId.NameId,   // Required
-		Type:       "tier",                     // Required
-		IsCustom: 	true,                       // Required		
-		Detail:     detailTierInfo,
+		Name:     subnetReqInfo.IId.NameId, // Required
+		Type:     "tier",                   // Required
+		IsCustom: true,                     // Required
+		Detail:   detailTierInfo,
 	}
 	// cblogger.Info("\n### Subnet createOpts : ")
 	// spew.Dump(createOpts)
@@ -451,12 +453,12 @@ func (vpcHandler *KTVpcVPCHandler) getKTVpc(vpcId string) (*networks.VPC, error)
 	}
 
 	start := call.Start()
-    vpc, err := networks.Get(vpcHandler.NetworkClient, vpcId).ExtractVPC()
-    if err != nil {
+	vpc, err := networks.Get(vpcHandler.NetworkClient, vpcId).ExtractVPC()
+	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VPC info.")
 		cblogger.Error(newErr.Error())
-        return nil, newErr
-    }
+		return nil, newErr
+	}
 	loggingInfo(callLogInfo, start)
 
 	return vpc, nil
@@ -490,21 +492,21 @@ func (vpcHandler *KTVpcVPCHandler) listKTVPC() ([]*networks.VPC, error) {
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "listKTVPC()", "listKTVPC()")
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
-    listOpts := networks.ListOpts{
-        Page: 1,
-        Size: 2000, // Max page size, to list all data in a single page
+	listOpts := networks.ListOpts{
+		Page: 1,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
-    pager := networks.List(vpcHandler.NetworkClient, listOpts)
-    loggingInfo(callLogInfo, start)
+	pager := networks.List(vpcHandler.NetworkClient, listOpts)
+	loggingInfo(callLogInfo, start)
 
 	var vpcAdrsList []*networks.VPC
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-        vpcList, err := networks.ExtractVPCs(page)
-        if err != nil {
+		vpcList, err := networks.ExtractVPCs(page)
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Extract VPC list : [%v]", err)
 			cblogger.Error(newErr.Error())
-		    return false, newErr
+			return false, newErr
 		}
 		if len(vpcList) < 1 {
 			newErr := fmt.Errorf("Failed to Get Any VPC Info.")
@@ -515,18 +517,18 @@ func (vpcHandler *KTVpcVPCHandler) listKTVPC() ([]*networks.VPC, error) {
 			vpcAdrsList = append(vpcAdrsList, &vpc)
 		}
 
- 		return true, nil
+		return true, nil
 	})
-    if err != nil {
-        if err != nil {
+	if err != nil {
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Get VPC list : [%v]", err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
-		    return nil, newErr
+			return nil, newErr
 		}
-    }
+	}
 
- 	return vpcAdrsList, nil
+	return vpcAdrsList, nil
 }
 
 func (vpcHandler *KTVpcVPCHandler) listKTSubnet() ([]*subnets.Subnet, error) {
@@ -534,22 +536,22 @@ func (vpcHandler *KTVpcVPCHandler) listKTSubnet() ([]*subnets.Subnet, error) {
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "listKTSubnet()", "listKTSubnet()")
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
-    listOpts := subnets.ListOpts{
-        Page: 			1,
-        Size: 			2000, 	// Max page size, to list all data in a single page
-		NetworkType: 	"ALL", 	// [Optional] [default: trust] TRUST / UNTRUST / ALL
+	listOpts := subnets.ListOpts{
+		Page:        1,
+		Size:        2000,  // Max page size, to list all data in a single page
+		NetworkType: "ALL", // [Optional] [default: trust] TRUST / UNTRUST / ALL
 	}
 	start := call.Start()
-    pager := subnets.List(vpcHandler.NetworkClient, listOpts)
-    loggingInfo(callLogInfo, start)
-	
+	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
+	loggingInfo(callLogInfo, start)
+
 	var subnetAdrsList []*subnets.Subnet
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-        subnetlist, err := subnets.ExtractSubnets(page)
-        if err != nil {
+		subnetlist, err := subnets.ExtractSubnets(page)
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Extract Subnet list : [%v]", err)
 			cblogger.Error(newErr.Error())
-		    return false, newErr
+			return false, newErr
 		}
 		if len(subnetlist) < 1 {
 			newErr := fmt.Errorf("Failed to Find Any Subnet!!")
@@ -559,25 +561,25 @@ func (vpcHandler *KTVpcVPCHandler) listKTSubnet() ([]*subnets.Subnet, error) {
 		for _, subnet := range subnetlist {
 			subnetAdrsList = append(subnetAdrsList, &subnet)
 		}
-    
- 		return true, nil
+
+		return true, nil
 	})
-    if err != nil {
-        if err != nil {
+	if err != nil {
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Get Subnet list : [%v]", err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
-		    return nil, newErr
+			return nil, newErr
 		}
-    } 
- 	return subnetAdrsList, nil
+	}
+	return subnetAdrsList, nil
 }
 
 // getNetworkID() Gets Network ID of targetName from Subnet(Tier) List
 func (vpcHandler *KTVpcVPCHandler) getNetworkID(targetName string) (*string, error) {
 	cblogger.Info("KT Cloud driver: called getNetworkID()!!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "getNetworkID()", "getNetworkID()")
-	
+
 	if strings.EqualFold(targetName, "") {
 		newErr := fmt.Errorf("Invalid targetName!!")
 		cblogger.Error(newErr.Error())
@@ -630,14 +632,14 @@ func (vpcHandler *KTVpcVPCHandler) getTierIdWithNetworkId(networkId string) (*st
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 		1,
-		Size: 		2000, 		// Max page size, to list all data in a single page
-		NetworkID: 	networkId, 	// Tier NetworkId
+		Page:      1,
+		Size:      2000,      // Max page size, to list all data in a single page
+		NetworkID: networkId, // Tier NetworkId
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
 	loggingInfo(callLogInfo, start)
-	
+
 	var subnetAdrsList []*subnets.Subnet
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
 		subnetlist, err := subnets.ExtractSubnets(page)
@@ -654,7 +656,7 @@ func (vpcHandler *KTVpcVPCHandler) getTierIdWithNetworkId(networkId string) (*st
 		for _, subnet := range subnetlist {
 			subnetAdrsList = append(subnetAdrsList, &subnet)
 		}
-	
+
 		return true, nil
 	})
 	if err != nil {
@@ -664,7 +666,7 @@ func (vpcHandler *KTVpcVPCHandler) getTierIdWithNetworkId(networkId string) (*st
 			loggingError(callLogInfo, newErr)
 			return nil, newErr
 		}
-	} 
+	}
 
 	// Caution!!
 	if len(subnetAdrsList) == 0 || strings.EqualFold(subnetAdrsList[0].RefID, "") {
@@ -690,14 +692,14 @@ func (vpcHandler *KTVpcVPCHandler) getNetworkIdWithTierId(tierId string) (*strin
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 	1,
-		Size: 	2000, 	// Max page size, to list all data in a single page
-		RefID: 	tierId, // Tier Ref Id
+		Page:  1,
+		Size:  2000,   // Max page size, to list all data in a single page
+		RefID: tierId, // Tier Ref Id
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
 	loggingInfo(callLogInfo, start)
-	
+
 	var subnetAdrsList []*subnets.Subnet
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
 		subnetlist, err := subnets.ExtractSubnets(page)
@@ -714,7 +716,7 @@ func (vpcHandler *KTVpcVPCHandler) getNetworkIdWithTierId(tierId string) (*strin
 		for _, subnet := range subnetlist {
 			subnetAdrsList = append(subnetAdrsList, &subnet)
 		}
-	
+
 		return true, nil
 	})
 	if err != nil {
@@ -735,7 +737,6 @@ func (vpcHandler *KTVpcVPCHandler) getNetworkIdWithTierId(tierId string) (*strin
 	}
 	return &subnetAdrsList[0].NetworkID, nil
 }
-
 
 func (vpcHandler *KTVpcVPCHandler) getTierNetIdWithTierName(tierName string) (*string, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getTierNetIdWithTierName()!")
@@ -809,6 +810,39 @@ func (vpcHandler *KTVpcVPCHandler) getTierRefIdWithTierName(tierName string) (*s
 	return &tierRefId, nil
 }
 
+// getTierInfoWithPrivateIP finds the KT tier (subnet) whose CIDR contains the given private IP.
+// In KT Cloud, nova interfaces report the zone subnet UUID (not the tier UUID).
+// This function provides a more reliable way to find the correct Spider-managed tier.
+// Returns (refName, refId, error).
+func (vpcHandler *KTVpcVPCHandler) getTierInfoWithPrivateIP(privateIP string) (string, string, error) {
+	if strings.EqualFold(privateIP, "") {
+		return "", "", fmt.Errorf("Invalid private IP")
+	}
+	ip := net.ParseIP(privateIP)
+	if ip == nil {
+		return "", "", fmt.Errorf("Failed to parse private IP: %s", privateIP)
+	}
+	subnets, err := vpcHandler.listKTSubnet()
+	if err != nil {
+		return "", "", fmt.Errorf("Failed to list KT subnets: %v", err)
+	}
+	for _, subnet := range subnets {
+		if subnet.CIDR == "" || subnet.RefName == "" || subnet.RefID == "" {
+			continue
+		}
+		_, ipNet, err := net.ParseCIDR(subnet.CIDR)
+		if err != nil {
+			continue
+		}
+		if ipNet.Contains(ip) {
+			cblogger.Infof("Found KT tier for private IP %s: RefName=%s, RefID=%s",
+				privateIP, subnet.RefName, subnet.RefID)
+			return subnet.RefName, subnet.RefID, nil
+		}
+	}
+	return "", "", fmt.Errorf("No KT tier found for private IP: %s", privateIP)
+}
+
 // Get VPC ID with Tier 'NetworkID'
 func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierNetId(tierNetworkId string) (*string, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getVPCIdWithTierNetId()!")
@@ -824,14 +858,14 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierNetId(tierNetworkId string) (
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 		1,
-		Size: 		2000, 			// Max page size, to list all data in a single page
-		NetworkID: 	tierNetworkId, 	// Tier NetworkID (Not RefID parameter)
+		Page:      1,
+		Size:      2000,          // Max page size, to list all data in a single page
+		NetworkID: tierNetworkId, // Tier NetworkID (Not RefID parameter)
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
 	loggingInfo(callLogInfo, start)
-	
+
 	var subnetAdrsList []*subnets.Subnet
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
 		subnetlist, err := subnets.ExtractSubnets(page)
@@ -848,7 +882,7 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierNetId(tierNetworkId string) (
 		for _, subnet := range subnetlist {
 			subnetAdrsList = append(subnetAdrsList, &subnet)
 		}
-	
+
 		return true, nil
 	})
 	if err != nil {
@@ -861,7 +895,7 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierNetId(tierNetworkId string) (
 	}
 	if !strings.EqualFold(subnetAdrsList[0].VpcID, "") {
 		cblogger.Infof("# VPC ID : [%s]", subnetAdrsList[0].VpcID)
-	}	
+	}
 
 	// Caution!!
 	if len(subnetAdrsList) == 0 || strings.EqualFold(subnetAdrsList[0].VpcID, "") {
@@ -888,14 +922,14 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierRefId(tierRefId string) (*str
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
-		Page: 	1,
-		Size: 	2000, 		// Max page size, to list all data in a single page
-		RefID: 	tierRefId, 	// Tier RefID (Not NetworkID parameter)
+		Page:  1,
+		Size:  2000,      // Max page size, to list all data in a single page
+		RefID: tierRefId, // Tier RefID (Not NetworkID parameter)
 	}
 	start := call.Start()
 	pager := subnets.List(vpcHandler.NetworkClient, listOpts)
 	loggingInfo(callLogInfo, start)
-	
+
 	var subnetAdrsList []*subnets.Subnet
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
 		subnetlist, err := subnets.ExtractSubnets(page)
@@ -912,7 +946,7 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierRefId(tierRefId string) (*str
 		for _, subnet := range subnetlist {
 			subnetAdrsList = append(subnetAdrsList, &subnet)
 		}
-	
+
 		return true, nil
 	})
 	if err != nil {
@@ -925,7 +959,7 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierRefId(tierRefId string) (*str
 	}
 	if !strings.EqualFold(subnetAdrsList[0].VpcID, "") {
 		cblogger.Infof("# VPC ID : [%s]", subnetAdrsList[0].VpcID)
-	}	
+	}
 
 	// Caution!!
 	if len(subnetAdrsList) == 0 || strings.EqualFold(subnetAdrsList[0].VpcID, "") {
@@ -942,21 +976,21 @@ func (vpcHandler *KTVpcVPCHandler) ListIID() ([]*irs.IID, error) {
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListIID()", "ListIID()")
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
-    listOpts := networks.ListOpts{
-        Page: 1,
-        Size: 2000, // Max page size, to list all data in a single page
+	listOpts := networks.ListOpts{
+		Page: 1,
+		Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
-    pager := networks.List(vpcHandler.NetworkClient, listOpts)
-    loggingInfo(callLogInfo, start)
+	pager := networks.List(vpcHandler.NetworkClient, listOpts)
+	loggingInfo(callLogInfo, start)
 
-    var iidList []*irs.IID
+	var iidList []*irs.IID
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-        vpcs, err := networks.ExtractVPCs(page)
-        if err != nil {
+		vpcs, err := networks.ExtractVPCs(page)
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Extract VPC list : [%v]", err)
 			cblogger.Error(newErr.Error())
-		    return false, newErr
+			return false, newErr
 		}
 
 		if len(vpcs) < 1 {
@@ -964,25 +998,25 @@ func (vpcHandler *KTVpcVPCHandler) ListIID() ([]*irs.IID, error) {
 			cblogger.Infof("No VPC found : %v", newErr)
 			return false, newErr
 		}
-    
-        for _, vpc := range vpcs {
+
+		for _, vpc := range vpcs {
 			iid := &irs.IID{
 				NameId:   vpc.Name,
 				SystemId: vpc.VpcID,
 			}
 			iidList = append(iidList, iid)
 		}
- 	return true, nil
+		return true, nil
 	})
-    if err != nil {
-        if err != nil {
+	if err != nil {
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Get VPC list : [%v]", err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
-		    return nil, newErr
+			return nil, newErr
 		}
-    }    
-    return iidList, nil
+	}
+	return iidList, nil
 }
 
 // getSubnetStatus retrieves the status of a specific subnet by its 'NetworkId'.
@@ -994,20 +1028,20 @@ func (vpcHandler *KTVpcVPCHandler) getSubnetStatus(networkId string) (string, er
 		return "", newErr
 	}
 
-    result := subnets.Get(vpcHandler.NetworkClient, networkId)
-    if result.Err != nil {
-        cblogger.Errorf("Failed to Get the subnet info with NetworkId [%s]: %v", networkId, result.Err)
-        return "", result.Err
-    }    
-    subnet, err := result.ExtractSubnet()
-    if err != nil {
-        cblogger.Errorf("Failed to Extract subnet info: %v", err)
-        return "", err
-    }    
-    if subnet == nil {
-        return "UNKNOWN", fmt.Errorf("Subnet with ID [%s] not found", networkId)
-    }
-    return subnet.Status, nil
+	result := subnets.Get(vpcHandler.NetworkClient, networkId)
+	if result.Err != nil {
+		cblogger.Errorf("Failed to Get the subnet info with NetworkId [%s]: %v", networkId, result.Err)
+		return "", result.Err
+	}
+	subnet, err := result.ExtractSubnet()
+	if err != nil {
+		cblogger.Errorf("Failed to Extract subnet info: %v", err)
+		return "", err
+	}
+	if subnet == nil {
+		return "UNKNOWN", fmt.Errorf("Subnet with ID [%s] not found", networkId)
+	}
+	return subnet.Status, nil
 }
 
 // waitForSubnetStatus waits for a subnet to reach a specific status.
@@ -1016,58 +1050,58 @@ func (vpcHandler *KTVpcVPCHandler) getSubnetStatus(networkId string) (string, er
 func (vpcHandler *KTVpcVPCHandler) waitForSubnetStatus(networkId string, desiredStatus string, maxAttempts int, delaySeconds int) error {
 	cblogger.Info("KT Cloud VPC driver: called waitForSubnetStatus()!!")
 
-    cblogger.Infof("\n# Waiting for subnet [%s] to reach status [%s]", networkId, desiredStatus)    
-    for attempt := 1; attempt <= maxAttempts; attempt++ {
-        status, err := vpcHandler.getSubnetStatus(networkId)
-        if err != nil {
-            cblogger.Errorf("Error checking subnet status (attempt %d/%d): %v", attempt, maxAttempts, err)
-            // Keep trying even if there are errors
-            time.Sleep(time.Duration(delaySeconds) * time.Second)
-            continue
-        }        
-        cblogger.Infof("\n# Subnet [%s] status: %s (attempt %d/%d)", networkId, status, attempt, maxAttempts)
-        
-        if status == desiredStatus {
-            cblogger.Infof("\n# Subnet [%s] reached desired status [%s]", networkId, desiredStatus)
-            return nil
-        }        
-        if status == "ERROR" || status == "FAILED" {
-            return fmt.Errorf("subnet reached error state: %s", status)
-        }
-        
-        time.Sleep(time.Duration(delaySeconds) * time.Second)
-    }
-    
-    return fmt.Errorf("maximum number of attempts (%d) exceeded waiting for subnet [%s] to reach status [%s]", maxAttempts, networkId, desiredStatus)
+	cblogger.Infof("\n# Waiting for subnet [%s] to reach status [%s]", networkId, desiredStatus)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		status, err := vpcHandler.getSubnetStatus(networkId)
+		if err != nil {
+			cblogger.Errorf("Error checking subnet status (attempt %d/%d): %v", attempt, maxAttempts, err)
+			// Keep trying even if there are errors
+			time.Sleep(time.Duration(delaySeconds) * time.Second)
+			continue
+		}
+		cblogger.Infof("\n# Subnet [%s] status: %s (attempt %d/%d)", networkId, status, attempt, maxAttempts)
+
+		if status == desiredStatus {
+			cblogger.Infof("\n# Subnet [%s] reached desired status [%s]", networkId, desiredStatus)
+			return nil
+		}
+		if status == "ERROR" || status == "FAILED" {
+			return fmt.Errorf("subnet reached error state: %s", status)
+		}
+
+		time.Sleep(time.Duration(delaySeconds) * time.Second)
+	}
+
+	return fmt.Errorf("maximum number of attempts (%d) exceeded waiting for subnet [%s] to reach status [%s]", maxAttempts, networkId, desiredStatus)
 }
 
 // isSubnetActive checks if a subnet is in ACTIVE status.
 func (vpcHandler *KTVpcVPCHandler) isSubnetActive(networkId string) (bool, error) {
-    status, err := vpcHandler.getSubnetStatus(networkId)
-    if err != nil {
-        return false, err
-    }
-    return status == "ACTIVE", nil
+	status, err := vpcHandler.getSubnetStatus(networkId)
+	if err != nil {
+		return false, err
+	}
+	return status == "ACTIVE", nil
 }
 
 // waitForSubnetActive waits for a subnet to reach ACTIVE status. (20 attempts, 3-second intervals)
 func (vpcHandler *KTVpcVPCHandler) waitForSubnetActive(networkId string) error {
 	cblogger.Info("KT Cloud VPC driver: called waitForSubnetActive()!!")
 
-    return vpcHandler.waitForSubnetStatus(networkId, "ACTIVE", 20, 3)
+	return vpcHandler.waitForSubnetStatus(networkId, "ACTIVE", 20, 3)
 }
 
 // isSubnetDeleted checks if a subnet has been successfully deleted.
 // It returns true if the subnet can't be found (404 error).
-func (vpcHandler *KTVpcVPCHandler) isSubnetDeleted(networkId string) (bool, error) {	
-    result := subnets.Get(vpcHandler.NetworkClient, networkId)
-    if result.Err != nil {
-        // 404 error means that the subnet has been deleted.
-        if _, ok := result.Err.(ktvpcsdk.ErrDefault404); ok {
-            return true, nil
-        }
-        return false, result.Err
-    }
+func (vpcHandler *KTVpcVPCHandler) isSubnetDeleted(networkId string) (bool, error) {
+	result := subnets.Get(vpcHandler.NetworkClient, networkId)
+	if result.Err != nil {
+		// 404 error means that the subnet has been deleted.
+		if _, ok := result.Err.(ktvpcsdk.ErrDefault404); ok {
+			return true, nil
+		}
+		return false, result.Err
+	}
 
 	return false, nil
 }
@@ -1076,177 +1110,177 @@ func (vpcHandler *KTVpcVPCHandler) isSubnetDeleted(networkId string) (bool, erro
 func (vpcHandler *KTVpcVPCHandler) waitForSubnetDeletion(networkId string) error {
 	cblogger.Info("KT Cloud VPC driver: called waitForSubnetDeletion()!!")
 
-    maxAttempts := 3
-    delaySeconds := 3
-    
-    for attempt := 1; attempt <= maxAttempts; attempt++ {
-        isSubnetActive, err := vpcHandler.isSubnetActive(networkId)
-        if err != nil {
-            cblogger.Errorf("Error checking subnet deletion (attempt %d/%d): %v", attempt, maxAttempts, err)
-            time.Sleep(time.Duration(delaySeconds) * time.Second)
-            continue
-        }
-        if !isSubnetActive {
-            cblogger.Infof("Subnet [%s] is Not Active", networkId)
-            return nil
-        }
-        
-        cblogger.Infof("\nSubnet [%s] is still being deleted (attempt %d/%d)", networkId, attempt, maxAttempts)
-        time.Sleep(time.Duration(delaySeconds) * time.Second)
-    }
-    
-//     for attempt := 1; attempt <= maxAttempts; attempt++ {
-//         deleted, err := vpcHandler.isSubnetDeleted(networkId)
-//         if err != nil {
-//             cblogger.Errorf("Error checking subnet deletion (attempt %d/%d): %v", attempt, maxAttempts, err)
-//             time.Sleep(time.Duration(delaySeconds) * time.Second)
-//             continue
-//         }        
-//         if deleted {
-//             cblogger.Infof("Subnet [%s] has been deleted", networkId)
-//             return nil
-//         }
-		
-//         cblogger.Infof("\nSubnet [%s] is still being deleted (attempt %d/%d)", networkId, attempt, maxAttempts)
-//         time.Sleep(time.Duration(delaySeconds) * time.Second)
-//     }
+	maxAttempts := 3
+	delaySeconds := 3
 
-    return fmt.Errorf("maximum number of attempts (%d) exceeded waiting for subnet [%s] to be deleted", maxAttempts, networkId)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		isSubnetActive, err := vpcHandler.isSubnetActive(networkId)
+		if err != nil {
+			cblogger.Errorf("Error checking subnet deletion (attempt %d/%d): %v", attempt, maxAttempts, err)
+			time.Sleep(time.Duration(delaySeconds) * time.Second)
+			continue
+		}
+		if !isSubnetActive {
+			cblogger.Infof("Subnet [%s] is Not Active", networkId)
+			return nil
+		}
+
+		cblogger.Infof("\nSubnet [%s] is still being deleted (attempt %d/%d)", networkId, attempt, maxAttempts)
+		time.Sleep(time.Duration(delaySeconds) * time.Second)
+	}
+
+	//     for attempt := 1; attempt <= maxAttempts; attempt++ {
+	//         deleted, err := vpcHandler.isSubnetDeleted(networkId)
+	//         if err != nil {
+	//             cblogger.Errorf("Error checking subnet deletion (attempt %d/%d): %v", attempt, maxAttempts, err)
+	//             time.Sleep(time.Duration(delaySeconds) * time.Second)
+	//             continue
+	//         }
+	//         if deleted {
+	//             cblogger.Infof("Subnet [%s] has been deleted", networkId)
+	//             return nil
+	//         }
+
+	//         cblogger.Infof("\nSubnet [%s] is still being deleted (attempt %d/%d)", networkId, attempt, maxAttempts)
+	//         time.Sleep(time.Duration(delaySeconds) * time.Second)
+	//     }
+
+	return fmt.Errorf("maximum number of attempts (%d) exceeded waiting for subnet [%s] to be deleted", maxAttempts, networkId)
 }
 
 // getSubnet retrieves detailed information about a specific subnet by its IID
 // Supports both NameId (tier name) and SystemId (tier ID) lookup
 func (vpcHandler *KTVpcVPCHandler) getSubnet(subnetIID irs.IID) (irs.SubnetInfo, error) {
-    cblogger.Info("KT Cloud VPC Driver: called getSubnet()!")
-    callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIID.SystemId, "getSubnet()")
+	cblogger.Info("KT Cloud VPC Driver: called getSubnet()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIID.SystemId, "getSubnet()")
 
-    // Validate input
-    if strings.EqualFold(subnetIID.NameId, "") && strings.EqualFold(subnetIID.SystemId, "") {
-        newErr := fmt.Errorf("invalid subnet IID: both NameId and SystemId are empty")
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return irs.SubnetInfo{}, newErr
-    }
+	// Validate input
+	if strings.EqualFold(subnetIID.NameId, "") && strings.EqualFold(subnetIID.SystemId, "") {
+		newErr := fmt.Errorf("invalid subnet IID: both NameId and SystemId are empty")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
 
-    var tierId string
-    var err error
+	var tierId string
+	var err error
 
-    // Determine tier ID from provided IID
-    if !strings.EqualFold(subnetIID.SystemId, "") {
-        tierId = subnetIID.SystemId
-        cblogger.Infof("Using provided SystemId (TierId): %s", tierId)
-    } else {
-        // Get tier ID from tier name
-        tierIdPtr, getErr := vpcHandler.getTierRefIdWithTierName(subnetIID.NameId)
-        if getErr != nil {
-            newErr := fmt.Errorf("failed to get tier ID with name [%s]: %w", subnetIID.NameId, getErr)
-            cblogger.Error(newErr.Error())
-            loggingError(callLogInfo, newErr)
-            return irs.SubnetInfo{}, newErr
-        }
-        tierId = *tierIdPtr
-        cblogger.Infof("Found TierId [%s] for tier name [%s]", tierId, subnetIID.NameId)
-    }
+	// Determine tier ID from provided IID
+	if !strings.EqualFold(subnetIID.SystemId, "") {
+		tierId = subnetIID.SystemId
+		cblogger.Infof("Using provided SystemId (TierId): %s", tierId)
+	} else {
+		// Get tier ID from tier name
+		tierIdPtr, getErr := vpcHandler.getTierRefIdWithTierName(subnetIID.NameId)
+		if getErr != nil {
+			newErr := fmt.Errorf("failed to get tier ID with name [%s]: %w", subnetIID.NameId, getErr)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return irs.SubnetInfo{}, newErr
+		}
+		tierId = *tierIdPtr
+		cblogger.Infof("Found TierId [%s] for tier name [%s]", tierId, subnetIID.NameId)
+	}
 
-    // Get network ID from tier ID
-    networkIdPtr, err := vpcHandler.getNetworkIdWithTierId(tierId)
-    if err != nil {
-        newErr := fmt.Errorf("failed to get network ID for tier [%s]: %w", tierId, err)
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return irs.SubnetInfo{}, newErr
-    }
-    cblogger.Infof("Found NetworkId [%s] for TierId [%s]", *networkIdPtr, tierId)
+	// Get network ID from tier ID
+	networkIdPtr, err := vpcHandler.getNetworkIdWithTierId(tierId)
+	if err != nil {
+		newErr := fmt.Errorf("failed to get network ID for tier [%s]: %w", tierId, err)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
+	cblogger.Infof("Found NetworkId [%s] for TierId [%s]", *networkIdPtr, tierId)
 
-    // Get subnet details using network ID
-    start := call.Start()
-    subnet, err := vpcHandler.getKTSubnet(*networkIdPtr)
-    if err != nil {
-        newErr := fmt.Errorf("failed to get subnet info for network ID [%s]: %w", *networkIdPtr, err)
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return irs.SubnetInfo{}, newErr
-    }
-    loggingInfo(callLogInfo, start)
+	// Get subnet details using network ID
+	start := call.Start()
+	subnet, err := vpcHandler.getKTSubnet(*networkIdPtr)
+	if err != nil {
+		newErr := fmt.Errorf("failed to get subnet info for network ID [%s]: %w", *networkIdPtr, err)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
+	loggingInfo(callLogInfo, start)
 
-    // Check if subnet was found
-    if subnet == nil {
-        newErr := fmt.Errorf("subnet not found with network ID [%s]", *networkIdPtr)
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return irs.SubnetInfo{}, newErr
-    }
+	// Check if subnet was found
+	if subnet == nil {
+		newErr := fmt.Errorf("subnet not found with network ID [%s]", *networkIdPtr)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
 
-    // Validate subnet data
-    if strings.EqualFold(subnet.RefID, "") {
-        newErr := fmt.Errorf("invalid subnet data: RefID is empty")
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return irs.SubnetInfo{}, newErr
-    }
+	// Validate subnet data
+	if strings.EqualFold(subnet.RefID, "") {
+		newErr := fmt.Errorf("invalid subnet data: RefID is empty")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
 
-    // Map to CB-Spider subnet info format
-    subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
-    if subnetInfo == nil {
-        newErr := fmt.Errorf("failed to map subnet info")
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return irs.SubnetInfo{}, newErr
-    }
+	// Map to CB-Spider subnet info format
+	subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
+	if subnetInfo == nil {
+		newErr := fmt.Errorf("failed to map subnet info")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
 
-    cblogger.Infof("Successfully retrieved subnet info: %s (%s)", subnetInfo.IId.NameId, subnetInfo.IId.SystemId)
-    return *subnetInfo, nil
+	cblogger.Infof("Successfully retrieved subnet info: %s (%s)", subnetInfo.IId.NameId, subnetInfo.IId.SystemId)
+	return *subnetInfo, nil
 }
 
 // listSubnet retrieves all subnets in the current zone
 func (vpcHandler *KTVpcVPCHandler) listSubnet(vpcIID irs.IID) ([]*irs.SubnetInfo, error) {
-    cblogger.Info("KT Cloud VPC Driver: called listSubnet()!")
-    callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "listSubnet()")
+	cblogger.Info("KT Cloud VPC Driver: called listSubnet()!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "listSubnet()")
 
-    // Validate VPC IID if provided
-    if !strings.EqualFold(vpcIID.SystemId, "") {
-        // Verify VPC exists
-        _, err := vpcHandler.getKTVpc(vpcIID.SystemId)
-        if err != nil {
-            newErr := fmt.Errorf("failed to verify VPC [%s]: %w", vpcIID.SystemId, err)
-            cblogger.Error(newErr.Error())
-            loggingError(callLogInfo, newErr)
-            return nil, newErr
-        }
-    }
+	// Validate VPC IID if provided
+	if !strings.EqualFold(vpcIID.SystemId, "") {
+		// Verify VPC exists
+		_, err := vpcHandler.getKTVpc(vpcIID.SystemId)
+		if err != nil {
+			newErr := fmt.Errorf("failed to verify VPC [%s]: %w", vpcIID.SystemId, err)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return nil, newErr
+		}
+	}
 
-    // Get subnet list
-    start := call.Start()
-    subnets, err := vpcHandler.listKTSubnet() // ALL Subnet : TRUST and UNTRUST
-    if err != nil {
-        newErr := fmt.Errorf("failed to get subnet list: %w", err)
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return nil, newErr
-    }
-    loggingInfo(callLogInfo, start)
+	// Get subnet list
+	start := call.Start()
+	subnets, err := vpcHandler.listKTSubnet() // ALL Subnet : TRUST and UNTRUST
+	if err != nil {
+		newErr := fmt.Errorf("failed to get subnet list: %w", err)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	loggingInfo(callLogInfo, start)
 
-    if len(subnets) < 1 {
-        cblogger.Info("No subnets found")
-        return []*irs.SubnetInfo{}, nil
-    }
+	if len(subnets) < 1 {
+		cblogger.Info("No subnets found")
+		return []*irs.SubnetInfo{}, nil
+	}
 
-    // Map subnets to CB-Spider format
-    var subnetInfoList []*irs.SubnetInfo
-    for _, subnet := range subnets {
-        // Filter by VPC if specified
-        if !strings.EqualFold(vpcIID.SystemId, "") && !strings.EqualFold(subnet.VpcID, vpcIID.SystemId) {
-            continue
-        }
+	// Map subnets to CB-Spider format
+	var subnetInfoList []*irs.SubnetInfo
+	for _, subnet := range subnets {
+		// Filter by VPC if specified
+		if !strings.EqualFold(vpcIID.SystemId, "") && !strings.EqualFold(subnet.VpcID, vpcIID.SystemId) {
+			continue
+		}
 
-        subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
-        if subnetInfo != nil {
-            subnetInfoList = append(subnetInfoList, subnetInfo)
-        } else {
-            cblogger.Warnf("Failed to map subnet [%s], skipping", subnet.RefName)
-        }
-    }
+		subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
+		if subnetInfo != nil {
+			subnetInfoList = append(subnetInfoList, subnetInfo)
+		} else {
+			cblogger.Warnf("Failed to map subnet [%s], skipping", subnet.RefName)
+		}
+	}
 
-    cblogger.Infof("Successfully retrieved %d subnets", len(subnetInfoList))
-    return subnetInfoList, nil
+	cblogger.Infof("Successfully retrieved %d subnets", len(subnetInfoList))
+	return subnetInfoList, nil
 }

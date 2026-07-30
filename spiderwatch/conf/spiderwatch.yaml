@@ -49,7 +49,7 @@ spider:
   # Directory for Spider meta_db volume mount
   meta_db_dir: "${HOME}/cb-spider/meta_db"
   # MC_INSIGHT_API_TOKEN for Spider
-  mc_insight_api_token: ""
+  mc_insight_api_token: "c72df1af9b1f0c29"
   # Server address advertised inside the Spider container
   server_address: "0.0.0.0:1024"
   # Timeout for each individual Spider API call (seconds)
@@ -140,7 +140,7 @@ csps:
       # /23 provides 507 usable IPs; Azure AKS requires 333+ IPs in the subnet
       subnet_cidr: "192.168.0.0/23"
     vm_test:
-      image_name: "Canonical:ubuntu-25_10:minimal:25.10.202512100"
+      image_name: "Canonical:ubuntu-25_04-daily:minimal:25.04.202601140"
       spec_name: "Standard_B1ls"
     disk_test:
       disk_type: "PremiumSSD"
@@ -243,9 +243,9 @@ csps:
       type: "PUBLIC"
       scope: "REGION"
       listener_protocol: "TCP"
-      listener_port: "80"
+      listener_port: "22"
       target_protocol: "TCP"
-      target_port: "80"
+      target_port: "22"
       health_protocol: "TCP"
       health_port: "22"
       health_interval: "default"
@@ -294,13 +294,13 @@ csps:
       health_timeout: "default"
       health_threshold: "default"
     cluster_test:
-      version: ""
+      version: "1.30.0"
       # Tencent TKE: NodeGroup added after cluster is Active (Type-I)
       # Tencent TKE uses Static Token (credentials embedded in kubeconfig)
       kubeconfig_type: "static"
       # Tencent TKE: NodeGroup is added after cluster is Active (Type-I)
       node_group_type: "type1"
-      node_group_image_name: ""
+      node_group_image_name: "tlinux3.1x86_64"
       node_group_vm_spec_name: "S5.MEDIUM8"
       node_group_root_disk_type: "CLOUD_PREMIUM"
       node_group_root_disk_size: "50"
@@ -405,7 +405,7 @@ csps:
       health_timeout: "default"
       health_threshold: "default"
     cluster_test:
-      version: "1.33.4-nks.1"  # Available: 1.34.3-nks.1, 1.33.4-nks.1
+      version: "1.34.3-nks.1"  # Available: 1.34.3-nks.1
       # NCP NKS: NodeGroup included in cluster create (Type-II)
       # NCP NKS uses Dynamic Token (Spider Default exec-plugin calling Spider Token API)
       kubeconfig_type: "spider_default"
@@ -470,8 +470,8 @@ csps:
     connection: kt-mokdong1-config
     enabled: true
     vpc_test:
-      vpc_cidr: "192.168.0.0/16"
-      subnet_cidr: "192.168.1.0/24"
+      vpc_cidr: "10.0.0.0/16"
+      subnet_cidr: "10.26.102.0/24"
     vm_test:
       image_name: "1a772df6-262e-43a7-896f-98fa23d715c7"
       spec_name: "4x8.itl"
