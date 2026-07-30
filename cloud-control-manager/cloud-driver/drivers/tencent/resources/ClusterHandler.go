@@ -13,7 +13,6 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -24,8 +23,8 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
-	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
 )
 
 // calllogger
@@ -41,6 +40,14 @@ import (
 
 const (
 	defaultContainerRuntime = "containerd"
+
+	// Tencent TKE has no first-class field to attach a Security Group to a cluster,
+	// and ClusterNetworkSettings.SubnetId is only populated for CiliumOverlay/CDC
+	// clusters. Both values are instead persisted as structured cluster Tags so they
+	// can be reliably read back via getClusterInfo(); these keys are excluded from the
+	// user-facing TagList (see getClusterInfo()).
+	tagKeySecurityGroupID = "CB-SPIDER-PMKS-SECURITYGROUP-ID"
+	tagKeySubnetID        = "CB-SPIDER-PMKS-SUBNET-ID"
 )
 
 type TencentClusterHandler struct {
@@ -58,6 +65,15 @@ func (clusterHandler *TencentClusterHandler) CreateCluster(clusterReqInfo irs.Cl
 	// Validation
 	//
 	err := validateAtCreateCluster(clusterReqInfo)
+	if err != nil {
+		err = fmt.Errorf("Failed to Create Cluster :  %v", err)
+		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		return irs.ClusterInfo{}, err
+	}
+
+	err = validateClusterVersion(clusterHandler, clusterReqInfo.Version)
 	if err != nil {
 		err = fmt.Errorf("Failed to Create Cluster :  %v", err)
 		cblogger.Error(err)
@@ -391,6 +407,28 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 	return *clusterInfo, nil
 }
 
+// extractNetworkIDsFromTags reads back the SecurityGroup/Subnet IDs that
+// getCreateClusterRequest() stored as internal cluster Tags.
+func extractNetworkIDsFromTags(tagSpecs []*tke.TagSpecification) (securityGroupID string, subnetID string) {
+	for _, tagSpec := range tagSpecs {
+		if tagSpec == nil {
+			continue
+		}
+		for _, tag := range tagSpec.Tags {
+			if tag == nil || tag.Key == nil || tag.Value == nil {
+				continue
+			}
+			switch *tag.Key {
+			case tagKeySecurityGroupID:
+				securityGroupID = *tag.Value
+			case tagKeySubnetID:
+				subnetID = *tag.Value
+			}
+		}
+	}
+	return securityGroupID, subnetID
+}
+
 func getClusterInfo(access_key string, access_secret string, region_id string, cluster_id string) (clusterInfo *irs.ClusterInfo, err error) {
 
 	defer func() {
@@ -450,23 +488,8 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	} else {
 		cblogger.Info(fmt.Sprintf("res in JSON format: %s", string(jsonRes)))
 	}
-	// Extract security group name from description
-	// NOTE: '@' delimiter is used instead of '#' to comply with Tencent CVM tag value restrictions.
-	security_group_id := ""
-	re := regexp.MustCompile(`\S*@CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
-	found := re.FindString(*res.Response.Clusters[0].ClusterDescription)
-	if found != "" {
-		split := strings.Split(found, "@CB-SPIDER:PMKS:SECURITYGROUP:ID:")
-		security_group_id = split[1]
-	}
-
-	subnet_id := ""
-	re = regexp.MustCompile(`\S*@CB-SPIDER:PMKS:SUBNET:ID:\S*`)
-	found = re.FindString(*res.Response.Clusters[0].ClusterDescription)
-	if found != "" {
-		split := strings.Split(found, "@CB-SPIDER:PMKS:SUBNET:ID:")
-		subnet_id = split[1]
-	}
+	// SecurityGroup/Subnet are round-tripped as internal cluster Tags (see getCreateClusterRequest()).
+	security_group_id, subnet_id := extractNetworkIDsFromTags(res.Response.Clusters[0].TagSpecification)
 
 	accessInfo, err := getClusterAccessInfo(access_key, access_secret, region_id, cluster_id, security_group_id)
 	if err != nil {
@@ -508,6 +531,11 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 				key := ""
 				if tag.Key != nil {
 					key = *tag.Key
+				}
+				// Internal CB-Spider bookkeeping tags (SecurityGroup/Subnet, see
+				// getCreateClusterRequest()) are not part of the user-supplied TagList.
+				if key == tagKeySecurityGroupID || key == tagKeySubnetID {
+					continue
 				}
 				value := ""
 				if tag.Value != nil {
@@ -570,6 +598,24 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	return clusterInfo, err
 }
 
+// isClusterNotReadyError reports whether err is one of the expected, non-fatal Tencent
+// error conditions seen while a cluster's control plane isn't reachable yet — most
+// commonly because it has no worker nodes yet (CB-Spider's Tencent driver always
+// creates the cluster before any NodeGroup, see validateAtCreateCluster()).
+// KUBE_CLIENT_CONNECTION_ERROR ("host must be a URL or a host:port pair: \"http://\"")
+// is Tencent's error when it tries to reach the cluster's kube-apiserver to finish
+// provisioning the external endpoint but there is no node/kubelet to route to yet.
+func isClusterNotReadyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "CLUSTER_IN_ABNORMAL_STAT") ||
+		strings.Contains(msg, "CLUSTER_STATE_ERROR") ||
+		strings.Contains(msg, "KubeClientConnection") ||
+		strings.Contains(msg, "KUBE_CLIENT_CONNECTION_ERROR")
+}
+
 func getClusterAccessInfo(access_key string, access_secret string, region_id string, cluster_id string, security_group_id string) (accessInfo irs.AccessInfo, err error) {
 
 	defer func() {
@@ -584,41 +630,89 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		Kubeconfig: "Kubeconfig is not ready yet!",
 	}
 
-	// (1) Endpoint
-	res, err := tencent.GetClusterEndpoint(access_key, access_secret, region_id, cluster_id)
+	// (0) Endpoint creation is a prerequisite for both the Endpoint and Kubeconfig below:
+	// Tencent only starts serving ClusterExternalEndpoint/Kubeconfig once a public access
+	// endpoint has actually finished being created. Drive that off the explicit endpoint
+	// status (Created/Creating/NotFound/CreateFailed) rather than guessing readiness from
+	// an empty ClusterExternalEndpoint string.
+	statusRes, err := tencent.GetClusterEndpointStatus(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
-		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
+		if isClusterNotReadyError(err) {
 			cblogger.Info(cluster_id + err.Error())
 			accessInfo.Endpoint = "Cluster is not ready yet!"
-		} else {
-			err := fmt.Errorf("Failed to Get Cluster Endpoint:  %v", err)
-			cblogger.Error(err)
-			return irs.AccessInfo{}, err
+			return accessInfo, nil
 		}
+		// AccessInfo is a best-effort side-channel: any other (including opaque/transient
+		// Tencent-side) failure here must not fail GetCluster()/ListCluster() as a whole —
+		// surface it as an informational message instead of propagating a hard error.
+		cblogger.Error(fmt.Errorf("Failed to Get Cluster Endpoint Status:  %v", err))
+		accessInfo.Endpoint = fmt.Sprintf("Endpoint status unavailable: %v", err)
+		return accessInfo, nil
 	}
-
-	if res == nil || res.Response == nil {
+	if statusRes == nil || statusRes.Response == nil || statusRes.Response.Status == nil {
 		return accessInfo, nil
 	}
 
-	if *res.Response.ClusterExternalEndpoint == "" {
+	switch *statusRes.Response.Status {
+	case "NotFound":
+		// No external (public) access endpoint has been requested for this cluster yet.
+		// Request one now, by default, so the cluster becomes externally reachable
+		// without requiring a separate explicit call.
 		_, err := tencent.CreateClusterEndpoint(access_key, access_secret, region_id, cluster_id, security_group_id)
 		if err != nil {
-			if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
+			if isClusterNotReadyError(err) {
 				cblogger.Info(cluster_id + err.Error())
 				accessInfo.Endpoint = "First, add a nodegroup."
 			} else if strings.Contains(err.Error(), "same type task in execution") {
 				cblogger.Error(cluster_id + err.Error())
 				accessInfo.Endpoint = "Preparing...."
 			} else {
-				err := fmt.Errorf("Failed to Create Cluster Endpoint:  %v", err)
-				cblogger.Error(err)
-				return irs.AccessInfo{}, err
+				// Best-effort: don't fail GetCluster()/ListCluster() over a failed attempt
+				// to (re)request the endpoint. It will be retried on the next call.
+				cblogger.Error(fmt.Errorf("Failed to Create Cluster Endpoint:  %v", err))
+				accessInfo.Endpoint = fmt.Sprintf("Endpoint creation error: %v", err)
 			}
+		} else {
+			accessInfo.Endpoint = "Preparing...."
 		}
-	} else {
-		accessInfo.Endpoint = *res.Response.ClusterExternalEndpoint
+		return accessInfo, nil
+
+	case "Creating":
+		accessInfo.Endpoint = "Preparing...."
+		return accessInfo, nil
+
+	case "CreateFailed":
+		errMsg := "unknown reason"
+		if statusRes.Response.ErrorMsg != nil && *statusRes.Response.ErrorMsg != "" {
+			errMsg = *statusRes.Response.ErrorMsg
+		}
+		accessInfo.Endpoint = fmt.Sprintf("Endpoint creation failed: %s", errMsg)
+		return accessInfo, nil
+
+	case "Created":
+		// fall through: only now is the endpoint address (and, after that, the Kubeconfig) obtainable.
+
+	default:
+		return accessInfo, nil
 	}
+
+	// (1) Endpoint address
+	res, err := tencent.GetClusterEndpoint(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		if isClusterNotReadyError(err) {
+			cblogger.Info(cluster_id + err.Error())
+			accessInfo.Endpoint = "Cluster is not ready yet!"
+			return accessInfo, nil
+		}
+		cblogger.Error(fmt.Errorf("Failed to Get Cluster Endpoint:  %v", err))
+		accessInfo.Endpoint = fmt.Sprintf("Endpoint unavailable: %v", err)
+		return accessInfo, nil
+	}
+	if res == nil || res.Response == nil || res.Response.ClusterExternalEndpoint == nil || *res.Response.ClusterExternalEndpoint == "" {
+		accessInfo.Endpoint = "Preparing...."
+		return accessInfo, nil
+	}
+	accessInfo.Endpoint = *res.Response.ClusterExternalEndpoint
 
 	// If the endpoint is not a valid value (e.g. still a temporary message),
 	// do not expose the kubeconfig — it won't be externally accessible yet.
@@ -626,20 +720,17 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		return accessInfo, nil
 	}
 
-	// (2) Kubeconfig
+	// (2) Kubeconfig — only obtainable once the endpoint address above is real,
+	// since the API server address embedded in it must already be live.
 	resKubeconfig, err := tencent.GetClusterKubeconfig(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
-		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
+		if isClusterNotReadyError(err) {
 			cblogger.Info(cluster_id + err.Error())
 			accessInfo.Kubeconfig = "Cluster is not ready yet!"
-		} else {
-			err := fmt.Errorf("Failed to Get Cluster Kubeconfig:  %v", err)
-			cblogger.Error(err)
-			return irs.AccessInfo{}, err
+			return accessInfo, nil
 		}
-	}
-
-	if resKubeconfig == "" {
+		cblogger.Error(fmt.Errorf("Failed to Get Cluster Kubeconfig:  %v", err))
+		accessInfo.Kubeconfig = fmt.Sprintf("Kubeconfig unavailable: %v", err)
 		return accessInfo, nil
 	}
 
@@ -811,55 +902,79 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 		}
 	}()
 
-	// 172.X.0.0.16: X Range:16, 17, ... , 31
-	m_cidr := make(map[string]bool)
-	for i := 16; i < 32; i++ {
-		m_cidr[fmt.Sprintf("172.%v.0.0/16", i)] = true
-	}
-
-	clusters, err := clusterHandler.ListCluster()
+	// Read existing clusters' CIDRs directly from Tencent's typed response rather than
+	// through clusterHandler.ListCluster()'s irs.ClusterInfo.KeyValueList: that list is
+	// built by irs.StructToKeyValueList(), which only flattens one level, so a nested
+	// field like ClusterNetworkSettings.ClusterCIDR never actually appears under a
+	// "ClusterNetworkSettings.ClusterCIDR" key (nested structs are JSON-dumped under
+	// their own top-level field name instead) — matching against that key would always
+	// silently fail to find a used CIDR, and picking would always land on the first
+	// pool candidate regardless of what's already in use.
+	existingClusters, err := tencent.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
 	if err != nil {
 		err := fmt.Errorf("Failed to List Cluster :  %v", err)
 		cblogger.Error(err)
 		return nil, err
 	}
-	for _, cluster := range clusters {
-		for _, v := range cluster.KeyValueList {
-			if v.Key == "ClusterNetworkSettings.ClusterCIDR" {
-				delete(m_cidr, v.Value)
+
+	usedClusterCIDRs := make(map[string]bool)
+	usedServiceCIDRs := make(map[string]bool)
+	if existingClusters.Response != nil {
+		for _, cluster := range existingClusters.Response.Clusters {
+			if cluster == nil || cluster.ClusterNetworkSettings == nil {
+				continue
+			}
+			if cluster.ClusterNetworkSettings.ClusterCIDR != nil {
+				usedClusterCIDRs[*cluster.ClusterNetworkSettings.ClusterCIDR] = true
+			}
+			if cluster.ClusterNetworkSettings.ServiceCIDR != nil {
+				usedServiceCIDRs[*cluster.ClusterNetworkSettings.ServiceCIDR] = true
 			}
 		}
 	}
 
-	cidr_list := []string{}
-	for k := range m_cidr {
-		cidr_list = append(cidr_list, k)
+	// 172.X.0.0/16: X Range:16, 17, ... , 31
+	clusterCIDRCandidates := make([]string, 0, 16)
+	for i := 16; i <= 31; i++ {
+		clusterCIDRCandidates = append(clusterCIDRCandidates, fmt.Sprintf("172.%d.0.0/16", i))
+	}
+	clusterCIDR, err := pickUnusedCIDR(usedClusterCIDRs, clusterCIDRCandidates)
+	if err != nil {
+		err := fmt.Errorf("Failed to Find an Unused ClusterCIDR :  %v", err)
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	// 10.200.X.0/20: X Range:0, 16, 32, ... , 240 (16 blocks).
+	// Tencent requires the ServiceCIDR mask to be between /17 and /27, so /16 (used for
+	// ClusterCIDR above) is not valid here; /20 is used instead. A distinct first-two-octet
+	// pool (10.200.x vs 172.x) is used so ServiceCIDR can never collide with a ClusterCIDR.
+	serviceCIDRCandidates := make([]string, 0, 16)
+	for i := 0; i <= 240; i += 16 {
+		serviceCIDRCandidates = append(serviceCIDRCandidates, fmt.Sprintf("10.200.%d.0/20", i))
+	}
+	serviceCIDR, err := pickUnusedCIDR(usedServiceCIDRs, serviceCIDRCandidates)
+	if err != nil {
+		err := fmt.Errorf("Failed to Find an Unused ServiceCIDR :  %v", err)
+		cblogger.Error(err)
+		return nil, err
 	}
 
 	request = tke.NewCreateClusterRequest()
 	request.ClusterCIDRSettings = &tke.ClusterCIDRSettings{
-		ClusterCIDR: common.StringPtr(cidr_list[0]), // 172.X.0.0.16: X Range:16, 17, ... , 31
+		ClusterCIDR: common.StringPtr(clusterCIDR),
+		ServiceCIDR: common.StringPtr(serviceCIDR),
 	}
 
-	// No way to store security_group_name.
-	// Stored and used security_group_name in description.
-	// In the future, if additional information is required, a json document can be stored in the description.
-	//
-	// Information search:
-	// Since users may add other descriptions as needed,
-	// search for the line containing "@CB-SPIDER:PMKS:SECURITYGROUP:ID".
-	// >> implemented with regex
-	// ------------------------------------------------------------
-	// subnet_id cannot be stored.
-	// Stored and used in description.
-	// SubnetId:       common.StringPtr(clusterInfo.Network.SubnetIIDs[0].SystemId),
-	// " @CB-SPIDER:PMKS:SUBNET:ID:"
-	// NOTE: '@' is used instead of '#' because Tencent CVM tag values do not allow '#'.
-	//       TKE internally propagates ClusterDescription as a CVM tag value during Auto Scaling scale-out,
-	//       causing RunInstances to fail with "tag value contains illegal characters" when '#' is present.
-	desc_str := `@CB-SPIDER:PMKS:SECURITYGROUP:ID:%s @CB-SPIDER:PMKS:SUBNET:ID:%s`
-	desc_str = fmt.Sprintf(desc_str, clusterInfo.Network.SecurityGroupIIDs[0].SystemId, clusterInfo.Network.SubnetIIDs[0].SystemId)
-
+	// Tencent TKE's CreateCluster API has no field to attach a Security Group to the
+	// cluster itself, and ClusterBasicSettings/ClusterNetworkSettings.SubnetId is only
+	// honored for CiliumOverlay / CDC+VPC-CNI clusters (not the GR-mode clusters created
+	// here), so it isn't a reliable way to recall an arbitrary Subnet either.
+	// Both values are therefore round-tripped as structured cluster Tags (rather than
+	// packed into ClusterDescription) and read back in getClusterInfo(). This avoids the
+	// old free-text/regex approach entirely, including the historical bug where TKE
+	// propagates ClusterDescription onto CVM tags during Auto Scaling scale-out and
+	// certain characters (e.g. '#') broke RunInstances.
 	var tags []*tke.Tag
 	for _, inputTag := range clusterInfo.TagList {
 		tags = append(tags, &tke.Tag{
@@ -867,12 +982,21 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 			Value: common.StringPtr(inputTag.Value),
 		})
 	}
+	tags = append(tags,
+		&tke.Tag{
+			Key:   common.StringPtr(tagKeySecurityGroupID),
+			Value: common.StringPtr(clusterInfo.Network.SecurityGroupIIDs[0].SystemId),
+		},
+		&tke.Tag{
+			Key:   common.StringPtr(tagKeySubnetID),
+			Value: common.StringPtr(clusterInfo.Network.SubnetIIDs[0].SystemId),
+		},
+	)
 
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
-		ClusterName:        common.StringPtr(clusterInfo.IId.NameId),
-		VpcId:              common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
-		ClusterVersion:     common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
-		ClusterDescription: common.StringPtr(desc_str),            // option, @CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
+		ClusterName:    common.StringPtr(clusterInfo.IId.NameId),
+		VpcId:          common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
+		ClusterVersion: common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
 		TagSpecification: []*tke.TagSpecification{{
 			ResourceType: common.StringPtr("cluster"),
 			Tags:         tags,
@@ -884,6 +1008,17 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	}
 
 	return request, err
+}
+
+// pickUnusedCIDR returns the first entry of candidates that is not already recorded
+// under keyValueKey in any of the given clusters' KeyValueList.
+func pickUnusedCIDR(used map[string]bool, candidates []string) (string, error) {
+	for _, cidr := range candidates {
+		if !used[cidr] {
+			return cidr, nil
+		}
+	}
+	return "", fmt.Errorf("no unused CIDR block available among candidates %v", candidates)
 }
 
 func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id string, nodeGroupReqInfo irs.NodeGroupInfo) (request *tke.CreateClusterNodePoolRequest, err error) {
@@ -1003,6 +1138,38 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 	}
 
 	return nil
+}
+
+// validateClusterVersion checks the requested Kubernetes version against the versions
+// Tencent TKE actually supports in the target region, and reports the supported list
+// in the error message when the requested version is invalid.
+func validateClusterVersion(clusterHandler *TencentClusterHandler, version string) error {
+	if version == "" {
+		return fmt.Errorf("Cluster Version is required")
+	}
+
+	res, err := tencent.GetClusterVersions(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
+	if err != nil {
+		return fmt.Errorf("Failed to Get Supported Cluster Versions :  %v", err)
+	}
+	if res == nil || res.Response == nil {
+		return fmt.Errorf("Failed to Get Supported Cluster Versions : empty response")
+	}
+
+	requested := strings.TrimPrefix(version, "v")
+	supportedVersions := make([]string, 0, len(res.Response.VersionInstanceSet))
+	for _, item := range res.Response.VersionInstanceSet {
+		if item == nil || item.Version == nil || *item.Version == "" {
+			continue
+		}
+		supported := strings.TrimPrefix(*item.Version, "v")
+		supportedVersions = append(supportedVersions, supported)
+		if supported == requested {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Unsupported Cluster Version %q. Supported versions in region %q: %s", version, clusterHandler.RegionInfo.Region, strings.Join(supportedVersions, ", "))
 }
 
 func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) error {
