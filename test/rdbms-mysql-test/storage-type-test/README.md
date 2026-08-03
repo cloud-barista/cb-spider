@@ -28,10 +28,10 @@
 ├── gcp-storage-type-test.sh
 ├── alibaba-storage-type-test.sh
 ├── tencent-storage-type-test.sh
-├── ibm-storage-type-test.sh
 ├── nhn-storage-type-test.sh
 ├── openstack-storage-type-test.sh
 ├── azure-storage-type-test.sh           # SKIP (StorageType 선택 불가)
+├── ibm-storage-type-test.sh             # SKIP (StorageType 선택 불가)
 └── ncp-storage-type-test.sh             # SKIP (StorageType 선택 불가)
 ```
 
@@ -117,8 +117,8 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 | CLOUD_PREMIUM | 8000 (MB) | 50 GB |
 
 - StorageTypeOptions: metainfo API에서 동적으로 조회
-- Connection: `tencent-beijing6-config`
-- Region: `ap-beijing` / Zone: `ap-beijing-6`
+- Connection: `tencent-beijing3-config`
+- Region: `ap-beijing` / Zone: `ap-beijing-3`
 - SubnetNames: `subnet-01`
 - DBInstanceSpec: 메모리 크기 MB 단위 지정 (8000 = 8 GB)
 
@@ -127,15 +127,14 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 
 ---
 
-### IBM
+### IBM — SKIP
 
-| StorageType | DBInstanceSpec | StorageSize |
-|-------------|---------------|-------------|
-| standard | multitenant | 30 GB |
-
+- SupportsStorageTypeSelection=false
 - Connection: `ibm-us-east-1-config`
 - Region: `us-east` / Zone: `us-east-1`
 - DBEngineVersion: `8.4`
+- IBM Cloud Databases는 스토리지 타입 선택 기능 부재
+- 테스트 스크립트 실행 시 즉시 SKIP 처리
 
 ---
 
@@ -194,52 +193,50 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 | GCP | ✅ | 머신 시리즈에 따라 자동 결정 (직접 선택 아님) |
 | Alibaba | ✅ | cloud_auto, cloud_essd, cloud_essd2, cloud_essd3, local_ssd |
 | Tencent | ✅ | local_ssd, CLOUD_HSSD, CLOUD_SSD, CLOUD_PREMIUM |
-| IBM | ✅ | standard |
 | OpenStack | ✅ | __DEFAULT__, RBD  |
 | NHN | ✅ | General HDD, General SSD |
 | Azure | ❌ | SKIP |
+| IBM | ❌ | SKIP |
 | NCP | ❌ | SKIP |
 
 ---
 
 ## 시험 결과
 
-### 2026-06-12
+### 2026-08-03
+
+Note: AWS `standard` type removed (deprecated); IBM changed to `SupportsStorageTypeSelection=false`; Tencent tested with `local_ssd` only.
 
 ```
 ================================================================================================================================
-                                RDBMS StorageType Test Summary - All CSPs
+                               RDBMS StorageType Test Summary - All CSPs
 ================================================================================================================================
 CSP          | StorageType(Req)     | StorageType(Ret)   | Result | DB Status      | Elapsed    | Reason
 --------------------------------------------------------------------------------------------------------------------------------
- [*] cloud_auto: Alibaba auto-select type - CSP picks the optimal cloud storage type at provisioning time
+[*] cloud_auto: Alibaba auto-select type - CSP picks the optimal cloud storage type at provisioning time
 --------------------------------------------------------------------------------------------------------------------------------
-AWS          | gp2                  | gp2                | PASS   | Available      | 4m35s      | -
-AWS          | gp3                  | gp3                | PASS   | Available      | 4m36s      | -
-AWS          | io1                  | io1                | PASS   | Available      | 4m36s      | -
-AWS          | io2                  | io2                | PASS   | Available      | 4m36s      | -
-AWS          | standard             | standard           | PASS   | Available      | 6m7s       | -
+AWS          | gp2                  | gp2                | PASS   | Available      | 5m43s      | -
+AWS          | gp3                  | gp3                | PASS   | Available      | 5m44s      | -
+AWS          | io1                  | io1                | PASS   | Available      | 5m13s      | -
+AWS          | io2                  | io2                | PASS   | Available      | 5m12s      | -
 AZURE        | N/A                  | N/A                | SKIP   | NOT_APPLICABLE | -          | SupportsStorageTypeSelection=false: storageSku is read-only, set automatically by Azure
-GCP          | HYPERDISK_BALANCED   | HYPERDISK_BALANCED | PASS   | Available      | 3m40s      | -
-GCP          | HYPERDISK_BALANCED   | HYPERDISK_BALANCED | PASS   | Available      | 4m26s      | -
-GCP          | PD_HDD               | PD_HDD             | PASS   | Available      | 4m10s      | -
-GCP          | PD_SSD               | PD_SSD             | PASS   | Available      | 3m55s      | -
-GCP          | PD_SSD               | PD_SSD             | PASS   | Available      | 3m40s      | -
-ALIBABA      | cloud_auto[*]        | general_essd       | PASS   | Available      | 3m0s       | cloud_auto: auto-select type, CSP chose 'general_essd'
-ALIBABA      | cloud_essd           | cloud_essd         | PASS   | Available      | 3m2s       | -
-ALIBABA      | cloud_essd2          | cloud_essd2        | PASS   | Available      | 3m18s      | -
-ALIBABA      | cloud_essd3          | cloud_essd3        | PASS   | Available      | 3m36s      | -
-ALIBABA      | local_ssd            | local_ssd          | PASS   | Available      | 4m54s      | -
-TENCENT      | CLOUD_HSSD           | CLOUD_HSSD         | PASS   | Available      | 9m14s      | -
-TENCENT      | CLOUD_PREMIUM        | CLOUD_PREMIUM      | PASS   | Available      | 9m22s      | -
-TENCENT      | CLOUD_SSD            | CLOUD_SSD          | PASS   | Available      | 9m15s      | -
-TENCENT      | local_ssd            | local_ssd          | PASS   | Available      | 6m15s      | -
-IBM          | standard             | standard           | PASS   | Available      | 39m6s      | -
-OPENSTACK    | __DEFAULT__          | NA                 | PASS   | Available      | 4m57s      | OpenStack Trove does not expose StorageType post-creation; Available=PASS
-OPENSTACK    | RBD                  | NA                 | PASS   | Available      | 4m59s      | OpenStack Trove does not expose StorageType post-creation; Available=PASS
+GCP          | HYPERDISK_BALANCED   | HYPERDISK_BALANCED | PASS   | Available      | 3m39s      | -
+GCP          | HYPERDISK_BALANCED   | HYPERDISK_BALANCED | PASS   | Available      | 3m9s       | -
+GCP          | PD_HDD               | PD_HDD             | PASS   | Available      | 3m55s      | -
+GCP          | PD_SSD               | PD_SSD             | PASS   | Available      | 4m10s      | -
+GCP          | PD_SSD               | PD_SSD             | PASS   | Available      | 4m56s      | -
+ALIBABA      | cloud_auto[*]        | general_essd       | PASS   | Available      | 3m52s      | cloud_auto: auto-select type, CSP chose 'general_essd'
+ALIBABA      | cloud_essd           | cloud_essd         | PASS   | Available      | 3m36s      | -
+ALIBABA      | cloud_essd2          | cloud_essd2        | PASS   | Available      | 3m51s      | -
+ALIBABA      | cloud_essd3          | cloud_essd3        | PASS   | Available      | 3m4s       | -
+ALIBABA      | local_ssd            | local_ssd          | PASS   | Available      | 4m43s      | -
+TENCENT      | local_ssd            | local_ssd          | PASS   | Available      | 4m38s      | -
+IBM          | N/A                  | N/A                | SKIP   | NOT_APPLICABLE | -          | SupportsStorageTypeSelection=false: IBM Cloud Databases has no storage type selection
+OPENSTACK    | __DEFAULT__          | NA                 | PASS   | Available      | 5m0s       | OpenStack Trove does not expose StorageType post-creation; Available=PASS
+OPENSTACK    | RBD                  | NA                 | PASS   | Available      | 5m22s      | OpenStack Trove does not expose StorageType post-creation; Available=PASS
 NCP          | N/A                  | N/A                | SKIP   | NOT_APPLICABLE | -          | SupportsStorageTypeSelection=false: NCP G3 applies SSD automatically, StorageType cannot be specified
-NHN          | General HDD          | General HDD        | PASS   | Available      | 12m5s      | -
-NHN          | General SSD          | General SSD        | PASS   | Available      | 12m35s     | -
+NHN          | General HDD          | General HDD        | PASS   | Available      | 10m7s      | -
+NHN          | General SSD          | General SSD        | PASS   | Available      | 11m7s      | -
 --------------------------------------------------------------------------------------------------------------------------------
-Total: 26  PASS: 24  FAIL: 0  SKIP: 2
+Total: 22  PASS: 19  FAIL: 0  SKIP: 3
 ```

@@ -103,6 +103,8 @@ echo ""
 # ── Print result table ────────────────────────────────────────────────────────
 print_header
 
+fail_count=0
+
 for csp in ${CSP_ORDER}; do
     result_file="${RESULT_DIR}/result_$(to_lower "${csp}").txt"
 
@@ -126,10 +128,20 @@ for csp in ${CSP_ORDER}; do
     printf "%-12s | %-11s | %-8s | %-12s | %-24s | %-24s | %-40s | %-12s | %-10s\n" \
         "${r_csp}" "${r_status}" "${r_engine}" "${r_version}" \
         "${r_spec}" "${r_storage_display}" "${r_endpoint}" "${r_public}" "${r_elapsed}"
+
+    # Only these are terminal "instance came up fine" statuses (mirrors the
+    # poll-success check in common-rdbms-test.sh); anything else (CREATE_ERROR,
+    # TIMEOUT, NO_RESULT, or any other non-success Status) counts as a failure.
+    r_status_lower=$(echo "${r_status}" | tr '[:upper:]' '[:lower:]')
+    case "${r_status_lower}" in
+        available|ready|runnable|active) ;;
+        *) fail_count=$((fail_count + 1)) ;;
+    esac
 done
 
 print_separator
 echo ""
+echo "Failed : ${fail_count}"
 echo "Logs   : ${LOG_DIR}/"
 echo "Results: ${RESULT_DIR}/"
 echo ""
@@ -153,3 +165,6 @@ if [[ "${VERBOSE:-0}" == "1" ]]; then
         fi
     done
 fi
+
+# Propagate failure to caller (all_test.sh) so a non-Available status fails this step
+[[ ${fail_count} -eq 0 ]]

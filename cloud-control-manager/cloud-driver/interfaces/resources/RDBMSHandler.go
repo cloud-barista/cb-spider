@@ -27,6 +27,18 @@ const (
 	RDBMSError     RDBMSStatus = "Error"
 )
 
+// RDBMSDataSource indicates whether a RDBMSMetaInfo field's value was obtained
+// live from the CSP API for this call, or is a fixed/static value (either
+// because the CSP driver never queries this field live, or because the live
+// call failed/returned nothing usable and a fixed value was substituted).
+// A field absent from RDBMSMetaInfo.DataSource is implicitly "API".
+type RDBMSDataSource string
+
+const (
+	DataSourceAPI    RDBMSDataSource = "API"
+	DataSourceStatic RDBMSDataSource = "Static"
+)
+
 // -------- Meta Info Structures
 
 // RDBMSMetaInfo provides CSP-specific capability information for RDBMS provisioning.
@@ -51,6 +63,35 @@ type RDBMSMetaInfo struct {
 
 	RequiresSubnet        bool `json:"RequiresSubnet"`        // true if SubnetNames is required at creation
 	RequiresSecurityGroup bool `json:"RequiresSecurityGroup"` // true if SecurityGroupNames is required at creation
+
+	SupportsTag bool `json:"SupportsTag"` // true if tagging is supported for RDBMS resources on this CSP
+
+	// DataSource records, per field name (e.g. "StorageTypeOptions", "StorageSizeRange",
+	// or "StorageSizeRange.Min"/"StorageSizeRange.Max" for a partially-static range),
+	// whether that field's value above was obtained live from the CSP API ("API") or is
+	// a fixed value ("Static") for this response. A field with no entry here is "API".
+	DataSource map[string]RDBMSDataSource `json:"DataSource,omitempty"`
+	// DataSourceNotes optionally explains, per field name, why a field is marked "Static"
+	// in DataSource (e.g. why the CSP has no live API for it, or what caused a live call
+	// to fail this time).
+	DataSourceNotes map[string]string `json:"DataSourceNotes,omitempty"`
+}
+
+// MarkStatic records that the given metadata field (e.g. "StorageTypeOptions",
+// "StorageSizeRange", or a sub-path like "StorageSizeRange.Min") is a fixed value
+// for this response rather than a live CSP API result, with an optional
+// human-readable explanation.
+func (m *RDBMSMetaInfo) MarkStatic(field string, note string) {
+	if m.DataSource == nil {
+		m.DataSource = map[string]RDBMSDataSource{}
+	}
+	m.DataSource[field] = DataSourceStatic
+	if note != "" {
+		if m.DataSourceNotes == nil {
+			m.DataSourceNotes = map[string]string{}
+		}
+		m.DataSourceNotes[field] = note
+	}
 }
 
 func NormalizeRDBMSEngine(dbEngine string) (string, error) {
@@ -63,7 +104,7 @@ func NormalizeRDBMSEngine(dbEngine string) (string, error) {
 	}
 }
 
-func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbInstanceSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup, supportsStorageTypeSelection, supportsStorageSizeConfiguration bool) (RDBMSMetaInfo, error) {
+func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbInstanceSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup, supportsStorageTypeSelection, supportsStorageSizeConfiguration bool, supportsTag bool) (RDBMSMetaInfo, error) {
 	normalizedEngine, err := NormalizeRDBMSEngine(dbEngine)
 	if err != nil {
 		return RDBMSMetaInfo{}, err
@@ -92,6 +133,7 @@ func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, d
 		SupportsStorageSizeConfiguration: supportsStorageSizeConfiguration,
 		RequiresSubnet:             requiresSubnet,
 		RequiresSecurityGroup:      requiresSecurityGroup,
+		SupportsTag:                supportsTag,
 	}, nil
 }
 

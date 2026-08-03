@@ -29,7 +29,7 @@ csp_connection() {
         AZURE)     echo "azure-koreacentral-config"    ;;
         GCP)       echo "gcp-iowa-config"              ;;
         ALIBABA)   echo "alibaba-beijing-config"       ;;
-        TENCENT)   echo "tencent-beijing6-config"      ;;
+        TENCENT)   echo "tencent-beijing3-config"      ;;
         IBM)       echo "ibm-us-east-1-config"         ;;
         OPENSTACK) echo "openstack-config01"           ;;
         NCP)       echo "ncp-korea1-config"            ;;
@@ -124,7 +124,13 @@ run_csp_delete() {
 
     echo "[${csp}] StorageTypeOptions: $(echo "${storage_types}" | tr '\n' ' ')"
 
-    # Launch one delete job per StorageType in parallel
+    # Alibaba's RDS API rate-limits bursts of concurrent delete calls
+    # (Throttling.User), so stagger its launches instead of firing them all
+    # at once. Other CSPs are unaffected and keep launching in parallel.
+    local launch_stagger_sec=0
+    [[ "${csp}" == "ALIBABA" ]] && launch_stagger_sec=5
+
+    # Launch one delete job per StorageType (staggered for Alibaba, parallel otherwise)
     while IFS= read -r storage_type; do
         [[ -z "${storage_type}" ]] && continue
 
@@ -143,6 +149,7 @@ run_csp_delete() {
         ) > "${log_file}" 2>&1 &
 
         echo $! > "${LOG_DIR}/pid_${csp_lower}_${st_safe}.txt"
+        [[ ${launch_stagger_sec} -gt 0 ]] && sleep "${launch_stagger_sec}"
     done <<< "${storage_types}"
 
     # Wait for all delete jobs for this CSP
@@ -259,3 +266,6 @@ if [[ "${VERBOSE:-0}" == "1" ]]; then
         [[ -f "${log_file}" ]] && cat "${log_file}" || echo "(no log)"
     done
 fi
+
+# Propagate failure to caller (all_test.sh) so a nonzero ERROR count fails this step
+[[ ${error_count} -eq 0 ]]

@@ -114,7 +114,7 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 
 	// StorageTypeOptions: NCP G3 generation sets SSD automatically; not user-selectable.
 	// StorageSizeRange: shown for reference only. NCP G3 starts at 10GB and auto-scales by 10GB increments up to 6000GB.
-	return irs.RDBMSMetaInfo{
+	metaInfo := irs.RDBMSMetaInfo{
 		DBEngine:                         "mysql",
 		SupportedVersions:                versions,
 		DBInstanceSpecOptions:            instanceSpecs,
@@ -129,7 +129,14 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 		SupportsStorageSizeConfiguration: false,
 		RequiresSubnet:                   true,
 		RequiresSecurityGroup:            false,
-	}, nil
+		SupportsTag:                      false,
+	}
+	metaInfo.MarkStatic("StorageTypeOptions", "NCP G3 generation sets storage type (SSD) automatically; not user-selectable or queryable via API.")
+	metaInfo.MarkStatic("StorageSizeRange", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative.")
+	if len(instanceSpecs) == 0 {
+		metaInfo.MarkStatic("DBInstanceSpecOptions", "MySQL G3 product spec query failed for this request; returned an empty list instead of live data.")
+	}
+	return metaInfo, nil
 }
 
 // fetchMysqlProductSpecs queries NCP GetCloudMysqlProductList API to retrieve available product codes (instance specs)
@@ -202,7 +209,7 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 
 	// StorageTypeOptions: NCP G3 generation sets SSD automatically; not user-selectable.
 	// StorageSizeRange: shown for reference only. NCP G3 starts at 10GB and auto-scales by 10GB increments up to 6000GB.
-	return irs.RDBMSMetaInfo{
+	metaInfo := irs.RDBMSMetaInfo{
 		DBEngine:                         "postgresql",
 		SupportedVersions:                versions,
 		DBInstanceSpecOptions:            instanceSpecs,
@@ -217,7 +224,13 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 		SupportsStorageSizeConfiguration: false,
 		RequiresSubnet:                   true,
 		RequiresSecurityGroup:            false,
-	}, nil
+	}
+	metaInfo.MarkStatic("StorageTypeOptions", "NCP G3 generation sets storage type (SSD) automatically; not user-selectable or queryable via API.")
+	metaInfo.MarkStatic("StorageSizeRange", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative.")
+	if len(instanceSpecs) == 0 {
+		metaInfo.MarkStatic("DBInstanceSpecOptions", "PostgreSQL product spec query failed for this request; returned an empty list instead of live data.")
+	}
+	return metaInfo, nil
 }
 
 // fetchPostgresqlProductSpecs queries NCP GetCloudPostgresqlProductList API to retrieve available product codes (instance specs)
@@ -394,7 +407,8 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	LoggingInfo(hiscallInfo, start)
 
 	if len(resp.CloudMysqlInstanceList) == 0 {
-		return irs.RDBMSInfo{}, errors.New("MySQL instance created but no instance returned in response")
+		return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: reqInfo.IId.NameId},
+			errors.New("MySQL instance created but no instance returned in response"))
 	}
 
 	instanceNo := derefStr(resp.CloudMysqlInstanceList[0].CloudMysqlInstanceNo)
@@ -493,7 +507,8 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	LoggingInfo(hiscallInfo, start)
 
 	if len(resp.CloudPostgresqlInstanceList) == 0 {
-		return irs.RDBMSInfo{}, errors.New("PostgreSQL instance created but no instance returned in response")
+		return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: reqInfo.IId.NameId},
+			errors.New("PostgreSQL instance created but no instance returned in response"))
 	}
 
 	instanceNo := derefStr(resp.CloudPostgresqlInstanceList[0].CloudPostgresqlInstanceNo)
@@ -524,6 +539,18 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	// NCP does not expose master username via API; populate from request
 	info.MasterUserName = reqInfo.MasterUserName
 	return info, nil
+}
+
+// rollbackCreatedRDBMS best-effort deletes a partially-created instance when a
+// post-create step fails, so the CSP is not left with an orphaned RDBMS.
+func (handler *NcpVpcRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause error) error {
+	cblogger.Errorf("CreateRDBMS failed after instance creation (%s/%s); attempting rollback deletion: %v", rdbmsIID.NameId, rdbmsIID.SystemId, cause)
+	if _, delErr := handler.DeleteRDBMS(rdbmsIID); delErr != nil {
+		cblogger.Errorf("rollback deletion of RDBMS (%s/%s) failed: %v", rdbmsIID.NameId, rdbmsIID.SystemId, delErr)
+		return fmt.Errorf("%w (rollback deletion also failed: %v)", cause, delErr)
+	}
+	cblogger.Infof("rollback deletion of RDBMS (%s/%s) succeeded", rdbmsIID.NameId, rdbmsIID.SystemId)
+	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
 }
 
 // ListRDBMS returns a list of all RDBMS instances (MySQL + PostgreSQL).

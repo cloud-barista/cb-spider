@@ -1355,6 +1355,14 @@ definitions:
     - Unit
     - Used
     type: object
+  spider.RDBMSDataSource:
+    enum:
+    - API
+    - Static
+    type: string
+    x-enum-varnames:
+    - DataSourceAPI
+    - DataSourceStatic
   spider.RDBMSInfo:
     description: Relational Database (RDBMS) Information
     properties:
@@ -1492,6 +1500,23 @@ definitions:
         items:
           type: string
         type: array
+      DataSource:
+        additionalProperties:
+          $ref: '#/definitions/spider.RDBMSDataSource'
+        description: |-
+          DataSource records, per field name (e.g. "StorageTypeOptions", "StorageSizeRange",
+          or "StorageSizeRange.Min"/"StorageSizeRange.Max" for a partially-static range),
+          whether that field's value above was obtained live from the CSP API ("API") or is
+          a fixed value ("Static") for this response. A field with no entry here is "API".
+        type: object
+      DataSourceNotes:
+        additionalProperties:
+          type: string
+        description: |-
+          DataSourceNotes optionally explains, per field name, why a field is marked "Static"
+          in DataSource (e.g. why the CSP has no live API for it, or what caused a live call
+          to fail this time).
+        type: object
       RequiresSecurityGroup:
         description: true if SecurityGroupNames is required at creation
         type: boolean
@@ -1541,6 +1566,9 @@ definitions:
       SupportsStorageTypeSelection:
         description: true if user can specify StorageType at creation; false if CSP
           sets it automatically (e.g., Azure, NCP)
+        type: boolean
+      SupportsTag:
+        description: true if tagging is supported for RDBMS resources on this CSP
         type: boolean
     type: object
   spider.RDBMSStatus:
@@ -10095,12 +10123,16 @@ paths:
         name: Name
         required: true
         type: string
-      - description: ConnectionName
-        in: body
-        name: RDBMSDatabaseRequest
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
         required: true
-        schema:
-          $ref: '#/definitions/spider.RDBMSDatabaseRequest'
+        type: string
+      - description: The master user password (required by SQL-based drivers such
+          as AWS and IBM)
+        in: query
+        name: MasterUserPassword
+        type: string
       produces:
       - application/json
       responses:

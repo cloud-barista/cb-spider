@@ -328,11 +328,12 @@ func (handler *NhnCloudRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMeta
 
 	storageSizeRange := irs.StorageSizeRange{Min: 20, Max: 2048}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, false, "1-730", true, false, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, false, "1-730", true, false, true, true, false)
 	if err != nil {
 		LoggingError(callLogInfo, err)
 		return irs.RDBMSMetaInfo{}, err
 	}
+	metaInfo.MarkStatic("StorageSizeRange", "NHN Cloud RDS API does not expose a storage size range; fixed at 20-2048GB.")
 
 	LoggingInfo(callLogInfo, start)
 	return metaInfo, nil
@@ -682,30 +683,54 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 	// Poll until the async job completes and we have the instance UUID
 	dbInstanceId, err := handler.pollRDSJob(ctx, createResp.JobId)
 	if err != nil {
-		newErr := fmt.Errorf("NHN Cloud RDS instance creation job failed: %w", err)
+		newErr := handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId},
+			fmt.Errorf("NHN Cloud RDS instance creation job failed: %w", err))
 		LoggingError(callLogInfo, newErr)
 		return irs.RDBMSInfo{}, newErr
 	}
 
+	// Retry the post-create fetches so a transient API error does not destroy a
+	// successfully created instance.
+	const maxGetAttempts = 3
 	var getResp nhnRDSGetInstanceResponse
-	if err := handler.getRDS(ctx, "/v3.0/db-instances/"+dbInstanceId, &getResp); err != nil {
-		newErr := fmt.Errorf("failed to fetch newly created NHN Cloud RDS instance: %w", err)
-		LoggingError(callLogInfo, newErr)
-		return irs.RDBMSInfo{}, newErr
-	}
-	if err := checkRDSResponseHeader(getResp.Header); err != nil {
-		LoggingError(callLogInfo, err)
-		return irs.RDBMSInfo{}, err
+	for attempt := 1; ; attempt++ {
+		getResp = nhnRDSGetInstanceResponse{}
+		fetchErr := handler.getRDS(ctx, "/v3.0/db-instances/"+dbInstanceId, &getResp)
+		if fetchErr == nil {
+			fetchErr = checkRDSResponseHeader(getResp.Header)
+		}
+		if fetchErr == nil {
+			break
+		}
+		if attempt >= maxGetAttempts {
+			newErr := handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: dbInstanceId},
+				fmt.Errorf("failed to fetch newly created NHN Cloud RDS instance after %d attempts: %w", attempt, fetchErr))
+			LoggingError(callLogInfo, newErr)
+			return irs.RDBMSInfo{}, newErr
+		}
+		cblogger.Warnf("[NHN RDBMS] fetch created instance failed (attempt %d/%d), retrying in 10s: %v", attempt, maxGetAttempts, fetchErr)
+		time.Sleep(10 * time.Second)
 	}
 
 	// Debug: Log backup information returned after creation
 	cblogger.Infof("[NHN RDBMS] After creation - BackupPeriod from API: %d, BackupSchedules count: %d",
 		getResp.Backup.BackupPeriod, len(getResp.Backup.BackupSchedules))
 
-	enrichment, err := handler.fetchRDBMSEnrichment(ctx, dbInstanceId, getResp.DBFlavorId)
-	if err != nil {
-		LoggingError(callLogInfo, err)
-		return irs.RDBMSInfo{}, err
+	var enrichment nhnRDSEnrichmentData
+	for attempt := 1; ; attempt++ {
+		var enrichErr error
+		enrichment, enrichErr = handler.fetchRDBMSEnrichment(ctx, dbInstanceId, getResp.DBFlavorId)
+		if enrichErr == nil {
+			break
+		}
+		if attempt >= maxGetAttempts {
+			newErr := handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: dbInstanceId},
+				fmt.Errorf("failed to fetch RDBMS enrichment data after %d attempts: %w", attempt, enrichErr))
+			LoggingError(callLogInfo, newErr)
+			return irs.RDBMSInfo{}, newErr
+		}
+		cblogger.Warnf("[NHN RDBMS] fetch enrichment data failed (attempt %d/%d), retrying in 10s: %v", attempt, maxGetAttempts, enrichErr)
+		time.Sleep(10 * time.Second)
 	}
 
 	LoggingInfo(callLogInfo, start)
@@ -713,6 +738,18 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 	// NHN appends a random suffix to the DB name; restore the user's requested name
 	result.IId.NameId = rdbmsReqInfo.IId.NameId
 	return result, nil
+}
+
+// rollbackCreatedRDBMS best-effort deletes a partially-created instance when a
+// post-create step fails, so the CSP is not left with an orphaned RDBMS.
+func (handler *NhnCloudRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause error) error {
+	cblogger.Errorf("CreateRDBMS failed after instance creation (%s/%s); attempting rollback deletion: %v", rdbmsIID.NameId, rdbmsIID.SystemId, cause)
+	if _, delErr := handler.DeleteRDBMS(rdbmsIID); delErr != nil {
+		cblogger.Errorf("rollback deletion of RDBMS (%s/%s) failed: %v", rdbmsIID.NameId, rdbmsIID.SystemId, delErr)
+		return fmt.Errorf("%w (rollback deletion also failed: %v)", cause, delErr)
+	}
+	cblogger.Infof("rollback deletion of RDBMS (%s/%s) succeeded", rdbmsIID.NameId, rdbmsIID.SystemId)
+	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
 }
 func (handler *NhnCloudRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called ListRDBMS()")

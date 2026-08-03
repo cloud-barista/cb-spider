@@ -72,7 +72,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.TagHandler = true
 	// ires.VPC, ires.SUBNET: only supported when creatiing
 	// ires.CLUSTER: not supported
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.RDBMS}
 
 	drvCapabilityInfo.QuotaInfoHandler = true
 

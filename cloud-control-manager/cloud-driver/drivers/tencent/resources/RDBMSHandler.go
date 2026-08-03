@@ -27,9 +27,10 @@ import (
 )
 
 type TencentRDBMSHandler struct {
-	Region   idrv.RegionInfo
-	Client   *cdb.Client
-	VMClient *cvm.Client
+	Region     idrv.RegionInfo
+	Client     *cdb.Client
+	VMClient   *cvm.Client
+	TagHandler *TencentTagHandler
 }
 
 // tencentDefaultAdminUser is the fixed admin username for Tencent Cloud Database (CDB).
@@ -57,10 +58,11 @@ func (handler *TencentRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("GetMetaInfo failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "7-1830", true, false, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "7-1830", true, false, true, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
+	metaInfo.MarkStatic("StorageTypeOptions", "\"local_ssd\" is always included regardless of the live DescribeCdbZoneConfig result; other entries reflect the live API response.")
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
@@ -546,22 +548,62 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 	}
 
 	// Enable public endpoint when requested.
+	// The earlier wait for Running is warning-only, so the instance may still be
+	// initializing; retry before giving up and rolling back.
 	if rdbmsReqInfo.PublicAccess {
-		openWanReq := cdb.NewOpenWanServiceRequest()
-		openWanReq.InstanceId = &instanceId
-		_, openWanErr := handler.Client.OpenWanService(openWanReq)
-		if openWanErr != nil {
-			return irs.RDBMSInfo{}, fmt.Errorf("failed to enable public access: %w", openWanErr)
+		const maxWanAttempts = 3
+		for attempt := 1; ; attempt++ {
+			openWanReq := cdb.NewOpenWanServiceRequest()
+			openWanReq.InstanceId = &instanceId
+			_, openWanErr := handler.Client.OpenWanService(openWanReq)
+			if openWanErr == nil {
+				break
+			}
+			if attempt >= maxWanAttempts {
+				return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: instanceId},
+					fmt.Errorf("failed to enable public access after %d attempts: %w", attempt, openWanErr))
+			}
+			cblogger.Warnf("[Tencent] OpenWanService failed (attempt %d/%d), retrying in 10s: %v", attempt, maxWanAttempts, openWanErr)
+			time.Sleep(10 * time.Second)
 		}
 
 		// Wait until WAN is enabled to return a public endpoint.
 		err = handler.waitForWanStatus(instanceId, 1, 300)
 		if err != nil {
-			return irs.RDBMSInfo{}, fmt.Errorf("public access requested but WAN was not enabled: %w", err)
+			return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: instanceId},
+				fmt.Errorf("public access requested but WAN was not enabled: %w", err))
 		}
 	}
 
-	return handler.GetRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: instanceId})
+	// Retry the final info fetch so a transient API error does not destroy a
+	// successfully created instance.
+	const maxGetAttempts = 3
+	var rdbmsInfo irs.RDBMSInfo
+	for attempt := 1; ; attempt++ {
+		rdbmsInfo, err = handler.GetRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: instanceId})
+		if err == nil {
+			break
+		}
+		if attempt >= maxGetAttempts {
+			return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: instanceId},
+				fmt.Errorf("failed to get created RDBMS info after %d attempts: %w", attempt, err))
+		}
+		cblogger.Warnf("[Tencent] get created RDBMS info failed (attempt %d/%d), retrying in 10s: %v", attempt, maxGetAttempts, err)
+		time.Sleep(10 * time.Second)
+	}
+	return rdbmsInfo, nil
+}
+
+// rollbackCreatedRDBMS best-effort deletes a partially-created instance when a
+// post-create step fails, so the CSP is not left with an orphaned RDBMS.
+func (handler *TencentRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause error) error {
+	cblogger.Errorf("CreateRDBMS failed after instance creation (%s); attempting rollback deletion: %v", rdbmsIID.SystemId, cause)
+	if _, delErr := handler.DeleteRDBMS(rdbmsIID); delErr != nil {
+		cblogger.Errorf("rollback deletion of RDBMS (%s) failed: %v", rdbmsIID.SystemId, delErr)
+		return fmt.Errorf("%w (rollback deletion also failed: %v)", cause, delErr)
+	}
+	cblogger.Infof("rollback deletion of RDBMS (%s) succeeded", rdbmsIID.SystemId)
+	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
 }
 
 func (handler *TencentRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
@@ -776,6 +818,11 @@ func (handler *TencentRDBMSHandler) convertToRDBMSInfo(inst *cdb.InstanceInfo) i
 
 	// KeyValueList
 	rdbmsInfo.KeyValueList = irs.StructToKeyValueList(inst)
+
+	// TagList
+	if handler.TagHandler != nil {
+		rdbmsInfo.TagList, _ = handler.TagHandler.ListTag(irs.RDBMS, rdbmsInfo.IId)
+	}
 
 	return rdbmsInfo
 }

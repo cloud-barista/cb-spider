@@ -26,7 +26,7 @@ csp_connection() {
         AZURE)     echo "azure-koreacentral-config"    ;;
         GCP)       echo "gcp-iowa-config"              ;;
         ALIBABA)   echo "alibaba-beijing-config"       ;;
-        TENCENT)   echo "tencent-beijing6-config"      ;;
+        TENCENT)   echo "tencent-beijing3-config"      ;;
         IBM)       echo "ibm-us-east-1-config"         ;;
         OPENSTACK) echo "openstack-config01"           ;;
         NCP)       echo "ncp-korea1-config"            ;;
@@ -105,6 +105,8 @@ echo ""
 printf "%-12s | %-14s | %-20s | %-10s\n" "CSP" "Result" "Detail" "Elapsed"
 print_separator
 
+fail_count=0
+
 for csp in ${CSP_ORDER}; do
     result_file="${RESULT_DIR}/result_$(to_lower "${csp}").txt"
 
@@ -119,10 +121,18 @@ for csp in ${CSP_ORDER}; do
 
     printf "%-12s | %-14s | %-20s | %-10s\n" \
         "${r_csp}" "${r_result}" "${r_detail}" "${r_elapsed}"
+
+    # DELETED/NOT_FOUND are both fine (instance gone either way); anything
+    # else (DELETE_ERROR/DELETE_TIMEOUT/NO_RESULT) is a real failure.
+    case "${r_result}" in
+        DELETED|NOT_FOUND) ;;
+        *) fail_count=$((fail_count + 1)) ;;
+    esac
 done
 
 print_separator
 echo ""
+echo "Failed : ${fail_count}"
 echo "Logs   : ${LOG_DIR}/"
 echo "Results: ${RESULT_DIR}/"
 echo ""
@@ -139,3 +149,6 @@ if [[ "${VERBOSE:-0}" == "1" ]]; then
         echo ""
     done
 fi
+
+# Propagate failure to caller (all_test.sh) so a real delete error fails this step
+[[ ${fail_count} -eq 0 ]]

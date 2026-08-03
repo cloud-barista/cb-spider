@@ -6,7 +6,7 @@
 #   2. Creates one RDBMS per StorageType option (in parallel within each CSP)
 #   3. Verifies returned StorageType matches requested
 #   4. Deletes test instances after verification
-# CSPs with SupportsStorageTypeSelection=false (Azure, NCP) are skipped automatically.
+# CSPs with SupportsStorageTypeSelection=false (Azure, IBM, NCP) are skipped automatically.
 # All CSPs run concurrently. A unified result table is shown at the end.
 #
 # Author: CB-Spider Team
@@ -72,7 +72,7 @@ echo "Poll interval: ${POLL_INTERVAL}s"
 echo "Auto delete  : ${AUTO_DELETE}"
 echo "Base dir     : ${BASE_DIR}"
 echo ""
-echo "Note: Azure, NCP are skipped (SupportsStorageTypeSelection=false)"
+echo "Note: Azure, IBM, NCP are skipped (SupportsStorageTypeSelection=false)"
 echo ""
 echo "Launching all CSP StorageType tests in parallel..."
 echo ""
@@ -126,6 +126,10 @@ for csp in ${CSP_ORDER}; do
     if [[ -z "${csp_results}" ]]; then
         printf "%-12s | %-18s | %-18s | %-6s | %-14s | %-10s | %-s\n" \
             "${csp}" "-" "-" "N/A" "NO_RESULT" "-" "-"
+        # No result file at all means the per-CSP script crashed/errored before
+        # writing anything (e.g. a syntax error) - count it as a failure rather
+        # than silently skipping it.
+        fail_count=$((fail_count + 1))
         continue
     fi
 
@@ -179,3 +183,6 @@ if [[ "${VERBOSE:-0}" == "1" ]]; then
         fi
     done
 fi
+
+# Propagate failure to caller (all_test.sh) so a nonzero FAIL count fails this step
+[[ ${fail_count} -eq 0 ]]

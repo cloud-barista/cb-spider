@@ -9,6 +9,7 @@ import (
 	cs "github.com/alibabacloud-go/cs-20151215/v4/client" // cs  : container service
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs" // ecs : elastic compute service
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas" // nas : network attached storage
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/rds"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 
@@ -24,6 +25,7 @@ type AlibabaTagHandler struct {
 	VpcClient *vpc.Client
 	SlbClient *slb.Client
 	NasClient *nas.Client
+	RDSClient *rds.Client
 }
 
 type AliTagResponse struct {
@@ -277,6 +279,14 @@ func (tagHandler *AlibabaTagHandler) AddTag(resType irs.RSType, resIID irs.IID, 
 		}
 		cblogger.Debug("AddNasTags response", response)
 
+	case "rds":
+		if tagHandler.RDSClient == nil {
+			return tag, errors.New("RDS client is not initialized")
+		}
+		if err := aliRDSAddTag(tagHandler.RDSClient, tagHandler.Region, resIID, tag); err != nil {
+			return tag, err
+		}
+
 	}
 
 	// request Tag를 retrun하므로 해당 Tag 정보조회 필요없음
@@ -441,6 +451,16 @@ func (tagHandler *AlibabaTagHandler) ListTag(resType irs.RSType, resIID irs.IID)
 			cblogger.Debug("tagInfo ", aTagInfo)
 			tagInfoList = append(tagInfoList, aTagInfo)
 		}
+	case "rds":
+		if tagHandler.RDSClient == nil {
+			return tagInfoList, errors.New("RDS client is not initialized")
+		}
+		rdsTags, err := aliRDSListTag(tagHandler.RDSClient, tagHandler.Region, resIID)
+		if err != nil {
+			cblogger.Error(err.Error())
+			return tagInfoList, nil
+		}
+		tagInfoList = append(tagInfoList, rdsTags...)
 	}
 
 	return tagInfoList, nil
@@ -525,6 +545,21 @@ func (tagHandler *AlibabaTagHandler) GetTag(resType irs.RSType, resIID irs.IID, 
 			if nasTag.TagKey == key {
 				tagInfo = irs.KeyValue{Key: nasTag.TagKey, Value: nasTag.TagValue}
 				cblogger.Debug("tagInfo ", tagInfo)
+				break
+			}
+		}
+	case "rds":
+		if tagHandler.RDSClient == nil {
+			return tagInfo, errors.New("RDS client is not initialized")
+		}
+		rdsTags, err := aliRDSListTag(tagHandler.RDSClient, tagHandler.Region, resIID)
+		if err != nil {
+			cblogger.Error(err.Error())
+			return tagInfo, nil
+		}
+		for _, t := range rdsTags {
+			if t.Key == key {
+				tagInfo = t
 				break
 			}
 		}
@@ -677,6 +712,14 @@ func (tagHandler *AlibabaTagHandler) RemoveTag(resType irs.RSType, resIID irs.II
 			return false, err
 		}
 		cblogger.Debug("RemoveNasTags response", response)
+	case "rds":
+		if tagHandler.RDSClient == nil {
+			return false, errors.New("RDS client is not initialized")
+		}
+		if err := aliRDSRemoveTag(tagHandler.RDSClient, tagHandler.Region, resIID, key); err != nil {
+			cblogger.Error(err.Error())
+			return false, err
+		}
 	}
 	return true, nil
 }
@@ -1046,4 +1089,42 @@ func aliRemoveNasTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs
 	}
 
 	return response, nil
+}
+
+func aliRDSAddTag(rdsClient *rds.Client, region idrv.RegionInfo, resIID irs.IID, tag irs.KeyValue) error {
+	request := rds.CreateTagResourcesRequest()
+	request.RegionId = region.Region
+	request.ResourceType = "INSTANCE"
+	request.ResourceId = &[]string{resIID.SystemId}
+	request.Tag = &[]rds.TagResourcesTag{
+		{Key: tag.Key, Value: tag.Value},
+	}
+	_, err := rdsClient.TagResources(request)
+	return err
+}
+
+func aliRDSListTag(rdsClient *rds.Client, region idrv.RegionInfo, resIID irs.IID) ([]irs.KeyValue, error) {
+	request := rds.CreateListTagResourcesRequest()
+	request.RegionId = region.Region
+	request.ResourceType = "INSTANCE"
+	request.ResourceId = &[]string{resIID.SystemId}
+	response, err := rdsClient.ListTagResources(request)
+	if err != nil {
+		return nil, err
+	}
+	var tags []irs.KeyValue
+	for _, item := range response.TagResources.TagResource {
+		tags = append(tags, irs.KeyValue{Key: item.TagKey, Value: item.TagValue})
+	}
+	return tags, nil
+}
+
+func aliRDSRemoveTag(rdsClient *rds.Client, region idrv.RegionInfo, resIID irs.IID, key string) error {
+	request := rds.CreateUntagResourcesRequest()
+	request.RegionId = region.Region
+	request.ResourceType = "INSTANCE"
+	request.ResourceId = &[]string{resIID.SystemId}
+	request.TagKey = &[]string{key}
+	_, err := rdsClient.UntagResources(request)
+	return err
 }

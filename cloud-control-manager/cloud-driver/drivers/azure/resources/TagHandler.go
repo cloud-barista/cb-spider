@@ -70,7 +70,7 @@ func GetResourceInfo(credentailInfo idrv.CredentialInfo, url string) (*Response,
 
 // find SystemId by NameId
 func FindIdByName(credentailInfo idrv.CredentialInfo, resIID irs.IID) (string, error) {
-	if resIID.SystemId != "" {
+	if resIID.SystemId != "" && strings.HasPrefix(resIID.SystemId, "/subscriptions/") {
 		return resIID.SystemId, nil
 	}
 
@@ -107,14 +107,32 @@ func findRSType(azureType string) (irs.RSType, error) {
 		return irs.KEY, nil
 	case "Microsoft.ContainerService/ManagedClusters":
 		return irs.CLUSTER, nil
+	case "Microsoft.DBforMySQL/flexibleServers":
+		return irs.RDBMS, nil
 	default:
 		return "", errors.New(azureType + " is not supported Resource!!")
 	}
 }
 
+// resolveResourceId returns the full ARM resource ID.
+// For RDBMS, it constructs the path directly to avoid a full subscription resource scan.
+func (tagHandler *AzureTagHandler) resolveResourceId(resType irs.RSType, resIID irs.IID) (string, error) {
+	if resType == irs.RDBMS {
+		name := resIID.SystemId
+		if name == "" {
+			name = resIID.NameId
+		}
+		return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.DBforMySQL/flexibleServers/%s",
+			tagHandler.CredentialInfo.SubscriptionId,
+			tagHandler.Region.Region,
+			name), nil
+	}
+	return FindIdByName(tagHandler.CredentialInfo, resIID)
+}
+
 // AddTag adds a tag to the specified resource
 func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
-	resourceID, err := FindIdByName(tagHandler.CredentialInfo, resIID)
+	resourceID, err := tagHandler.resolveResourceId(resType, resIID)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
@@ -153,7 +171,7 @@ func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, ta
 }
 
 func (tagHandler *AzureTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]irs.KeyValue, error) {
-	resourceID, err := FindIdByName(tagHandler.CredentialInfo, resIID)
+	resourceID, err := tagHandler.resolveResourceId(resType, resIID)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
@@ -180,7 +198,7 @@ func (tagHandler *AzureTagHandler) ListTag(resType irs.RSType, resIID irs.IID) (
 
 // GetTag gets a specific tag of the specified resource
 func (tagHandler *AzureTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key string) (irs.KeyValue, error) {
-	resourceID, err := FindIdByName(tagHandler.CredentialInfo, resIID)
+	resourceID, err := tagHandler.resolveResourceId(resType, resIID)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
@@ -205,7 +223,7 @@ func (tagHandler *AzureTagHandler) GetTag(resType irs.RSType, resIID irs.IID, ke
 
 // RemoveTag removes a specific tag from the specified resource
 func (tagHandler *AzureTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string) (bool, error) {
-	resourceID, err := FindIdByName(tagHandler.CredentialInfo, resIID)
+	resourceID, err := tagHandler.resolveResourceId(resType, resIID)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}

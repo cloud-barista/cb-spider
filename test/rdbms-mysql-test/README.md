@@ -20,7 +20,7 @@ Before running tests, register connection names for each CSP in CB-Spider.
 | Azure | `azure-koreacentral-config` | `koreacentral` | `1` |
 | GCP | `gcp-iowa-config` | `us-central1` | `us-central1-a` |
 | Alibaba | `alibaba-beijing-config` | `cn-beijing` | `cn-beijing-f` |
-| Tencent | `tencent-beijing6-config` | `ap-beijing` | `ap-beijing-6` |
+| Tencent | `tencent-beijing3-config` | `ap-beijing` | `ap-beijing-3` |
 | IBM | `ibm-us-east-1-config` | `us-east` | `us-east-1` |
 | OpenStack | `openstack-config01` | `RegionOne` | `nova` |
 | NCP | `ncp-korea1-config` | `KR` | `KR-1` |
@@ -28,21 +28,34 @@ Before running tests, register connection names for each CSP in CB-Spider.
 
 ### Pre-created Network Resources
 
-RDBMS 생성 전에 각 CSP에 VPC와 서브넷이 미리 생성되어 있어야 합니다.
+RDBMS 생성 전에 각 CSP에 VPC와 서브넷이 미리 생성되어 있어야 합니다. AWS는 Security Group도 미리 생성되어 있어야 합니다.
 
-| CSP | VPC | Subnet | 비고 |
-|-----|-----|--------|------|
-| AWS | `vpc-01` | `subnet-01`, `subnet-02` | 서로 다른 AZ의 서브넷 2개 필수 (SubnetGroup 요건) |
-| Azure | `vpc-01` | `subnet-01` | 서브넷 미사용 |
-| GCP | `vpc-01` | `subnet-01` | 서브넷 미사용 |
-| Alibaba | `vpc-01` | `subnet-01` | |
-| Tencent | `vpc-01` | `subnet-01` | |
-| IBM | `vpc-01` | `subnet-01` | 서브넷 미사용 |
-| OpenStack | `vpc-01` | `subnet-01` | 서브넷 미사용 |
-| NCP | `vpc-01` | `subnet-01` | |
-| NHN | `vpc-01` | `subnet-01` | |
+| CSP | VPC | Subnet | Security Group | 비고 |
+|-----|-----|--------|-----------------|------|
+| AWS | `vpc-01` | `subnet-01`, `subnet-02` | `sg-01` | 서로 다른 AZ의 서브넷 2개 필수 (SubnetGroup 요건) |
+| Azure | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
+| GCP | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
+| Alibaba | `vpc-01` | `subnet-01` | | |
+| Tencent | `vpc-01` | `subnet-01` | | |
+| IBM | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
+| OpenStack | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
+| NCP | `vpc-01` | `subnet-01` | | |
+| NHN | `vpc-01` | `subnet-01` | | |
 
-CB-Spider REST API로 생성하는 경우:
+아래 스크립트로 9개 CSP의 VPC/Subnet(및 AWS의 Security Group)을 한 번에 생성/삭제할 수 있습니다. 두 스크립트 모두 이미 존재하는 자원은 건너뛰므로(idempotent) 반복 실행해도 안전합니다.
+
+```bash
+# 전체 CSP 사전 자원 생성 (병렬)
+./run-all-csp-network-prepare.sh
+
+# 전체 CSP 사전 자원 삭제 (병렬)
+# RDBMS 인스턴스가 먼저 삭제된 이후에 실행해야 합니다 (VPC/SG가 사용 중이면 삭제 실패)
+./delete-all-csp-network.sh
+```
+
+특정 CSP만 단독 실행하려면 `<csp>-network-prepare.sh`를 직접 실행합니다 (예: `./aws-network-prepare.sh`). AWS의 AZ는 `AWS_AZ1`/`AWS_AZ2` 환경변수로 override 가능합니다 (기본값: `ap-southeast-2a`/`ap-southeast-2b`).
+
+내부적으로는 다음과 같이 CB-Spider REST API를 호출합니다:
 
 ```bash
 # VPC 생성 예시 (AWS)
@@ -56,6 +69,20 @@ curl -u admin:***** -sX POST http://localhost:1024/spider/vpc \
       "SubnetInfoList": [
         {"Name": "subnet-01", "IPv4_CIDR": "10.0.1.0/24", "Zone": "<AZ-1>"},
         {"Name": "subnet-02", "IPv4_CIDR": "10.0.2.0/24", "Zone": "<AZ-2>"}
+      ]
+    }
+  }' | jq .
+
+# Security Group 생성 예시 (AWS, MySQL 3306 인바운드 허용)
+curl -u admin:***** -sX POST http://localhost:1024/spider/securitygroup \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "ConnectionName": "aws-config01",
+    "ReqInfo": {
+      "Name": "sg-01",
+      "VPCName": "vpc-01",
+      "SecurityRules": [
+        {"Direction": "inbound", "IPProtocol": "TCP", "FromPort": "3306", "ToPort": "3306"}
       ]
     }
   }' | jq .
@@ -105,6 +132,14 @@ export SPIDER_AUTH="${SPIDER_AUTH:-admin:*****}"   # <-- 비밀번호 변경
 
 ## How to Run Tests
 
+### 0. Prepare Network Prerequisites (VPC/Subnet, AWS Security Group)
+
+RDBMS 생성 테스트를 실행하기 전에 먼저 실행합니다 (1회만 실행하면 됨, idempotent):
+
+```bash
+./run-all-csp-network-prepare.sh
+```
+
 ### Create: All CSPs in Parallel
 
 ```bash
@@ -149,6 +184,17 @@ GCP          | DELETED        | ok                   | 2m9s
 특정 CSP만 단독 실행:
 
 ```bash
+# Prepare network prerequisites
+./aws-network-prepare.sh
+./azure-network-prepare.sh
+./gcp-network-prepare.sh
+./alibaba-network-prepare.sh
+./tencent-network-prepare.sh
+./ibm-network-prepare.sh
+./openstack-network-prepare.sh
+./ncp-network-prepare.sh
+./nhn-network-prepare.sh
+
 # Create
 ./aws-rdbms-test.sh
 ./azure-rdbms-test.sh
@@ -161,12 +207,25 @@ GCP          | DELETED        | ok                   | 2m9s
 ./nhn-rdbms-test.sh
 ```
 
-단독 실행 시에는 `RESULT_DIR` 환경변수를 지정하거나 기본값(`/tmp/rdbms_results`)이 사용됩니다.
+단독 실행 시에는 `RESULT_DIR` 환경변수를 지정하거나 기본값(`/tmp/rdbms_results`, network prepare/cleanup은 `/tmp/rdbms_network_results`)이 사용됩니다.
 
 ## Script Structure
 
 ```
 .
+├── run-all-csp-network-prepare.sh  # Orchestrator: 전체 VPC/Subnet/SG 사전 생성 (병렬)
+├── delete-all-csp-network.sh       # Orchestrator: 전체 VPC/Subnet/SG 사전 자원 삭제 (병렬)
+├── common-network-prepare.sh       # Common: VPC/Subnet 생성 → (옵션) SG 생성
+├── common-network-cleanup.sh       # Common: (옵션) SG 삭제 → VPC/Subnet 삭제
+├── aws-network-prepare.sh
+├── azure-network-prepare.sh
+├── gcp-network-prepare.sh
+├── alibaba-network-prepare.sh
+├── tencent-network-prepare.sh
+├── ibm-network-prepare.sh
+├── openstack-network-prepare.sh
+├── ncp-network-prepare.sh
+├── nhn-network-prepare.sh
 ├── run-all-csp-rdbms-tests.sh   # Orchestrator: 전체 생성 테스트 (병렬)
 ├── delete-all-csp-rdbms.sh      # Orchestrator: 전체 삭제 (병렬)
 ├── common-rdbms-test.sh         # Common: Create → Poll Available → Get Info
@@ -191,6 +250,7 @@ GCP          | DELETED        | ok                   | 2m9s
 | `MAX_WAIT_SEC` | `3600` (create) / `1800` (delete) | Timeout per CSP (seconds) |
 | `POLL_INTERVAL` | `30` (create) / `15` (delete) | Polling interval (seconds) |
 | `VERBOSE` | `0` | Set to `1` for per-CSP full log dump |
+| `AWS_AZ1` / `AWS_AZ2` | `ap-southeast-2a` / `ap-southeast-2b` | AZs used for AWS `subnet-01`/`subnet-02` in `aws-network-prepare.sh` |
 
 ```bash
 # Example: custom Spider URL
@@ -219,29 +279,30 @@ tail -f /tmp/rdbms_logs_<PID>/log_aws.txt
 
 | CSP | Note |
 |-----|------|
-| AWS | SubnetGroup 생성을 위해 **다른 AZ의 서브넷 2개 이상** 필요 |
+| AWS | SubnetGroup 생성을 위해 **다른 AZ의 서브넷 2개 이상** 필요. Security Group `sg-01` 사전 생성 필요 |
 | Tencent | `DBInstanceSpec`은 메모리 크기(MB) 지정 (예: `8000` = 8GB) |
+| IBM | StorageType 지정 불가 (SupportsStorageTypeSelection=false). |
 | NCP | StorageSize/StorageType 지정 불가 (CSP 자동 관리). G3(KVM) generation만 지원. Public 도메인은 생성 후 콘솔에서 별도 신청 필요 |
 
 ## 시험 결과
 
-### 2026-06-12
+### 2026-08-03
 
 ```
 =================================================================================================================================================================================
-                                              RDBMS CREATE & INFO TEST SUMMARY - ALL CSPs
+                                             RDBMS CREATE & INFO TEST SUMMARY - ALL CSPs
 =================================================================================================================================================================================
 CSP          | Status      | Engine   | Version      | Spec                     | Storage                  | Endpoint                                 | PublicAccess | Elapsed
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-AWS          | Available   | mysql    | 8.0.45       | db.t3.medium             | 100GB|gp2                | cb-spider-mysql-test-***.ap-southeast-2.rds.amazonaws.com:3306          | true         | 4m36s
-AZURE        | Available   | mysql    | 8.0.21       | Standard_B1ms            | 20GB|Premium_LRS         | cb-spider-mysql-test-***.mysql.database.azure.com:3306                  | true         | 5m37s
-GCP          | Available   | mysql    | 8.0          | db-custom-2-8192         | 20GB|PD_SSD              | *.*.*.*:3306                             | true         | 3m56s
-ALIBABA      | Available   | mysql    | 8.0          | mysql.n4.large.1         | 20GB|cloud_essd          | *.*.*.*:3306                             | true         | 2m52s
-TENCENT      | Available   | mysql    | 8.0          | 8000                     | 50GB|local_ssd           | bj-cdb-***.sql.tencentcdb.com:24740      | true         | 5m14s
-IBM          | Available   | mysql    | 8.4          | multitenant              | 30GB|standard            | ***.databases.appdomain.cloud:31172      | true         | 6m34s
-OPENSTACK    | Available   | mysql    | 5.7.29       | m1.small                 | 20GB|NA                  | *.*.*.*:3306                             | true         | 4m28s
-NCP          | Available   | mysql    | MYSQL8.0.36  | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | 10GB|SSD                 | db-***.vpc-cdb.ntruss.com:3306           | N/A          | 12m27s
-NHN          | Available   | mysql    | MYSQL_V8408  | m2.c2m4                  | 20GB|General SSD         | ***.external.kr1.mysql.rds.nhncloudservice.com:3306                     | true         | 8m36s
+AWS          | Available   | mysql    | 8.0.46       | db.t3.medium             | 100GB|gp2                | cb-spider-mysql-test-***.ap-southeast-2.rds.amazonaws.com:3306          | true         | 5m11s
+AZURE        | Available   | mysql    | 8.0.21       | Standard_B1ms            | 20GB|Premium_LRS         | cb-spider-mysql-test-***.mysql.database.azure.com:3306                  | true         | 5m38s
+GCP          | Available   | mysql    | 8.0          | db-custom-2-8192         | 20GB|PD_SSD              | *.*.*.*:3306                             | true         | 4m0s
+ALIBABA      | Available   | mysql    | 8.0          | mysql.n4.large.1         | 20GB|cloud_essd          | *.*.*.*:3306                             | true         | 2m32s
+TENCENT      | Available   | mysql    | 8.0          | 8000                     | 50GB|local_ssd           | bj-cdb-***.sql.tencentcdb.com:20137      | true         | 7m48s
+IBM          | Available   | mysql    | 8.4          | multitenant              | 30GB|NA                  | ***.databases.appdomain.cloud:32251      | true         | 5m31s
+OPENSTACK    | Available   | mysql    | 5.7.29       | m1.small                 | 20GB|NA                  | *.*.*.*:3306                             | true         | 4m31s
+NCP          | Available   | mysql    | MYSQL8.0.36  | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | 10GB|SSD                 | db-***.vpc-cdb.ntruss.com:3306           | N/A          | 11m24s
+NHN          | Available   | mysql    | MYSQL_V8408  | m2.c2m4                  | 20GB|General SSD         | ***.external.kr1.mysql.rds.nhncloudservice.com:3306                     | true         | 11m22s
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Total: 9  PASS: 9  FAIL: 0
+Failed : 0
 ```

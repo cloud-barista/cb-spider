@@ -188,7 +188,15 @@ func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfo
 
 func (cloudConn *AlibabaCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("Start")
-	handler := alirs.AlibabaTagHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.Cs2015Client, cloudConn.VpcClient, cloudConn.NLBClient, cloudConn.NasClient}
+	handler := alirs.AlibabaTagHandler{
+		Region:    cloudConn.Region,
+		Client:    cloudConn.VMClient,
+		CsClient:  cloudConn.Cs2015Client,
+		VpcClient: cloudConn.VpcClient,
+		SlbClient: cloudConn.NLBClient,
+		NasClient: cloudConn.NasClient,
+		RDSClient: cloudConn.RDSClient,
+	}
 	return &handler, nil
 }
 
@@ -204,7 +212,16 @@ func (cloudConn *AlibabaCloudConnection) CreateMonitoringHandler() (irs.Monitori
 
 func (cloudConn *AlibabaCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateRDBMSHandler()!")
-	rdbmsHandler := alirs.AlibabaRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient}
+	tagHandler := alirs.AlibabaTagHandler{
+		Region:    cloudConn.Region,
+		Client:    cloudConn.VMClient,
+		CsClient:  cloudConn.Cs2015Client,
+		VpcClient: cloudConn.VpcClient,
+		SlbClient: cloudConn.NLBClient,
+		NasClient: cloudConn.NasClient,
+		RDSClient: cloudConn.RDSClient,
+	}
+	rdbmsHandler := alirs.AlibabaRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient, TagHandler: &tagHandler}
 	return &rdbmsHandler, nil
 }
 

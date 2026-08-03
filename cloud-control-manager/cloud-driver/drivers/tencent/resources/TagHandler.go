@@ -12,6 +12,7 @@ import (
 	taglib "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
+	cdb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cdb/v20170320"
 	cfs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs/v20190719"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
@@ -30,6 +31,7 @@ type TencentTagHandler struct {
 	DiskClient     *cbs.Client
 	ClusterClient  *tke.Client
 	CFSClient      *cfs.Client
+	CDBClient      *cdb.Client
 }
 
 // Map of RSType to Tencent resource types
@@ -44,6 +46,7 @@ var rsTypeToTencentTypeMap = map[irs.RSType]string{
 	irs.DISK:    "cvm:volume",
 	irs.MYIMAGE: "cvm:image",
 	irs.CLUSTER: "ccs:cluster",
+	irs.RDBMS:   "cdb:instanceId",
 }
 
 // Map of RSType to Tencent resource types reversed
@@ -58,6 +61,7 @@ var resourceIdStartStrToRsType = map[string]irs.RSType{
 	"disk":   irs.DISK,
 	"img":    irs.MYIMAGE,
 	"cls":    irs.CLUSTER,
+	"cdb":    irs.RDBMS,
 }
 
 // tencent need to provide service Type arg.
@@ -211,6 +215,18 @@ func validateResource(t *TencentTagHandler, resType irs.RSType, resIID irs.IID) 
 		if err != nil {
 			err := fmt.Errorf("An FILESYSTEM API error has returned: %s", err.Error())
 			return false, err
+		}
+		if *response.Response.TotalCount > 0 {
+			return true, nil
+		}
+		return false, nil
+
+	case irs.RDBMS:
+		request := cdb.NewDescribeDBInstancesRequest()
+		request.InstanceIds = common.StringPtrs([]string{resIID.SystemId})
+		response, err := t.CDBClient.DescribeDBInstances(request)
+		if err != nil {
+			return false, fmt.Errorf("an RDBMS API error has returned: %s", err.Error())
 		}
 		if *response.Response.TotalCount > 0 {
 			return true, nil
