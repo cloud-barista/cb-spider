@@ -7958,13 +7958,17 @@
                         "required": true
                     },
                     {
-                        "description": "ConnectionName",
-                        "name": "RDBMSDatabaseRequest",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/spider.RDBMSDatabaseRequest"
-                        }
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The master user password (required by SQL-based drivers such as AWS and IBM)",
+                        "name": "MasterUserPassword",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -15239,6 +15243,17 @@
                 }
             }
         },
+        "spider.RDBMSDataSource": {
+            "type": "string",
+            "enum": [
+                "API",
+                "Static"
+            ],
+            "x-enum-varnames": [
+                "DataSourceAPI",
+                "DataSourceStatic"
+            ]
+        },
         "spider.RDBMSInfo": {
             "description": "Relational Database (RDBMS) Information",
             "type": "object",
@@ -15411,6 +15426,20 @@
                         "1000"
                     ]
                 },
+                "DataSource": {
+                    "description": "DataSource records, per field name (e.g. \"StorageTypeOptions\", \"StorageSizeRange\",\nor \"StorageSizeRange.Min\"/\"StorageSizeRange.Max\" for a partially-static range),\nwhether that field's value above was obtained live from the CSP API (\"API\") or is\na fixed value (\"Static\") for this response. A field with no entry here is \"API\".",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/spider.RDBMSDataSource"
+                    }
+                },
+                "DataSourceNotes": {
+                    "description": "DataSourceNotes optionally explains, per field name, why a field is marked \"Static\"\nin DataSource (e.g. why the CSP has no live API for it, or what caused a live call\nto fail this time).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "RequiresSecurityGroup": {
                     "description": "true if SecurityGroupNames is required at creation",
                     "type": "boolean"
@@ -15476,6 +15505,10 @@
                 },
                 "SupportsStorageTypeSelection": {
                     "description": "true if user can specify StorageType at creation; false if CSP sets it automatically (e.g., Azure, NCP)",
+                    "type": "boolean"
+                },
+                "SupportsTag": {
+                    "description": "true if tagging is supported for RDBMS resources on this CSP",
                     "type": "boolean"
                 }
             }

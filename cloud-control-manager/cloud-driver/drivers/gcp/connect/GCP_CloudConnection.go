@@ -200,6 +200,7 @@ func (cloudConn *GCPCloudConnection) CreateTagHandler() (irs.TagHandler, error) 
 		Credential:      cloudConn.Credential,
 		ComputeClient:   cloudConn.VMClient,
 		ContainerClient: cloudConn.ContainerClient,
+		SQLAdminClient:  cloudConn.SQLAdminClient,
 	}
 
 	return &tagHandler, nil

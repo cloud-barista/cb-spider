@@ -69,7 +69,14 @@ func AddTag(connectionName string, resType cres.RSType, resName string, tag cres
 		return cres.KeyValue{}, err
 	}
 
-	return handler.AddTag(resType, getDriverIID(cres.IID{NameId: nameId, SystemId: systemId}), tag)
+	// Check duplicate key: AddTag with an existing key is not allowed
+	resIID := getDriverIID(cres.IID{NameId: nameId, SystemId: systemId})
+	existing, getErr := handler.GetTag(resType, resIID, tag.Key)
+	if getErr == nil && existing.Key != "" {
+		return cres.KeyValue{}, fmt.Errorf("tag key '%s' already exists for the resource '%s'", tag.Key, resName)
+	}
+
+	return handler.AddTag(resType, resIID, tag)
 }
 
 // ListTag lists all tags of a resource.

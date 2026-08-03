@@ -17,6 +17,7 @@ import (
 
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
+	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -29,11 +30,12 @@ type GCPTagHandler struct {
 
 	ComputeClient   *compute.Service
 	ContainerClient *container.Service
+	SQLAdminClient  *sqladmin.Service
 }
 
 var (
 	supportRSType = map[irs.RSType]interface{}{
-		irs.VM: nil, irs.DISK: nil, irs.CLUSTER: nil,
+		irs.VM: nil, irs.DISK: nil, irs.CLUSTER: nil, irs.RDBMS: nil,
 	}
 )
 
@@ -70,6 +72,22 @@ func (t *GCPTagHandler) getCluster(resIID irs.IID) (*container.Cluster, error) {
 	}
 
 	return cluster, nil
+}
+
+func (t *GCPTagHandler) getCloudSQLInstance(resIID irs.IID) (*sqladmin.DatabaseInstance, error) {
+	inst, err := t.SQLAdminClient.Instances.Get(t.Credential.ProjectID, resIID.SystemId).Do()
+	if err != nil {
+		return nil, err
+	}
+	return inst, nil
+}
+
+func (t *GCPTagHandler) getRDBMSInstances() ([]*sqladmin.DatabaseInstance, error) {
+	resp, err := t.SQLAdminClient.Instances.List(t.Credential.ProjectID).Do()
+	if err != nil {
+		return nil, err
+	}
+	return resp.Items, nil
 }
 
 func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
@@ -171,9 +189,54 @@ func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyVa
 		}
 
 		return tag, nil
+	case irs.RDBMS:
+		inst, err := t.getCloudSQLInstance(resIID)
+		if err != nil {
+			return errRes, err
+		}
+		existLabels := inst.Settings.UserLabels
+		if existLabels == nil {
+			existLabels = make(map[string]string)
+		}
+		existLabels[tag.Key] = tag.Value
+		patchBody := &sqladmin.DatabaseInstance{
+			Settings: &sqladmin.Settings{
+				UserLabels:      existLabels,
+				SettingsVersion: inst.Settings.SettingsVersion,
+			},
+		}
+		op, err := t.SQLAdminClient.Instances.Patch(t.Credential.ProjectID, resIID.SystemId, patchBody).Do()
+		if err != nil {
+			return errRes, err
+		}
+		if op.Error != nil {
+			return errRes, fmt.Errorf("operation failed: %v", op.Error.Errors)
+		}
+		if err := t.waitForSQLOperation(t.Credential.ProjectID, op.Name); err != nil {
+			return errRes, err
+		}
+		return tag, nil
 	default:
 		return tag, errors.New("unsupported resource type")
 	}
+}
+
+func (t *GCPTagHandler) waitForSQLOperation(projectId, opName string) error {
+	deadline := time.Now().Add(3 * time.Minute)
+	for time.Now().Before(deadline) {
+		op, err := t.SQLAdminClient.Operations.Get(projectId, opName).Do()
+		if err != nil {
+			return err
+		}
+		if op.Status == "DONE" {
+			if op.Error != nil && len(op.Error.Errors) > 0 {
+				return fmt.Errorf("SQL operation failed: %s", op.Error.Errors[0].Message)
+			}
+			return nil
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return fmt.Errorf("timeout waiting for SQL operation %s", opName)
 }
 
 func (t *GCPTagHandler) waitForOperation(o *compute.Operation) error {
@@ -250,6 +313,15 @@ func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]irs.KeyVa
 				Value: v,
 			}
 			res = append(res, kv)
+		}
+		return res, nil
+	case irs.RDBMS:
+		inst, err := t.SQLAdminClient.Instances.Get(projectID, resIID.SystemId).Do()
+		if err != nil {
+			return res, err
+		}
+		for k, v := range inst.Settings.UserLabels {
+			res = append(res, irs.KeyValue{Key: k, Value: v})
 		}
 		return res, nil
 	default:
@@ -385,6 +457,35 @@ func (t *GCPTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string
 		}
 
 		return true, nil
+	case irs.RDBMS:
+		inst, err := t.getCloudSQLInstance(resIID)
+		if err != nil {
+			return false, err
+		}
+		existLabels := inst.Settings.UserLabels
+		if existLabels == nil {
+			return false, errors.New("key does not exist")
+		}
+		if _, ok := existLabels[key]; ok {
+			delete(existLabels, key)
+		} else {
+			return false, errors.New("key does not exist")
+		}
+
+		// GCP Cloud SQL PATCH uses per-key merge semantics for userLabels —
+		// absent keys are left unchanged, so deletion requires Instances.Update (PUT full replacement).
+		inst.Settings.ForceSendFields = append(inst.Settings.ForceSendFields, "UserLabels")
+		op, err := t.SQLAdminClient.Instances.Update(t.Credential.ProjectID, resIID.SystemId, inst).Do()
+		if err != nil {
+			return false, err
+		}
+		if op.Error != nil {
+			return false, fmt.Errorf("operation failed: %v", op.Error.Errors)
+		}
+		if err := t.waitForSQLOperation(t.Credential.ProjectID, op.Name); err != nil {
+			return false, err
+		}
+		return true, nil
 	default:
 		return false, errors.New("unsupported resource type")
 	}
@@ -470,6 +571,21 @@ func (t *GCPTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagI
 			return res, err
 		}
 		res = append(res, res3...)
+		res4, err := getResult(
+			keyword,
+			irs.RDBMS,
+			t.getRDBMSInstances,
+			func(item *sqladmin.DatabaseInstance) string {
+				return item.Name
+			},
+			func(item *sqladmin.DatabaseInstance) map[string]string {
+				return item.Settings.UserLabels
+			},
+		)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, res4...)
 	} else {
 		err = validateSupportRS(resType)
 		if err != nil {
@@ -526,6 +642,22 @@ func (t *GCPTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagI
 				return res, err
 			}
 
+		case irs.RDBMS:
+			res, err = getResult(
+				keyword,
+				resType,
+				t.getRDBMSInstances,
+				func(item *sqladmin.DatabaseInstance) string {
+					return item.Name
+				},
+				func(item *sqladmin.DatabaseInstance) map[string]string {
+					return item.Settings.UserLabels
+				},
+			)
+			if err != nil {
+				return res, err
+			}
+
 		default:
 			return nil, errors.New("unsupport resource type")
 		}
@@ -534,7 +666,7 @@ func (t *GCPTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagI
 	return res, nil
 }
 
-func getResult[T *compute.Instance | *compute.Disk | *container.Cluster](
+func getResult[T *compute.Instance | *compute.Disk | *container.Cluster | *sqladmin.DatabaseInstance](
 	keyword string,
 	resType irs.RSType,
 	resultFn func() ([]T, error),

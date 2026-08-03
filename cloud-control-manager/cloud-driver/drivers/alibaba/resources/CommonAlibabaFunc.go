@@ -338,6 +338,8 @@ func GetAlibabaResourceType(resType irs.RSType) (string, error) {
 		return "CLUSTER", nil
 	case irs.FILESYSTEM:
 		return "filesystem", nil
+	case irs.RDBMS:
+		return "INSTANCE", nil
 	case irs.ALL:
 		return "", nil
 	// case irs.NODEGROUP"
@@ -378,6 +380,8 @@ func GetAliTargetApi(resType irs.RSType) (string, error) {
 		return "cs", nil
 	case irs.FILESYSTEM:
 		return "nas", nil
+	case irs.RDBMS:
+		return "rds", nil
 	case irs.ALL:
 		return "all", nil
 	// case NODEGROUP"):

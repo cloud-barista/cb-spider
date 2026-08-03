@@ -58,10 +58,12 @@ func (handler *GCPRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL instance options failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "1-7", false, false, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "1-7", false, false, true, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
+	metaInfo.MarkStatic("StorageSizeRange", "Minimum storage size is a fixed constant; only the maximum is derived from the live Cloud SQL Tiers API.")
+	metaInfo.MarkStatic("StorageSizeRange.Min", "GCP Cloud SQL Admin API does not expose a minimum disk size; fixed at 10GB.")
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
@@ -495,7 +497,8 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	// Wait for operation completion
 	err = handler.waitForOperation(projectId, op.Name)
 	if err != nil {
-		return irs.RDBMSInfo{}, fmt.Errorf("failed waiting for instance creation: %w", err)
+		return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: rdbmsReqInfo.IId.NameId},
+			fmt.Errorf("failed waiting for instance creation: %w", err))
 	}
 
 	// Set master user password via Users API
@@ -508,8 +511,36 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		cblogger.Warnf("Failed to create master user: %v", err)
 	}
 
-	// Get the created instance
-	return handler.GetRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: rdbmsReqInfo.IId.NameId})
+	// Get the created instance.
+	// Retry the final info fetch so a transient API error does not destroy a
+	// successfully created instance.
+	const maxGetAttempts = 3
+	var rdbmsInfo irs.RDBMSInfo
+	for attempt := 1; ; attempt++ {
+		rdbmsInfo, err = handler.GetRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: rdbmsReqInfo.IId.NameId})
+		if err == nil {
+			break
+		}
+		if attempt >= maxGetAttempts {
+			return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: rdbmsReqInfo.IId.NameId},
+				fmt.Errorf("failed to get created RDBMS info after %d attempts: %w", attempt, err))
+		}
+		cblogger.Warnf("[GCP] get created RDBMS info failed (attempt %d/%d), retrying in 10s: %v", attempt, maxGetAttempts, err)
+		time.Sleep(10 * time.Second)
+	}
+	return rdbmsInfo, nil
+}
+
+// rollbackCreatedRDBMS best-effort deletes a partially-created instance when a
+// post-create step fails, so the CSP is not left with an orphaned RDBMS.
+func (handler *GCPRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause error) error {
+	cblogger.Errorf("CreateRDBMS failed after instance creation (%s); attempting rollback deletion: %v", rdbmsIID.SystemId, cause)
+	if _, delErr := handler.DeleteRDBMS(rdbmsIID); delErr != nil {
+		cblogger.Errorf("rollback deletion of RDBMS (%s) failed: %v", rdbmsIID.SystemId, delErr)
+		return fmt.Errorf("%w (rollback deletion also failed: %v)", cause, delErr)
+	}
+	cblogger.Infof("rollback deletion of RDBMS (%s) succeeded", rdbmsIID.SystemId)
+	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
 }
 
 func (handler *GCPRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {

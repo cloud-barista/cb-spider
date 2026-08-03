@@ -137,7 +137,7 @@ func (handler *AwsRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("DescribeOrderableDBInstanceOptions failed: %w", err)
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "0-35", true, true, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "0-35", true, true, true, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -729,6 +729,9 @@ func (handler *AwsRDBMSHandler) convertDBInstanceToRDBMSInfo(dbInstance *rds.DBI
 
 	// KeyValueList - capture CSP-specific data
 	rdbmsInfo.KeyValueList = irs.StructToKeyValueList(dbInstance)
+
+	// TagList
+	rdbmsInfo.TagList, _ = handler.TagHandler.ListTag(irs.RDBMS, rdbmsInfo.IId)
 
 	return rdbmsInfo
 }

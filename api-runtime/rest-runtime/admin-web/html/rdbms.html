@@ -894,6 +894,80 @@
         vertical-align: middle;
     }
 
+    /* MetaInfo Reference Panel */
+    #metaInfoPanel {
+        background-color: #f0f7ff;
+        border-color: #b0c8e8;
+    }
+    #metaInfoPanel legend {
+        cursor: pointer;
+        user-select: none;
+        color: #1a5276;
+    }
+    #metaInfoPanel legend:hover {
+        color: #0a3d62;
+    }
+    .metainfo-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        font-size: 11px;
+    }
+    .metainfo-item {
+        background: white;
+        border: 1px solid #d0dff0;
+        border-radius: 4px;
+        padding: 6px 8px;
+    }
+    .metainfo-item .metainfo-label {
+        font-weight: bold;
+        color: #2c5f8a;
+        margin-bottom: 3px;
+        font-size: 11px;
+    }
+    .metainfo-item .metainfo-value {
+        color: #333;
+        word-break: break-word;
+    }
+    .metainfo-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        margin-top: 2px;
+    }
+    .metainfo-tag {
+        background: #e8f0fe;
+        border: 1px solid #b0c4de;
+        border-radius: 3px;
+        padding: 1px 5px;
+        font-size: 10px;
+        color: #1a5276;
+    }
+    .metainfo-tag.clickable {
+        cursor: pointer;
+        transition: background 0.1s, border-color 0.1s;
+    }
+    .metainfo-tag.clickable:hover {
+        background: #d0e4ff;
+        border-color: #4a90d9;
+    }
+    .metainfo-tag.clickable.selected {
+        background: #1a5276;
+        color: white;
+        border-color: #0a3d62;
+        font-weight: bold;
+    }
+    .metainfo-bool-yes {
+        color: #155724;
+        font-weight: bold;
+    }
+    .metainfo-bool-no {
+        color: #721c24;
+    }
+    .metainfo-full-width {
+        grid-column: 1 / -1;
+    }
+
 </style>
 </head>
 <body>
@@ -1241,7 +1315,13 @@
     <div id="overlay" class="overlay">
         <div class="overlay-content" style="width: 520px;">
             <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
-            <h2>Add New RDBMS</h2>
+            <div style="display: flex; align-items: center; margin-bottom: 10px; padding-right: 30px;">
+                <h2 style="margin: 0; flex: 1;">Add New RDBMS</h2>
+                <button type="button" id="metaInfoBtn" onclick="showMetaInfoOverlay()"
+                    style="display:none; font-size: 11px; padding: 3px 8px; background-color: #e8f0fe; border: 1px solid #4a90d9; border-radius: 4px; color: #1a5276; cursor: pointer; white-space: nowrap;">
+                    &#128203; MetaInfo
+                </button>
+            </div>
             <form id="addRDBMSForm" onsubmit="event.preventDefault(); postRDBMS();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
 
@@ -1351,7 +1431,7 @@
                         <label for="publicAccess">Public Access:</label>
                         <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;">
                             <option value="false">No</option>
-                            <option value="true">Yes</option>
+                            <option value="true" selected>Yes</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1393,6 +1473,28 @@
         <div class="tag-overlay-content"></div>
     </div>
 
+    <!-- RDBMS MetaInfo Floating Panel (draggable, independent) -->
+    <div id="metaInfoOverlay" style="display:none; position:fixed; top:80px; left:calc(50% + 300px); width:480px; max-height:80vh;
+        background:white; border:1px solid #4a90d9; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,0.3);
+        z-index:1200; display:none; flex-direction:column; overflow:hidden;">
+        <!-- Drag handle header -->
+        <div id="metaInfoDragHandle" style="display:flex; align-items:center; justify-content:space-between;
+            padding:8px 12px; background:#1a5276; border-radius:5px 5px 0 0; cursor:move; user-select:none;">
+            <span style="color:white; font-size:13px; font-weight:bold;">&#128203; RDBMS MetaInfo</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="metaInfoSubtitle" style="color:#aed6f1; font-size:10px;"></span>
+                <button type="button" onclick="hideMetaInfoOverlay()"
+                    style="background:#c0392b; color:white; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:12px; font-weight:bold; line-height:1.4;">X</button>
+            </div>
+        </div>
+        <!-- Scrollable content -->
+        <div style="overflow-y:auto; padding:12px; flex:1;">
+            <div id="metaInfoContent" class="metainfo-grid">
+                <div style="color: #888; font-size: 11px;">Loading...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Tag Overlay -->
     <div id="add-tag-overlay" class="overlay">
         <div class="add-tag-overlay-content overlay-content"></div>
@@ -1423,6 +1525,9 @@
     // Basic Auth credentials from server
     const SPIDER_USERNAME = '{{.APIUsername}}';
     const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    let currentRequiresSubnet = false;
+    let currentRequiresSecurityGroup = false;
 
     // Helper function to create fetch options with Basic Auth if credentials are set
     function createFetchOptions(options = {}) {
@@ -1601,6 +1706,22 @@
             return false;
         }
 
+        if (currentRequiresSubnet) {
+            const selectedSubnets = Array.from(document.querySelectorAll('.subnet-checkbox:checked'));
+            if (selectedSubnets.length === 0) {
+                alert("At least one Subnet is required for this CSP.");
+                return false;
+            }
+        }
+
+        if (currentRequiresSecurityGroup) {
+            const selectedSGs = Array.from(document.querySelectorAll('.sg-checkbox:checked'));
+            if (selectedSGs.length === 0) {
+                alert("At least one Security Group is required for this CSP.");
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -1615,7 +1736,8 @@
         const dbEngine = document.getElementById('dbEngine').value;
         const dbEngineVersion = document.getElementById('dbEngineVersion').value;
         const dbInstanceSpec = document.getElementById('dbInstanceSpec').value;
-        const storageSize = document.getElementById('storageSize').value;
+        const storageSizeInput = document.getElementById('storageSize');
+        const storageSize = storageSizeInput.disabled ? undefined : storageSizeInput.value;
         const storageType = document.getElementById('storageType').value.trim();
 
         // Get selected subnets (multi-select checkboxes)
@@ -1745,25 +1867,37 @@
         await setDefaultMasterUser();
         document.getElementById('masterUserPassword').value = '';
         document.getElementById('highAvailability').value = 'false';
-        document.getElementById('publicAccess').value = 'false';
+        document.getElementById('publicAccess').value = 'true';
         document.getElementById('encryption').value = 'false';
         document.getElementById('deletionProtection').value = 'false';
         document.getElementById('backupRetentionDays').value = '';
         document.getElementById('backupRetentionDays').placeholder = '(optional)';
         document.getElementById('backupRetentionHint').textContent = '';
         document.querySelectorAll('.rdbms-tag-input').forEach(tagInput => tagInput.remove());
+
+        // Hide MetaInfo button until next load
+        const metaInfoBtn = document.getElementById('metaInfoBtn');
+        if (metaInfoBtn) metaInfoBtn.style.display = 'none';
     }
 
     function hideOverlay(pos) {
         const overlayId = pos || 'overlay';
         document.getElementById(overlayId).style.display = 'none';
         document.removeEventListener('keydown', handleEsc);
+        // Close MetaInfo panel and reset its position
+        const metaPanel = document.getElementById('metaInfoOverlay');
+        if (metaPanel) { metaPanel.style.display = 'none'; delete metaPanel.dataset.moved; }
         clearFormFields();
     }
 
     function handleEsc(event) {
         if (event.key === "Escape") {
-            hideOverlay();
+            const metaPanel = document.getElementById('metaInfoOverlay');
+            if (metaPanel && metaPanel.style.display !== 'none') {
+                hideMetaInfoOverlay();
+            } else {
+                hideOverlay();
+            }
         }
     }
 
@@ -1781,8 +1915,8 @@
         .then(data => {
             const masterUserInput = document.getElementById('masterUserName');
             const providerName = (data.ProviderName || '').toLowerCase();
-            
-            // Set CSP-specific default: Tencent=root, IBM=admin, others=dbadmin
+
+            // Set CSP-specific default (see test/rdbms-mysql-test/*.sh): Tencent=root, IBM=admin, others=myadmin
             if (providerName.includes('tencent')) {
                 masterUserInput.value = 'root';
                 masterUserInput.placeholder = 'e.g., root';
@@ -1790,14 +1924,14 @@
                 masterUserInput.value = 'admin';
                 masterUserInput.placeholder = 'e.g., admin';
             } else {
-                masterUserInput.value = 'dbadmin';
-                masterUserInput.placeholder = 'e.g., dbadmin';
+                masterUserInput.value = 'myadmin';
+                masterUserInput.placeholder = 'e.g., myadmin';
             }
         })
         .catch(error => {
             console.error('Error loading connection config:', error);
-            // Fallback to dbadmin on error
-            document.getElementById('masterUserName').value = 'dbadmin';
+            // Fallback to myadmin on error
+            document.getElementById('masterUserName').value = 'myadmin';
         });
     }
 
@@ -1853,6 +1987,42 @@
         });
     }
 
+    // Values verified to work by test/rdbms-mysql-test/*.sh for each CSP
+    const CSP_RDBMS_TEST_DEFAULTS = {
+        AWS:       { version: '8.0',        spec: 'db.t3.medium', storage: 100 },
+        AZURE:     { version: '8.0.21',     spec: 'Standard_B1ms', storage: 20 },
+        ALIBABA:   { version: '8.0',        spec: 'mysql.n4.large.1', storage: 20 },
+        NCP:       { version: '8.0.36',     spec: 'SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003' },
+        NHN:       { version: 'MYSQL_V8408', spec: 'm2.c2m4', storage: 20 },
+        GCP:       { version: '8.0',        spec: 'db-custom-2-8192', storage: 20 },
+        IBM:       { version: '8.4',        spec: 'multitenant', storage: 30 },
+        OPENSTACK: { version: '5.7.29',     spec: 'm1.small', storage: 20 },
+        TENCENT:   { version: '8.0',        spec: '8000', storage: 50 }
+    };
+
+    function applyCSPRDBMSTestDefaults() {
+        const providerName = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        const key = Object.keys(CSP_RDBMS_TEST_DEFAULTS).find(k => providerName.includes(k));
+        if (!key) {
+            return;
+        }
+        const defaults = CSP_RDBMS_TEST_DEFAULTS[key];
+
+        const versionSelect = document.getElementById('dbEngineVersion');
+        if (defaults.version && Array.from(versionSelect.options).some(o => o.value === defaults.version)) {
+            versionSelect.value = defaults.version;
+        }
+
+        const specSelect = document.getElementById('dbInstanceSpec');
+        if (defaults.spec && Array.from(specSelect.options).some(o => o.value === defaults.spec)) {
+            specSelect.value = defaults.spec;
+        }
+
+        if (defaults.storage) {
+            document.getElementById('storageSize').value = defaults.storage;
+        }
+    }
+
     function loadRDBMSMetaInfo() {
         const connConfig = document.getElementById('connConfig').value;
         const dbEngine = document.getElementById('dbEngine').value;
@@ -1866,7 +2036,11 @@
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error(`MetaInfo API returned status ${response.status}`);
+                return response.json()
+                    .catch(() => ({}))
+                    .then(body => {
+                        throw new Error(body.message || `MetaInfo API returned status ${response.status}`);
+                    });
             }
             return response.json();
         })
@@ -1876,13 +2050,17 @@
             const sgLabel = document.getElementById('sgLabel');
             if (metaInfo.RequiresSubnet) {
                 subnetLabel.innerHTML = 'Subnets: <span style="color: red;">*</span>';
+                currentRequiresSubnet = true;
             } else {
                 subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(optional)</span>';
+                currentRequiresSubnet = false;
             }
             if (metaInfo.RequiresSecurityGroup) {
                 sgLabel.innerHTML = 'Security Groups: <span style="color: red;">*</span>';
+                currentRequiresSecurityGroup = true;
             } else {
                 sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(optional)</span>';
+                currentRequiresSecurityGroup = false;
             }
 
             // Populate Version select
@@ -1929,16 +2107,23 @@
                     option.text = storageType;
                     storageTypeSelect.appendChild(option);
                 });
-                
-                // Auto-select first storage type for CSPs that require it (e.g., Alibaba)
-                // User can manually select (optional) if not needed
-                storageTypeSelect.value = metaInfo.StorageTypeOptions[0];
+
+                // Some CSPs (e.g., Azure, NCP) set StorageType automatically and reject
+                // an explicit value, so only preselect it when the CSP supports selection.
+                if (metaInfo.SupportsStorageTypeSelection === false) {
+                    storageTypeSelect.value = '';
+                    storageTypeSelect.disabled = true;
+                } else {
+                    storageTypeSelect.disabled = false;
+                    storageTypeSelect.value = metaInfo.StorageTypeOptions[0];
+                }
             } else {
                 // Add empty option if no storage types available
                 const emptyOption = document.createElement('option');
                 emptyOption.value = '';
                 emptyOption.text = '(optional)';
                 storageTypeSelect.appendChild(emptyOption);
+                storageTypeSelect.disabled = false;
             }
 
             // Update Storage Size hint
@@ -1947,16 +2132,36 @@
             if (metaInfo.StorageSizeRange) {
                 const min = metaInfo.StorageSizeRange.Min;
                 const max = metaInfo.StorageSizeRange.Max;
-                storageSizeHint.textContent = `(Range: ${min}-${max} GB)`;
                 storageSizeInput.min = min;
-                storageSizeInput.max = max;
+                // Some CSPs report no upper quota limit as Max <= 0 ("unlimited");
+                // don't set a max attribute in that case, or the browser rejects
+                // any value as being above an invalid negative maximum.
+                if (max > 0) {
+                    storageSizeInput.max = max;
+                    storageSizeHint.textContent = `(Range: ${min}-${max} GB)`;
+                } else {
+                    storageSizeInput.removeAttribute('max');
+                    storageSizeHint.textContent = `(Min: ${min} GB, no upper limit)`;
+                }
                 // Set default to min if current value is out of range
                 const currentValue = parseInt(storageSizeInput.value);
                 if (currentValue < min) {
                     storageSizeInput.value = min;
                 }
+
+                // Some CSPs (e.g., NCP) auto-scale storage and reject an explicit
+                // value, so disable the field and just show the range for reference.
+                if (metaInfo.SupportsStorageSizeConfiguration === false) {
+                    storageSizeInput.disabled = true;
+                    storageSizeInput.value = min;
+                    storageSizeHint.textContent += ' — CSP-managed, not configurable';
+                } else {
+                    storageSizeInput.disabled = false;
+                }
             } else {
                 storageSizeHint.textContent = '';
+                storageSizeInput.removeAttribute('max');
+                storageSizeInput.disabled = false;
             }
 
             // Update Backup Retention Days hint with CSP-specific guidance
@@ -1985,6 +2190,12 @@
                 backupRetentionHint.textContent = '';
                 backupRetentionInput.placeholder = '(optional)';
             }
+
+            // Pre-select CSP-specific values known to succeed (see test/rdbms-mysql-test/*.sh)
+            applyCSPRDBMSTestDefaults();
+
+            // Populate MetaInfo Reference Panel
+            populateMetaInfoPanel(metaInfo);
         })
         .catch(error => {
             console.error('Error loading RDBMS MetaInfo:', error);
@@ -1994,6 +2205,189 @@
             document.getElementById('storageType').innerHTML = '<option value="">Error loading types</option>';
             throw error;
         });
+    }
+
+    function applyMetaInfoBadge(el) {
+        const field = el.dataset.field;
+        const value = el.dataset.value;
+
+        // Map field type to form select id
+        const selectId = { version: 'dbEngineVersion', spec: 'dbInstanceSpec', storage: 'storageType' }[field];
+        if (!selectId) return;
+
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        // Set the value; if the option doesn't exist yet add it temporarily
+        if (!Array.from(select.options).some(o => o.value === value)) {
+            const opt = document.createElement('option');
+            opt.value = value; opt.text = value;
+            select.appendChild(opt);
+        }
+        select.value = value;
+
+        // Highlight selected badge, clear siblings
+        const siblings = el.closest('.metainfo-tags').querySelectorAll('.metainfo-tag[data-field="' + field + '"]');
+        siblings.forEach(s => s.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    function showMetaInfoOverlay() {
+        const panel = document.getElementById('metaInfoOverlay');
+        panel.style.display = 'flex';
+        // Position to the right of the RDBMS modal if not already moved by user
+        if (!panel.dataset.moved) {
+            const vw = window.innerWidth;
+            const panelW = 480;
+            // Try right side first, fall back to center-right
+            const left = Math.min(Math.round(vw / 2) + 300, vw - panelW - 20);
+            panel.style.left = Math.max(left, 20) + 'px';
+            panel.style.top = '80px';
+        }
+    }
+
+    function hideMetaInfoOverlay() {
+        document.getElementById('metaInfoOverlay').style.display = 'none';
+    }
+
+    // Draggable MetaInfo panel
+    (function() {
+        let dragging = false, startX, startY, origLeft, origTop;
+        document.addEventListener('DOMContentLoaded', function() {
+            const handle = document.getElementById('metaInfoDragHandle');
+            const panel  = document.getElementById('metaInfoOverlay');
+            if (!handle || !panel) return;
+
+            handle.addEventListener('mousedown', function(e) {
+                if (e.target.tagName === 'BUTTON') return;
+                dragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                origLeft = panel.offsetLeft;
+                origTop  = panel.offsetTop;
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                panel.style.left = (origLeft + dx) + 'px';
+                panel.style.top  = (origTop  + dy) + 'px';
+                panel.dataset.moved = '1';
+            });
+            document.addEventListener('mouseup', function() { dragging = false; });
+        });
+    })();
+
+    function toggleMetaInfoPanel() {
+        const content = document.getElementById('metaInfoContent');
+        const icon = document.getElementById('metaInfoToggleIcon');
+        const isHidden = content.style.display === 'none';
+        content.style.display = isHidden ? 'grid' : 'none';
+        icon.innerHTML = isHidden ? '&#9650;' : '&#9660;';
+    }
+
+    function populateMetaInfoPanel(metaInfo) {
+        const content = document.getElementById('metaInfoContent');
+
+        function boolHtml(val) {
+            if (val === true) return '<span class="metainfo-bool-yes">Yes</span>';
+            if (val === false) return '<span class="metainfo-bool-no">No</span>';
+            return '<span style="color:#888;">N/A</span>';
+        }
+
+        function tagsHtml(arr, fieldType) {
+            if (!arr || arr.length === 0) return '<span style="color:#888;">None</span>';
+            if (!fieldType) {
+                return '<div class="metainfo-tags">' + arr.map(v => `<span class="metainfo-tag">${v}</span>`).join('') + '</div>';
+            }
+            // Clickable badges: read current value from form to mark selected
+            let currentVal = '';
+            if (fieldType === 'version') currentVal = (document.getElementById('dbEngineVersion') || {}).value || '';
+            if (fieldType === 'spec')    currentVal = (document.getElementById('dbInstanceSpec')   || {}).value || '';
+            if (fieldType === 'storage') currentVal = (document.getElementById('storageType')      || {}).value || '';
+            return '<div class="metainfo-tags">' + arr.map(v => {
+                const sel = v === currentVal ? ' selected' : '';
+                return `<span class="metainfo-tag clickable${sel}" data-field="${fieldType}" data-value="${v}" onclick="applyMetaInfoBadge(this)">${v}</span>`;
+            }).join('') + '</div>';
+        }
+
+        const storageSizeText = metaInfo.StorageSizeRange
+            ? `Min: ${metaInfo.StorageSizeRange.Min} GB, Max: ${metaInfo.StorageSizeRange.Max > 0 ? metaInfo.StorageSizeRange.Max + ' GB' : 'Unlimited'}`
+            : '<span style="color:#888;">N/A</span>';
+
+        content.innerHTML = `
+            <div class="metainfo-item metainfo-full-width">
+                <div class="metainfo-label">Supported Versions <span style="font-weight:normal;color:#888;font-size:10px;">(click to select)</span></div>
+                <div class="metainfo-value">${tagsHtml(metaInfo.SupportedVersions, 'version')}</div>
+            </div>
+            <div class="metainfo-item metainfo-full-width">
+                <div class="metainfo-label">Instance Spec Options <span style="font-weight:normal;color:#888;font-size:10px;">(click to select)</span></div>
+                <div class="metainfo-value">${tagsHtml(metaInfo.DBInstanceSpecOptions, 'spec')}</div>
+            </div>
+            <div class="metainfo-item metainfo-full-width">
+                <div class="metainfo-label">Storage Type Options <span style="font-weight:normal;color:#888;font-size:10px;">(click to select)</span></div>
+                <div class="metainfo-value">${tagsHtml(metaInfo.StorageTypeOptions, 'storage')}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Storage Size Range</div>
+                <div class="metainfo-value">${storageSizeText}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Backup Retention Range</div>
+                <div class="metainfo-value">${metaInfo.BackupRetentionRange || '<span style="color:#888;">N/A</span>'}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Requires Subnet</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.RequiresSubnet)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Requires Security Group</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.RequiresSecurityGroup)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Storage Size Configurable</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsStorageSizeConfiguration !== false)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Storage Type Selectable</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsStorageTypeSelection !== false)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Supports High Availability</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsHighAvailability)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Supports Backup</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsBackup)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Supports Public Access</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsPublicAccess)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Supports Deletion Protection</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsDeletionProtection)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Supports Encryption</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsEncryption)}</div>
+            </div>
+            <div class="metainfo-item">
+                <div class="metainfo-label">Supports Tag</div>
+                <div class="metainfo-value">${boolHtml(metaInfo.SupportsTag)}</div>
+            </div>
+        `;
+
+        // Show MetaInfo button and set subtitle
+        const btn = document.getElementById('metaInfoBtn');
+        if (btn) btn.style.display = '';
+        const subtitle = document.getElementById('metaInfoSubtitle');
+        if (subtitle) {
+            const engine = document.getElementById('dbEngine') ? document.getElementById('dbEngine').value : '';
+            const connConfig = document.getElementById('connConfig') ? document.getElementById('connConfig').value : '';
+            subtitle.textContent = `Engine: ${engine}  |  Connection: ${connConfig}`;
+        }
     }
 
     function updateSubnets() {
@@ -2028,8 +2422,8 @@
                     checkbox.value = subnet.IId.NameId;
                     checkbox.id = `subnet-${subnet.IId.NameId}`;
                     checkbox.className = 'subnet-checkbox';
-                    // Auto-check first two subnets for Multi-AZ support
-                    if (index < 2) {
+                    // Auto-check first two subnets only when RequiresSubnet=true (e.g., AWS Multi-AZ)
+                    if (currentRequiresSubnet && index < 2) {
                         checkbox.checked = true;
                     }
                     checkbox.onchange = updateSubnetSelectedDisplay;

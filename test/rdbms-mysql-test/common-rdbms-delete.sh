@@ -20,6 +20,15 @@ SPIDER_URL="${SPIDER_URL:-http://localhost:1024}"
 SPIDER_AUTH="${SPIDER_AUTH:-admin:****}"
 MAX_WAIT_SEC="${MAX_WAIT_SEC:-1800}"
 POLL_INTERVAL="${POLL_INTERVAL:-15}"
+THROTTLE_RETRY_COUNT="${THROTTLE_RETRY_COUNT:-5}"
+THROTTLE_RETRY_INTERVAL="${THROTTLE_RETRY_INTERVAL:-10}"
+
+# CSP APIs (Alibaba, AWS, Tencent, ...) reject bursts of concurrent delete
+# calls with a rate-limit/throttling error. Detect that class of error so it
+# can be retried instead of failing the whole delete immediately.
+is_throttling_error() {
+    echo "$1" | grep -qiE "throttl|rate.?limit|requestlimitexceeded|too many requests"
+}
 
 format_elapsed() {
     local sec=$1
@@ -49,15 +58,24 @@ if [[ -n "${err_msg}" ]]; then
     exit 0
 fi
 
-# ── Send DELETE request ───────────────────────────────────────────────────────
+# ── Send DELETE request (retry on throttling) ────────────────────────────────
 # Note: DELETE requires ConnectionName in request body, not query parameter
-del_resp=$(curl -u "${SPIDER_AUTH}" -sX DELETE \
-  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}" \
-  -H 'Content-Type: application/json' \
-  -d "{\"ConnectionName\": \"${CONNECTION_NAME}\"}" 2>&1)
+for attempt in $(seq 1 "${THROTTLE_RETRY_COUNT}"); do
+    del_resp=$(curl -u "${SPIDER_AUTH}" -sX DELETE \
+      "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}" \
+      -H 'Content-Type: application/json' \
+      -d "{\"ConnectionName\": \"${CONNECTION_NAME}\"}" 2>&1)
 
-del_result=$(echo "${del_resp}" | jq -r '.Result // .result // empty' 2>/dev/null)
-del_err=$(echo "${del_resp}"    | jq -r '.message // empty' 2>/dev/null)
+    del_result=$(echo "${del_resp}" | jq -r '.Result // .result // empty' 2>/dev/null)
+    del_err=$(echo "${del_resp}"    | jq -r '.message // empty' 2>/dev/null)
+
+    if [[ -z "${del_err}" ]] || ! is_throttling_error "${del_err}"; then
+        break
+    fi
+
+    echo "[${CSP_NAME}] DELETE attempt ${attempt}/${THROTTLE_RETRY_COUNT} throttled, retrying: ${del_err}"
+    [[ ${attempt} -lt ${THROTTLE_RETRY_COUNT} ]] && sleep "${THROTTLE_RETRY_INTERVAL}"
+done
 
 if [[ -n "${del_err}" ]]; then
     echo "[${CSP_NAME}] DELETE error: ${del_err}"

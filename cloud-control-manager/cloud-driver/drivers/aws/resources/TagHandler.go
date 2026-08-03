@@ -26,6 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/rds"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -38,6 +39,7 @@ type AwsTagHandler struct {
 	NLBClient *elbv2.ELBV2
 	EKSClient *eks.EKS
 	EFSClient *efs.EFS
+	RDSClient *rds.RDS
 }
 
 // Map of RSType to AWS resource types
@@ -81,7 +83,7 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 		return irs.KeyValue{}, errors.New(msg)
 	}
 
-	if resType == irs.NLB || resType == irs.CLUSTER || resType == irs.FILESYSTEM {
+	if resType == irs.NLB || resType == irs.CLUSTER || resType == irs.FILESYSTEM || resType == irs.RDBMS {
 		var err error
 		if resType == irs.NLB {
 			err = tagHandler.AddNLBTag(resIID, tag)
@@ -89,6 +91,8 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 			err = tagHandler.AddClusterTag(resIID, tag)
 		} else if resType == irs.FILESYSTEM {
 			err = tagHandler.AddEFSTag(resIID, tag)
+		} else if resType == irs.RDBMS {
+			err = tagHandler.AddRDSTag(resIID, tag)
 		}
 
 		if err != nil {
@@ -243,6 +247,105 @@ func (tagHandler *AwsTagHandler) RemoveEFSTag(resIID irs.IID, tagKey string) (bo
 		return false, fmt.Errorf("failed to remove tag from EFS: %w", err)
 	}
 	return true, nil
+}
+
+func (tagHandler *AwsTagHandler) getRDBMSArn(resIID irs.IID) (string, error) {
+	input := &rds.DescribeDBInstancesInput{
+		DBInstanceIdentifier: aws.String(resIID.SystemId),
+	}
+	result, err := tagHandler.RDSClient.DescribeDBInstances(input)
+	if err != nil {
+		return "", fmt.Errorf("failed to describe RDBMS instance '%s': %w", resIID.SystemId, err)
+	}
+	if len(result.DBInstances) == 0 {
+		return "", fmt.Errorf("RDBMS instance '%s' not found", resIID.SystemId)
+	}
+	return aws.StringValue(result.DBInstances[0].DBInstanceArn), nil
+}
+
+func (tagHandler *AwsTagHandler) AddRDSTag(resIID irs.IID, tag irs.KeyValue) error {
+	arn, err := tagHandler.getRDBMSArn(resIID)
+	if err != nil {
+		return err
+	}
+	_, err = tagHandler.RDSClient.AddTagsToResource(&rds.AddTagsToResourceInput{
+		ResourceName: aws.String(arn),
+		Tags: []*rds.Tag{
+			{Key: aws.String(tag.Key), Value: aws.String(tag.Value)},
+		},
+	})
+	return err
+}
+
+func (tagHandler *AwsTagHandler) GetRDSTags(resIID irs.IID, key ...string) ([]irs.KeyValue, error) {
+	arn, err := tagHandler.getRDBMSArn(resIID)
+	if err != nil {
+		return nil, err
+	}
+	result, err := tagHandler.RDSClient.ListTagsForResource(&rds.ListTagsForResourceInput{
+		ResourceName: aws.String(arn),
+	})
+	if err != nil {
+		return nil, err
+	}
+	var tags []irs.KeyValue
+	if len(key) > 0 {
+		for _, t := range result.TagList {
+			if aws.StringValue(t.Key) == key[0] {
+				tags = append(tags, irs.KeyValue{Key: aws.StringValue(t.Key), Value: aws.StringValue(t.Value)})
+				break
+			}
+		}
+	} else {
+		for _, t := range result.TagList {
+			tags = append(tags, irs.KeyValue{Key: aws.StringValue(t.Key), Value: aws.StringValue(t.Value)})
+		}
+	}
+	return tags, nil
+}
+
+func (tagHandler *AwsTagHandler) RemoveRDSTag(resIID irs.IID, tagKey string) (bool, error) {
+	arn, err := tagHandler.getRDBMSArn(resIID)
+	if err != nil {
+		return false, err
+	}
+	_, err = tagHandler.RDSClient.RemoveTagsFromResource(&rds.RemoveTagsFromResourceInput{
+		ResourceName: aws.String(arn),
+		TagKeys:      []*string{aws.String(tagKey)},
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (tagHandler *AwsTagHandler) GetAllRDSTags() ([]*irs.TagInfo, error) {
+	var tagInfos []*irs.TagInfo
+	input := &rds.DescribeDBInstancesInput{}
+	err := tagHandler.RDSClient.DescribeDBInstancesPages(input, func(page *rds.DescribeDBInstancesOutput, lastPage bool) bool {
+		for _, db := range page.DBInstances {
+			result, listErr := tagHandler.RDSClient.ListTagsForResource(&rds.ListTagsForResourceInput{
+				ResourceName: db.DBInstanceArn,
+			})
+			if listErr != nil {
+				cblogger.Warnf("failed to list tags for RDS instance %s: %v", aws.StringValue(db.DBInstanceIdentifier), listErr)
+				continue
+			}
+			tagInfo := &irs.TagInfo{
+				ResType: irs.RDBMS,
+				ResIId:  irs.IID{NameId: aws.StringValue(db.DBInstanceIdentifier), SystemId: aws.StringValue(db.DBInstanceIdentifier)},
+			}
+			for _, t := range result.TagList {
+				tagInfo.TagList = append(tagInfo.TagList, irs.KeyValue{Key: aws.StringValue(t.Key), Value: aws.StringValue(t.Value)})
+			}
+			tagInfos = append(tagInfos, tagInfo)
+		}
+		return !lastPage
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list RDBMS instances: %w", err)
+	}
+	return tagInfos, nil
 }
 
 // GetAllEFSTags returns all EFS file systems with their tags
@@ -478,6 +581,8 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 		return tagHandler.GetClusterTags(resIID)
 	} else if resType == irs.FILESYSTEM {
 		return tagHandler.GetEFSTags(resIID)
+	} else if resType == irs.RDBMS {
+		return tagHandler.GetRDSTags(resIID)
 	}
 
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
@@ -528,8 +633,8 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 		return irs.KeyValue{}, errors.New(msg)
 	}
 
-	// NLB, Cluster, and FileSystem use different APIs
-	if resType == irs.NLB || resType == irs.CLUSTER || resType == irs.FILESYSTEM {
+	// NLB, Cluster, FileSystem, and RDBMS use different APIs
+	if resType == irs.NLB || resType == irs.CLUSTER || resType == irs.FILESYSTEM || resType == irs.RDBMS {
 		var tagList []irs.KeyValue
 		var err error
 
@@ -539,6 +644,8 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 			tagList, err = tagHandler.GetClusterTags(resIID, key)
 		} else if resType == irs.FILESYSTEM {
 			tagList, err = tagHandler.GetEFSTags(resIID, key)
+		} else if resType == irs.RDBMS {
+			tagList, err = tagHandler.GetRDSTags(resIID, key)
 		}
 
 		if err != nil {
@@ -656,6 +763,8 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 		return tagHandler.RemoveClusterTag(resIID, key)
 	} else if resType == irs.FILESYSTEM {
 		return tagHandler.RemoveEFSTag(resIID, key)
+	} else if resType == irs.RDBMS {
+		return tagHandler.RemoveRDSTag(resIID, key)
 	}
 
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
@@ -806,6 +915,13 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 				//spew.Dump(efsTaginfos)
 				return tagHandler.ExtractTagKeyValue(efsTaginfos, keyword), nil
 			}
+		} else if resType == irs.RDBMS {
+			if keyword == "" || keyword == "*" {
+				return tagHandler.GetAllRDSTags()
+			} else {
+				rdbmsTagInfos, _ := tagHandler.GetAllRDSTags()
+				return tagHandler.ExtractTagKeyValue(rdbmsTagInfos, keyword), nil
+			}
 		}
 
 		if awsResType, ok := rsTypeToAwsResourceTypeMap[resType]; ok {
@@ -934,6 +1050,13 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 			k8sTaginfos = tagHandler.ExtractTagKeyValue(k8sTaginfos, keyword)
 		}
 		tagInfos = append(tagInfos, k8sTaginfos...)
+
+		allRDBMSTags, _ := tagHandler.GetAllRDSTags()
+		if keyword == "" || keyword == "*" {
+			tagInfos = append(tagInfos, allRDBMSTags...)
+		} else {
+			tagInfos = append(tagInfos, tagHandler.ExtractTagKeyValue(allRDBMSTags, keyword)...)
+		}
 	}
 
 	return tagInfos, nil

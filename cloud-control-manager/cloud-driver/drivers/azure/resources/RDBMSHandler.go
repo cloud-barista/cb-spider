@@ -73,10 +73,11 @@ func (handler *AzureRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInf
 	// Azure storageSku is read-only and set automatically; not user-selectable
 	storageTypeOptions := map[string][]string{"mysql": {"NA"}}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, map[string][]string{"mysql": versions}, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "1-35", false, false, false, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, map[string][]string{"mysql": versions}, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, false, true, "1-35", false, false, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
+	metaInfo.MarkStatic("StorageTypeOptions", "Azure sets MySQL Flexible Server storage type (storageSku) automatically; it is not user-selectable or queryable via API.")
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
@@ -443,10 +444,11 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 	resp, err := poller.PollUntilDone(handler.Ctx, nil)
 	if err != nil {
 		cblogger.Error(err)
+		rollbackErr := handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: rdbmsReqInfo.IId.NameId}, err)
 		if privateDNSZoneResourceID != "" {
 			handler.deletePrivateDNSZone(resourceGroup, rdbmsReqInfo.IId.NameId+".private.mysql.database.azure.com")
 		}
-		return irs.RDBMSInfo{}, err
+		return irs.RDBMSInfo{}, rollbackErr
 	}
 
 	// Add firewall rule to allow all IPs when PublicAccess is enabled
@@ -480,6 +482,18 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 		rdbmsInfo.VpcIID = rdbmsReqInfo.VpcIID
 	}
 	return rdbmsInfo, nil
+}
+
+// rollbackCreatedRDBMS best-effort deletes a partially-created instance when a
+// post-create step fails, so the CSP is not left with an orphaned RDBMS.
+func (handler *AzureRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause error) error {
+	cblogger.Errorf("CreateRDBMS failed after instance creation (%s); attempting rollback deletion: %v", rdbmsIID.SystemId, cause)
+	if _, delErr := handler.DeleteRDBMS(rdbmsIID); delErr != nil {
+		cblogger.Errorf("rollback deletion of RDBMS (%s) failed: %v", rdbmsIID.SystemId, delErr)
+		return fmt.Errorf("%w (rollback deletion also failed: %v)", cause, delErr)
+	}
+	cblogger.Infof("rollback deletion of RDBMS (%s) succeeded", rdbmsIID.SystemId)
+	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
 }
 
 func (handler *AzureRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {

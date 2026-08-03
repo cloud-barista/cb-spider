@@ -12,7 +12,6 @@ package resources
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -34,14 +33,34 @@ import (
 
 // IBM Cloud Databases service plan IDs (from IBM Global Catalog)
 const (
-	ibmMySQLPlanID      = "databases-for-mysql-standard"
-	ibmPostgreSQLPlanID = "databases-for-postgresql-standard"
 	ibmServiceIDMySQL   = "databases-for-mysql"
 	ibmServiceIDPG      = "databases-for-postgresql"
 	ibmStorageUnitGB    = 1024
 	ibmDefaultAdminUser = "admin"
 	ibmRDBMSTimeoutSec  = 60 * 60
+
+	// ibmGen1StorageType is the only platform generation CB-Spider provisions.
+	// IBM's Global Catalog plans ("standard" / "standard-gen2") are not a
+	// storage type - they select Gen1 vs Gen2 platform generation, and Gen2
+	// is only available in select regions with a different endpoint/compute
+	// model. See resolveRDBMSResourcePlanID.
+	ibmGen1StorageType = "standard"
+
+	ibmCatalogRetryCount    = 3
+	ibmCatalogRetryInterval = 5 * time.Second
 )
+
+// isTransientIBMCatalogError reports whether err is IBM's transient Global
+// Catalog inconsistency ("plan is listed but not yet resolvable for
+// provisioning"), which is worth retrying rather than failing immediately.
+func isTransientIBMCatalogError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "retrieving data from global catalog") ||
+		strings.Contains(msg, "error while retrieving the resource")
+}
 
 var ibmRDBMSHostFlavorIDs = map[string]bool{
 	"multitenant":          true,
@@ -68,7 +87,7 @@ type IbmRDBMSHandler struct {
 func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo, error) {
 	cblogger.Debug("IBM Cloud GetMetaInfo() called")
 
-	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "ListDeployables()/GetDefaultScalingGroups()/GlobalCatalog Plan API")
+	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "ListDeployables()/GetDefaultScalingGroups()")
 	start := call.Start()
 	requestedEngine, err := irs.NormalizeRDBMSEngine(dbEngine)
 	if err != nil {
@@ -81,12 +100,7 @@ func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, err
 	}
 	instanceSpecOptions := handler.fetchRDBMSInstanceSpecOptions()
-	storageTypeOptions, err := handler.fetchRDBMSStorageTypeOptions(requestedEngine)
-	if err != nil {
-		hiscallInfo.ElapsedTime = call.Elapsed(start)
-		LoggingError(hiscallInfo, err)
-		return irs.RDBMSMetaInfo{}, err
-	}
+	storageTypeOptions := map[string][]string{"mysql": {"NA"}, "postgresql": {"NA"}}
 	storageSizeRange, err := handler.fetchRDBMSStorageSizeRange(requestedEngine)
 	if err != nil {
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
@@ -94,10 +108,12 @@ func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "NA", false, false, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "NA", false, false, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
+	metaInfo.MarkStatic("DBInstanceSpecOptions", "IBM Cloud Databases host_flavor IDs are a fixed, curated list; not obtained from a live catalog/spec-list API call.")
+	metaInfo.MarkStatic("StorageTypeOptions", "IBM Cloud Databases' Global Catalog plans (\"standard\"/\"standard-gen2\") select the Gen1 vs Gen2 platform generation, not a storage type; CB-Spider only provisions Gen1 (\"standard\").")
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
@@ -151,46 +167,6 @@ func (handler *IbmRDBMSHandler) fetchRDBMSInstanceSpecOptions() map[string][]str
 		"mysql":      append([]string(nil), hostFlavors...),
 		"postgresql": append([]string(nil), hostFlavors...),
 	}
-}
-
-func (handler *IbmRDBMSHandler) fetchRDBMSStorageTypeOptions(dbEngine string) (map[string][]string, error) {
-	serviceID, err := ibmRDBMSServiceID(dbEngine)
-	if err != nil {
-		return nil, err
-	}
-	body, err := getIbmPlanInfo(0, 100, serviceID)
-	if err != nil {
-		return nil, fmt.Errorf("IBM Global Catalog plan API failed for %s: %w", dbEngine, err)
-	}
-
-	var planInfo ResourceInfo
-	if err := json.Unmarshal(body, &planInfo); err != nil {
-		return nil, fmt.Errorf("failed to parse IBM Global Catalog plan response for %s: %w", dbEngine, err)
-	}
-
-	storageTypes := make([]string, 0, len(planInfo.Resources))
-	seen := map[string]bool{}
-	for _, plan := range planInfo.Resources {
-		if !containsRegionInGeoTags(plan.GeoTags, handler.Region.Region) {
-			continue
-		}
-		storageType := strings.TrimSpace(plan.Name)
-		if storageType == "" {
-			storageType = strings.TrimSpace(plan.Id)
-		}
-		storageType = strings.TrimPrefix(storageType, serviceID+"-")
-		if storageType == "" || seen[storageType] {
-			continue
-		}
-		seen[storageType] = true
-		storageTypes = append(storageTypes, storageType)
-	}
-	if len(storageTypes) == 0 {
-		return nil, fmt.Errorf("IBM Global Catalog returned no storage type plans for %s in region %s", dbEngine, handler.Region.Region)
-	}
-	sort.Strings(storageTypes)
-
-	return map[string][]string{dbEngine: storageTypes}, nil
 }
 
 func (handler *IbmRDBMSHandler) fetchRDBMSStorageSizeRange(dbEngine string) (irs.StorageSizeRange, error) {
@@ -288,7 +264,7 @@ func (handler *IbmRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		return irs.RDBMSInfo{}, err
 	}
 
-	resourcePlanID, storageType, err := handler.resolveRDBMSResourcePlanID(rdbmsReqInfo.DBEngine, rdbmsReqInfo.StorageType)
+	resourcePlanID, err := handler.resolveRDBMSResourcePlanID(rdbmsReqInfo.DBEngine, rdbmsReqInfo.StorageType)
 	if err != nil {
 		return irs.RDBMSInfo{}, err
 	}
@@ -352,7 +328,21 @@ func (handler *IbmRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		createOpts.Tags = tags
 	}
 
-	result, _, err := handler.ResourceController.CreateResourceInstanceWithContext(handler.getContext(), createOpts)
+	// IBM's Global Catalog can be briefly inconsistent right after a plan lookup
+	// (the plan shows up when listing, but provisioning against it fails with a
+	// "retrieving data from global catalog" error). Retry a few times before
+	// giving up, since this is usually a transient catalog propagation delay.
+	var result *resourcecontrollerv2.ResourceInstance
+	for attempt := 1; attempt <= ibmCatalogRetryCount; attempt++ {
+		result, _, err = handler.ResourceController.CreateResourceInstanceWithContext(handler.getContext(), createOpts)
+		if err == nil || !isTransientIBMCatalogError(err) {
+			break
+		}
+		cblogger.Warnf("CreateResourceInstance attempt %d/%d hit a transient Global Catalog error, retrying: %v", attempt, ibmCatalogRetryCount, err)
+		if attempt < ibmCatalogRetryCount {
+			time.Sleep(ibmCatalogRetryInterval)
+		}
+	}
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -383,20 +373,22 @@ func (handler *IbmRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	}
 	err = handler.waitForResourceInstanceState(resourceInstanceID, "active", ibmRDBMSTimeoutSec)
 	if err != nil {
-		return irs.RDBMSInfo{}, fmt.Errorf("created IBM RDBMS instance but failed to wait for active state: %w", err)
+		return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: resourceInstanceID},
+			fmt.Errorf("created IBM RDBMS instance but failed to wait for active state: %w", err))
 	}
 	if err := handler.waitForCloudDBDeploymentReady(deploymentID, ibmRDBMSTimeoutSec); err != nil {
-		return irs.RDBMSInfo{}, fmt.Errorf("created IBM RDBMS instance but Cloud Databases API is not ready: %w", err)
+		return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: resourceInstanceID},
+			fmt.Errorf("created IBM RDBMS instance but Cloud Databases API is not ready: %w", err))
 	}
 	if rdbmsReqInfo.MasterUserPassword != "" {
 		if err := handler.setAdminPassword(deploymentID, rdbmsReqInfo.MasterUserPassword); err != nil {
-			return irs.RDBMSInfo{}, fmt.Errorf("IBM RDBMS instance created but failed to set admin password: %w", err)
+			return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: resourceInstanceID},
+				fmt.Errorf("IBM RDBMS instance created but failed to set admin password: %w", err))
 		}
 	}
 
 	info := handler.convertResourceInstanceToRDBMSInfo(result)
 	info.DBEngineVersion = rdbmsReqInfo.DBEngineVersion
-	info.StorageType = storageType
 	info.StorageSize = rdbmsReqInfo.StorageSize
 	info.DBInstanceSpec = rdbmsReqInfo.DBInstanceSpec
 	info.MasterUserName = rdbmsReqInfo.MasterUserName
@@ -408,13 +400,21 @@ func (handler *IbmRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	return info, nil
 }
 
+// rollbackCreatedRDBMS best-effort deletes a partially-created instance when a
+// post-create step fails, so the CSP is not left with an orphaned RDBMS.
+func (handler *IbmRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause error) error {
+	cblogger.Errorf("CreateRDBMS failed after instance creation (%s); attempting rollback deletion: %v", rdbmsIID.SystemId, cause)
+	if _, delErr := handler.DeleteRDBMS(rdbmsIID); delErr != nil {
+		cblogger.Errorf("rollback deletion of RDBMS (%s) failed: %v", rdbmsIID.SystemId, delErr)
+		return fmt.Errorf("%w (rollback deletion also failed: %v)", cause, delErr)
+	}
+	cblogger.Infof("rollback deletion of RDBMS (%s) succeeded", rdbmsIID.SystemId)
+	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
+}
+
 func validateIBMCreateRequest(rdbmsReqInfo irs.RDBMSInfo) error {
-	if len(rdbmsReqInfo.SubnetIIDs) > 0 {
-		return errors.New("IBM Cloud Databases provisioning does not support SubnetNames/SubnetIIDs; service endpoints are selected instead")
-	}
-	if len(rdbmsReqInfo.SecurityGroupIIDs) > 0 {
-		return errors.New("IBM Cloud Databases provisioning does not support SecurityGroupNames/SecurityGroupIIDs; use IBM Cloud Databases allowlist APIs after creation")
-	}
+	// SubnetIIDs and SecurityGroupIIDs are silently ignored: IBM Cloud Databases uses
+	// service endpoints, not VPC subnets or security groups, for network access control.
 	if rdbmsReqInfo.BackupRetentionDays > 0 {
 		return errors.New("IBM Cloud Databases API does not support setting BackupRetentionDays during provisioning")
 	}
@@ -480,25 +480,21 @@ func validateIBMAdminPassword(password string) error {
 	return nil
 }
 
-func (handler *IbmRDBMSHandler) resolveRDBMSResourcePlanID(dbEngine string, requestedStorageType string) (string, string, error) {
+// resolveRDBMSResourcePlanID always resolves to the Gen1 ("standard") IBM
+// Cloud Databases plan. IBM's Global Catalog plans for this service
+// ("standard" / "standard-gen2") are not a storage type at all - they select
+// the Gen1 vs Gen2 platform generation (Gen2 has its own endpoint/compute
+// model and is only available in select regions). CB-Spider only provisions
+// Gen1, so any other value is rejected rather than silently substituted.
+func (handler *IbmRDBMSHandler) resolveRDBMSResourcePlanID(dbEngine string, requestedStorageType string) (string, error) {
 	serviceID, err := ibmRDBMSServiceID(dbEngine)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	storageType := strings.TrimSpace(requestedStorageType)
-	if storageType == "" || isIBMDefaultValue(storageType) {
-		storageType = "standard"
+	if requestedStorageType != "" && !isIBMDefaultValue(requestedStorageType) {
+		return "", fmt.Errorf("StorageType is not supported for IBM: CB-Spider only provisions the Gen1 platform (%q). See SupportsStorageTypeSelection in GetMetaInfo", ibmGen1StorageType)
 	}
-	storageOptions, err := handler.fetchRDBMSStorageTypeOptions(dbEngine)
-	if err != nil {
-		return "", "", err
-	}
-	for _, option := range storageOptions[dbEngine] {
-		if option == storageType {
-			return serviceID + "-" + storageType, storageType, nil
-		}
-	}
-	return "", "", fmt.Errorf("IBM storage type %s is not available for %s in region %s", storageType, dbEngine, handler.Region.Region)
+	return serviceID + "-" + ibmGen1StorageType, nil
 }
 
 func (handler *IbmRDBMSHandler) validateRDBMSStorageSizeRange(dbEngine string, storageSize string) error {
@@ -796,16 +792,19 @@ func (handler *IbmRDBMSHandler) convertResourceInstanceToRDBMSInfo(inst *resourc
 		rdbmsInfo.IId.SystemId = *inst.GUID
 	}
 
-	// Determine engine from resource plan ID
+	// Determine engine from resource plan ID. The plan ID's suffix
+	// ("standard"/"standard-gen2") is IBM's Gen1/Gen2 *platform generation*,
+	// not a storage type - IBM Cloud Databases has no storage type/media
+	// selection at all, so StorageType is always reported as "NA" (see
+	// convertResourceInstanceToRDBMSInfo below), matching Azure/NCP's
+	// convention for CSPs with SupportsStorageTypeSelection=false.
 	if inst.ResourcePlanID != nil {
 		resourcePlanID := *inst.ResourcePlanID
 		switch {
 		case strings.HasPrefix(resourcePlanID, ibmServiceIDMySQL+"-"):
 			rdbmsInfo.DBEngine = "mysql"
-			rdbmsInfo.StorageType = strings.TrimPrefix(resourcePlanID, ibmServiceIDMySQL+"-")
 		case strings.HasPrefix(resourcePlanID, ibmServiceIDPG+"-"):
 			rdbmsInfo.DBEngine = "postgresql"
-			rdbmsInfo.StorageType = strings.TrimPrefix(resourcePlanID, ibmServiceIDPG+"-")
 		}
 	}
 
@@ -832,9 +831,7 @@ func (handler *IbmRDBMSHandler) convertResourceInstanceToRDBMSInfo(inst *resourc
 	rdbmsInfo.Encryption = true
 	rdbmsInfo.MasterUserName = ibmDefaultAdminUser // IBM default
 	rdbmsInfo.StorageSize = "NA"
-	if rdbmsInfo.StorageType == "" {
-		rdbmsInfo.StorageType = "standard"
-	}
+	rdbmsInfo.StorageType = "NA"
 	rdbmsInfo.DBInstanceSpec = "NA"
 	rdbmsInfo.DBInstanceType = "NA"    // IBM Cloud Databases does not provide instance type information
 	rdbmsInfo.BackupTime = "AUTO"      // IBM manages backup schedule automatically

@@ -26,8 +26,9 @@ import (
 )
 
 type AlibabaRDBMSHandler struct {
-	Region idrv.RegionInfo
-	Client *rds.Client
+	Region     idrv.RegionInfo
+	Client     *rds.Client
+	TagHandler *AlibabaTagHandler
 }
 
 type alibabaRDBMSEngine struct {
@@ -59,7 +60,7 @@ func (handler *AlibabaRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 		return irs.RDBMSMetaInfo{}, err
 	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "7-730", true, false, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "7-730", true, false, true, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
@@ -245,26 +246,38 @@ func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.Descri
 		response *rds.DescribeAvailableClassesResponse
 		err      error
 	}
-	resultChan := make(chan describeAvailableClassesResult, 1)
-	go func() {
-		response, err := handler.Client.DescribeAvailableClasses(request)
-		resultChan <- describeAvailableClassesResult{response: response, err: err}
-	}()
 
-	timer := time.NewTimer(20 * time.Second)
-	defer timer.Stop()
+	const maxThrottleRetry = 5
+	const throttleWait = 5 * time.Second
 
-	select {
-	case result := <-resultChan:
-		if result.err != nil {
-			return nil, result.err
+	for attempt := 0; ; attempt++ {
+		resultChan := make(chan describeAvailableClassesResult, 1)
+		go func() {
+			response, err := handler.Client.DescribeAvailableClasses(request)
+			resultChan <- describeAvailableClassesResult{response: response, err: err}
+		}()
+
+		timer := time.NewTimer(20 * time.Second)
+		select {
+		case result := <-resultChan:
+			timer.Stop()
+			if result.err != nil {
+				if strings.Contains(result.err.Error(), "ErrorCode: Throttling") && attempt < maxThrottleRetry {
+					cblogger.Warnf("Throttling error for DescribeAvailableClasses (engine=%s, version=%s, zone=%s): %v. Waiting %s before retrying...",
+						request.Engine, request.EngineVersion, request.ZoneId, result.err, throttleWait)
+					time.Sleep(throttleWait)
+					continue
+				}
+				return nil, result.err
+			}
+			if result.response == nil {
+				return nil, errors.New("DescribeAvailableClasses returned no response")
+			}
+			return result.response, nil
+		case <-timer.C:
+			timer.Stop()
+			return nil, errors.New("DescribeAvailableClasses timed out")
 		}
-		if result.response == nil {
-			return nil, errors.New("DescribeAvailableClasses returned no response")
-		}
-		return result.response, nil
-	case <-timer.C:
-		return nil, errors.New("DescribeAvailableClasses timed out")
 	}
 }
 
@@ -492,17 +505,28 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 
 	// Allocate public endpoint if PublicAccess is requested
 	if rdbmsReqInfo.PublicAccess {
-		allocReq := rds.CreateAllocateInstancePublicConnectionRequest()
-		allocReq.DBInstanceId = dbInstanceId
-		allocReq.ConnectionStringPrefix = dbInstanceId + "-pub"
-		allocReq.Port = "3306"
-		if strings.ToLower(rdbmsReqInfo.DBEngine) == "postgresql" {
-			allocReq.Port = "5432"
-		}
-		_, allocErr := handler.Client.AllocateInstancePublicConnection(allocReq)
-		if allocErr != nil {
-			cblogger.Errorf("Failed to allocate public connection for [%s]: %v", dbInstanceId, allocErr)
-			return irs.RDBMSInfo{}, fmt.Errorf("failed to allocate public connection: %w", allocErr)
+		// The earlier wait for Running is warning-only, so the instance may still be
+		// initializing; retry before giving up and rolling back.
+		const maxAllocAttempts = 3
+		for attempt := 1; ; attempt++ {
+			allocReq := rds.CreateAllocateInstancePublicConnectionRequest()
+			allocReq.DBInstanceId = dbInstanceId
+			allocReq.ConnectionStringPrefix = dbInstanceId + "-pub"
+			allocReq.Port = "3306"
+			if strings.ToLower(rdbmsReqInfo.DBEngine) == "postgresql" {
+				allocReq.Port = "5432"
+			}
+			_, allocErr := handler.Client.AllocateInstancePublicConnection(allocReq)
+			if allocErr == nil {
+				break
+			}
+			if attempt >= maxAllocAttempts {
+				cblogger.Errorf("Failed to allocate public connection for [%s]: %v", dbInstanceId, allocErr)
+				return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: dbInstanceId},
+					fmt.Errorf("failed to allocate public connection after %d attempts: %w", attempt, allocErr))
+			}
+			cblogger.Warnf("[Alibaba] AllocateInstancePublicConnection failed (attempt %d/%d), retrying in 10s: %v", attempt, maxAllocAttempts, allocErr)
+			time.Sleep(10 * time.Second)
 		}
 		cblogger.Infof("Public connection allocated for [%s]", dbInstanceId)
 
@@ -533,7 +557,8 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 			if strings.Contains(acctErr.Error(), "IncorrectDBInstanceState") {
 				elapsed := acctAttempts * acctRetryInterval
 				if elapsed >= acctRetryTimeout {
-					return irs.RDBMSInfo{}, fmt.Errorf("failed to create master account after %ds: %w", acctRetryTimeout, acctErr)
+					return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: dbInstanceId},
+						fmt.Errorf("failed to create master account after %ds: %w", acctRetryTimeout, acctErr))
 				}
 				cblogger.Warnf("[Alibaba] IncorrectDBInstanceState on account create attempt %d – retrying in %ds: %v",
 					acctAttempts+1, acctRetryInterval, acctErr)
@@ -541,7 +566,8 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 				acctAttempts++
 				continue
 			}
-			return irs.RDBMSInfo{}, fmt.Errorf("failed to create master account: %w", acctErr)
+			return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: dbInstanceId},
+				fmt.Errorf("failed to create master account: %w", acctErr))
 		}
 	}
 
@@ -556,8 +582,36 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		}
 	}
 
-	// Get the created instance info
-	return handler.GetRDBMS(irs.IID{SystemId: dbInstanceId})
+	// Get the created instance info.
+	// Retry the final info fetch so a transient API error does not destroy a
+	// successfully created instance.
+	const maxGetAttempts = 3
+	var rdbmsInfo irs.RDBMSInfo
+	for attempt := 1; ; attempt++ {
+		rdbmsInfo, err = handler.GetRDBMS(irs.IID{SystemId: dbInstanceId})
+		if err == nil {
+			break
+		}
+		if attempt >= maxGetAttempts {
+			return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: dbInstanceId},
+				fmt.Errorf("failed to get created RDBMS info after %d attempts: %w", attempt, err))
+		}
+		cblogger.Warnf("[Alibaba] get created RDBMS info failed (attempt %d/%d), retrying in 10s: %v", attempt, maxGetAttempts, err)
+		time.Sleep(10 * time.Second)
+	}
+	return rdbmsInfo, nil
+}
+
+// rollbackCreatedRDBMS best-effort deletes a partially-created instance when a
+// post-create step fails, so the CSP is not left with an orphaned RDBMS.
+func (handler *AlibabaRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause error) error {
+	cblogger.Errorf("CreateRDBMS failed after instance creation (%s); attempting rollback deletion: %v", rdbmsIID.SystemId, cause)
+	if _, delErr := handler.DeleteRDBMS(rdbmsIID); delErr != nil {
+		cblogger.Errorf("rollback deletion of RDBMS (%s) failed: %v", rdbmsIID.SystemId, delErr)
+		return fmt.Errorf("%w (rollback deletion also failed: %v)", cause, delErr)
+	}
+	cblogger.Infof("rollback deletion of RDBMS (%s) succeeded", rdbmsIID.SystemId)
+	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
 }
 
 func (handler *AlibabaRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
@@ -776,6 +830,11 @@ func (handler *AlibabaRDBMSHandler) convertAttributeToRDBMSInfo(attr *rds.DBInst
 	// KeyValueList
 	rdbmsInfo.KeyValueList = irs.StructToKeyValueList(attr)
 
+	// TagList
+	if handler.TagHandler != nil {
+		rdbmsInfo.TagList, _ = handler.TagHandler.ListTag(irs.RDBMS, rdbmsInfo.IId)
+	}
+
 	return rdbmsInfo
 }
 
@@ -816,6 +875,11 @@ func (handler *AlibabaRDBMSHandler) convertListItemToRDBMSInfo(db *rds.DBInstanc
 		if err == nil {
 			rdbmsInfo.CreatedTime = t
 		}
+	}
+
+	// TagList
+	if handler.TagHandler != nil {
+		rdbmsInfo.TagList, _ = handler.TagHandler.ListTag(irs.RDBMS, rdbmsInfo.IId)
 	}
 
 	return rdbmsInfo

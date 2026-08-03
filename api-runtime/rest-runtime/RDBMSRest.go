@@ -580,7 +580,8 @@ func CreateRDBMSDatabase(c echo.Context) error {
 // @Accept  json
 // @Produce  json
 // @Param Name path string true "The name of the RDBMS instance"
-// @Param RDBMSDatabaseRequest body restruntime.RDBMSDatabaseRequest true "ConnectionName"
+// @Param ConnectionName query string true "The name of the Connection"
+// @Param MasterUserPassword query string false "The master user password (required by SQL-based drivers such as AWS and IBM)"
 // @Success 200 {object} restruntime.RDBMSDatabaseListResponse "List of databases"
 // @Failure 400 {object} SimpleMsg "Bad Request"
 // @Failure 501 {object} SimpleMsg "Not Supported by driver"
@@ -592,6 +593,13 @@ func ListRDBMSDatabases(c echo.Context) error {
 	var req RDBMSDatabaseRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+	if req.MasterUserPassword == "" {
+		req.MasterUserPassword = c.QueryParam("MasterUserPassword")
 	}
 	if req.ConnectionName == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName is required")

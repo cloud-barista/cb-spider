@@ -7,7 +7,7 @@
 #       The driver handles this with automatic retry logic, so parallel execution is safe.
 
 CSP_NAME="TENCENT"
-CONNECTION_NAME="tencent-beijing6-config"
+CONNECTION_NAME="tencent-beijing3-config"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export SPIDER_URL="${SPIDER_URL:-http://localhost:1024}"
