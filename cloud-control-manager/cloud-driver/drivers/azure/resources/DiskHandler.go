@@ -503,7 +503,7 @@ func (diskHandler *AzureDiskHandler) validationDiskReq(diskReq irs.DiskInfo) err
 	}
 	exist, err := CheckExistDisk(diskReq.IId, diskHandler.Region.Region, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
-		return errors.New("failed Check disk Name Exist")
+		return fmt.Errorf("failed to check disk name existence, %w", err)
 	}
 	if exist {
 		return errors.New("invalid DiskReqInfo NameId, Already exist")
