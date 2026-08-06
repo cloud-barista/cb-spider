@@ -189,7 +189,6 @@ func (vpcHandler *KTVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 // Note) KT Cloud (D platform) supports only one VPC that has been created.
 func (vpcHandler *KTVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called DeleteVPC()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC SystemId!!")
@@ -197,36 +196,8 @@ func (vpcHandler *KTVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	// Check whether the VPC exists.
-	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
-	if err != nil {
-		cblogger.Errorf("Failed to Find the VPC with the SystemID. : [%s] : [%v]", vpcIID.SystemId, err)
-		loggingError(callLogInfo, err)
-		return false, err
-	}
-
-	// Delete the Subnets belonged in the VPC
-	for _, subnetInfo := range vpcInfo.SubnetInfoList {
-		if !strings.EqualFold(subnetInfo.IId.NameId, "Private") && !strings.EqualFold(subnetInfo.IId.NameId, "DMZ") && !strings.EqualFold(subnetInfo.IId.NameId, "external") && !strings.EqualFold(subnetInfo.IId.NameId, "NLB-SUBNET") {
-			_, err := vpcHandler.RemoveSubnet(irs.IID{SystemId: vpcIID.SystemId}, irs.IID{SystemId: subnetInfo.IId.SystemId})
-			if (err != nil) && !strings.Contains(err.Error(), ":true") { // Cauton!! : Abnormal Error when removing a subnet on D1 Platform
-				newErr := fmt.Errorf("Failed to Delete the Subnet : [%v]", err)
-				cblogger.Error(newErr.Error())
-				loggingError(callLogInfo, newErr)
-				return false, newErr
-			}
-		}
-	}
-
-	result, err := vpcHandler.GetVPC(vpcIID)
-	if err != nil {
-		cblogger.Errorf("Failed to Find the VPC with the SystemID. : [%s] : [%v]", vpcIID.SystemId, err)
-		loggingError(callLogInfo, err)
-		return false, err
-	} else {
-		cblogger.Infof("Succeeded in Deleting the VPC : " + result.IId.SystemId)
-	}
-
+	// KT VPC is metadata-only; subnet deletion is handled by the common runtime per Spider instance.
+	cblogger.Infof("Succeeded in Deleting the VPC (metadata-only): %s", vpcIID.SystemId)
 	return true, nil
 }
 
