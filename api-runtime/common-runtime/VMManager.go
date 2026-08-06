@@ -1787,8 +1787,9 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 		vmInfo.SecurityGroupIIds[i].NameId = iidInfo.NameId
 	}
 	if len(vmInfo.SecurityGroupIIds) < 1 {
+		// Not fatal: this function also serves GetVM/ListVM, and a VM without a
+		// resolvable SecurityGroup must still be readable and registerable.
 		cblog.Infof("%s: SecurityGroupIIds is empty", vmInfo.IId.NameId)
-		return fmt.Errorf("%s: SecurityGroupIIds is empty", vmInfo.IId.NameId)
 	}
 
 	if vmInfo.KeyPairIId.SystemId != "" {

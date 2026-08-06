@@ -30,7 +30,6 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
-	sim "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources/info_manager/security_group_info_manager"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -346,23 +345,6 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		return irs.VMInfo{}, newErr
 	}
 	cblogger.Infof("deleteInitScript Result : [%s]", *scriptDelResult)
-
-	// Register SecurityGroupInfo to DB
-	var keyValueList []irs.KeyValue
-	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   sgIID.SystemId,
-			Value: sgIID.SystemId,
-		})
-	}
-
-	providerName := "NCP"
-	_, regErr := sim.RegisterSecurityGroup(newVMIID.SystemId, providerName, keyValueList)
-	if regErr != nil {
-		cblogger.Error(regErr)
-		return irs.VMInfo{}, regErr
-	}
-	// cblogger.Infof(" === Registered S/G Info to DB : [%v]", sgInfo)
 
 	curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waiting while Root disk is fully attached!!"
 	if statErr != nil {
@@ -723,13 +705,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 			}
 		}
 
-		// Delete the S/G info from DB
-		_, unRegErr := sim.UnRegisterSecurityGroup(vmIID.SystemId)
-		if unRegErr != nil {
-			cblogger.Debug(unRegErr.Error())
-			// return irs.Failed, unRegErr
-		}
-
 		return irs.VMStatus("Terminating"), nil
 
 	case "Running":
@@ -795,12 +770,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 				cblogger.Error(err)
 				return vmStatus, err
 			}
-		}
-
-		// Delete the S/G info from DB
-		_, unRegErr := sim.UnRegisterSecurityGroup(vmIID.SystemId)
-		if unRegErr != nil {
-			cblogger.Debug(unRegErr.Error())
 		}
 
 		return irs.VMStatus("Terminating"), nil
@@ -1094,39 +1063,23 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		KeyValueList:   irs.StructToKeyValueList(NcpInstance),
 	}
 
-	// Get SecurityGroupInfo from DB
-	sgInfo, getSGErr := sim.GetSecurityGroup(*NcpInstance.ServerInstanceNo)
-	if getSGErr != nil {
-		cblogger.Debug(getSGErr)
-		// return irs.VMInfo{}, getSGErr
-	}
 	securityHandler := NcpVpcSecurityHandler{
 		RegionInfo: vmHandler.RegionInfo,
 		VMClient:   vmHandler.VMClient,
 	}
-	if countSgKvList(*sgInfo) > 0 {
-		var sgIIDs []irs.IID
-		for _, kv := range sgInfo.KeyValueInfoList {
-			sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: kv.Value})
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Get the S/G info : [%v]", err)
-				cblogger.Debug(newErr.Error())
-				// return irs.VMInfo{}, newErr
-			}
-			sgIIDs = append(sgIIDs, irs.IID{NameId: sgInfo.IId.NameId, SystemId: kv.Value})
-		}
-		vmInfo.SecurityGroupIIds = sgIIDs
-	}
 
-	// Build NICs info from GetNetworkInterfaceList filtered by InstanceNo
+	// Build NICs info from GetNetworkInterfaceList filtered by InstanceNo.
+	// ACGs are attached to the NICs, so the VM's S/G list is read from the CSP here.
 	{
 		nicReq := &vserver.GetNetworkInterfaceListRequest{
 			RegionCode: ncloud.String(vmHandler.RegionInfo.Region),
+			InstanceNo: NcpInstance.ServerInstanceNo,
 		}
 		nicResp, nicErr := vmHandler.VMClient.V2Api.GetNetworkInterfaceList(nicReq)
 		if nicErr == nil && nicResp != nil {
 			var vmNICs []irs.VMNICInfo
 			var allPrivateIPs []string
+			var acgNos []string
 			devIdx := 0
 			for _, ni := range nicResp.NetworkInterfaceList {
 				if ni.InstanceNo == nil || ncloud.StringValue(ni.InstanceNo) != ncloud.StringValue(NcpInstance.ServerInstanceNo) {
@@ -1153,6 +1106,11 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 				}
 				nicInfo.PrivateIPs = privateIPs
 				allPrivateIPs = append(allPrivateIPs, privateIPs...)
+				for _, acg := range ni.AccessControlGroupNoList {
+					if acgNo := ncloud.StringValue(acg); acgNo != "" && !containsString(acgNos, acgNo) {
+						acgNos = append(acgNos, acgNo)
+					}
+				}
 				vmNICs = append(vmNICs, nicInfo)
 				if devIdx == 0 {
 					vmInfo.NetworkInterface = ncloud.StringValue(ni.NetworkInterfaceName)
@@ -1164,6 +1122,13 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 			}
 			if len(allPrivateIPs) > 0 {
 				vmInfo.PrivateIPs = allPrivateIPs
+			}
+			for _, acgNo := range acgNos {
+				sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: acgNo})
+				if err != nil {
+					cblogger.Debug(fmt.Errorf("Failed to Get the S/G info : [%v]", err).Error())
+				}
+				vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{NameId: sgInfo.IId.NameId, SystemId: acgNo})
 			}
 		}
 	}
@@ -1864,11 +1829,13 @@ func (vmHandler *NcpVpcVMHandler) GetRootPassword(vmId *string, privateKey *stri
 	return result.RootPassword, nil
 }
 
-func countSgKvList(sg sim.SecurityGroupInfo) int {
-	if sg.KeyValueInfoList == nil {
-		return 0
+func containsString(list []string, item string) bool {
+	for _, v := range list {
+		if v == item {
+			return true
+		}
 	}
-	return len(sg.KeyValueInfoList)
+	return false
 }
 
 func (vmHandler *NcpVpcVMHandler) ListIID() ([]*irs.IID, error) {
