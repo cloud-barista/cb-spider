@@ -336,7 +336,7 @@ csps:
       health_timeout: "default"
       health_threshold: "default"
     cluster_test:
-      version: "1.35.5"
+      version: "1.35.7"
       # IBM IKS: NodeGroup included in cluster create (Type-II)
       # IBM IKS uses Static Token (credentials embedded in kubeconfig)
       kubeconfig_type: "static"
@@ -490,6 +490,9 @@ csps:
       health_interval: "default"
       health_timeout: "default"
       health_threshold: "default"
+      # KT Cloud NLB operates at subnet level and requires a VM at creation time
+      # to determine the subnet. A dedicated second VM is used for the add-vm API test.
+      vm_required_at_create: true
     # cluster and s3 are not implemented for KT; they will be auto-skipped
 
 
