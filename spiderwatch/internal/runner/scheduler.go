@@ -94,6 +94,10 @@ func (s *Scheduler) TriggerCleanupOnly(cfg *config.Config) error {
 }
 
 func (s *Scheduler) applyCron(expr string, _ *config.Config) {
+	if expr == "" {
+		log.Info("scheduler: cron disabled (cron is empty)")
+		return
+	}
 	id, err := s.cr.AddFunc(expr, func() {
 		s.runOnce(config.Get())
 	})

@@ -12,6 +12,9 @@ spiderwatch.log
 # Test result data (generated at runtime)
 data/
 
+# PostgreSQL data directory (created at runtime)
+postgres_data/
+
 # Log files
 logs/
 *.log

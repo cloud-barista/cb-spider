@@ -21,6 +21,7 @@ var AllKnownResources = []string{
 type Config struct {
 	Server    ServerConfig    `yaml:"server"`
 	Spider    SpiderConfig    `yaml:"spider"`
+	Postgres  PostgresConfig  `yaml:"postgres"`
 	Scheduler SchedulerConfig `yaml:"scheduler"`
 	// Cleanup controls resource deletion after each test run.
 	// "true"  – run all tests then delete created resources
@@ -67,11 +68,30 @@ type SpiderConfig struct {
 	APITimeoutSec     int    `yaml:"api_timeout_sec"`
 	StartupWaitSec    int    `yaml:"startup_wait_sec"`
 	RunTimeoutMin     int    `yaml:"run_timeout_min"`
+	// MetaDBURL, when non-empty, passes SPIDER_METADB_URL to the Spider container
+	// and skips the local meta_db volume mount. Use with postgres.enabled=true to
+	// run Spider backed by a PostgreSQL database instead of the local file store.
+	MetaDBURL string `yaml:"metadb_url"`
 	// ExternalURL, when non-empty, instructs SpiderWatch to use an already-running
 	// Spider server at this URL instead of starting/stopping a Docker container.
 	// The Docker image, host_port, meta_db_dir, etc. settings are ignored.
 	// The Spider server will NOT be stopped after a test run or cleanup-only run.
 	ExternalURL string `yaml:"external_url"`
+}
+
+// PostgresConfig holds settings for running a PostgreSQL container alongside Spider.
+// When enabled, SpiderWatch starts (and stops) a postgres container automatically
+// before and after each Spider container lifecycle event.
+type PostgresConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Image    string `yaml:"image"`
+	HostPort int    `yaml:"host_port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	DB       string `yaml:"db"`
+	// DataDir is the host path mounted into the postgres container for persistent
+	// storage. Environment variables (e.g. ${HOME}) are expanded at load time.
+	DataDir string `yaml:"data_dir"`
 }
 
 // SchedulerConfig holds cron and startup settings.
@@ -155,6 +175,13 @@ type NLBTestConfig struct {
 	// Required for CSPs (e.g. GCP) whose NLB health-checker uses HTTP and needs
 	// port 80 to be served on the VM.
 	NginxPreInstall bool `yaml:"nginx_pre_install"`
+	// VMRequiredAtCreate must be true for CSPs that require at least one VM in the
+	// VMGroup when creating an NLB (e.g. KT Cloud, which determines the subnet from
+	// the VM). When true, the main test VM is included in the create request and a
+	// dedicated second VM (spider-watch-nlb) is used for the add-vm API test.
+	// When false (default), the NLB is created without VMs and the main VM is used
+	// directly for the add-vm API test — no second VM is created.
+	VMRequiredAtCreate bool `yaml:"vm_required_at_create"`
 }
 
 // LogConfig holds logging settings.
@@ -217,9 +244,11 @@ func readFile(path string) (*Config, error) {
 	}
 	// Expand environment variables in string fields
 	cfg.Spider.MetaDBDir = os.ExpandEnv(cfg.Spider.MetaDBDir)
+	cfg.Spider.MetaDBURL = os.ExpandEnv(cfg.Spider.MetaDBURL)
 	cfg.Spider.APIURL = os.ExpandEnv(cfg.Spider.APIURL)
 	cfg.Spider.ServerAddress = os.ExpandEnv(cfg.Spider.ServerAddress)
 	cfg.Log.File = os.ExpandEnv(cfg.Log.File)
+	cfg.Postgres.DataDir = os.ExpandEnv(cfg.Postgres.DataDir)
 	return &cfg, nil
 }
 
@@ -240,10 +269,28 @@ func applyDefaults(cfg *Config) {
 		cfg.Spider.RunTimeoutMin = 120
 	}
 	if cfg.Scheduler.Cron == "" {
-		cfg.Scheduler.Cron = "0 0 1 * * *"
+		// Leave empty — empty cron means "no scheduled run".
+		// Do NOT apply a default here so users can disable the scheduler via cron: "".
 	}
 	if cfg.Log.Level == "" {
 		cfg.Log.Level = "info"
+	}
+	if cfg.Postgres.Enabled {
+		if cfg.Postgres.Image == "" {
+			cfg.Postgres.Image = "postgres:16"
+		}
+		if cfg.Postgres.HostPort == 0 {
+			cfg.Postgres.HostPort = 5432
+		}
+		if cfg.Postgres.User == "" {
+			cfg.Postgres.User = "postgres"
+		}
+		if cfg.Postgres.DB == "" {
+			cfg.Postgres.DB = "cb_spider"
+		}
+		if cfg.Postgres.DataDir == "" {
+			cfg.Postgres.DataDir = "./postgres_data"
+		}
 	}
 }
 

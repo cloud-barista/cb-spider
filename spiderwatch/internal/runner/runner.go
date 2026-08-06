@@ -335,24 +335,95 @@ func (r *Runner) startContainer(ctx context.Context, cfg *config.Config) error {
 		spiderImageInfo = cfg.Spider.Image
 	}
 
+	// Start PostgreSQL container if configured.
+	if cfg.Postgres.Enabled {
+		if err := startPostgresContainer(ctx, cfg); err != nil {
+			return fmt.Errorf("runner: failed to start postgres container: %w", err)
+		}
+	}
+
 	// Remove leftover container if exists
 	_ = exec.Command("docker", "rm", "-f", "cb-spider-watch-tmp").Run()
 	log.Infof("runner: starting spider container on port %d", cfg.Spider.HostPort)
 	runArgs := []string{
 		"run", "--rm", "-d",
 		"-p", fmt.Sprintf("%d:1024", cfg.Spider.HostPort),
-		"-v", fmt.Sprintf("%s:/root/go/src/github.com/cloud-barista/cb-spider/meta_db", cfg.Spider.MetaDBDir),
 		"-e", fmt.Sprintf("SERVER_ADDRESS=%s", cfg.Spider.ServerAddress),
 		"-e", fmt.Sprintf("SPIDER_USERNAME=%s", cfg.Spider.Username),
 		"-e", fmt.Sprintf("SPIDER_PASSWORD=%s", cfg.Spider.Password),
 		"-e", fmt.Sprintf("MC_INSIGHT_API_TOKEN=%s", cfg.Spider.MCInsightAPIToken),
-		"--name", "cb-spider-watch-tmp",
-		cfg.Spider.Image,
 	}
+	if cfg.Spider.MetaDBURL != "" {
+		// PostgreSQL mode: pass the DB URL as an env var; no local volume mount.
+		// On Linux, host.docker.internal requires --add-host to resolve; on macOS/Windows
+		// Docker Desktop provides it automatically.
+		runArgs = append(runArgs,
+			"--add-host", "host.docker.internal:host-gateway",
+			"-e", fmt.Sprintf("SPIDER_METADB_URL=%s", cfg.Spider.MetaDBURL),
+		)
+	} else {
+		// File-based meta_db mode: bind-mount the local directory.
+		runArgs = append(runArgs,
+			"-v", fmt.Sprintf("%s:/root/go/src/github.com/cloud-barista/cb-spider/meta_db", cfg.Spider.MetaDBDir),
+		)
+	}
+	runArgs = append(runArgs, "--name", "cb-spider-watch-tmp", cfg.Spider.Image)
 	if out, err := exec.CommandContext(ctx, "docker", runArgs...).CombinedOutput(); err != nil {
 		return fmt.Errorf("runner: docker run: %w - %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// startPostgresContainer starts a detached PostgreSQL container for Spider to use as its
+// meta store. If the container already exists and is running it is left untouched.
+func startPostgresContainer(ctx context.Context, cfg *config.Config) error {
+	const containerName = "cb-spider-watch-postgres"
+	// Check whether an existing container is already running.
+	out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", containerName).Output()
+	if err == nil && strings.TrimSpace(string(out)) == "true" {
+		log.Infof("runner: postgres container %q is already running", containerName)
+		return nil
+	}
+	// Remove a stopped/exited leftover if present.
+	_ = exec.Command("docker", "rm", "-f", containerName).Run()
+
+	log.Infof("runner: pulling postgres image %s", cfg.Postgres.Image)
+	if pullOut, pullErr := exec.CommandContext(ctx, "docker", "pull", cfg.Postgres.Image).CombinedOutput(); pullErr != nil {
+		return fmt.Errorf("docker pull postgres: %w - %s", pullErr, strings.TrimSpace(string(pullOut)))
+	}
+
+	postgresArgs := []string{
+		"run", "-d",
+		"--name", containerName,
+		"-e", fmt.Sprintf("POSTGRES_USER=%s", cfg.Postgres.User),
+		"-e", fmt.Sprintf("POSTGRES_PASSWORD=%s", cfg.Postgres.Password),
+		"-e", fmt.Sprintf("POSTGRES_DB=%s", cfg.Postgres.DB),
+		"-p", fmt.Sprintf("%d:5432", cfg.Postgres.HostPort),
+		"-v", fmt.Sprintf("%s:/var/lib/postgresql/data", cfg.Postgres.DataDir),
+		cfg.Postgres.Image,
+	}
+	log.Infof("runner: starting postgres container on port %d", cfg.Postgres.HostPort)
+	if pgOut, pgErr := exec.CommandContext(ctx, "docker", postgresArgs...).CombinedOutput(); pgErr != nil {
+		return fmt.Errorf("docker run postgres: %w - %s", pgErr, strings.TrimSpace(string(pgOut)))
+	}
+
+	// Wait briefly for PostgreSQL to accept connections.
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("runner: context cancelled while waiting for postgres: %w", ctx.Err())
+		default:
+		}
+		checkOut, checkErr := exec.CommandContext(ctx, "docker", "exec", containerName,
+			"pg_isready", "-U", cfg.Postgres.User).CombinedOutput()
+		if checkErr == nil && strings.Contains(string(checkOut), "accepting connections") {
+			log.Info("runner: postgres is ready")
+			return nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return fmt.Errorf("runner: postgres did not become ready within 60s")
 }
 
 // waitReady polls the Spider /readyz endpoint until it responds.
@@ -390,14 +461,60 @@ func (r *Runner) waitReady(ctx context.Context, cfg *config.Config) error {
 	return fmt.Errorf("runner: spider did not become ready within %ds", cfg.Spider.StartupWaitSec)
 }
 
-// stopContainer stops and removes the Spider container.
+// stopContainer gracefully stops the Spider container and, when postgres is enabled,
+// stops the PostgreSQL container only after Spider has fully exited.
+//
+// Ordering guarantee:
+//  1. Send SIGTERM to Spider via "docker stop" and wait up to 30 s for clean shutdown.
+//     Spider is started with --rm, so it auto-removes once it exits.
+//  2. Only after Spider is confirmed stopped, send SIGTERM to PostgreSQL via
+//     "docker stop" (10 s grace), then remove the postgres container.
 func stopContainer(cfg *config.Config) error {
-	log.Info("runner: stopping spider container")
-	out, err := exec.Command("docker", "rm", "-f", "cb-spider-watch-tmp").CombinedOutput()
-	if err != nil {
-		log.Warnf("runner: docker rm: %s", strings.TrimSpace(string(out)))
+	// ── Step 1: gracefully stop Spider ──────────────────────────────────────
+	log.Info("runner: stopping spider container (graceful)")
+	spiderStopOut, spiderStopErr := exec.Command(
+		"docker", "stop", "--time=30", "cb-spider-watch-tmp",
+	).CombinedOutput()
+	if spiderStopErr != nil {
+		// "docker stop" fails when the container is already gone — that is fine.
+		// For any other error, attempt a forced removal as a last resort.
+		if !isContainerNotFound(spiderStopOut) {
+			log.Warnf("runner: docker stop spider: %s — forcing removal", strings.TrimSpace(string(spiderStopOut)))
+			exec.Command("docker", "rm", "-f", "cb-spider-watch-tmp").Run() //nolint:errcheck
+		}
+	} else {
+		log.Info("runner: spider container stopped")
 	}
-	return err
+
+	// ── Step 2: stop PostgreSQL only after Spider is fully down ─────────────
+	if cfg.Postgres.Enabled {
+		log.Info("runner: stopping postgres container (graceful)")
+		pgStopOut, pgStopErr := exec.Command(
+			"docker", "stop", "--time=10", "cb-spider-watch-postgres",
+		).CombinedOutput()
+		if pgStopErr != nil {
+			if !isContainerNotFound(pgStopOut) {
+				log.Warnf("runner: docker stop postgres: %s", strings.TrimSpace(string(pgStopOut)))
+			}
+		} else {
+			log.Info("runner: postgres container stopped")
+		}
+		// Remove the postgres container (it was not started with --rm).
+		if rmOut, rmErr := exec.Command("docker", "rm", "-f", "cb-spider-watch-postgres").CombinedOutput(); rmErr != nil {
+			if !isContainerNotFound(rmOut) {
+				log.Warnf("runner: docker rm postgres: %s", strings.TrimSpace(string(rmOut)))
+			}
+		}
+	}
+
+	return spiderStopErr
+}
+
+// isContainerNotFound returns true when docker output indicates the named
+// container does not exist (already removed or never created).
+func isContainerNotFound(out []byte) bool {
+	s := strings.ToLower(strings.TrimSpace(string(out)))
+	return strings.Contains(s, "no such container") || strings.Contains(s, "not found")
 }
 
 // StartSpider starts the Spider Docker container and waits until it is ready.
@@ -444,6 +561,12 @@ type cspTestState struct {
 	myImgName   string
 	clusterName string
 	s3Name      string
+
+	// nlbAddVMName is the name of a second VM created specifically for the NLB
+	// add-vm test. It is used when the main VM (vmName) was already included in
+	// the NLB VMGroup at creation time, which would make a re-add fail.
+	nlbAddVMName    string
+	nlbAddVMCreated bool
 
 	// kpPrivateKey holds the PEM private key returned at keypair creation time.
 	// Spider does not expose it via LIST or GET, so it must be captured here.
@@ -549,6 +672,7 @@ func (r *Runner) testCSP(ctx context.Context, cfg *config.Config, cspCfg config.
 	st.diskName = "spider-watch"
 	st.myImgName = "spider-watch"
 	st.nlbName = "spider-watch"
+	st.nlbAddVMName = "spider-watch-nlb"
 	st.clusterName = "spider-watch"
 	st.s3Name = s3BucketName(cspCfg.Connection, s3Seq)
 	st.vmTest = cspCfg.VMTest
@@ -1638,10 +1762,10 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 				Protocol: nlbCfg.TargetProtocol,
 				Port:     nlbCfg.TargetPort,
 			}
-			// Some CSPs (e.g. KT Cloud) require at least one VM at NLB creation time
-			// because the NLB operates at subnet level and needs a VM to determine the subnet.
-			// Include the test VM in the create body if it already exists.
-			if st.vmCreated {
+			// Only include the main VM in the create request for CSPs that require it
+			// (vm_required_at_create: true, e.g. KT Cloud). All other CSPs create the
+			// NLB without VMs and add them via the AddVMs API in a later step.
+			if nlbCfg.VMRequiredAtCreate && st.vmCreated {
 				vmGroup.VMs = []string{st.vmName}
 			}
 			body := nlbCreateBody{
@@ -1713,10 +1837,104 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 		})
 		rr.Operations = append(rr.Operations, getOp)
 
-		// 5. ADD-VM — add the test VM to the NLB's VMGroup.
-		// Requires a VM to already exist (created by the vm test).
+		// nlbTargetVM is the VM that will be added/removed/health-checked.
+		// Set to the dedicated second VM after add-vm-create/wait succeed.
+		nlbTargetVM := ""
+
+		// 5a. ADD-VM-CREATE — when vm_required_at_create is true the main VM is already
+		// in the NLB VMGroup, so create a dedicated second VM for the AddVMs API test.
+		// When vm_required_at_create is false the main VM is not in the NLB yet, so it
+		// is used directly for add-vm — no second VM is needed.
+		if nlbCfg.VMRequiredAtCreate && st.vmCreated {
+			addVMCreateOp := st.op("add-vm-create", func() error {
+				imgName, imgErr := resolveImageName(ctx, client, cfg, connection, st.vmTest.ImageName)
+				if imgErr != nil {
+					return &skipError{fmt.Sprintf("image resolve: %v", imgErr)}
+				}
+				body := vmCreateBody{
+					ConnectionName: connection,
+					ReqInfo: vmReqInfo{
+						Name:               st.nlbAddVMName,
+						ImageName:          imgName,
+						VPCName:            st.vpcName,
+						SubnetName:         st.subnetName,
+						SecurityGroupNames: []string{st.sgName},
+						VMSpecName:         st.vmTest.SpecName,
+						KeyPairName:        st.kpName,
+					},
+				}
+				b, _ := json.Marshal(body)
+				respBytes, code, err := doReq(http.MethodPost, apiBase+"/vm", b)
+				if err != nil {
+					return err
+				}
+				if code >= 400 {
+					return fmt.Errorf("HTTP %d: %s", code, string(respBytes))
+				}
+				st.nlbAddVMCreated = true
+				return nil
+			})
+			rr.Operations = append(rr.Operations, addVMCreateOp)
+
+			// 5b. ADD-VM-WAIT — poll /vmstatus until Running (up to 20 × 30s = 10 min).
+			// Only runs when the second VM was actually created.
+			if addVMCreateOp.Status == model.ResourceStatusOK {
+				addVMWaitOp := st.op("add-vm-wait", func() error {
+					statusURL := fmt.Sprintf("%s/vmstatus/%s?ConnectionName=%s", apiBase, st.nlbAddVMName, connection)
+					const maxAttempts = 20
+					const waitInterval = 30 * time.Second
+					for attempt := 1; attempt <= maxAttempts; attempt++ {
+						body, code, err := doReq(http.MethodGet, statusURL, nil)
+						if err != nil {
+							return err
+						}
+						if code >= 400 {
+							return fmt.Errorf("HTTP %d: %s", code, string(body))
+						}
+						var vmResp struct {
+							Status string `json:"Status"`
+						}
+						status := ""
+						if jerr := json.Unmarshal(body, &vmResp); jerr == nil {
+							status = vmResp.Status
+						}
+						log.Infof("runner: nlb add-vm VM %s status=%q (attempt %d/%d)", st.nlbAddVMName, status, attempt, maxAttempts)
+						if strings.EqualFold(status, "running") {
+							return nil
+						}
+						if attempt == maxAttempts {
+							return fmt.Errorf("nlb add-vm VM %s did not reach Running after %d attempts, last status=%q",
+								st.nlbAddVMName, maxAttempts, status)
+						}
+						select {
+						case <-ctx.Done():
+							return fmt.Errorf("context cancelled: %w", ctx.Err())
+						case <-time.After(waitInterval):
+						}
+					}
+					return nil
+				})
+				rr.Operations = append(rr.Operations, addVMWaitOp)
+				if addVMWaitOp.Status == model.ResourceStatusOK {
+					nlbTargetVM = st.nlbAddVMName
+				} else {
+					goto done
+				}
+			}
+			if addVMCreateOp.Status != model.ResourceStatusOK {
+				// Second VM creation failed — cannot test AddVMs API.
+				goto done
+			}
+		}
+
+		// 5. ADD-VM — add nlbTargetVM to the NLB VMGroup.
+		// When vm_required_at_create=true: uses the dedicated second VM (nlbAddVMName).
+		// When vm_required_at_create=false: uses the main VM (vmName), which is not yet in the NLB.
+		if !nlbCfg.VMRequiredAtCreate && st.vmCreated {
+			nlbTargetVM = st.vmName
+		}
 		addVMOp := st.op("add-vm", func() error {
-			if !st.vmCreated {
+			if nlbTargetVM == "" {
 				return &skipError{"no VM available to add to NLB"}
 			}
 			addBody := struct {
@@ -1727,7 +1945,7 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 			}{
 				ConnectionName: connection,
 			}
-			addBody.ReqInfo.VMs = []string{st.vmName}
+			addBody.ReqInfo.VMs = []string{nlbTargetVM}
 			b, _ := json.Marshal(addBody)
 			url := fmt.Sprintf("%s/nlb/%s/vms", apiBase, st.nlbName)
 			const maxAddVMRetries = 5
@@ -1735,7 +1953,7 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 			for attempt := 1; attempt <= maxAddVMRetries; attempt++ {
 				errBody, code, err := doReq(http.MethodPost, url, b)
 				if err != nil {
-					// Network-level error (e.g. connection reset, timeout) — retry.
+					// Network-level error — retry.
 					log.Warnf("runner: NLB add-vm attempt %d/%d network error: %v", attempt, maxAddVMRetries, err)
 					if attempt == maxAddVMRetries {
 						return err
@@ -1749,12 +1967,6 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 					continue
 				}
 				if code >= 400 {
-					bodyStr := strings.ToLower(string(errBody))
-					// VM was already added during NLB creation (e.g. KT Cloud requires VM at create time).
-					if strings.Contains(bodyStr, "already exist") || strings.Contains(bodyStr, "already in") {
-						log.Infof("runner: NLB add-vm: VM already in NLB (added at creation), treating as success")
-						return nil
-					}
 					return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 				}
 				return nil
@@ -1766,20 +1978,22 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 			goto done
 		}
 
-		// 6. HEALTH-CHECK — poll until the added VM appears in HealthyVMs.
-		// Uses up to 10 × 30s = 5 min for the health status to settle.
+		// 6. HEALTH-CHECK — poll until nlbTargetVM appears in HealthyVMs.
+		// Uses up to 20 × 30s = 10 min for the health status to settle.
 		healthOp := st.op("health-check", func() error {
+			checkVM := nlbTargetVM
+			if checkVM == "" {
+				checkVM = st.vmName
+			}
 			healthURL := fmt.Sprintf("%s/nlb/%s/health?ConnectionName=%s", apiBase, st.nlbName, connection)
-			const maxAttempts = 10
+			const maxAttempts = 20
 			const interval = 30 * time.Second
 			for attempt := 1; attempt <= maxAttempts; attempt++ {
 				body, code, err := doReq(http.MethodGet, healthURL, nil)
 				if err != nil {
 					return err
 				}
-				// 4xx means a client-side error (bad request, not found) — fail immediately.
-				// 5xx means the CSP's health data isn't ready yet (e.g. GCP Target Pool
-				// returns 500 until the pool's health-check has settled) — retry.
+				// 5xx means the CSP's health data isn't ready yet — retry.
 				if code >= 500 {
 					log.Warnf("runner: NLB health-check attempt %d/%d: HTTP %d (will retry) — %s",
 						attempt, maxAttempts, code, string(body))
@@ -1813,16 +2027,16 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 					return fmt.Errorf("parse health response: %v", jerr)
 				}
 				for _, vm := range resp.HealthInfo.HealthyVMs {
-					if vm.NameId == st.vmName {
-						log.Infof("runner: NLB %s VM %s is Healthy (attempt %d/%d)", st.nlbName, st.vmName, attempt, maxAttempts)
+					if vm.NameId == checkVM {
+						log.Infof("runner: NLB %s VM %s is Healthy (attempt %d/%d)", st.nlbName, checkVM, attempt, maxAttempts)
 						return nil
 					}
 				}
 				log.Infof("runner: NLB %s VM %s not yet Healthy (attempt %d/%d, healthy=%d, unhealthy=%d)",
-					st.nlbName, st.vmName, attempt, maxAttempts,
+					st.nlbName, checkVM, attempt, maxAttempts,
 					len(resp.HealthInfo.HealthyVMs), len(resp.HealthInfo.UnHealthyVMs))
 				if attempt == maxAttempts {
-					return fmt.Errorf("VM %s did not become Healthy after %d attempts", st.vmName, maxAttempts)
+					return fmt.Errorf("VM %s did not become Healthy after %d attempts", checkVM, maxAttempts)
 				}
 				select {
 				case <-ctx.Done():
@@ -1837,15 +2051,19 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 			goto done
 		}
 
-		// 7. REMOVE-VM — detach the test VM from the NLB's VMGroup.
+		// 7. REMOVE-VM — detach nlbTargetVM from the NLB VMGroup.
 		removeVMOp := st.op("remove-vm", func() error {
+			removeVM := nlbTargetVM
+			if removeVM == "" {
+				removeVM = st.vmName
+			}
 			removeBody := struct {
 				ConnectionName string `json:"ConnectionName"`
 				ReqInfo        struct {
 					VMs []string `json:"VMs"`
 				} `json:"ReqInfo"`
 			}{ConnectionName: connection}
-			removeBody.ReqInfo.VMs = []string{st.vmName}
+			removeBody.ReqInfo.VMs = []string{removeVM}
 			b, _ := json.Marshal(removeBody)
 			url := fmt.Sprintf("%s/nlb/%s/vms", apiBase, st.nlbName)
 			errBody, code, err := doReq(http.MethodDelete, url, b)
@@ -1862,8 +2080,12 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 			goto done
 		}
 
-		// 8. HEALTH-WAIT — poll until the VM is no longer visible in AllVMs.
+		// 8. HEALTH-WAIT — poll until nlbTargetVM is no longer visible in AllVMs.
 		healthWaitOp := st.op("health-wait", func() error {
+			waitVM := nlbTargetVM
+			if waitVM == "" {
+				waitVM = st.vmName
+			}
 			healthURL := fmt.Sprintf("%s/nlb/%s/health?ConnectionName=%s", apiBase, st.nlbName, connection)
 			const maxAttempts = 20
 			const interval = 30 * time.Second
@@ -1887,20 +2109,20 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 				}
 				found := false
 				for _, vm := range resp.HealthInfo.AllVMs {
-					if vm.NameId == st.vmName {
+					if vm.NameId == waitVM {
 						found = true
 						break
 					}
 				}
 				if !found {
 					log.Infof("runner: NLB %s VM %s no longer visible in health-check (attempt %d/%d)",
-						st.nlbName, st.vmName, attempt, maxAttempts)
+						st.nlbName, waitVM, attempt, maxAttempts)
 					return nil
 				}
 				log.Infof("runner: NLB %s VM %s still visible, waiting (attempt %d/%d, allVMs=%d)",
-					st.nlbName, st.vmName, attempt, maxAttempts, len(resp.HealthInfo.AllVMs))
+					st.nlbName, waitVM, attempt, maxAttempts, len(resp.HealthInfo.AllVMs))
 				if attempt == maxAttempts {
-					return fmt.Errorf("VM %s still visible in NLB health-check after %d attempts", st.vmName, maxAttempts)
+					return fmt.Errorf("VM %s still visible in NLB health-check after %d attempts", waitVM, maxAttempts)
 				}
 				select {
 				case <-ctx.Done():
@@ -4113,6 +4335,11 @@ func (r *Runner) testCleanup(ctx context.Context, client *http.Client, cfg *conf
 	}
 	if st.nlbCreated || inResources("nlb") {
 		op := delWithRetry("nlb-delete", apiBase+"/nlb/"+st.nlbName, 3)
+		rr.Operations = append(rr.Operations, op)
+	}
+	// Delete the second NLB test VM (created for add-vm) after the NLB is gone.
+	if st.nlbAddVMCreated {
+		op := delWithRetry("nlb-vm-delete", apiBase+"/vm/"+st.nlbAddVMName, 3)
 		rr.Operations = append(rr.Operations, op)
 	}
 	if st.myImgCreated || inResources("myimage") {
