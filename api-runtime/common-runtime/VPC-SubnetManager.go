@@ -1511,6 +1511,20 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 
 	// (2) delete Resource(SystemId)
 	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+	// KT VPC is metadata-only and subnets are zone-wide; pre-delete only this Spider's subnets to avoid touching other Spider instances' tiers.
+	if providerName, pErr := ccm.GetProviderNameByConnectionName(connectionName); pErr == nil && providerName == "KT" {
+		var subnetIIDInfoList []*SubnetIIDInfo
+		if listErr := infostore.ListByConditions(&subnetIIDInfoList, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, OWNER_VPC_NAME_COLUMN, iidInfo.NameId); listErr == nil {
+			for _, subnetInfo := range subnetIIDInfoList {
+				subnetDriverIId := getDriverIID(cres.IID{NameId: subnetInfo.NameId, SystemId: subnetInfo.SystemId})
+				if _, removeErr := handler.(cres.VPCHandler).RemoveSubnet(driverIId, subnetDriverIId); removeErr != nil {
+					cblog.Warnf("DeleteVPC: failed to remove subnet %s (continuing): %v", subnetInfo.NameId, removeErr)
+				}
+			}
+		}
+	}
+
 	result := false
 	result, err = handler.(cres.VPCHandler).DeleteVPC(driverIId)
 	if err != nil {
