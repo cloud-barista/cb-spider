@@ -716,16 +716,13 @@ func (vmHandler *KTVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 
 	// Handle public IP and private IP cases separately
 	if !strings.EqualFold(vm.PublicIP, "") {
-		// Delete Firewall Rules
+		// Firewall deletion failure is non-fatal: warn and continue to avoid orphaned PF rules and VM.
 		_, dellFwErr := vmHandler.removeFirewallRules(vm.PublicIP)
 		if dellFwErr != nil {
-			newErr := fmt.Errorf("Failed to Delete Firewall Rules : [%v]", dellFwErr)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return irs.Failed, newErr
+			cblogger.Warnf("Failed to Delete Firewall Rules (continuing termination): [%v]", dellFwErr)
+			loggingError(callLogInfo, fmt.Errorf("Failed to Delete Firewall Rules : [%v]", dellFwErr))
 		}
 
-		// Delete Port Forwarding Rules
 		_, dellPfErr := vmHandler.removePortForwardingRules(vm.PublicIP)
 		if dellPfErr != nil {
 			newErr := fmt.Errorf("Failed to Delete Port Forwarding Rules : [%v]", dellPfErr)
@@ -744,16 +741,22 @@ func (vmHandler *KTVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		}
 
 	} else {
-		cblogger.Info("The VM doesn't have any connected Pulbic IP!! Waitting for Termination!!")
+		// PublicIP is empty: try to clean up PF rules by private IP (MappedIP) to avoid orphans.
+		cblogger.Info("The VM doesn't have any connected Public IP. Attempting PF rule cleanup by private IP.")
+		if !strings.EqualFold(vm.PrivateIP, "") {
+			_, dellPfErr := vmHandler.removePortForwardingRulesByPrivateIP(vm.PrivateIP)
+			if dellPfErr != nil {
+				cblogger.Warnf("Failed to Delete Port Forwarding Rules by private IP (continuing): [%v]", dellPfErr)
+			}
+		}
 	}
 
 	if !strings.EqualFold(vm.PrivateIP, "") {
-		// Delete Firewall Rules
+		// Firewall deletion failure is non-fatal: warn and continue so VM deletion is not blocked.
 		_, dellFwErr := vmHandler.removeFirewallRules(vm.PrivateIP)
 		if dellFwErr != nil {
-			cblogger.Error(dellFwErr.Error())
+			cblogger.Warnf("Failed to Delete Firewall Rules for private IP (continuing termination): [%v]", dellFwErr)
 			loggingError(callLogInfo, dellFwErr)
-			return irs.Failed, dellFwErr
 		}
 	} else {
 		cblogger.Info("The VM doesn't have any Private IP!! Waitting for Termination!!")
@@ -1928,6 +1931,51 @@ func (vmHandler *KTVpcVMHandler) removePortForwardingRules(publicIp string) (boo
 	// Wait 3 seconds for deletion to complete
 	time.Sleep(3 * time.Second)
 
+	return true, nil
+}
+
+// removePortForwardingRulesByPrivateIP deletes PF rules matching by MappedIP (private IP),
+// used when PublicIP is unavailable from GetVM().
+func (vmHandler *KTVpcVMHandler) removePortForwardingRulesByPrivateIP(privateIP string) (bool, error) {
+	cblogger.Info("KT Cloud VPC Driver: called removePortForwardingRulesByPrivateIP()!")
+
+	if strings.EqualFold(privateIP, "") {
+		return false, fmt.Errorf("Invalid Private IP Address!!")
+	}
+
+	listOpts := portforward.ListOpts{
+		Page: 1,
+		Size: 2000,
+	}
+	pager := portforward.List(vmHandler.NetworkClient, listOpts)
+
+	var pfIDs []string
+	err := pager.EachPage(func(page pagination.Page) (bool, error) {
+		pfs, err := portforward.ExtractPFs(page)
+		if err != nil {
+			return false, fmt.Errorf("Failed to Extract Portforwarding Rules : [%v]", err)
+		}
+		for _, pf := range pfs {
+			if pf.MappedIP == privateIP {
+				pfIDs = append(pfIDs, pf.ID)
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("Failed to Get Portforwarding Rule ID List : [%v]", err)
+	}
+
+	for _, pfID := range pfIDs {
+		result := portforward.Delete(vmHandler.NetworkClient, pfID)
+		if result.Err != nil {
+			cblogger.Warnf("Failed to Delete Portforwarding Rule (ID: %s): [%v]", pfID, result.Err)
+		} else {
+			cblogger.Infof("Successfully Deleted Portforwarding Rule by private IP (ID: %s)", pfID)
+		}
+	}
+
+	time.Sleep(3 * time.Second)
 	return true, nil
 }
 
