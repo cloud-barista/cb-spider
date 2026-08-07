@@ -377,7 +377,11 @@ func DeleteFileSystem(connectionName string, nameID string) (bool, error) {
 	}
 	result, err := handler.DeleteFileSystem(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 	if err != nil {
-		return false, err
+		cblog.Error(err)
+		if !checkNotFoundError(err) {
+			return false, err
+		}
+		// if not found in CSP, continue to delete metadb
 	}
 	_, err = infostore.DeleteByConditions(&FileSystemIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
