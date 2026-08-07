@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
+	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/sts"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -27,6 +28,7 @@ type AwsClusterHandler struct {
 	Region      idrv.RegionInfo
 	Client      *eks.EKS
 	EC2Client   *ec2.EC2
+	ELBClient   *elb.ELB // Classic ELB client, used to clean up Load Balancers that EKS clusters auto-create (ref: cloud-barista/cb-spider#1208)
 	Iam         *iam.IAM
 	StsClient   *sts.STS
 	AutoScaling *autoscaling.AutoScaling
@@ -35,6 +37,12 @@ type AwsClusterHandler struct {
 
 const (
 	NODEGROUP_TAG string = "nodegroup"
+
+	// Tag that the Kubernetes in-tree AWS cloud provider attaches to a Classic Load Balancer
+	// it auto-creates for a type=LoadBalancer Service. EKS does not clean these up on cluster
+	// deletion, so cb-spider has to find and remove them itself. (ref: cloud-barista/cb-spider#1208)
+	k8sClusterOwnershipTagPrefix = "kubernetes.io/cluster/"
+	k8sClusterOwnershipTagValue  = "owned"
 
 	clusterStatusCreating = "CREATING"
 	clusterStatusActive   = "ACTIVE"
@@ -732,6 +740,13 @@ func (ClusterHandler *AwsClusterHandler) GenerateClusterToken(clusterIID irs.IID
 
 func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	cblogger.Infof("Cluster Name : %s", clusterIID.SystemId)
+
+	// Get the cluster's VPC before deletion so that, once the cluster is gone, we can look for
+	// any Load Balancer(and its dedicated Security Group) that the Kubernetes in-tree AWS cloud
+	// provider auto-created for a type=LoadBalancer Service. EKS never cleans these up itself.
+	// (ref: https://github.com/cloud-barista/cb-spider/issues/1208)
+	clusterVpcId := ClusterHandler.getClusterVpcId(clusterIID.SystemId)
+
 	input := &eks.DeleteClusterInput{
 		Name: aws.String(clusterIID.SystemId),
 	}
@@ -783,6 +798,9 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Debug(result)
+
+	ClusterHandler.cleanupOwnedLoadBalancers(clusterIID.SystemId, clusterVpcId)
+
 	/*
 		waitInput := &eks.DescribeClusterInput{
 			Name: aws.String(clusterIID.SystemId),
@@ -794,6 +812,151 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 	*/
 
 	return true, nil
+}
+
+// getClusterVpcId looks up the VPC that a cluster runs in. Returns "" (not an error) if the
+// cluster can't be described anymore, since DeleteCluster must still proceed in that case.
+func (ClusterHandler *AwsClusterHandler) getClusterVpcId(clusterName string) string {
+	descResult, err := ClusterHandler.Client.DescribeCluster(&eks.DescribeClusterInput{
+		Name: aws.String(clusterName),
+	})
+	if err != nil {
+		cblogger.Warnf("Failed to describe Cluster(%s) before deletion: %v", clusterName, err)
+		return ""
+	}
+	if descResult.Cluster == nil || descResult.Cluster.ResourcesVpcConfig == nil || descResult.Cluster.ResourcesVpcConfig.VpcId == nil {
+		return ""
+	}
+	return *descResult.Cluster.ResourcesVpcConfig.VpcId
+}
+
+// cleanupOwnedLoadBalancers removes any Classic Load Balancer(and its dedicated Security Group)
+// that the Kubernetes in-tree AWS cloud provider auto-created in clusterVpcId for a
+// type=LoadBalancer Service on this cluster. This is a best-effort cleanup that runs after the
+// EKS cluster is already gone: failures are logged but never turn a successful cluster deletion
+// into an error. (ref: https://github.com/cloud-barista/cb-spider/issues/1208)
+func (ClusterHandler *AwsClusterHandler) cleanupOwnedLoadBalancers(clusterName string, clusterVpcId string) {
+	if clusterVpcId == "" || ClusterHandler.ELBClient == nil {
+		return
+	}
+
+	ownedLBNames, ownedSecurityGroupIds, err := ClusterHandler.findOwnedLoadBalancers(clusterName, clusterVpcId)
+	if err != nil {
+		cblogger.Errorf("Failed to search Load Balancers auto-created by Cluster(%s): %v", clusterName, err)
+		return
+	}
+
+	for _, lbName := range ownedLBNames {
+		if _, err := ClusterHandler.ELBClient.DeleteLoadBalancer(&elb.DeleteLoadBalancerInput{
+			LoadBalancerName: aws.String(lbName),
+		}); err != nil {
+			cblogger.Errorf("Failed to delete Load Balancer(%s) auto-created by Cluster(%s): %v", lbName, clusterName, err)
+		} else {
+			cblogger.Infof("Deleted Load Balancer(%s) auto-created by Cluster(%s)", lbName, clusterName)
+		}
+	}
+
+	if ClusterHandler.EC2Client == nil {
+		return
+	}
+	for _, sgId := range ownedSecurityGroupIds {
+		if err := loopDeleteSecurityGroup(ClusterHandler.EC2Client, &ec2.DeleteSecurityGroupInput{
+			GroupId: aws.String(sgId),
+		}); err != nil {
+			cblogger.Errorf("Failed to delete Security Group(%s) used by Cluster(%s)'s Load Balancer: %v", sgId, clusterName, err)
+		} else {
+			cblogger.Infof("Deleted Security Group(%s) used by Cluster(%s)'s Load Balancer", sgId, clusterName)
+		}
+	}
+}
+
+// findOwnedLoadBalancers returns the names and Security Group IDs of every Classic Load Balancer
+// in clusterVpcId that is tagged "kubernetes.io/cluster/<clusterName>: owned" — the tag the
+// Kubernetes in-tree AWS cloud provider sets on Load Balancers it creates for that cluster.
+func (ClusterHandler *AwsClusterHandler) findOwnedLoadBalancers(clusterName string, clusterVpcId string) ([]string, []string, error) {
+	securityGroupsByLBName := map[string][]string{}
+
+	input := &elb.DescribeLoadBalancersInput{}
+	for {
+		result, err := ClusterHandler.ELBClient.DescribeLoadBalancers(input)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, lb := range result.LoadBalancerDescriptions {
+			if lb.LoadBalancerName == nil || lb.VPCId == nil || *lb.VPCId != clusterVpcId {
+				continue
+			}
+			var sgIds []string
+			for _, sgId := range lb.SecurityGroups {
+				if sgId != nil {
+					sgIds = append(sgIds, *sgId)
+				}
+			}
+			securityGroupsByLBName[*lb.LoadBalancerName] = sgIds
+		}
+		if result.NextMarker == nil || *result.NextMarker == "" {
+			break
+		}
+		input.Marker = result.NextMarker
+	}
+
+	if len(securityGroupsByLBName) == 0 {
+		return nil, nil, nil
+	}
+
+	candidateNames := make([]string, 0, len(securityGroupsByLBName))
+	for name := range securityGroupsByLBName {
+		candidateNames = append(candidateNames, name)
+	}
+
+	ownershipTagKey := k8sClusterOwnershipTagPrefix + clusterName
+
+	var ownedNames []string
+	var ownedSecurityGroupIds []string
+	seenSecurityGroupIds := map[string]bool{}
+
+	// DescribeTags accepts at most 20 Load Balancer names per call.
+	const describeTagsBatchSize = 20
+	for i := 0; i < len(candidateNames); i += describeTagsBatchSize {
+		end := i + describeTagsBatchSize
+		if end > len(candidateNames) {
+			end = len(candidateNames)
+		}
+		batch := candidateNames[i:end]
+		names := make([]*string, len(batch))
+		for j, name := range batch {
+			names[j] = aws.String(name)
+		}
+
+		tagResult, err := ClusterHandler.ELBClient.DescribeTags(&elb.DescribeTagsInput{LoadBalancerNames: names})
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for _, tagDesc := range tagResult.TagDescriptions {
+			if tagDesc.LoadBalancerName == nil {
+				continue
+			}
+			for _, tag := range tagDesc.Tags {
+				if tag.Key == nil || *tag.Key != ownershipTagKey {
+					continue
+				}
+				if tag.Value == nil || *tag.Value != k8sClusterOwnershipTagValue {
+					continue
+				}
+				ownedNames = append(ownedNames, *tagDesc.LoadBalancerName)
+				for _, sgId := range securityGroupsByLBName[*tagDesc.LoadBalancerName] {
+					if !seenSecurityGroupIds[sgId] {
+						seenSecurityGroupIds[sgId] = true
+						ownedSecurityGroupIds = append(ownedSecurityGroupIds, sgId)
+					}
+				}
+				break
+			}
+		}
+	}
+
+	return ownedNames, ownedSecurityGroupIds, nil
 }
 
 // ------ NodeGroup Management
