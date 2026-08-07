@@ -101,8 +101,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	var publicImageId string
 	var publicImageSpecId string
 	var myImageId string
-	// var myImageSpecId string
-	// var serverProductCode string
+	var myImageSpecId string
 
 	var initScriptNo *string
 	var instanceReq vserver.CreateServerInstancesRequest
@@ -221,21 +220,8 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			return irs.VMInfo{}, newErr
 		} else {
 			myImageId = vmReqInfo.ImageIID.SystemId
-			// myImageSpecId = vmReqInfo.VMSpecName
+			myImageSpecId = vmReqInfo.VMSpecName
 		}
-
-		// vmSpecHandler := NcpVpcVMSpecHandler{
-		// 	RegionInfo:  vmHandler.RegionInfo,
-		// 	VMClient:    vmHandler.VMClient,
-		// }
-		// var getErr error
-		// serverProductCode, getErr = vmSpecHandler.getNcpVpcServerProductCode(myImageSpecId)
-		// if err != nil {
-		// 	newErr := fmt.Errorf("Failed to Get ServerProductCode from NCP VPC : ", getErr)
-		// 	cblogger.Error(newErr.Error())
-		// 	LoggingError(callLogInfo, newErr)
-		// 	return irs.VMInfo{}, newErr
-		// }
 
 		myImageHandler := NcpVpcMyImageHandler{
 			RegionInfo: vmHandler.RegionInfo,
@@ -268,21 +254,15 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			}
 		}
 
-		// ### Note) "These parameters cannot be used at the same time : [memberServerImageInstanceNo, serverImageProductCode, serverSpecCode]"
-		// $$$ Need to check what to set as a vmSpec when creating a VM with a MyImge(MemberServerImageInstanceNo).
+		// MyImage (ServerImageNo from CreateServerImage API) uses the same new-API path as public images.
 		instanceReq = vserver.CreateServerInstancesRequest{
-			RegionCode:                  ncloud.String(vmHandler.RegionInfo.Region),
-			ServerName:                  ncloud.String(instanceName),
-			MemberServerImageInstanceNo: ncloud.String(myImageId),
-			// ServerImageProductCode: 		ncloud.String(publicImageId), // In case using New publicImageId(from New API). Use 'ServerImageNo' parameter!!
-			// ServerProductCode:      		ncloud.String(serverProductCode), // In case using New vmSpecId(from New API). Use 'ServerSpecCode' parameter!!
-			LoginKeyName: ncloud.String(keyPairId),
-			VpcNo:        ncloud.String(vpcId),
-			SubnetNo:     ncloud.String(subnetId), // Applied for Zone-based control!!
-
-			// Note) If enabled and set "", an error will occur on VM creation with 'MemberServerImageInstanceNo'.
-			// ServerImageNo: 				ncloud.String(publicImageId), // Added for using imageId from New API
-			// ServerSpecCode: 				ncloud.String(publicImageSpecId), // Added for using specId from New API
+			RegionCode:     ncloud.String(vmHandler.RegionInfo.Region),
+			ServerName:     ncloud.String(instanceName),
+			ServerImageNo:  ncloud.String(myImageId),
+			ServerSpecCode: ncloud.String(myImageSpecId),
+			LoginKeyName:   ncloud.String(keyPairId),
+			VpcNo:          ncloud.String(vpcId),
+			SubnetNo:       ncloud.String(subnetId), // Applied for Zone-based control!!
 
 			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
 			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
@@ -296,6 +276,21 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
 			ServerCreateCount:          minCount,
 			InitScriptNo:               initScriptNo,
+		}
+
+		// BlockStorageMappingList is only supported for KVM; XEN/RHV images must omit it.
+		isKvm, kvmErr := myImageHandler.isKvmMyImage(vmReqInfo.ImageIID)
+		if kvmErr != nil {
+			cblogger.Warnf("Failed to determine hypervisor type for MyImage [%s], skipping BlockStorageMappingList: [%v]", myImageId, kvmErr)
+		}
+		if isKvm {
+			instanceReq.BlockStorageMappingList = []*vserver.BlockStorageMappingParameter{
+				{
+					Order:                      orderInt32,
+					BlockStorageVolumeTypeCode: ncloud.String(KVMRootDiskType),
+					BlockStorageSize:           ncloud.String(vmReqInfo.RootDiskSize),
+				},
+			}
 		}
 	}
 	// cblogger.Info("# instanceReq")
