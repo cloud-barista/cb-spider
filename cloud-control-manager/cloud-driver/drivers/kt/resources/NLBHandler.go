@@ -463,13 +463,26 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	// Caution) Before deleting the StaticNAT, must first delete the firewall settings.
 	// Delete FirewallRules, Static NAT and Public IP
 	if !strings.EqualFold(publicIp, "") {
-		// Delete FirewallRules
+		// Delete firewall rules matched by public IP (covers inbound rules: DstAddress=publicIP).
 		cblogger.Info("### Deleting Firewall Rules of the StaticNAT!!")
 		_, dellFwErr := vmHandler.removeFirewallRules(publicIp)
 		if dellFwErr != nil {
 			cblogger.Error(dellFwErr.Error())
 			loggingError(callLogInfo, dellFwErr)
 			return false, dellFwErr
+		}
+
+		// Also delete firewall rules matched by the NLB's ServiceIP (covers outbound rules:
+		// SrcAddress=ServiceIP, which differs from the public floating IP).
+		ktNLB, getNLBErr := nlbHandler.getKtNlbInfo(nlbIID.SystemId)
+		if getNLBErr != nil {
+			cblogger.Warnf("Failed to get NLB info for ServiceIP-based firewall cleanup: %v (skipping)", getNLBErr)
+		} else if !strings.EqualFold(ktNLB.ServiceIP, "") && !strings.EqualFold(ktNLB.ServiceIP, publicIp) {
+			cblogger.Infof("### Deleting Firewall Rules matched by NLB ServiceIP: %s", ktNLB.ServiceIP)
+			_, dellFwErr2 := vmHandler.removeFirewallRules(ktNLB.ServiceIP)
+			if dellFwErr2 != nil {
+				cblogger.Warnf("Failed to delete firewall rules by ServiceIP %s: %v (continuing)", ktNLB.ServiceIP, dellFwErr2)
+			}
 		}
 
 		// Delete StaticNAT

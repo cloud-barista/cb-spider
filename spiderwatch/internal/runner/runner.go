@@ -816,7 +816,17 @@ func isDoesNotExistBody(body []byte) bool {
 	msg := strings.ToLower(string(body))
 	return strings.Contains(msg, "does not exist") ||
 		strings.Contains(msg, "not found") ||
-		strings.Contains(msg, "resource not found")
+		strings.Contains(msg, "resource not found") ||
+		strings.Contains(msg, "is undefined")
+}
+
+// isAlreadyExistsBody returns true when the response body indicates the resource
+// already exists in the CSP or Spider's meta store.
+func isAlreadyExistsBody(body []byte) bool {
+	msg := strings.ToLower(string(body))
+	return strings.Contains(msg, "already exists") ||
+		strings.Contains(msg, "already exist") ||
+		strings.Contains(msg, "duplicate")
 }
 
 // opsStatus computes the resource-level status and error string from a slice of
@@ -912,6 +922,10 @@ func (r *Runner) testVPCCRUD(ctx context.Context, client *http.Client, cfg *conf
 			return err
 		}
 		if code >= 400 {
+			if isAlreadyExistsBody(errBody) {
+				st.vpcCreated = true
+				return &skipError{"already exists"}
+			}
 			return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 		}
 		st.vpcCreated = true
@@ -937,8 +951,8 @@ func (r *Runner) testVPCCRUD(ctx context.Context, client *http.Client, cfg *conf
 	})
 	rr.Operations = append(rr.Operations, listOp)
 
-	// 3. GET — only when create succeeded
-	if createOp.Status == model.ResourceStatusOK {
+	// 3. GET — only when create succeeded or already existed
+	if createOp.Status != model.ResourceStatusFail {
 		getOp := st.op("get", func() error {
 			url := fmt.Sprintf("%s/vpc/%s?ConnectionName=%s", apiBase, testName, connection)
 			body, code, err := doReq(http.MethodGet, url, nil)
@@ -1014,6 +1028,10 @@ func (r *Runner) testKeyPairCRUD(ctx context.Context, client *http.Client, cfg *
 			return err
 		}
 		if code >= 400 {
+			if isAlreadyExistsBody(respBytes) {
+				st.kpCreated = true
+				return &skipError{"already exists"}
+			}
 			return fmt.Errorf("HTTP %d: %s", code, string(respBytes))
 		}
 		st.kpCreated = true
@@ -1140,13 +1158,17 @@ func (r *Runner) testSecurityGroupCRUD(ctx context.Context, client *http.Client,
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.vpcCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.vpcCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, vpcOp)
-		if vpcOp.Status != model.ResourceStatusOK {
+		if vpcOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -1168,6 +1190,10 @@ func (r *Runner) testSecurityGroupCRUD(ctx context.Context, client *http.Client,
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.sgCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.sgCreated = true
@@ -1456,13 +1482,17 @@ func (r *Runner) testVMCRUD(ctx context.Context, client *http.Client, cfg *confi
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.vpcCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.vpcCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, vpcOp)
-		if vpcOp.Status != model.ResourceStatusOK {
+		if vpcOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -1484,13 +1514,17 @@ func (r *Runner) testVMCRUD(ctx context.Context, client *http.Client, cfg *confi
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.sgCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.sgCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, sgOp)
-		if sgOp.Status != model.ResourceStatusOK {
+		if sgOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -1508,6 +1542,10 @@ func (r *Runner) testVMCRUD(ctx context.Context, client *http.Client, cfg *confi
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(respBytes) {
+					st.kpCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(respBytes))
 			}
 			st.kpCreated = true
@@ -1521,7 +1559,7 @@ func (r *Runner) testVMCRUD(ctx context.Context, client *http.Client, cfg *confi
 			return nil
 		})
 		rr.Operations = append(rr.Operations, kpOp)
-		if kpOp.Status != model.ResourceStatusOK {
+		if kpOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -1564,6 +1602,10 @@ func (r *Runner) testVMCRUD(ctx context.Context, client *http.Client, cfg *confi
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(respBytes) {
+					st.vmCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(respBytes))
 			}
 			st.vmCreated = true
@@ -1576,7 +1618,7 @@ func (r *Runner) testVMCRUD(ctx context.Context, client *http.Client, cfg *confi
 			return nil
 		})
 		rr.Operations = append(rr.Operations, createOp)
-		if createOp.Status != model.ResourceStatusOK {
+		if createOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 
@@ -1744,13 +1786,17 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.vpcCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.vpcCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, vpcOp)
-		if vpcOp.Status != model.ResourceStatusOK {
+		if vpcOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -1795,13 +1841,17 @@ func (r *Runner) testNLBCRUD(ctx context.Context, client *http.Client, cfg *conf
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.nlbCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.nlbCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, createOp)
-		if createOp.Status != model.ResourceStatusOK {
+		if createOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 
@@ -2205,6 +2255,10 @@ func (r *Runner) testDiskCRUD(ctx context.Context, client *http.Client, cfg *con
 			return err
 		}
 		if code >= 400 {
+			if isAlreadyExistsBody(errBody) {
+				st.diskCreated = true
+				return &skipError{"already exists"}
+			}
 			return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 		}
 		st.diskCreated = true
@@ -2454,13 +2508,17 @@ func (r *Runner) testMyImageCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.vpcCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.vpcCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, vpcOp)
-		if vpcOp.Status != model.ResourceStatusOK {
+		if vpcOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -2482,13 +2540,17 @@ func (r *Runner) testMyImageCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.sgCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.sgCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, sgOp)
-		if sgOp.Status != model.ResourceStatusOK {
+		if sgOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -2506,13 +2568,17 @@ func (r *Runner) testMyImageCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.kpCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.kpCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, kpOp)
-		if kpOp.Status != model.ResourceStatusOK {
+		if kpOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -2549,13 +2615,17 @@ func (r *Runner) testMyImageCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.vmCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.vmCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, vmOp)
-		if vmOp.Status != model.ResourceStatusOK {
+		if vmOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -2616,13 +2686,17 @@ func (r *Runner) testMyImageCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.myImgCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.myImgCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, createOp)
-		if createOp.Status != model.ResourceStatusOK {
+		if createOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 
@@ -2874,13 +2948,17 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.vpcCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.vpcCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, vpcOp)
-		if vpcOp.Status != model.ResourceStatusOK {
+		if vpcOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -2912,13 +2990,17 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.extraSubnetCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.extraSubnetCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, subnetOp)
-		if subnetOp.Status != model.ResourceStatusOK {
+		if subnetOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 	}
@@ -3031,13 +3113,17 @@ func (r *Runner) testClusterCRUD(ctx context.Context, client *http.Client, cfg *
 				return err
 			}
 			if code >= 400 {
+				if isAlreadyExistsBody(errBody) {
+					st.clusterCreated = true
+					return &skipError{"already exists"}
+				}
 				return fmt.Errorf("HTTP %d: %s", code, string(errBody))
 			}
 			st.clusterCreated = true
 			return nil
 		})
 		rr.Operations = append(rr.Operations, createOp)
-		if createOp.Status != model.ResourceStatusOK {
+		if createOp.Status == model.ResourceStatusFail {
 			goto done
 		}
 
@@ -3624,8 +3710,8 @@ func (r *Runner) testS3CRUD(ctx context.Context, client *http.Client, cfg *confi
 	})
 	rr.Operations = append(rr.Operations, listOp)
 
-	// 3. GET — only when create succeeded
-	if createOp.Status == model.ResourceStatusOK {
+	// 3. GET — only when create succeeded or already existed
+	if createOp.Status != model.ResourceStatusFail {
 		getOp := st.op("get", func() error {
 			url := fmt.Sprintf("%s/s3/%s?ConnectionName=%s", apiBase, bucketName, connection)
 			body, code, err := doReq(http.MethodGet, url, nil)

@@ -227,7 +227,7 @@ func checkNotFoundError(err error) bool {
 
 	return strings.Contains(msg, "notexist") || strings.Contains(msg, "notfound") ||
 		strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm") ||
-		strings.Contains(msg, "noresult")
+		strings.Contains(msg, "noresult") || strings.Contains(msg, "isundefined")
 }
 
 func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
