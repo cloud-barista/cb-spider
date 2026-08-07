@@ -13,6 +13,9 @@
 package kt
 
 import (
+	"sync"
+	"time"
+
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/sirupsen/logrus"
@@ -37,6 +40,49 @@ import (
 type KTCloudVpcDriver struct{}
 
 var cblogger *logrus.Logger
+
+// cachedProviderClient holds an authenticated ProviderClient with its expiry time.
+type cachedProviderClient struct {
+	client    *ktvpcsdk.ProviderClient
+	expiresAt time.Time
+}
+
+var (
+	providerClientCache   = make(map[string]*cachedProviderClient)
+	providerClientCacheMu sync.RWMutex
+)
+
+// tokenCacheTTL is conservative relative to Keystone's default 1-hour token lifetime.
+const tokenCacheTTL = 50 * time.Minute
+
+// getProviderClient returns a cached ProviderClient when still valid, or obtains a new one.
+func getProviderClient(authOpts ktvpcsdk.AuthOptions) (*ktvpcsdk.ProviderClient, error) {
+	cacheKey := authOpts.Username + "@" + authOpts.IdentityEndpoint
+
+	providerClientCacheMu.RLock()
+	cached, ok := providerClientCache[cacheKey]
+	providerClientCacheMu.RUnlock()
+
+	if ok && time.Now().Before(cached.expiresAt) {
+		cblogger.Infof("KT Cloud: reusing cached auth token for user=%s (expires %s)", authOpts.Username, cached.expiresAt.Format(time.RFC3339))
+		return cached.client, nil
+	}
+
+	cblogger.Infof("KT Cloud: obtaining new auth token for user=%s", authOpts.Username)
+	client, err := ostack.AuthenticatedClient(authOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	providerClientCacheMu.Lock()
+	providerClientCache[cacheKey] = &cachedProviderClient{
+		client:    client,
+		expiresAt: time.Now().Add(tokenCacheTTL),
+	}
+	providerClientCacheMu.Unlock()
+
+	return client, nil
+}
 
 func init() {
 	// cblog is a global variable.
@@ -93,7 +139,7 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 		DomainName:       connInfo.CredentialInfo.DomainName,
 		TenantID:         connInfo.CredentialInfo.ProjectID, // Caution : ProjectID to TenantID on SDK
 	}
-	providerClient, err := ostack.AuthenticatedClient(authOpts)
+	providerClient, err := getProviderClient(authOpts)
 	if err != nil {
 		return nil, err
 	}
