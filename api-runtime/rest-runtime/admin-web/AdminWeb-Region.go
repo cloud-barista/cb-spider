@@ -26,7 +26,7 @@ type RegionMetaInfo struct {
 }
 
 func fetchRegionInfos() (map[string][]RegionInfo, error) {
-	resp, err := httpGetWithAuth("http://localhost:1024/spider/region")
+	resp, err := httpGetWithAuth(spiderBaseURL() + "/spider/region")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching regions: %v", err)
 	}
@@ -46,7 +46,7 @@ func fetchRegionInfos() (map[string][]RegionInfo, error) {
 }
 
 func fetchRegionMetaInfo(provider string) ([]string, error) {
-	resp, err := httpGetWithAuth(fmt.Sprintf("http://localhost:1024/spider/cloudos/metainfo/%s", provider))
+	resp, err := httpGetWithAuth(spiderBaseURL() + fmt.Sprintf("/spider/cloudos/metainfo/%s", provider))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching region meta info for provider %s: %v", provider, err)
 	}

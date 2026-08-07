@@ -67,7 +67,7 @@ type ResourceUsage struct {
 
 // Function to fetch System Information
 func fetchSystemInfo() (SystemInfo, error) {
-	url := "http://localhost:1024/spider/sysstats/system"
+	url := spiderBaseURL() + "/spider/sysstats/system"
 	resp, err := httpGetWithAuth(url)
 	if err != nil {
 		return SystemInfo{}, fmt.Errorf("error fetching System Info: %v", err)
@@ -88,7 +88,7 @@ func fetchSystemInfo() (SystemInfo, error) {
 
 // Function to fetch Resource Usage
 func fetchResourceUsage() (ResourceUsage, error) {
-	url := "http://localhost:1024/spider/sysstats/usage"
+	url := spiderBaseURL() + "/spider/sysstats/usage"
 	resp, err := httpGetWithAuth(url)
 	if err != nil {
 		return ResourceUsage{}, fmt.Errorf("error fetching Resource Usage: %v", err)

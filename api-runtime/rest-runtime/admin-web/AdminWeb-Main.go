@@ -20,6 +20,7 @@ import (
 	"time"
 
 	cblogger "github.com/cloud-barista/cb-log"
+	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	"github.com/labstack/echo/v4"
 )
 
@@ -35,7 +36,15 @@ type sessionEntry struct {
 	Expires  time.Time
 }
 
-const sessionCookieName = "cb_spider_session"
+// sessionCookieName returns a port-specific name to prevent cookie collision between multiple Spider instances.
+func sessionCookieName() string {
+	port := strings.TrimPrefix(cr.ServerPort, ":")
+	if port == "" {
+		port = "1024"
+	}
+	return "cb_spider_session_" + port
+}
+
 const sessionMaxAge = 4 * time.Hour
 
 func generateSessionToken() (string, error) {
@@ -127,7 +136,7 @@ func AdminWebSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// Check session cookie
-		cookie, err := c.Cookie(sessionCookieName)
+		cookie, err := c.Cookie(sessionCookieName())
 		if err != nil || cookie.Value == "" {
 			return redirectToLogin(c)
 		}
@@ -197,7 +206,7 @@ func AuthInfo(c echo.Context) error {
 	loggedIn := false
 	sessionUser := ""
 	if authEnabled {
-		if cookie, err := c.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
+		if cookie, err := c.Cookie(sessionCookieName()); err == nil && cookie.Value != "" {
 			if user, valid := validateSession(cookie.Value); valid {
 				loggedIn = true
 				sessionUser = user
@@ -240,7 +249,7 @@ func Login(c echo.Context) error {
 			})
 		}
 		c.SetCookie(&http.Cookie{
-			Name:     sessionCookieName,
+			Name:     sessionCookieName(),
 			Value:    token,
 			Path:     "/spider/adminweb",
 			HttpOnly: true,
@@ -264,12 +273,12 @@ func Logout(c echo.Context) error {
 	cblog.Info("call Logout()")
 
 	// Delete server-side session
-	if cookie, err := c.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
+	if cookie, err := c.Cookie(sessionCookieName()); err == nil && cookie.Value != "" {
 		deleteSession(cookie.Value)
 	}
 	// Clear cookie
 	c.SetCookie(&http.Cookie{
-		Name:     sessionCookieName,
+		Name:     sessionCookieName(),
 		Value:    "",
 		Path:     "/spider/adminweb",
 		HttpOnly: true,

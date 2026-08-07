@@ -104,9 +104,12 @@ func makeSelect_html(onchangeFunctionName string, strList []string, id string) s
 
 //----------------
 
+func spiderBaseURL() string {
+	return "http://localhost" + cr.ServerPort
+}
+
 func getResourceList_JsonByte(resourceName string) ([]byte, error) {
-	// cr.ServicePort = ":1024"
-	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + resourceName
+	url := spiderBaseURL() + "/spider/" + resourceName
 
 	// get object list
 	res, err := httpGetWithAuth(url)
@@ -201,7 +204,7 @@ func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
 }
 
 func getPriceInfoJsonString(connConfig string, resourceName string, productFamily string, regionName string, filter []cres.KeyValue, simpleVMSpecInfo bool, target interface{}) error {
-	url := fmt.Sprintf("http://localhost:1024/spider/%s/%s/%s?ConnectionName=%s", resourceName, productFamily, regionName, connConfig)
+	url := fmt.Sprintf("%s/spider/%s/%s/%s?ConnectionName=%s", spiderBaseURL(), resourceName, productFamily, regionName, connConfig)
 
 	if simpleVMSpecInfo {
 		url += "&simple=true"
@@ -379,7 +382,7 @@ func genLoggingResult2(response string) string {
 
 // Fetch regions and map them to RegionName -> "Region / Zone"
 func fetchRegions() (map[string]string, error) {
-	resp, err := httpGetWithAuth("http://localhost:1024/spider/region")
+	resp, err := httpGetWithAuth(spiderBaseURL() + "/spider/region")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching regions: %v", err)
 	}
