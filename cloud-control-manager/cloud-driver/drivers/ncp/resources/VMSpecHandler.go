@@ -379,3 +379,44 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) getNcpVpcServerProductCode(specName st
 		return *vmSpec.ServerProductCode, nil
 	}
 }
+
+// getServerProductCodeForMyImage returns a ServerProductCode for use with MemberServerImageInstanceNo.
+// NCP VPC requires querying GetServerProductList with the MyImage number to get compatible product codes;
+// the result is matched to the requested spec by CPU count and memory size.
+func (vmSpecHandler *NcpVpcVMSpecHandler) getServerProductCodeForMyImage(myImageInstanceNo, specName string) (string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called getServerProductCodeForMyImage()!")
+	InitLog()
+
+	if strings.EqualFold(myImageInstanceNo, "") || strings.EqualFold(specName, "") {
+		return "", fmt.Errorf("Invalid myImageInstanceNo or specName")
+	}
+
+	vmSpec, err := vmSpecHandler.getNcpVpcVMSpec(specName)
+	if err != nil {
+		return "", fmt.Errorf("Failed to Get VMSpec [%s] : [%v]", specName, err)
+	}
+
+	productListReq := vserver.GetServerProductListRequest{
+		RegionCode:                  ncloud.String(vmSpecHandler.RegionInfo.Region),
+		MemberServerImageInstanceNo: ncloud.String(myImageInstanceNo),
+	}
+	result, err := vmSpecHandler.VMClient.V2Api.GetServerProductList(&productListReq)
+	if err != nil {
+		return "", fmt.Errorf("Failed to Get ServerProductList for MyImage [%s] : [%v]", myImageInstanceNo, err)
+	}
+	if len(result.ProductList) < 1 {
+		return "", fmt.Errorf("No ServerProduct found for MyImage [%s]", myImageInstanceNo)
+	}
+
+	for _, product := range result.ProductList {
+		if ncloud.Int32Value(product.CpuCount) == ncloud.Int32Value(vmSpec.CpuCount) &&
+			ncloud.Int64Value(product.MemorySize) == ncloud.Int64Value(vmSpec.MemorySize) {
+			cblogger.Infof("Matched ServerProductCode [%s] for spec [%s] (CPU:%d, Mem:%d)",
+				ncloud.StringValue(product.ProductCode), specName,
+				ncloud.Int32Value(product.CpuCount), ncloud.Int64Value(product.MemorySize))
+			return ncloud.StringValue(product.ProductCode), nil
+		}
+	}
+	return "", fmt.Errorf("No matching ServerProduct for spec [%s] (CPU:%d, Mem:%d) in MyImage [%s]",
+		specName, ncloud.Int32Value(vmSpec.CpuCount), ncloud.Int64Value(vmSpec.MemorySize), myImageInstanceNo)
+}
