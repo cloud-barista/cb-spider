@@ -32,7 +32,9 @@ type GCPImageHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-var arrImageProjectList = []string{
+// arrStandardImageProjectList: 일반 OS 이미지 프로젝트. 프로젝트당 이미지 수가 적어(수십~수백 건)
+// ListImage()에서 매번 전체 순회해도 부담이 적음.
+var arrStandardImageProjectList = []string{
 	"gce-uefi-images", // 보안 VM을 지원하는 이미지
 
 	// General OS images
@@ -52,14 +54,22 @@ var arrImageProjectList = []string{
 	"ubuntu-os-pro-cloud",
 	"windows-cloud",
 	"windows-sql-cloud",
+}
 
-	// GPU / HPC / ML images
+// arrExtendedImageProjectList: GPU/HPC/ML 이미지 프로젝트. deeplearning-platform-release처럼
+// 프로젝트당 이미지 수가 매우 많아(수만 건) ListImage() 지연의 주 원인이 되는 그룹.
+// (cb-spider#1184 Stage 2에서 family 기반 조회로 전환 예정)
+var arrExtendedImageProjectList = []string{
 	"cloud-hpc-image-public",
 	"deeplearning-platform-release",
 	"ml-images",
 	"rocky-linux-accelerator-cloud",
 	"ubuntu-os-accelerator-images",
 }
+
+// arrImageProjectList: 표준 + 확장 그룹 전체 목록. GetImageN() 등 그룹 구분 없이
+// 전체를 순회하던 기존 로직과의 호환을 위해 유지.
+var arrImageProjectList = append(append([]string{}, arrStandardImageProjectList...), arrExtendedImageProjectList...)
 
 /*
 이미지를 생성할 때 GCP 같은 경우는 내가 생성한 이미지에서만 리스트를 가져 올 수 있다.
@@ -121,11 +131,6 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	var imageList []*irs.ImageInfo
 
-	cnt := 0
-	nextPageToken := ""
-	var req *compute.ImagesListCall
-	var res *compute.ImageList
-	var err error
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -139,7 +144,43 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 	callLogStart := call.Start()
 
-	for _, projectId := range arrImageProjectList {
+	// Standard/Extended 그룹을 나눠 순회 — cb-spider#1184 Stage 2에서 Extended 그룹만
+	// family 기반 조회로 바꿀 수 있도록 그룹별 진입점을 분리해 둠. 현재는 두 그룹 모두
+	// 동일한 listImagesByProject()를 사용하므로 기존과 동작 차이 없음.
+	standardImages, err := imageHandler.listImagesByProject(arrStandardImageProjectList)
+	if err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		return nil, err
+	}
+	imageList = append(imageList, standardImages...)
+
+	extendedImages, err := imageHandler.listImagesByProject(arrExtendedImageProjectList)
+	if err != nil {
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		return nil, err
+	}
+	imageList = append(imageList, extendedImages...)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	return imageList, nil
+}
+
+// listImagesByProject: 전달받은 project 목록의 non-deprecated 이미지를 전부 조회해서 반환.
+func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([]*irs.ImageInfo, error) {
+	var imageList []*irs.ImageInfo
+
+	nextPageToken := ""
+	var req *compute.ImagesListCall
+	var res *compute.ImageList
+	var err error
+
+	for _, projectId := range projectIds {
 		cblogger.Infof("Processing image list owned by [%s] project", projectId)
 
 		filter := "NOT deprecated:*" // deprecated가 있는 항목은 다른 image로 대체된 것임
@@ -147,9 +188,6 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		req = imageHandler.Client.Images.List(projectId).Filter(filter)
 		res, err = req.Do()
 		if err != nil {
-			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
 			cblogger.Errorf("Failed to retrieve image list owned by [%s] project!", projectId)
 			cblogger.Error(err)
 			return nil, err
@@ -161,7 +199,6 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		//현재 페이지부터 마지막 페이지까지 조회
 		for {
 			for _, item := range res.Items {
-				cnt++
 				if cblogger.Level.String() == "debug" {
 					cblogger.Debug(item)
 				}
@@ -179,8 +216,6 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			}
 		} // for : 멀티 페이지 처리
 	}
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	callogger.Info(call.String(callLogInfo))
 
 	return imageList, nil
 }
