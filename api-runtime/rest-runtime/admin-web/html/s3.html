@@ -914,14 +914,6 @@ function deleteBucket(name, forceDelete = false) {
                             }
                             return;
                         } else if (errorCode === 'NoSuchBucket') {
-                            // Check if this is a metadata-only bucket
-                            if (errorMessage.includes('metadata exists') || errorMessage.includes('Use force=true')) {
-                                hideProgressBar();
-                                if (confirm(`Bucket "${name}" not found in CSP, but metadata exists.\n\nDo you want to force delete the metadata only?`)) {
-                                    deleteBucket(name, true);
-                                }
-                                return;
-                            }
                             throw new Error(`Bucket "${name}" does not exist.`);
                         } else if (errorCode === 'AccessDenied') {
                             throw new Error(`Access denied: You don't have permission to delete bucket "${name}".`);
@@ -1143,10 +1135,6 @@ function deleteSelectedBuckets() {
                     if (errorText.includes('BucketNotEmpty')) {
                         return { bucket: bucketName, error: 'Bucket is not empty' };
                     } else if (errorText.includes('NoSuchBucket')) {
-                        // Check if metadata exists
-                        if (errorText.includes('metadata exists') || errorText.includes('Use force=true')) {
-                            return { bucket: bucketName, error: 'Not found in CSP', needsForce: true };
-                        }
                         return { bucket: bucketName, error: 'Bucket does not exist' };
                     } else if (errorText.includes('AccessDenied')) {
                         return { bucket: bucketName, error: 'Access denied' };
@@ -1166,7 +1154,6 @@ function deleteSelectedBuckets() {
         
         const successes = results.filter(r => r.success);
         const failures = results.filter(r => r.error);
-        const needsForce = results.filter(r => r.needsForce);
         
         if (failures.length > 0) {
             let message = `Deletion completed:\n\n`;
@@ -1178,29 +1165,6 @@ function deleteSelectedBuckets() {
                 message += `- ${f.bucket}: ${f.error}\n`;
             });
             alert(message);
-            
-            // Handle buckets that need force delete
-            if (needsForce.length > 0) {
-                const forceList = needsForce.map(f => f.bucket).join(', ');
-                if (confirm(`The following bucket(s) not found in CSP but metadata exists:\n${forceList}\n\nDo you want to force delete the metadata?`)) {
-                    showProgressBar();
-                    const forceDeletePromises = needsForce.map(item => {
-                        return fetch(`/spider/s3/${item.bucket}?force=true&ConnectionName=${connConfig}`, {
-                            method: 'DELETE',
-                            headers: { 'X-Connection-Name': connConfig }
-                        });
-                    });
-                    Promise.all(forceDeletePromises).then(() => {
-                        hideProgressBar();
-                        location.reload();
-                    }).catch(e => {
-                        hideProgressBar();
-                        alert('Error during force deletion: ' + e.message);
-                        location.reload();
-                    });
-                    return;
-                }
-            }
         }
         
         location.reload();

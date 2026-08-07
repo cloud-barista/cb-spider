@@ -645,10 +645,13 @@ func DeleteS3Bucket(connectionName, bucketName string, force string) (bool, erro
 		err = deleteAzureBucket(connInfo, iidInfo.SystemId)
 		if err != nil {
 			cblog.Error(err)
-			if force != "true" {
+			if checkNotFoundError(err) {
+				// if not found in CSP, continue
+				force = "true"
+			} else if force != "true" {
 				return false, err
 			}
-			cblog.Infof("Azure delete failed but force=true, proceeding with metadata deletion")
+			cblog.Infof("Azure delete: not found in CSP or force=true, proceeding with metadata deletion")
 		}
 		_, err = infostore.DeleteByConditions(&S3BucketIIDInfo{}, "connection_name", iidInfo.ConnectionName, "name_id", bucketName)
 		if err != nil {
@@ -673,12 +676,8 @@ func DeleteS3Bucket(connectionName, bucketName string, force string) (bool, erro
 	if err != nil {
 		cblog.Error(err)
 		if checkNotFoundError(err) {
-			// if not found in CSP, require explicit force parameter
-			if force != "true" {
-				cblog.Errorf("Bucket %s not found in CSP. Use force=true parameter to delete metadata only.", bucketName)
-				return false, fmt.Errorf("bucket not found in CSP (metadata exists). Use force=true to delete metadata only")
-			}
-			cblog.Infof("Bucket %s not found in CSP, proceeding with force delete (metadata only)", bucketName)
+			// if not found in CSP, continue
+			force = "true"
 		} else if force != "true" {
 			return false, err
 		}
