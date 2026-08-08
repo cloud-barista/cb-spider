@@ -12,6 +12,7 @@ default: swag
 				-X 'main.CommitSHA=$(COMMIT_SHA)' \
 				-X 'main.BuildTime=$(BUILD_TIME)'" \
 			-o bin/cb-spider ./api-runtime
+	@$(MAKE) --no-print-directory -C cli
 
 dyna plugin plug dynamic: swag
 	@printf '\t[CB-Spider] building ./bin/cb-spider-dyna (dynamic mode)...\n'
@@ -56,6 +57,7 @@ replace:
 clean clear:
 	@printf '\t[CB-Spider] cleaning...\n'
 	@rm -rf bin/cb-spider bin/cb-spider-dyna bin/cb-spider-arm bin/cb-spider-android-arm64
+	@$(MAKE) --no-print-directory -C cli clean
 
 
 

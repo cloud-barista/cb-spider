@@ -3,10 +3,7 @@ COMMIT_SHA := $(shell git rev-parse --short HEAD)
 BUILD_TIME := $(shell date)
 
 default:
-	@echo "VERSION: $(VERSION)"
-	@echo "COMMIT_SHA: $(COMMIT_SHA)"
-	@echo "BUILD_TIME: $(BUILD_TIME)"
-	@echo -e '\t[CB-Spider] building spctl...'
+	@printf '\t[CB-Spider] building cli spctl...\n'
 	@go mod download
 	@go mod tidy
 	@cp ../api/swagger.json ./cmd
@@ -17,6 +14,6 @@ default:
 	@rm ./cmd/swagger.json
 
 clean clear:
-	@echo -e '\t[CB-Spider] cleaning...'
+	@printf '\t[CB-Spider] cleaning cli spctl...\n'
 	@rm -rf ./spctl
 
