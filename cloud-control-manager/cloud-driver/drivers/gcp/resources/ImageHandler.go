@@ -33,8 +33,8 @@ type GCPImageHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-// arrStandardImageProjectList: 일반 OS 이미지 프로젝트. 프로젝트당 이미지 수가 적어(수십~수백 건)
-// ListImage()에서 매번 전체 순회해도 부담이 적음.
+// arrStandardImageProjectList: general OS image projects. Each project has relatively
+// few images (tens to hundreds), so scanning the full list on every ListImage() call is cheap.
 var arrStandardImageProjectList = []string{
 	"gce-uefi-images", // 보안 VM을 지원하는 이미지
 
@@ -57,10 +57,12 @@ var arrStandardImageProjectList = []string{
 	"windows-sql-cloud",
 }
 
-// arrExtendedImageProjectList: GPU/HPC/ML 이미지 프로젝트. deeplearning-platform-release처럼
-// 프로젝트당 이미지 수가 매우 많아(수만 건) ListImage() 지연의 주 원인이 되는 그룹.
-// ListImage()에서는 더 이상 이 목록으로 직접 조회하지 않고(arrExtendedImageFamilyMap 사용),
-// GetImageN() 등 그룹 구분 없이 전체 project id를 순회하던 기존 로직과의 호환을 위해서만 유지.
+// arrExtendedImageProjectList: GPU/HPC/ML image projects. Projects like
+// deeplearning-platform-release hold a very large number of images (tens of thousands),
+// making this group the main cause of ListImage() latency.
+// ListImage() no longer queries this list directly (it uses arrExtendedImageFamilyMap
+// instead); it is kept only for compatibility with existing logic — e.g. GetImageN() —
+// that still iterates the full project id list without distinguishing groups.
 var arrExtendedImageProjectList = []string{
 	"cloud-hpc-image-public",
 	"deeplearning-platform-release",
@@ -69,20 +71,24 @@ var arrExtendedImageProjectList = []string{
 	"ubuntu-os-accelerator-images",
 }
 
-// arrImageProjectList: 표준 + 확장 그룹 전체 목록. GetImageN() 등 그룹 구분 없이
-// 전체를 순회하던 기존 로직과의 호환을 위해 유지.
+// arrImageProjectList: full list combining the standard + extended groups. Kept for
+// compatibility with existing logic — e.g. GetImageN() — that iterates the full list
+// without distinguishing groups.
 var arrImageProjectList = append(append([]string{}, arrStandardImageProjectList...), arrExtendedImageProjectList...)
 
-// arrExtendedImageFamilyMap: Extended 그룹(GPU/HPC/ML) 프로젝트별 image family 목록.
-// deeplearning-platform-release처럼 프로젝트당 이미지 수가 수만 건인 경우에도 family는
-// "OS+가속기 조합"당 하나뿐이라 목록 자체는 작음(2026-08-07 기준 5개 프로젝트 합계 48개).
-// Images.List(project) 로 전체를 훑는 대신 family당 Images.GetFromFamily(project, family)로
-// "최신 활성 이미지 1건"만 직접 조회 — GCP가 매번 프로젝트의 전체 이미지 이력을 스캔하지
-// 않아도 되므로 서버측 스캔 비용 자체가 사라짐(Stage 1의 deprecated 필터는 여전히 GCP가
-// 전체를 스캔한 뒤 결과만 줄여주는 방식이었던 것과 대비됨).
+// arrExtendedImageFamilyMap: image family list per project for the Extended group
+// (GPU/HPC/ML). Even for a project like deeplearning-platform-release with tens of
+// thousands of images, there is only one family per "OS + accelerator combination", so
+// the list itself stays small (48 entries across 5 projects as of 2026-08-07).
+// Instead of scanning everything via Images.List(project), we query only the "single
+// latest active image" per family via Images.GetFromFamily(project, family) — this
+// removes the server-side scan cost entirely, since GCP no longer has to scan the
+// project's full image history on every call (unlike the Stage 1 deprecated filter,
+// where GCP still scans everything and only trims the result afterward).
 //
-// gcloud compute images list --project {project} --no-standard-images 로 CSP 커버리지
-// 스윕 때마다 재조사 필요(구글이 family를 추가/폐기할 수 있음 — cb-spider#1184 후속 관찰 필요).
+// Needs to be re-surveyed on every CSP-coverage sweep via
+// `gcloud compute images list --project {project} --no-standard-images` (Google may
+// add/retire families — tracked as a cb-spider#1184 follow-up).
 var arrExtendedImageFamilyMap = map[string][]string{
 	"cloud-hpc-image-public": {
 		"hpc-rocky-linux-8",
@@ -217,7 +223,8 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 	callLogStart := call.Start()
 
-	// Standard 그룹은 프로젝트당 이미지 수가 적어 기존 방식(전체 조회 + deprecated 필터) 유지.
+	// The Standard group has few images per project, so it keeps the existing approach
+	// (full scan + deprecated filter).
 	standardImages, err := imageHandler.listImagesByProject(arrStandardImageProjectList)
 	if err != nil {
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -227,8 +234,9 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 	imageList = append(imageList, standardImages...)
 
-	// Extended 그룹(GPU/HPC/ML)은 프로젝트당 이미지 수가 수만 건이라 전체 조회 대신
-	// family 기반으로 "최신 활성 이미지 1건씩"만 직접 조회(cb-spider#1184 Stage 2).
+	// The Extended group (GPU/HPC/ML) has tens of thousands of images per project, so
+	// instead of a full scan we query only the "single latest active image" per family
+	// (cb-spider#1184 Stage 2).
 	extendedImages := imageHandler.listImagesByFamily(arrExtendedImageProjectList, arrExtendedImageFamilyMap)
 	imageList = append(imageList, extendedImages...)
 
@@ -238,7 +246,8 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageList, nil
 }
 
-// listImagesByProject: 전달받은 project 목록의 non-deprecated 이미지를 전부 조회해서 반환.
+// listImagesByProject: retrieves and returns every non-deprecated image for the given
+// project list.
 func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([]*irs.ImageInfo, error) {
 	var imageList []*irs.ImageInfo
 
@@ -250,7 +259,7 @@ func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([
 	for _, projectId := range projectIds {
 		cblogger.Infof("Processing image list owned by [%s] project", projectId)
 
-		filter := "NOT deprecated:*" // deprecated가 있는 항목은 다른 image로 대체된 것임
+		filter := "NOT deprecated:*" // an item with deprecated set has been replaced by another image
 		//첫번째 호출
 		req = imageHandler.Client.Images.List(projectId).Filter(filter)
 		res, err = req.Do()
@@ -287,19 +296,21 @@ func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([
 	return imageList, nil
 }
 
-// listImagesByFamily: 전달받은 project 목록을 정해진 순서대로 순회하며, 각 project에
-// 등록된 family(projectFamilyMap)마다 Images.GetFromFamily()로 "최신 활성 이미지 1건"만
-// 직접 조회해서 반환. listImagesByProject()와 달리 project 전체를 스캔하지 않으므로
-// 이미지 수가 매우 많은 프로젝트(deeplearning-platform-release 등)에서도 서버측 스캔
-// 비용은 사라지지만, family 수만큼 개별 HTTP 호출이 생기는 대가가 있음 — family 48개를
-// 순차 호출했더니 오히려 List() 5회보다 느렸음(요청당 왕복 지연이 누적)을 실측으로 확인,
-// 그래서 요청을 병렬로 실행함(RegionZoneHandler.ListRegionZone()과 동일한 패턴).
+// listImagesByFamily: walks the given project list in order, and for each family
+// registered for a project (projectFamilyMap), queries only the "single latest active
+// image" via Images.GetFromFamily(). Unlike listImagesByProject(), it never scans a
+// full project, so the server-side scan cost disappears even for projects with a very
+// large number of images (e.g. deeplearning-platform-release) — at the cost of one
+// individual HTTP call per family. Measured that calling 48 families sequentially was
+// actually slower than 5 List() calls (per-request round-trip latency adds up), so the
+// requests are run in parallel instead (same pattern as
+// RegionZoneHandler.ListRegionZone()).
 //
-// family 하나가 조회에 실패해도(예: 구글이 family를 폐기해 arrExtendedImageFamilyMap이
-// 낡은 경우) 전체 목록 조회를 막지 않도록 best-effort로 로그만 남기고 건너뜀 — 이 목록은
-// Stage 1의 deprecated 필터처럼 GCP 원본 데이터를 그대로 반영하는 게 아니라 우리가 직접
-// 유지보수하는 curated 목록이라, 항목 하나의 실효(stale entry)가 ListImage() 전체 실패로
-// 번지지 않는 편이 안전함.
+// If a single family lookup fails (e.g. arrExtendedImageFamilyMap has gone stale
+// because Google retired a family), it's skipped best-effort with just a log line
+// instead of failing the whole listing — unlike the Stage 1 deprecated filter, which
+// reflects GCP's raw data as-is, this list is a curated list we maintain ourselves, so
+// it's safer for one stale entry not to fail all of ListImage().
 func (imageHandler *GCPImageHandler) listImagesByFamily(projectIds []string, projectFamilyMap map[string][]string) []*irs.ImageInfo {
 	type familyKey struct {
 		projectId string
@@ -313,8 +324,9 @@ func (imageHandler *GCPImageHandler) listImagesByFamily(projectIds []string, pro
 		}
 	}
 
-	// index로 결과를 받아 순서를 유지 — arrExtendedImageProjectList/family 목록의 원래
-	// 순서(=기존 listImagesByProject() 결과와 동일한 순서)를 그대로 보존하기 위함.
+	// Results are collected by index to preserve order — this keeps the original order
+	// of the arrExtendedImageProjectList/family list (i.e. the same order as the
+	// existing listImagesByProject() result).
 	results := make([]*irs.ImageInfo, len(keys))
 	var wg sync.WaitGroup
 	for i, key := range keys {
