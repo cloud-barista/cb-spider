@@ -35,6 +35,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/eks"
+	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/pricing"
@@ -221,6 +222,17 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	return elbv2.New(sess), nil
 }
 
+// EKS 클러스터가 자동 생성한 Classic Load Balancer 정리를 위한 ELB 클라이언트 획득
+// ref) https://github.com/cloud-barista/cb-spider/issues/1208
+func getELBClient(connectionInfo idrv.ConnectionInfo) (*elb.ELB, error) {
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
+	return elb.New(sess), nil
+}
+
 // EKS 처리를 위한 EKS 클라이언트 획득
 func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
 
@@ -374,6 +386,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	//var iConn icon.CloudConnection
 	vmClient, err := getVMClient(connectionInfo)
 	nlbClient, err := getNLBClient(connectionInfo)
+	elbClient, err := getELBClient(connectionInfo)
 	eksClient, err := getEKSClient(connectionInfo)
 	iamClient, err := getIamClient(connectionInfo)
 	stsClient, err := getStsClient(connectionInfo)
@@ -408,6 +421,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		MyImageClient:  vmClient,
 
 		EKSClient:         eksClient,
+		ELBClient:         elbClient,
 		IamClient:         iamClient,
 		StsClient:         stsClient,
 		AutoScalingClient: autoScalingClient,
