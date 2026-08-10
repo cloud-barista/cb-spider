@@ -183,6 +183,7 @@ func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.
 			RDSUserAccessKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "User Access Key"),
 			RDSSecretAccessKey: KeyValueListGetValue(crdInfo.KeyValueInfoList, "Secret Access Key"),
 			RDSAppKey:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "appKey"),
+			RDSMariaDBAppKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "mariadbAppKey"),
 			ConnectionName:     cloudConnectName,
 		},
 		RegionInfo: idrv.RegionInfo{
@@ -281,6 +282,7 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 				RDSUserAccessKey   string `json:"RDSUserAccessKey"`
 				RDSSecretAccessKey string `json:"RDSSecretAccessKey"`
 				RDSAppKey          string `json:"RDSAppKey"`
+				RDSMariaDBAppKey   string `json:"RDSMariaDBAppKey"`
 			} `json:"CredentialInfo"`
 			RegionInfo struct {
 				Region     string `json:"Region"`
@@ -328,6 +330,7 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 			RDSUserAccessKey:   apiResponse.ConnectionInfo.CredentialInfo.RDSUserAccessKey,
 			RDSSecretAccessKey: apiResponse.ConnectionInfo.CredentialInfo.RDSSecretAccessKey,
 			RDSAppKey:          apiResponse.ConnectionInfo.CredentialInfo.RDSAppKey,
+			RDSMariaDBAppKey:   apiResponse.ConnectionInfo.CredentialInfo.RDSMariaDBAppKey,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region:     apiResponse.ConnectionInfo.RegionInfo.Region,
@@ -393,6 +396,7 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 			RDSUserAccessKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "User Access Key"),
 			RDSSecretAccessKey: KeyValueListGetValue(crdInfo.KeyValueInfoList, "Secret Access Key"),
 			RDSAppKey:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "appKey"),
+			RDSMariaDBAppKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "mariadbAppKey"),
 		},
 	}
 

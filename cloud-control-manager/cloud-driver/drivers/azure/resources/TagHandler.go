@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 
@@ -178,19 +179,42 @@ func (tagHandler *AzureTagHandler) ListTag(resType irs.RSType, resIID irs.IID) (
 	resIID.SystemId = resourceID
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "ListTag()")
 
-	start := call.Start()
-	tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to list tags for resource ID %s: %s", resIID.SystemId, err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
-	}
-	LoggingInfo(hiscallInfo, start)
+	// Azure ARM's tag read path can lag briefly behind a just-completed
+	// AddTag/RemoveTag write (the write's PollUntilDone reports success, but an
+	// immediate GetAtScope can still return stale/empty tags). Retry a couple of
+	// times on an empty result before trusting it, so a fresh tag isn't missed.
+	const maxAttempts = 3
+	const retryInterval = 2 * time.Second
 
 	var tagList []irs.KeyValue
-	for key, value := range tagsResource.Properties.Tags {
-		tagList = append(tagList, irs.KeyValue{Key: key, Value: *value})
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		start := call.Start()
+		tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to list tags for resource ID %s: %s", resIID.SystemId, err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
+		}
+		LoggingInfo(hiscallInfo, start)
+
+		tagList = nil
+		if tagsResource.Properties != nil {
+			for key, value := range tagsResource.Properties.Tags {
+				if value == nil {
+					// Azure may return system/internal tags with nil values; skip them.
+					continue
+				}
+				tagList = append(tagList, irs.KeyValue{Key: key, Value: *value})
+			}
+		}
+
+		if len(tagList) > 0 || attempt >= maxAttempts {
+			break
+		}
+		cblogger.Warnf("[Azure] ListTag: empty result for resource %s (attempt %d/%d), retrying in %s in case of tag propagation lag",
+			resIID.SystemId, attempt, maxAttempts, retryInterval)
+		time.Sleep(retryInterval)
 	}
 
 	return tagList, nil
@@ -215,6 +239,9 @@ func (tagHandler *AzureTagHandler) GetTag(resType irs.RSType, resIID irs.IID, ke
 	LoggingInfo(hiscallInfo, start)
 
 	if value, exists := tagsResource.Properties.Tags[key]; exists {
+		if value == nil {
+			return irs.KeyValue{}, errors.New("tag not found")
+		}
 		return irs.KeyValue{Key: key, Value: *value}, nil
 	}
 

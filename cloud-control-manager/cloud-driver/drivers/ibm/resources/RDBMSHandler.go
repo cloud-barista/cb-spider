@@ -714,8 +714,28 @@ func (handler *IbmRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo, error
 	calllogger.Info(call.String(hiscallInfo))
 
 	info := handler.convertResourceInstanceToRDBMSInfo(result)
-	if err := handler.enrichRDBMSInfoFromCloudDB(&info, result); err != nil {
-		return irs.RDBMSInfo{}, err
+
+	// enrichRDBMSInfoFromCloudDB chains several IBM Cloud Databases/Global Tagging
+	// API calls (deployment info, scaling groups, tags, connection). A transient
+	// network blip in any one of them (observed e.g. as ECONNRESET against the
+	// Global Tagging API) would otherwise wipe out an already-successful,
+	// available instance's info entirely. Retry a few times before giving up.
+	const maxEnrichAttempts = 3
+	const enrichRetryInterval = 5 * time.Second
+	var enrichErr error
+	for attempt := 1; attempt <= maxEnrichAttempts; attempt++ {
+		enrichErr = handler.enrichRDBMSInfoFromCloudDB(&info, result)
+		if enrichErr == nil {
+			break
+		}
+		if attempt < maxEnrichAttempts {
+			cblogger.Warnf("[IBM] GetRDBMS: enrichment attempt %d/%d failed for %s, retrying in %s: %v",
+				attempt, maxEnrichAttempts, info.IId.NameId, enrichRetryInterval, enrichErr)
+			time.Sleep(enrichRetryInterval)
+		}
+	}
+	if enrichErr != nil {
+		return irs.RDBMSInfo{}, enrichErr
 	}
 	return info, nil
 }

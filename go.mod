@@ -83,7 +83,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/swaggo/echo-swagger v1.4.1
-	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
+	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.1453+incompatible
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/as v1.3.128
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cam v1.1.48
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
