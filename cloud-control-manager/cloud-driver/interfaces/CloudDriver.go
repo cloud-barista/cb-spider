@@ -87,7 +87,8 @@ type CredentialInfo struct {
 	//----- RDS Access Info
 	RDSUserAccessKey   string // RDS User Access Key
 	RDSSecretAccessKey string // RDS Secret Access Key
-	RDSAppKey          string // RDS AppKey
+	RDSAppKey          string // RDS AppKey (e.g., NHN Cloud RDS for MySQL)
+	RDSMariaDBAppKey   string // RDS MariaDB-specific AppKey (e.g., NHN Cloud RDS for MariaDB; falls back to RDSAppKey if empty)
 }
 
 type RegionInfo struct {

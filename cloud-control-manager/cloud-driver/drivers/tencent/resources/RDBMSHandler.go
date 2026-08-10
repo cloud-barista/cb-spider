@@ -40,15 +40,33 @@ type TencentRDBMSHandler struct {
 // "Sets the root account password.")
 const tencentDefaultAdminUser = "root"
 
+// allCDBInstanceStatuses returns every Tencent CDB instance status value
+// (0=creating, 1=running, 4=isolating, 5=isolated/recycle-bin), so
+// DescribeDBInstances also surfaces isolated instances. Tencent's default
+// (no Status filter) omits Status=5 instances even though they still hold
+// a VPC/subnet IP until permanently offlined.
+func allCDBInstanceStatuses() []*uint64 {
+	statuses := []uint64{0, 1, 4, 5}
+	ptrs := make([]*uint64, len(statuses))
+	for i := range statuses {
+		ptrs[i] = &statuses[i]
+	}
+	return ptrs
+}
+
 func (handler *TencentRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo, error) {
 	cblogger.Debug("Tencent CDB GetMetaInfo() called")
 
-	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "DescribeCdbZoneConfig()")
-	start := call.Start()
 	requestedEngine, err := irs.NormalizeRDBMSEngine(dbEngine)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
+
+	// MySQL (CDB) path. Tencent Cloud does not support MariaDB
+	// (Create MariaDB not supported); requestedEngine "mariadb" is rejected
+	// below by BuildRDBMSMetaInfo since it is absent from the supported engine map.
+	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "GetMetaInfo", "DescribeCdbZoneConfig()")
+	start := call.Start()
 
 	supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, err := handler.fetchCDBMetaOptions()
 	if err != nil {
@@ -290,6 +308,7 @@ func (handler *TencentRDBMSHandler) ListIID() ([]*irs.IID, error) {
 	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, "ListIID", "DescribeDBInstances()")
 	start := call.Start()
 
+	// CDB (MySQL) instances
 	var iidList []*irs.IID
 	var offset uint64 = 0
 	var limit uint64 = 100
@@ -298,6 +317,10 @@ func (handler *TencentRDBMSHandler) ListIID() ([]*irs.IID, error) {
 		request := cdb.NewDescribeDBInstancesRequest()
 		request.Offset = &offset
 		request.Limit = &limit
+		// Include isolated (recycle-bin) instances: without this, DescribeDBInstances
+		// omits Status=5 instances, which still hold a VPC/subnet IP until permanently
+		// offlined and would otherwise be invisible to CB-Spider.
+		request.Status = allCDBInstanceStatuses()
 
 		response, err := handler.Client.DescribeDBInstances(request)
 		if err != nil {
@@ -549,29 +572,41 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 
 	// Enable public endpoint when requested.
 	// The earlier wait for Running is warning-only, so the instance may still be
-	// initializing; retry before giving up and rolling back.
+	// initializing; retry before giving up.
+	// NOTE: OpenWanService / waitForWanStatus failures do NOT trigger rollback.
+	// Rolling back a successfully created instance because a secondary feature
+	// (public endpoint) could not be enabled leaves a zombie resource when the
+	// delete call is also refused (e.g. Tencent InternalError while initializing).
+	// Instead we log a warning and proceed so that the IID is registered in
+	// CB-Spider and the instance can be managed (and deleted) normally later.
 	if rdbmsReqInfo.PublicAccess {
-		const maxWanAttempts = 3
+		const maxWanAttempts = 5
+		wanRequested := false
 		for attempt := 1; ; attempt++ {
 			openWanReq := cdb.NewOpenWanServiceRequest()
 			openWanReq.InstanceId = &instanceId
 			_, openWanErr := handler.Client.OpenWanService(openWanReq)
 			if openWanErr == nil {
+				wanRequested = true
 				break
 			}
 			if attempt >= maxWanAttempts {
-				return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: instanceId},
-					fmt.Errorf("failed to enable public access after %d attempts: %w", attempt, openWanErr))
+				cblogger.Warnf("[Tencent] OpenWanService failed after %d attempts for instance %s; "+
+					"public access will not be enabled. Enable it manually via the Tencent console if needed: %v",
+					attempt, instanceId, openWanErr)
+				break
 			}
-			cblogger.Warnf("[Tencent] OpenWanService failed (attempt %d/%d), retrying in 10s: %v", attempt, maxWanAttempts, openWanErr)
-			time.Sleep(10 * time.Second)
+			cblogger.Warnf("[Tencent] OpenWanService failed (attempt %d/%d), retrying in 15s: %v", attempt, maxWanAttempts, openWanErr)
+			time.Sleep(15 * time.Second)
 		}
 
-		// Wait until WAN is enabled to return a public endpoint.
-		err = handler.waitForWanStatus(instanceId, 1, 300)
-		if err != nil {
-			return irs.RDBMSInfo{}, handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: instanceId},
-				fmt.Errorf("public access requested but WAN was not enabled: %w", err))
+		if wanRequested {
+			// Wait until WAN is enabled to return a public endpoint.
+			if waitErr := handler.waitForWanStatus(instanceId, 1, 300); waitErr != nil {
+				cblogger.Warnf("[Tencent] WAN status wait failed for instance %s; "+
+					"public endpoint may not be available yet. Check the Tencent console: %v",
+					instanceId, waitErr)
+			}
 		}
 	}
 
@@ -614,10 +649,13 @@ func (handler *TencentRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 	var offset uint64 = 0
 	var limit uint64 = 100
 
+	// CDB (MySQL) instances
 	for {
 		request := cdb.NewDescribeDBInstancesRequest()
 		request.Offset = &offset
 		request.Limit = &limit
+		// Include isolated (recycle-bin) instances; see ListIID for why.
+		request.Status = allCDBInstanceStatuses()
 
 		response, err := handler.Client.DescribeDBInstances(request)
 		if err != nil {
@@ -633,7 +671,6 @@ func (handler *TencentRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 
 		for _, inst := range response.Response.Items {
 			rdbmsInfo := handler.convertToRDBMSInfo(inst)
-			// Retrieve backup configuration for each instance
 			handler.enrichBackupInfo(&rdbmsInfo)
 			rdbmsList = append(rdbmsList, &rdbmsInfo)
 		}
@@ -684,41 +721,96 @@ func (handler *TencentRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo, e
 	return rdbmsInfo, nil
 }
 
+// getCDBInstanceStatus looks up a CDB instance's current Status, including
+// isolated (recycle-bin) instances. found=false means Tencent no longer knows
+// about the instance at all (already permanently deleted).
+func (handler *TencentRDBMSHandler) getCDBInstanceStatus(instanceId string) (status int64, found bool, err error) {
+	request := cdb.NewDescribeDBInstancesRequest()
+	request.InstanceIds = []*string{&instanceId}
+	request.Status = allCDBInstanceStatuses()
+
+	response, err := handler.Client.DescribeDBInstances(request)
+	if err != nil {
+		return 0, false, err
+	}
+	if response.Response == nil || len(response.Response.Items) == 0 {
+		return 0, false, nil
+	}
+	if response.Response.Items[0].Status == nil {
+		return 0, true, nil
+	}
+	return *response.Response.Items[0].Status, true, nil
+}
+
 func (handler *TencentRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
-	hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, rdbmsIID.NameId, "IsolateDBInstance()")
-	start := call.Start()
-
-	// Step 1: Isolate the instance (moves to recycle bin, status → 4:isolating → 5:isolated)
-	isolateReq := cdb.NewIsolateDBInstanceRequest()
-	isolateReq.InstanceId = &rdbmsIID.SystemId
-
-	_, err := handler.Client.IsolateDBInstance(isolateReq)
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return false, err
-	}
-	calllogger.Info(call.String(hiscallInfo))
-
-	// Step 2: Wait for isolated status (5) before calling Offline.
-	// OfflineIsolatedInstances fails if the instance is still in isolating state (4).
 	const isolatedStatus int64 = 5
-	if waitErr := handler.waitForInstanceStatus(rdbmsIID.SystemId, isolatedStatus, 300); waitErr != nil {
-		cblogger.Warnf("[Tencent] Timeout waiting for instance %s to reach isolated status; attempting Offline anyway: %v",
-			rdbmsIID.SystemId, waitErr)
+
+	// Idempotency: a prior delete attempt may have already isolated the instance
+	// (or fully removed it) but failed on the final permanent-delete step below.
+	// Re-checking the live status lets a retried/first-time delete request finish
+	// the job in one call instead of leaving the instance stuck in the recycle bin
+	// holding a VPC/subnet IP indefinitely.
+	currentStatus, found, statusErr := handler.getCDBInstanceStatus(rdbmsIID.SystemId)
+	if statusErr != nil {
+		cblogger.Warnf("[Tencent] DeleteRDBMS: failed to check current status of %s, proceeding with isolate: %v", rdbmsIID.SystemId, statusErr)
+	}
+	if statusErr == nil && !found {
+		cblogger.Infof("[Tencent] DeleteRDBMS: instance %s not found; treating as already deleted", rdbmsIID.SystemId)
+		return true, nil
 	}
 
-	// Step 3: Permanently delete (Eliminate Now)
-	offlineReq := cdb.NewOfflineIsolatedInstancesRequest()
-	offlineReq.InstanceIds = []*string{&rdbmsIID.SystemId}
+	if statusErr != nil || currentStatus != isolatedStatus {
+		// Step 1: Isolate the instance (moves to recycle bin, status → 4:isolating → 5:isolated)
+		hiscallInfo := GetCallLogScheme(handler.Region, call.RDBMS, rdbmsIID.NameId, "IsolateDBInstance()")
+		start := call.Start()
 
-	_, err = handler.Client.OfflineIsolatedInstances(offlineReq)
-	if err != nil {
-		return false, fmt.Errorf("instance isolated but permanent delete (OfflineIsolatedInstances) failed: %w", err)
+		isolateReq := cdb.NewIsolateDBInstanceRequest()
+		isolateReq.InstanceId = &rdbmsIID.SystemId
+
+		_, err := handler.Client.IsolateDBInstance(isolateReq)
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+		if err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+		calllogger.Info(call.String(hiscallInfo))
+
+		// Step 2: Wait for isolated status (5) before calling Offline.
+		// OfflineIsolatedInstances fails if the instance is still in isolating state (4).
+		if waitErr := handler.waitForInstanceStatus(rdbmsIID.SystemId, isolatedStatus, 300); waitErr != nil {
+			cblogger.Warnf("[Tencent] Timeout waiting for instance %s to reach isolated status; attempting permanent delete anyway: %v",
+				rdbmsIID.SystemId, waitErr)
+		}
 	}
 
-	return true, nil
+	// Step 3: Permanently delete (Eliminate Now). Retry on transient failures so the
+	// instance - and the VPC/subnet IP it holds - is fully released on the first
+	// delete request instead of requiring a manual retry later.
+	const maxOfflineAttempts = 5
+	const offlineRetryIntervalSec = 20
+	var offlineErr error
+	for attempt := 1; attempt <= maxOfflineAttempts; attempt++ {
+		offlineReq := cdb.NewOfflineIsolatedInstancesRequest()
+		offlineReq.InstanceIds = []*string{&rdbmsIID.SystemId}
+
+		_, offlineErr = handler.Client.OfflineIsolatedInstances(offlineReq)
+		if offlineErr == nil {
+			return true, nil
+		}
+		if strings.Contains(offlineErr.Error(), "InstanceNotFound") || strings.Contains(offlineErr.Error(), "ResourceNotFound") {
+			// Already gone, e.g. a race with a previous delete attempt.
+			return true, nil
+		}
+		if attempt >= maxOfflineAttempts {
+			break
+		}
+		cblogger.Warnf("[Tencent] OfflineIsolatedInstances failed for %s (attempt %d/%d), retrying in %ds: %v",
+			rdbmsIID.SystemId, attempt, maxOfflineAttempts, offlineRetryIntervalSec, offlineErr)
+		time.Sleep(time.Duration(offlineRetryIntervalSec) * time.Second)
+	}
+
+	return false, fmt.Errorf("instance isolated but permanent delete (OfflineIsolatedInstances) failed after %d attempts: %w", maxOfflineAttempts, offlineErr)
 }
 
 // ===== Helper Functions =====
@@ -868,6 +960,10 @@ func (handler *TencentRDBMSHandler) waitForInstanceStatus(instanceId string, tar
 	for elapsed := 0; elapsed < timeoutSec; elapsed += 15 {
 		request := cdb.NewDescribeDBInstancesRequest()
 		request.InstanceIds = []*string{&instanceId}
+		// Without this, DescribeDBInstances omits isolated (Status=5) instances by
+		// default, so waiting for the isolated status during delete would never see
+		// the instance transition and would spin until timeout every time.
+		request.Status = allCDBInstanceStatuses()
 
 		response, err := handler.Client.DescribeDBInstances(request)
 		if err != nil {

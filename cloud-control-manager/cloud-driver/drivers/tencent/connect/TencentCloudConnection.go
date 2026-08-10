@@ -195,7 +195,12 @@ func (cloudConn *TencentCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler,
 		ClusterClient:  cloudConn.ClusterClient,
 		CDBClient:      cloudConn.CDBClient,
 	}
-	handler := trs.TencentRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.CDBClient, VMClient: cloudConn.VMClient, TagHandler: &tagHandler}
+	handler := trs.TencentRDBMSHandler{
+		Region:     cloudConn.Region,
+		Client:     cloudConn.CDBClient,
+		VMClient:   cloudConn.VMClient,
+		TagHandler: &tagHandler,
+	}
 	return &handler, nil
 }
 

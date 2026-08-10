@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# CB-Spider RDBMS Delete Script for All CSPs
-# Deletes RDBMS instances on all 9 CSPs in parallel and reports results.
+# CB-Spider RDBMS Delete Script for All CSPs (MariaDB)
+# Deletes RDBMS instances on the CSPs that support MariaDB (AWS, Alibaba,
+# OpenStack, NHN) in parallel and reports results.
+# Azure/GCP/IBM/NCP/Tencent do not support MariaDB and are excluded.
 # Author: CB-Spider Team
 # Note: Written for bash 3.2+ compatibility (macOS default shell)
 
@@ -13,7 +15,7 @@ export SPIDER_AUTH="${SPIDER_AUTH:-admin:****}"
 export MAX_WAIT_SEC="${MAX_WAIT_SEC:-1800}"  # 30 min timeout per CSP
 export POLL_INTERVAL="${POLL_INTERVAL:-15}"  # poll every 15s
 
-RDBMS_NAME="cb-spider-mysql-test"
+RDBMS_NAME="cb-spider-mariadb-test"
 
 RESULT_DIR="/tmp/rdbms_del_results_$$"
 LOG_DIR="/tmp/rdbms_del_logs_$$"
@@ -23,13 +25,8 @@ mkdir -p "${RESULT_DIR}" "${LOG_DIR}"
 csp_connection() {
     case "$1" in
         AWS)       echo "aws-config01"                 ;;
-        AZURE)     echo "azure-koreacentral-config"    ;;
-        GCP)       echo "gcp-iowa-config"              ;;
         ALIBABA)   echo "alibaba-beijing-config"       ;;
-        TENCENT)   echo "tencent-beijing3-config"      ;;
-        IBM)       echo "ibm-us-east-1-config"         ;;
         OPENSTACK) echo "openstack-config01"           ;;
-        NCP)       echo "ncp-korea1-config"            ;;
         NHN)       echo "nhn-korea-pangyo1-config"     ;;
     esac
 }
@@ -43,7 +40,7 @@ print_separator() {
 # ── Launch ────────────────────────────────────────────────────────────────────
 echo ""
 echo "############################################################"
-echo "#     CB-Spider RDBMS Delete - All CSPs                    #"
+echo "#  CB-Spider RDBMS Delete - All CSPs (MariaDB)             #"
 echo "############################################################"
 echo ""
 echo "RDBMS Name   : ${RDBMS_NAME}"
@@ -54,7 +51,7 @@ echo ""
 echo "Launching parallel deletion on all CSPs..."
 echo ""
 
-CSP_ORDER="AWS AZURE GCP ALIBABA TENCENT IBM OPENSTACK NCP NHN"
+CSP_ORDER="AWS ALIBABA OPENSTACK NHN"
 
 for csp in ${CSP_ORDER}; do
     conn=$(csp_connection "${csp}")
@@ -99,7 +96,7 @@ echo ""
 
 # ── Result table ──────────────────────────────────────────────────────────────
 echo "============================================================"
-echo "         RDBMS DELETE SUMMARY - ALL CSPs"
+echo "      RDBMS DELETE SUMMARY - ALL CSPs (MariaDB)"
 echo "============================================================"
 echo ""
 printf "%-12s | %-14s | %-20s | %-10s\n" "CSP" "Result" "Detail" "Elapsed"
@@ -122,11 +119,6 @@ for csp in ${CSP_ORDER}; do
     printf "%-12s | %-14s | %-20s | %-10s\n" \
         "${r_csp}" "${r_result}" "${r_detail}" "${r_elapsed}"
 
-    # DELETED: instance confirmed gone.
-    # NOT_FOUND: CB-Spider has no IID for this instance, which may mean the
-    #   CSP resource still exists as a zombie (e.g. after a failed rollback).
-    #   Treat as a warning failure so operators are alerted to check manually.
-    # DELETE_ERROR/DELETE_TIMEOUT/NO_RESULT: hard failure.
     case "${r_result}" in
         DELETED) ;;
         NOT_FOUND)
@@ -157,5 +149,4 @@ if [[ "${VERBOSE:-0}" == "1" ]]; then
     done
 fi
 
-# Propagate failure to caller (all_test.sh) so a real delete error fails this step
 [[ ${fail_count} -eq 0 ]]
