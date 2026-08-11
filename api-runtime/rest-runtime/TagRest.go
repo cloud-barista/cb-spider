@@ -33,7 +33,8 @@ type TagAddRequest struct {
 // @ID add-tag
 // @Summary Add Tag
 // @Description Add a tag to a specified resource.
-// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+// @Description ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
 // @Tags [Tag Management]
 // @Accept  json
 // @Produce  json
@@ -64,7 +65,8 @@ func AddTag(c echo.Context) error {
 // @ID list-tag
 // @Summary List Tags
 // @Description Retrieve a list of tags for a specified resource.
-// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+// @Description ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
 // @Tags [Tag Management]
 // @Accept  json
 // @Produce  json
@@ -117,7 +119,8 @@ func ListTag(c echo.Context) error {
 // @ID get-tag
 // @Summary Get Tag
 // @Description Retrieve a specific tag for a specified resource.
-// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+// @Description ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
 // @Tags [Tag Management]
 // @Accept  json
 // @Produce  json
@@ -171,7 +174,8 @@ type TagRemoveRequest struct {
 // @ID remove-tag
 // @Summary Remove Tag
 // @Description Remove a specific tag from a specified resource.
-// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+// @Description ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+// @Description ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
 // @Tags [Tag Management]
 // @Accept  json
 // @Produce  json
