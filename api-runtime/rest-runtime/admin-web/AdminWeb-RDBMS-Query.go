@@ -237,7 +237,7 @@ func RDBMSTestConnection(c echo.Context) error {
 // DB schema creation/deletion must go through the NHN Cloud RDS v3.0 REST API.
 // ============================================================
 
-// getNHNRDSCredentials fetches the NHN RDS API credentials (appKey, userAccessKey, secretAccessKey)
+// getNHNRDSCredentials fetches the NHN RDS for MySQL API credentials (mysqlAppKey, userAccessKey, secretAccessKey)
 // from the CB-Spider connection config and its associated credential info.
 func getNHNRDSCredentials(connName string) (appKey, userAccessKey, secretAccessKey string, err error) {
 	ccBody, err := getResource_JsonByte("connectionconfig", connName)
@@ -270,7 +270,7 @@ func getNHNRDSCredentials(connName string) (appKey, userAccessKey, secretAccessK
 
 	for _, kv := range cred.KeyValueInfoList {
 		switch kv.Key {
-		case "appKey":
+		case "mysqlAppKey":
 			appKey = kv.Value
 		case "User Access Key":
 			userAccessKey = kv.Value
@@ -279,7 +279,7 @@ func getNHNRDSCredentials(connName string) (appKey, userAccessKey, secretAccessK
 		}
 	}
 	if appKey == "" || userAccessKey == "" || secretAccessKey == "" {
-		return "", "", "", fmt.Errorf("missing NHN RDS credentials in %q (appKey=%v, userAccessKey=%v, secretAccessKey=%v)",
+		return "", "", "", fmt.Errorf("missing NHN RDS credentials in %q (mysqlAppKey=%v, userAccessKey=%v, secretAccessKey=%v)",
 			cc.CredentialName, appKey != "", userAccessKey != "", secretAccessKey != "")
 	}
 	return appKey, userAccessKey, secretAccessKey, nil

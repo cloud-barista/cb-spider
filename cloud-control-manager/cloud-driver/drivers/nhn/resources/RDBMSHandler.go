@@ -407,17 +407,17 @@ func (handler *NhnCloudRDBMSHandler) listRDSStorageTypesWithEndpoint(ctx context
 // rdsEffectiveAppKey returns the App Key to use for the given NHN RDS endpoint URL.
 // RDS for MySQL and RDS for MariaDB are separate NHN Cloud services with separate App Keys.
 // If the caller has configured RDSMariaDBAppKey and the endpoint targets the MariaDB service,
-// that key is used; otherwise RDSAppKey is returned.
+// that key is used; otherwise RDSMySQLAppKey is returned.
 func (handler *NhnCloudRDBMSHandler) rdsEffectiveAppKey(endpoint string) string {
 	if strings.Contains(endpoint, "rds-mariadb") {
 		if handler.CredentialInfo.RDSMariaDBAppKey != "" {
 			return handler.CredentialInfo.RDSMariaDBAppKey
 		}
 		cblogger.Warnf("[NHN RDS] WARNING: calling MariaDB endpoint but RDSMariaDBAppKey (mariadbAppKey) is not set; " +
-			"falling back to RDSAppKey — this will likely cause Unauthorized or 500 from NHN API. " +
+			"falling back to RDSMySQLAppKey — this will likely cause Unauthorized or 500 from NHN API. " +
 			"Register 'mariadbAppKey' in your NHN credential (NHN Console → RDS for MariaDB → URL & AppKey).")
 	}
-	return handler.CredentialInfo.RDSAppKey
+	return handler.CredentialInfo.RDSMySQLAppKey
 }
 
 func (handler *NhnCloudRDBMSHandler) getRDS(ctx context.Context, path string, v interface{}) error {
@@ -493,8 +493,8 @@ func (handler *NhnCloudRDBMSHandler) rdsMariaDBEndpoint() (string, error) {
 func (handler *NhnCloudRDBMSHandler) checkRDSCredentials() error {
 	isUnset := func(v string) bool { return v == "" || v == "Not set" }
 	var missing []string
-	if isUnset(handler.CredentialInfo.RDSAppKey) {
-		missing = append(missing, "'appKey'")
+	if isUnset(handler.CredentialInfo.RDSMySQLAppKey) {
+		missing = append(missing, "'mysqlAppKey'")
 	}
 	if isUnset(handler.CredentialInfo.RDSUserAccessKey) {
 		missing = append(missing, "'User Access Key'")
@@ -506,7 +506,7 @@ func (handler *NhnCloudRDBMSHandler) checkRDSCredentials() error {
 		return fmt.Errorf(
 			"NHN Cloud RDBMS requires 3 credential keys that are not yet registered: %s.\n"+
 				"How to obtain and register them:\n"+
-				"  1. appKey       : NHN Cloud Console → Database → RDS for MySQL/MariaDB → URL & AppKey\n"+
+				"  1. mysqlAppKey  : NHN Cloud Console → Database → RDS for MySQL → URL & AppKey\n"+
 				"  2. User Access Key  : NHN Cloud Console → My Page → API Security Settings → User Access Key ID\n"+
 				"  3. Secret Access Key: same page as above → Secret Access Key\n"+
 				"Add the missing key(s) to your CB-Spider credential and try again.",
@@ -1098,7 +1098,7 @@ func (handler *NhnCloudRDBMSHandler) putRDS(ctx context.Context, path string, bo
 		return fmt.Errorf("failed to create NHN Cloud RDS PUT request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-TC-APP-KEY", handler.CredentialInfo.RDSAppKey)
+	req.Header.Set("X-TC-APP-KEY", handler.CredentialInfo.RDSMySQLAppKey)
 	req.Header.Set("X-TC-AUTHENTICATION-ID", handler.CredentialInfo.RDSUserAccessKey)
 	req.Header.Set("X-TC-AUTHENTICATION-SECRET", handler.CredentialInfo.RDSSecretAccessKey)
 
