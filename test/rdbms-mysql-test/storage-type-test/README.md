@@ -1,29 +1,123 @@
 # CB-Spider RDBMS StorageType Test
 
-각 CSP의 StorageType별로 RDBMS 인스턴스를 생성·검증하는 병렬 테스트 스위트.
+각 CSP의 StorageType별로 RDBMS 인스턴스를 생성·검증하는 병렬 테스트 스위트입니다. 각 CSP의 `rdbmsmetainfo` API에서 지원 StorageType 목록을 동적으로 조회한 뒤, 옵션별로 인스턴스를 병렬 생성하고 반환된 StorageType이 요청과 일치하는지 검증합니다.
 
-## 실행
+## Prerequisites
+
+### CB-Spider Running
 
 ```bash
-# 전체 CSP 병렬 실행
+cd ./bin; ./start.sh
+```
+
+### Pre-created Network Resources
+
+RDBMS 생성 전에 각 CSP에 VPC/Subnet(및 AWS의 Security Group)이 미리 생성되어 있어야 합니다.
+
+```bash
+cd ..
+./run-all-csp-network-prepare.sh
+```
+
+### Required Tools
+
+- `bash` 3.2+
+- `curl`
+- `jq`
+
+## Test Flow
+
+각 CSP에 대해 다음 순서로 StorageType별 검증을 수행합니다:
+
+1. **FetchStorageTypeOptions** — `GET /spider/rdbmsmetainfo?DBEngine=mysql&ConnectionName=...` — 지원하는 StorageType 목록을 동적으로 조회
+2. **CreateRDBMS** (StorageType별 병렬) — `POST /spider/rdbms` — 옵션별로 `cb-mysql-st-<type>` 인스턴스 생성
+3. **Poll Available** — `GET /spider/rdbms/{Name}` — Available 상태가 될 때까지 폴링 (기본 30초 간격, 최대 3600초)
+4. **VerifyStorageType** — 반환된 StorageType이 요청과 일치하는지 확인 (`Result` 필드에 `PASS`/`FAIL` 기록)
+5. **(옵션) AutoDelete** — `AUTO_DELETE=true`이면 검증 직후 인스턴스 자동 삭제. 기본값(`false`)에서는 `delete-all-csp-storage-type-rdbms.sh`로 별도 정리
+
+Azure/IBM/NCP는 `SupportsStorageTypeSelection=false`로 StorageType 지정이 불가능하여 스크립트 실행 시 즉시 SKIP 처리됩니다.
+
+### StorageType 선택 가능 여부
+
+| CSP | SupportsStorageTypeSelection | 비고 |
+|-----|------------------------------|------|
+| AWS | ✅ | gp2, gp3, io1, io2 |
+| GCP | ✅ | 머신 시리즈에 따라 자동 결정 (직접 선택 아님) |
+| Alibaba | ✅ | cloud_auto, cloud_essd, cloud_essd2, cloud_essd3, local_ssd |
+| Tencent | ✅ | local_ssd, CLOUD_HSSD, CLOUD_SSD, CLOUD_PREMIUM |
+| OpenStack | ✅ | `__DEFAULT__`, `RBD` |
+| NHN | ✅ | General HDD, General SSD |
+| Azure | ❌ | SKIP |
+| IBM | ❌ | SKIP |
+| NCP | ❌ | SKIP |
+
+## Configuration
+
+```bash
+export SPIDER_URL=http://localhost:1024   # CB-Spider REST API URL
+export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
+```
+
+## How to Run Tests
+
+### All CSPs in Parallel
+
+```bash
 ./run-all-csp-storage-type-tests.sh
+```
 
-# CSP별 단독 실행
+- 9개 CSP에 대해 병렬로 StorageType별 검증 실행 (Azure/IBM/NCP는 자동 SKIP)
+- 완료 후 통합 결과 테이블 및 PASS/FAIL/SKIP 집계 출력
+
+**Example output:**
+```
+================================================================================================================================
+                               RDBMS StorageType Test Summary - All CSPs
+================================================================================================================================
+CSP          | StorageType(Req)     | StorageType(Ret)   | Result | DB Status      | Elapsed    | Reason
+--------------------------------------------------------------------------------------------------------------------------------
+AWS          | gp2                  | gp2                | PASS   | Available      | 5m43s      | -
+AZURE        | N/A                  | N/A                | SKIP   | NOT_APPLICABLE | -          | SupportsStorageTypeSelection=false
+GCP          | PD_SSD               | PD_SSD             | PASS   | Available      | 4m10s      | -
+...
+--------------------------------------------------------------------------------------------------------------------------------
+
+Total: 22  PASS: 19  FAIL: 0  SKIP: 3
+```
+
+### Individual CSP
+
+특정 CSP만 단독 실행:
+
+```bash
 ./aws-storage-type-test.sh
+./azure-storage-type-test.sh          # SKIP (StorageType 선택 불가)
 ./gcp-storage-type-test.sh
-# ...
+./alibaba-storage-type-test.sh
+./tencent-storage-type-test.sh
+./ibm-storage-type-test.sh            # SKIP (StorageType 선택 불가)
+./openstack-storage-type-test.sh
+./ncp-storage-type-test.sh            # SKIP (StorageType 선택 불가)
+./nhn-storage-type-test.sh
+```
 
-# 전체 삭제
+단독 실행 시 결과/로그 디렉토리는 `RESULT_DIR` / `LOG_DIR` 환경변수로 지정하거나 기본값(`/tmp/st_results_<PID>`, `/tmp/st_logs_<PID>`)이 사용됩니다.
+
+### Delete All Instances
+
+```bash
 ./delete-all-csp-storage-type-rdbms.sh
 ```
 
-## 스크립트 구조
+- StorageTypeOptions를 다시 조회해 `cb-mysql-st-<type>` 이름의 인스턴스를 유추한 뒤 전체 CSP 병렬 삭제
+
+## Script Structure
 
 ```
-.
-├── run-all-csp-storage-type-tests.sh   # 전체 CSP 병렬 실행
-├── delete-all-csp-storage-type-rdbms.sh # 전체 CSP 병렬 삭제
-├── common-storage-type-test.sh          # 공통: Create → Poll Available → Get Info
+storage-type-test/
+├── run-all-csp-storage-type-tests.sh    # Orchestrator: 전체 CSP 병렬 실행
+├── delete-all-csp-storage-type-rdbms.sh # Orchestrator: 전체 CSP 병렬 삭제
+├── common-storage-type-test.sh          # Common: Create → Poll Available → Get Info → Verify → (옵션) Delete
 ├── aws-storage-type-test.sh
 ├── gcp-storage-type-test.sh
 ├── alibaba-storage-type-test.sh
@@ -35,9 +129,69 @@
 └── ncp-storage-type-test.sh             # SKIP (StorageType 선택 불가)
 ```
 
----
+## Environment Variables
 
-## CSP별 시험 설정
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPIDER_URL` | `http://localhost:1024` | CB-Spider REST API URL |
+| `SPIDER_AUTH` | `admin:****` | Basic auth credentials |
+| `MAX_WAIT_SEC` | `3600` (create) / `1800` (delete) | Timeout per instance (seconds) |
+| `POLL_INTERVAL` | `30` (create) / `15` (delete) | Polling interval (seconds) |
+| `AUTO_DELETE` | `false` | `true`이면 검증 완료 직후 인스턴스 자동 삭제 |
+| `VERBOSE` | `0` | `1`로 설정 시 CSP별 전체 로그 덤프 출력 |
+
+```bash
+# Example: verbose output
+VERBOSE=1 ./run-all-csp-storage-type-tests.sh
+```
+
+## Result Format
+
+결과 파일(`result_<csp>_<storagetype>.txt`)은 파이프(|) 구분 7개 필드:
+
+```
+CSP|StorageType(Requested)|StorageType(Returned)|Result|DB_Status|Elapsed|Reason
+```
+
+| 필드 | 설명 |
+|------|------|
+| `CSP` | CSP 이름 (예: AWS) |
+| `StorageType(Requested)` | 요청한 StorageType 값 |
+| `StorageType(Returned)` | 생성 후 조회된 StorageType 값 (`N/A`는 생성 실패) |
+| `Result` | `PASS` / `FAIL` / `SKIP` |
+| `DB_Status` | 인스턴스 상태 (`Available`, `CREATE_ERROR`, `TIMEOUT`, `NOT_APPLICABLE` 등) |
+| `Elapsed` | 경과 시간 |
+| `Reason` | 특이사항 (예: SupportsStorageTypeSelection=false, cloud_auto 자동 선택 등) |
+
+## API Reference
+
+| Operation | Method | Path |
+|-----------|--------|------|
+| FetchStorageTypeOptions | `GET` | `/spider/rdbmsmetainfo?DBEngine=mysql&ConnectionName=` |
+| CreateRDBMS | `POST` | `/spider/rdbms` |
+| GetRDBMS | `GET` | `/spider/rdbms/{Name}?ConnectionName=` |
+| DeleteRDBMS | `DELETE` | `/spider/rdbms/{Name}` |
+
+## Logs & Results
+
+```
+/tmp/st_test_<PID>/results/result_<csp>_<storagetype>.txt
+/tmp/st_test_<PID>/logs/log_<csp>.txt
+```
+
+전체 삭제 실행 시:
+```
+/tmp/st_del_<PID>/results/result_<csp>_<storagetype>.txt
+/tmp/st_del_<PID>/logs/log_<csp>.txt
+```
+
+실행 중 모니터링:
+
+```bash
+tail -f /tmp/st_test_<PID>/logs/log_aws.txt
+```
+
+## CSP-Specific Notes
 
 ### AWS
 
@@ -47,7 +201,6 @@
 | gp3 | db.t3.medium | 100 GB | - |
 | io1 | db.t3.medium | 100 GB | **3000 (필수)** |
 | io2 | db.t3.medium | 100 GB | **3000 (필수)** |
-| standard | db.t3.medium | 100 GB | - |
 
 - StorageTypeOptions: metainfo API에서 동적으로 조회
 - Connection: `aws-config01`
@@ -182,24 +335,6 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - Region: `KR` / Zone: `KR-1`
 - NCP MySQL G3은 SSD 자동 적용, DataStorageTypeCode 지정 불가
 - 테스트 스크립트 실행 시 즉시 SKIP 처리
-
----
-
-## StorageType 선택 가능 여부 요약
-
-| CSP | SupportsStorageTypeSelection | 비고 |
-|-----|------------------------------|------|
-| AWS | ✅ | gp2, gp3, io1, io2, standard |
-| GCP | ✅ | 머신 시리즈에 따라 자동 결정 (직접 선택 아님) |
-| Alibaba | ✅ | cloud_auto, cloud_essd, cloud_essd2, cloud_essd3, local_ssd |
-| Tencent | ✅ | local_ssd, CLOUD_HSSD, CLOUD_SSD, CLOUD_PREMIUM |
-| OpenStack | ✅ | __DEFAULT__, RBD  |
-| NHN | ✅ | General HDD, General SSD |
-| Azure | ❌ | SKIP |
-| IBM | ❌ | SKIP |
-| NCP | ❌ | SKIP |
-
----
 
 ## 시험 결과
 
