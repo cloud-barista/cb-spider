@@ -11379,7 +11379,7 @@ const docTemplate = `{
         },
         "/tag": {
             "get": {
-                "description": "Retrieve a list of tags for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Retrieve a list of tags for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
@@ -11445,7 +11445,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Add a tag to a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Add a tag to a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
@@ -11498,7 +11498,7 @@ const docTemplate = `{
         },
         "/tag/{Key}": {
             "get": {
-                "description": "Retrieve a specific tag for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Retrieve a specific tag for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
@@ -11568,7 +11568,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Remove a specific tag from a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Remove a specific tag from a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
