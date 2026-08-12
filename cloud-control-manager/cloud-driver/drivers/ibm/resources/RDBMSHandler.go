@@ -107,8 +107,17 @@ func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, err
 	}
+	// fetchRDBMSStorageSizeRange() returns Disk.MinimumMb/MaximumMb divided by
+	// ibmStorageUnitGB(1024), i.e. GiB — but that raw GiB value is also reused as-is by
+	// validateRDBMSStorageSizeRange()/CreateRDBMS() for request validation and the
+	// members_disk_allocation_mb calculation, so it must NOT be changed there. Convert to
+	// decimal GB only for this GetMetaInfo() response (RDBMSMetaInfo.StorageSizeRangeGB).
+	metaInfoStorageSizeRange := irs.StorageSizeRange{
+		Min: irs.GiBToGB(storageSizeRange.Min),
+		Max: irs.GiBToGB(storageSizeRange.Max),
+	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "NA", false, false, false, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, metaInfoStorageSizeRange, true, true, true, true, true, "NA", false, false, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}

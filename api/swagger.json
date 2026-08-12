@@ -15427,7 +15427,7 @@
                     ]
                 },
                 "DataSource": {
-                    "description": "DataSource records, per field name (e.g. \"StorageTypeOptions\", \"StorageSizeRange\",\nor \"StorageSizeRange.Min\"/\"StorageSizeRange.Max\" for a partially-static range),\nwhether that field's value above was obtained live from the CSP API (\"API\") or is\na fixed value (\"Static\") for this response. A field with no entry here is \"API\".",
+                    "description": "DataSource records, per field name (e.g. \"StorageTypeOptions\", \"StorageSizeRangeGB\",\nor \"StorageSizeRangeGB.Min\"/\"StorageSizeRangeGB.Max\" for a partially-static range),\nwhether that field's value above was obtained live from the CSP API (\"API\") or is\na fixed value (\"Static\") for this response. A field with no entry here is \"API\".",
                     "type": "object",
                     "additionalProperties": {
                         "$ref": "#/definitions/spider.RDBMSDataSource"
@@ -15448,8 +15448,8 @@
                     "description": "true if SubnetNames is required at creation",
                     "type": "boolean"
                 },
-                "StorageSizeRange": {
-                    "description": "Min/Max storage size in GB for the requested DB engine",
+                "StorageSizeRangeGB": {
+                    "description": "Min/Max storage size in decimal GB (10^9 bytes) for the requested DB engine. Converted from the CSP's native unit when that unit is objectively known (see GiBToGB); left unconverted, with a DataSourceNotes caveat, when the native unit cannot be confirmed.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.StorageSizeRange"

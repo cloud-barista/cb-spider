@@ -213,6 +213,9 @@ func (handler *TencentRDBMSHandler) fetchCDBMetaOptions() (map[string][]string, 
 	// UNIVERSAL (local SSD) is always available; add it regardless of cloud disk support.
 	storageTypeSet["local_ssd"] = struct{}{}
 
+	// No unit conversion needed: CdbSellConfig.VolumeMin/VolumeMax are documented by Tencent's
+	// SDK ("磁盘最小规格/磁盘最大规格，单位为GB") as decimal GB, unlike Memory which needs a
+	// separate GiB*1000 correction (see resolveMemoryMBFromSpec).
 	memorySet := make(map[int64]struct{})
 	storageRange := irs.StorageSizeRange{}
 	for cfgID := range selectedConfigIDs {

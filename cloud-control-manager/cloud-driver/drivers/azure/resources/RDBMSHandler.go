@@ -65,6 +65,12 @@ func (handler *AzureRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInf
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("GetMetaInfo failed: %w", err)
 	}
+	// azureStorageMBToGB() only divides the raw capabilitySet value (MiB) by 1024,
+	// yielding GiB. Convert to decimal GB for RDBMSMetaInfo.StorageSizeRangeGB.
+	storageSizeRange = irs.StorageSizeRange{
+		Min: irs.GiBToGB(storageSizeRange.Min),
+		Max: irs.GiBToGB(storageSizeRange.Max),
+	}
 
 	// Azure MySQL Flexible Server provides SKU list via LocationBasedCapabilitySet API
 	instanceSpecOptions := map[string][]string{
