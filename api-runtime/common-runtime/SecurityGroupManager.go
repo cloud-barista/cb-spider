@@ -588,6 +588,7 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 
 		// set VPC SystemId
 		var vpcIIDInfo VPCIIDInfo
+		var vpcLookupErr error
 		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
 			var iidInfoList []*VPCIIDInfo
 			err = getAuthIIDInfoList(connectionName, &iidInfoList)
@@ -597,16 +598,23 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 			}
 			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
 			if err != nil {
-				cblog.Error(err)
-				return nil, err
+				vpcLookupErr = err
+			} else {
+				vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
 			}
-			vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
 		} else {
-			err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+			vpcLookupErr = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		}
+		if vpcLookupErr != nil {
+			cblog.Error(vpcLookupErr)
+			if !checkNotFoundError(vpcLookupErr) {
+				return nil, vpcLookupErr
 			}
+			// Owner VPC metadata is gone (e.g. the VPC was deleted without this SG
+			// being cleaned up first) - still list the orphaned SG so the user can
+			// see and delete it, instead of failing the whole listing.
+			infoList2 = append(infoList2, &info)
+			continue
 		}
 		info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
