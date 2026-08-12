@@ -96,10 +96,13 @@ func (handler *OpenStackRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMet
 	}
 
 	// Min is never derived from a live value; Trove/Cinder don't expose a minimum disk size.
-	metaInfo.MarkStatic("StorageSizeRange", "Minimum storage size is a fixed constant; not derived from a live Cinder value.")
-	metaInfo.MarkStatic("StorageSizeRange.Min", "OpenStack Cinder does not expose a minimum volume size; fixed at 1GB.")
+	// No unit conversion is applied here: this range is not a Trove/RDBMS spec limit at all,
+	// it is the OpenStack project's (tenant's) Cinder block-storage quota, and Cinder's
+	// "gigabytes" quota has no documented/objective binary-vs-decimal basis to convert from.
+	metaInfo.MarkStatic("StorageSizeRangeGB", "Minimum storage size is a fixed constant; not derived from a live Cinder value. This range reflects the project's Cinder volume quota, not a per-flavor RDBMS storage limit; its native unit (decimal vs binary GB) is not documented by Cinder, so no conversion is applied.")
+	metaInfo.MarkStatic("StorageSizeRangeGB.Min", "OpenStack Cinder does not expose a minimum volume size; fixed at 1GB.")
 	if storageSizeRange.Max <= 0 {
-		metaInfo.MarkStatic("StorageSizeRange.Max", "No Cinder volume quota is configured for this project (unlimited); -1 is a sentinel, not a real upper bound.")
+		metaInfo.MarkStatic("StorageSizeRangeGB.Max", "No Cinder volume quota is configured for this project (unlimited); -1 is a sentinel, not a real upper bound.")
 	}
 
 	LoggingInfo(hiscallInfo, start)

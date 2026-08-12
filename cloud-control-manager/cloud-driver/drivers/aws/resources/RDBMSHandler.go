@@ -136,6 +136,12 @@ func (handler *AwsRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("DescribeOrderableDBInstanceOptions failed: %w", err)
 	}
+	// AWS RDS documents MinStorageSize/MaxStorageSize in GiB (gibibytes); convert to decimal GB
+	// for RDBMSMetaInfo.StorageSizeRangeGB, which is defined in GB.
+	storageSizeRange = irs.StorageSizeRange{
+		Min: irs.GiBToGB(storageSizeRange.Min),
+		Max: irs.GiBToGB(storageSizeRange.Max),
+	}
 
 	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "0-35", true, true, true, true, true)
 	if err != nil {

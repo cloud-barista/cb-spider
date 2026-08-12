@@ -338,7 +338,7 @@ func (handler *NhnCloudRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMeta
 		LoggingError(callLogInfo, err)
 		return irs.RDBMSMetaInfo{}, err
 	}
-	metaInfo.MarkStatic("StorageSizeRange", "NHN Cloud RDS API does not expose a storage size range; fixed at 20-2048GB.")
+	metaInfo.MarkStatic("StorageSizeRangeGB", "NHN Cloud RDS API does not expose a storage size range; fixed at 20-2048GB for both mysql and mariadb. No unit conversion is applied because the value is not derived from any CSP-reported unit.")
 
 	LoggingInfo(callLogInfo, start)
 	return metaInfo, nil

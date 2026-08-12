@@ -238,6 +238,9 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alib
 		return nil, irs.StorageSizeRange{}, errors.New("DescribeAvailableClasses returned no storage size range")
 	}
 
+	// No unit conversion applied: DescribeAvailableClasses' DBInstanceStorageRange/StorageRange
+	// is widely documented as decimal GB, but the vendored SDK (auto-generated) carries no unit
+	// comment to confirm this independently, so it is passed through as-is rather than guessed.
 	return instanceSpecOptions, irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
 }
 

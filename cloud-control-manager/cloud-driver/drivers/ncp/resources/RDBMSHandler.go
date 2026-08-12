@@ -119,7 +119,7 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 		SupportedVersions:                versions,
 		DBInstanceSpecOptions:            instanceSpecs,
 		StorageTypeOptions:               []string{"NA"},
-		StorageSizeRange:                 irs.StorageSizeRange{Min: 10, Max: 6000},
+		StorageSizeRangeGB:               irs.StorageSizeRange{Min: 10, Max: 6000},
 		SupportsHighAvailability:         true,
 		SupportsBackup:                   true,
 		SupportsPublicAccess:             false, // NCP does not expose a public domain assignment API; must be done manually via NCP Console
@@ -132,7 +132,7 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 		SupportsTag:                      false,
 	}
 	metaInfo.MarkStatic("StorageTypeOptions", "NCP G3 generation sets storage type (SSD) automatically; not user-selectable or queryable via API.")
-	metaInfo.MarkStatic("StorageSizeRange", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative.")
+	metaInfo.MarkStatic("StorageSizeRangeGB", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative. No unit conversion is applied because the value is not derived from any CSP-reported unit.")
 	if len(instanceSpecs) == 0 {
 		metaInfo.MarkStatic("DBInstanceSpecOptions", "MySQL G3 product spec query failed for this request; returned an empty list instead of live data.")
 	}
@@ -214,7 +214,7 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 		SupportedVersions:                versions,
 		DBInstanceSpecOptions:            instanceSpecs,
 		StorageTypeOptions:               []string{"NA"},
-		StorageSizeRange:                 irs.StorageSizeRange{Min: 10, Max: 6000},
+		StorageSizeRangeGB:               irs.StorageSizeRange{Min: 10, Max: 6000},
 		SupportsHighAvailability:         true,
 		SupportsBackup:                   true,
 		SupportsPublicAccess:             false,
@@ -226,7 +226,7 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 		RequiresSecurityGroup:            false,
 	}
 	metaInfo.MarkStatic("StorageTypeOptions", "NCP G3 generation sets storage type (SSD) automatically; not user-selectable or queryable via API.")
-	metaInfo.MarkStatic("StorageSizeRange", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative.")
+	metaInfo.MarkStatic("StorageSizeRangeGB", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative. No unit conversion is applied because the value is not derived from any CSP-reported unit.")
 	if len(instanceSpecs) == 0 {
 		metaInfo.MarkStatic("DBInstanceSpecOptions", "PostgreSQL product spec query failed for this request; returned an empty list instead of live data.")
 	}

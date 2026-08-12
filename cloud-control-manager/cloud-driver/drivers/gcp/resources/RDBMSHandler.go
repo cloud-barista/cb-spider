@@ -57,13 +57,17 @@ func (handler *GCPRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL instance options failed: %w", err)
 	}
+	// Max is derived from Tiers.List()'s DiskQuota (bytes), already divided down to GiB
+	// by fetchCloudSQLInstanceOptions; convert to decimal GB. Min is a hardcoded constant
+	// with no confirmed native unit, so it is left unconverted (see MarkStatic below).
+	storageSizeRange.Max = irs.GiBToGB(storageSizeRange.Max)
 
 	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "1-7", false, false, true, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
-	metaInfo.MarkStatic("StorageSizeRange", "Minimum storage size is a fixed constant; only the maximum is derived from the live Cloud SQL Tiers API.")
-	metaInfo.MarkStatic("StorageSizeRange.Min", "GCP Cloud SQL Admin API does not expose a minimum disk size; fixed at 10GB.")
+	metaInfo.MarkStatic("StorageSizeRangeGB", "Minimum storage size is a fixed constant; only the maximum is derived from the live Cloud SQL Tiers API.")
+	metaInfo.MarkStatic("StorageSizeRangeGB.Min", "GCP Cloud SQL Admin API does not expose a minimum disk size; fixed at 10GB (unit not independently confirmed, left unconverted).")
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
