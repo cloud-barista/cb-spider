@@ -107,11 +107,26 @@
         width: 100%;
         background-color: white;
         z-index: 1000;
-        padding: 10px 0;
+        padding: 10px 8px;
+        box-sizing: border-box;
         border-bottom: 1px solid #ddd;
     }
     .content {
         margin-top: 100px;
+    }
+    .connection-status-banner {
+        display: none;
+        position: fixed;
+        top: 104px;
+        right: 8px;
+        z-index: 1500;
+        background-color: #f8d7da;
+        border: 1px solid #f5c2c7;
+        color: #842029;
+        padding: 8px 14px;
+        border-radius: 4px;
+        font-size: 13px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
     /* Input styles */
     .refresh-input {
@@ -128,6 +143,23 @@
     .interval-container {
         display: none;
         margin-left: 10px;
+    }
+    .fullscreen-btn {
+        border: 1px solid #9ec5fe;
+        background-color: #cfe2ff;
+        color: #0a58ca;
+        border-radius: 4px;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .fullscreen-btn:hover {
+        background-color: #b6d4fe;
     }
     .right-controls {
         display: flex;
@@ -169,12 +201,43 @@
     };
 
     var refreshIntervalId;
+    var lastSuccessfulRefresh = null;
+
+    function showConnectionBanner(message) {
+        var banner = document.getElementById('connectionStatusBanner');
+        banner.textContent = message;
+        banner.style.display = 'block';
+    }
+
+    function hideConnectionBanner() {
+        document.getElementById('connectionStatusBanner').style.display = 'none';
+    }
 
     function refreshDashboard() {
         fetch(window.location.href, {cache: "no-store"})
-            .then(response => response.text())
-            .then(html => {
+            .then(function(response) {
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error('AUTH');
+                }
+                if (!response.ok) {
+                    throw new Error('SERVER_ERROR');
+                }
+                return response.text();
+            })
+            .then(function(html) {
                 document.querySelector('.content').innerHTML = new DOMParser().parseFromString(html, 'text/html').querySelector('.content').innerHTML;
+                lastSuccessfulRefresh = new Date();
+                hideConnectionBanner();
+            })
+            .catch(function(err) {
+                var asOf = lastSuccessfulRefresh ? ' (as of ' + lastSuccessfulRefresh.toLocaleTimeString() + ')' : '';
+                if (err.message === 'AUTH') {
+                    showConnectionBanner('⚠ Session expired or unauthorized - please log in again.');
+                } else if (err.message === 'SERVER_ERROR') {
+                    showConnectionBanner('⚠ Server error - showing last known data' + asOf + '.');
+                } else {
+                    showConnectionBanner('⚠ Cannot reach the CB-Spider server - showing last known data' + asOf + '.');
+                }
             });
     }
 
@@ -264,7 +327,27 @@
         }, '*');
     }
 
+    var isAppFullscreen = false;
+    var FULLSCREEN_ENTER_ICON_PATH = 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z';
+    var FULLSCREEN_EXIT_ICON_PATH = 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z';
+
+    function toggleFullscreen() {
+        isAppFullscreen = !isAppFullscreen;
+        window.parent.postMessage({ type: 'toggleAppFullscreen' }, '*');
+
+        var btn = document.getElementById('fullscreenBtn');
+        var icon = document.getElementById('fullscreenIconPath');
+        if (isAppFullscreen) {
+            icon.setAttribute('d', FULLSCREEN_EXIT_ICON_PATH);
+            btn.title = 'Exit Full Screen';
+        } else {
+            icon.setAttribute('d', FULLSCREEN_ENTER_ICON_PATH);
+            btn.title = 'Full Screen';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        lastSuccessfulRefresh = new Date();
         toggleRefresh();
     });
 </script>
@@ -283,9 +366,13 @@
                 <div id="intervalContainer" class="interval-container">
                     <input type="number" id="refreshInterval" class="refresh-input" value="5" min="1" oninput="setRefresh()">
                 </div>
+                <button type="button" id="fullscreenBtn" class="fullscreen-btn" onclick="toggleFullscreen()" title="Full Screen">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path id="fullscreenIconPath" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                </button>
             </div>
         </div>
     </div>
+    <div id="connectionStatusBanner" class="connection-status-banner"></div>
     <div class="content">
         {{range $provider := .Providers}}
         {{if or $.ShowEmpty (index $.ResourceCounts $provider)}}
@@ -313,19 +400,19 @@
                     <td><a href="javascript:void(0)" onclick="setTopMenu('{{$count.ConnectionName}}', '{{$provider}}', '{{index $.Regions $count.RegionName}}')">
                         {{$count.ConnectionName}}
                     </a></td>                    
-                    <td class="{{if gt $count.VPCs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vpc/{{$count.ConnectionName}}'); return false;">{{$count.VPCs}}</a></td>
+                    <td class="{{if gt $count.VPCs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/vpc/{{$count.ConnectionName}}'); return false;">{{$count.VPCs}}</a></td>
                     <td class="{{if gt $count.Subnets 0}}highlight{{end}}">{{$count.Subnets}}</td>
-                    <td class="{{if gt $count.SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/securitygroup/{{$count.ConnectionName}}'); return false;">{{$count.SecurityGroups}}</a></td>
-                    <td class="{{if gt $count.KeyPairs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/keypair/{{$count.ConnectionName}}'); return false;">{{$count.KeyPairs}}</a></td>
-                    <td class="{{if gt $count.VMs 0}}highlight-vms{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vm/{{$count.ConnectionName}}'); return false;">{{$count.VMs}}</a></td>
-                    <td class="{{if gt $count.NICs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nic/{{$count.ConnectionName}}'); return false;">{{$count.NICs}}</a></td>
-                    <td class="{{if gt $count.PublicIPs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/publicip/{{$count.ConnectionName}}'); return false;">{{$count.PublicIPs}}</a></td>
-                    <td class="{{if gt $count.Disks 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/disk/{{$count.ConnectionName}}'); return false;">{{$count.Disks}}</a></td>
-                    <td class="{{if gt $count.MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/myimage/{{$count.ConnectionName}}'); return false;">{{$count.MyImages}}</a></td>
-                    <td class="{{if gt $count.NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{$count.ConnectionName}}'); return false;">{{$count.NetworkLoadBalancers}}</a></td>
-                    <td class="{{if gt $count.Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{$count.ConnectionName}}'); return false;">{{$count.Clusters}}</a></td>
-                    <td class="{{if gt $count.S3Buckets 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/s3/{{$count.ConnectionName}}'); return false;">{{$count.S3Buckets}}</a></td>
-                    <td class="{{if gt $count.RDBMSInstances 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/rdbms/{{$count.ConnectionName}}'); return false;">{{$count.RDBMSInstances}}</a></td>
+                    <td class="{{if gt $count.SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/securitygroup/{{$count.ConnectionName}}'); return false;">{{$count.SecurityGroups}}</a></td>
+                    <td class="{{if gt $count.KeyPairs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/keypair/{{$count.ConnectionName}}'); return false;">{{$count.KeyPairs}}</a></td>
+                    <td class="{{if gt $count.VMs 0}}highlight-vms{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/vm/{{$count.ConnectionName}}'); return false;">{{$count.VMs}}</a></td>
+                    <td class="{{if gt $count.NICs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/nic/{{$count.ConnectionName}}'); return false;">{{$count.NICs}}</a></td>
+                    <td class="{{if gt $count.PublicIPs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/publicip/{{$count.ConnectionName}}'); return false;">{{$count.PublicIPs}}</a></td>
+                    <td class="{{if gt $count.Disks 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/disk/{{$count.ConnectionName}}'); return false;">{{$count.Disks}}</a></td>
+                    <td class="{{if gt $count.MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/myimage/{{$count.ConnectionName}}'); return false;">{{$count.MyImages}}</a></td>
+                    <td class="{{if gt $count.NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/nlb/{{$count.ConnectionName}}'); return false;">{{$count.NetworkLoadBalancers}}</a></td>
+                    <td class="{{if gt $count.Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/cluster/{{$count.ConnectionName}}'); return false;">{{$count.Clusters}}</a></td>
+                    <td class="{{if gt $count.S3Buckets 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/s3/{{$count.ConnectionName}}'); return false;">{{$count.S3Buckets}}</a></td>
+                    <td class="{{if gt $count.RDBMSInstances 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/rdbms/{{$count.ConnectionName}}'); return false;">{{$count.RDBMSInstances}}</a></td>
                 </tr>
                 {{end}}
             {{else}}

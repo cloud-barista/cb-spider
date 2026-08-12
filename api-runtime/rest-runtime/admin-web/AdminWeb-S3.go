@@ -63,7 +63,12 @@ func S3Management(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	buckets, err := fetchS3Buckets(connConfig)
+	providerName, err := getProviderName(connConfig)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	buckets, err := fetchS3Buckets(connConfig, providerName)
 	var errorMessage string
 	if err != nil {
 		// Set error message but don't return error - show empty table with error message
@@ -102,7 +107,7 @@ func S3Management(c echo.Context) error {
 	return nil
 }
 
-func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
+func fetchS3Buckets(connConfig string, providerName string) ([]S3BucketInfo, error) {
 	// Use new S3 API endpoint: /spider/s3
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", spiderBaseURL()+"/spider/s3", nil)
@@ -187,8 +192,9 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 	for _, bucket := range xmlResult.Buckets.Bucket {
 		// Check if bucket exists in CSP (creation date "0001-01-01" means metadata-only)
 		// For metadata-only buckets, skip CSP API calls to avoid errors and improve performance
+		isMetadataOnly := bucket.CreationDate == "0001-01-01T00:00:00Z" || bucket.CreationDate == "1-01-01 09:00:00 KST"
 		var versioningStatus, corsStatus string
-		if bucket.CreationDate == "0001-01-01T00:00:00Z" || bucket.CreationDate == "1-01-01 09:00:00 KST" {
+		if isMetadataOnly {
 			// Metadata-only bucket (not in CSP) - use default values without CSP API calls
 			versioningStatus = "Suspended"
 			corsStatus = "Not configured"
@@ -197,9 +203,18 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 			versioningStatus = fetchVersioningStatus(connConfig, bucket.Name)
 			corsStatus = fetchCORSStatus(connConfig, bucket.Name)
 		}
+
+		creationDate := bucket.CreationDate
+		if providerName == "NHN" && !isMetadataOnly {
+			// NHN Object Storage is Swift-based and doesn't track a real container
+			// creation time; its S3-compatible gateway returns a fixed placeholder
+			// timestamp instead, so don't show it as if it were real.
+			creationDate = ""
+		}
+
 		result = append(result, S3BucketInfo{
 			Name:             bucket.Name,
-			CreationDate:     bucket.CreationDate,
+			CreationDate:     creationDate,
 			BucketRegion:     "", // Region info not available in standard S3 list buckets response
 			VersioningStatus: versioningStatus,
 			CORSStatus:       corsStatus,
