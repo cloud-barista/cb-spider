@@ -142,10 +142,9 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	for _, projectId := range arrImageProjectList {
 		cblogger.Infof("Processing image list owned by [%s] project", projectId)
 
-		// filter := "NOT deprecated:*" // deprecated가 있는 항목은 다른 image로 대체된 것임
-		// req = imageHandler.Client.Images.List(projectId).Filter(filter)
+		filter := "NOT deprecated:*" // an item with deprecated set has been replaced by another image
 		//첫번째 호출
-		req = imageHandler.Client.Images.List(projectId)
+		req = imageHandler.Client.Images.List(projectId).Filter(filter)
 		res, err = req.Do()
 		if err != nil {
 			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
