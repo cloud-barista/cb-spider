@@ -17,7 +17,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -33,9 +32,7 @@ type GCPImageHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-// arrStandardImageProjectList: general OS image projects. Each project has relatively
-// few images (tens to hundreds), so scanning the full list on every ListImage() call is cheap.
-var arrStandardImageProjectList = []string{
+var arrImageProjectList = []string{
 	"gce-uefi-images", // 보안 VM을 지원하는 이미지
 
 	// General OS images
@@ -55,99 +52,13 @@ var arrStandardImageProjectList = []string{
 	"ubuntu-os-pro-cloud",
 	"windows-cloud",
 	"windows-sql-cloud",
-}
 
-// arrExtendedImageProjectList: GPU/HPC/ML image projects. Projects like
-// deeplearning-platform-release hold a very large number of images (tens of thousands),
-// making this group the main cause of ListImage() latency.
-// ListImage() no longer queries this list directly (it uses arrExtendedImageFamilyMap
-// instead); it is kept only for compatibility with existing logic — e.g. GetImageN() —
-// that still iterates the full project id list without distinguishing groups.
-var arrExtendedImageProjectList = []string{
+	// GPU / HPC / ML images
 	"cloud-hpc-image-public",
 	"deeplearning-platform-release",
 	"ml-images",
 	"rocky-linux-accelerator-cloud",
 	"ubuntu-os-accelerator-images",
-}
-
-// arrImageProjectList: full list combining the standard + extended groups. Kept for
-// compatibility with existing logic — e.g. GetImageN() — that iterates the full list
-// without distinguishing groups.
-var arrImageProjectList = append(append([]string{}, arrStandardImageProjectList...), arrExtendedImageProjectList...)
-
-// arrExtendedImageFamilyMap: image family list per project for the Extended group
-// (GPU/HPC/ML). Even for a project like deeplearning-platform-release with tens of
-// thousands of images, there is only one family per "OS + accelerator combination", so
-// the list itself stays small (48 entries across 5 projects as of 2026-08-07).
-// Instead of scanning everything via Images.List(project), we query only the "single
-// latest active image" per family via Images.GetFromFamily(project, family) — this
-// removes the server-side scan cost entirely, since GCP no longer has to scan the
-// project's full image history on every call (unlike the Stage 1 deprecated filter,
-// where GCP still scans everything and only trims the result afterward).
-//
-// Needs to be re-surveyed on every CSP-coverage sweep via
-// `gcloud compute images list --project {project} --no-standard-images` (Google may
-// add/retire families — tracked as a cb-spider#1184 follow-up).
-var arrExtendedImageFamilyMap = map[string][]string{
-	"cloud-hpc-image-public": {
-		"hpc-rocky-linux-8",
-		"hpc-rocky-linux-9",
-	},
-	"deeplearning-platform-release": {
-		"common-cu129-ubuntu-2204-nvidia-580",
-		"common-cu129-ubuntu-2404-nvidia-580",
-		"pytorch-2-9-cu129-ubuntu-2204-nvidia-580",
-		"pytorch-2-9-cu129-ubuntu-2404-nvidia-580",
-	},
-	"ml-images": {
-		"common-cu129-ubuntu-2204-nvidia-580",
-		"common-cu129-ubuntu-2404-nvidia-580",
-		"pytorch-2-9-cu129-ubuntu-2204-nvidia-580",
-		"pytorch-2-9-cu129-ubuntu-2404-nvidia-580",
-	},
-	"rocky-linux-accelerator-cloud": {
-		"rocky-linux-10-optimized-gcp-nvidia-580",
-		"rocky-linux-10-optimized-gcp-nvidia-580-arm64",
-		"rocky-linux-10-optimized-gcp-nvidia-latest",
-		"rocky-linux-10-optimized-gcp-nvidia-latest-arm64",
-		"rocky-linux-8-optimized-gcp-nvidia-580",
-		"rocky-linux-8-optimized-gcp-nvidia-580-arm64",
-		"rocky-linux-8-optimized-gcp-nvidia-latest",
-		"rocky-linux-8-optimized-gcp-nvidia-latest-arm64",
-		"rocky-linux-9-optimized-gcp-nvidia-580",
-		"rocky-linux-9-optimized-gcp-nvidia-580-arm64",
-		"rocky-linux-9-optimized-gcp-nvidia-latest",
-		"rocky-linux-9-optimized-gcp-nvidia-latest-arm64",
-	},
-	"ubuntu-os-accelerator-images": {
-		"ubuntu-accel-2204-amd64-tpu-v5e-v5p-v6e",
-		"ubuntu-accel-2404-amd64-tpu-tpu7x",
-		"ubuntu-accelerator-2204-amd64-with-nvidia-570",
-		"ubuntu-accelerator-2204-amd64-with-nvidia-580",
-		"ubuntu-accelerator-2204-amd64-with-nvidia-595",
-		"ubuntu-accelerator-2204-arm64-with-nvidia-570",
-		"ubuntu-accelerator-2204-arm64-with-nvidia-580",
-		"ubuntu-accelerator-2204-arm64-with-nvidia-595",
-		"ubuntu-accelerator-2404-amd64-with-nvidia-570",
-		"ubuntu-accelerator-2404-amd64-with-nvidia-580",
-		"ubuntu-accelerator-2404-amd64-with-nvidia-595",
-		"ubuntu-accelerator-2404-arm64-with-nvidia-570",
-		"ubuntu-accelerator-2404-arm64-with-nvidia-580",
-		"ubuntu-accelerator-2404-arm64-with-nvidia-595",
-		"ubuntu-accelerator-2604-amd64-with-nvidia-580",
-		"ubuntu-accelerator-2604-amd64-with-nvidia-595",
-		"ubuntu-accelerator-2604-arm64-with-nvidia-580",
-		"ubuntu-accelerator-2604-arm64-with-nvidia-595",
-		"ubuntu-pro-accel-2404-amd64-nvidia-580",
-		"ubuntu-pro-accel-2404-amd64-nvidia-595",
-		"ubuntu-pro-accel-2404-arm64-nvidia-580",
-		"ubuntu-pro-accel-2404-arm64-nvidia-595",
-		"ubuntu-pro-accel-2604-amd64-nvidia-580",
-		"ubuntu-pro-accel-2604-amd64-nvidia-595",
-		"ubuntu-pro-accel-2604-arm64-nvidia-580",
-		"ubuntu-pro-accel-2604-arm64-nvidia-595",
-	},
 }
 
 /*
@@ -210,6 +121,11 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	var imageList []*irs.ImageInfo
 
+	cnt := 0
+	nextPageToken := ""
+	var req *compute.ImagesListCall
+	var res *compute.ImageList
+	var err error
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -223,40 +139,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 	callLogStart := call.Start()
 
-	// The Standard group has few images per project, so it keeps the existing approach
-	// (full scan + deprecated filter).
-	standardImages, err := imageHandler.listImagesByProject(arrStandardImageProjectList)
-	if err != nil {
-		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		return nil, err
-	}
-	imageList = append(imageList, standardImages...)
-
-	// The Extended group (GPU/HPC/ML) has tens of thousands of images per project, so
-	// instead of a full scan we query only the "single latest active image" per family
-	// (cb-spider#1184 Stage 2).
-	extendedImages := imageHandler.listImagesByFamily(arrExtendedImageProjectList, arrExtendedImageFamilyMap)
-	imageList = append(imageList, extendedImages...)
-
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	callogger.Info(call.String(callLogInfo))
-
-	return imageList, nil
-}
-
-// listImagesByProject: retrieves and returns every non-deprecated image for the given
-// project list.
-func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([]*irs.ImageInfo, error) {
-	var imageList []*irs.ImageInfo
-
-	nextPageToken := ""
-	var req *compute.ImagesListCall
-	var res *compute.ImageList
-	var err error
-
-	for _, projectId := range projectIds {
+	for _, projectId := range arrImageProjectList {
 		cblogger.Infof("Processing image list owned by [%s] project", projectId)
 
 		filter := "NOT deprecated:*" // an item with deprecated set has been replaced by another image
@@ -264,6 +147,9 @@ func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([
 		req = imageHandler.Client.Images.List(projectId).Filter(filter)
 		res, err = req.Do()
 		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
 			cblogger.Errorf("Failed to retrieve image list owned by [%s] project!", projectId)
 			cblogger.Error(err)
 			return nil, err
@@ -275,6 +161,7 @@ func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([
 		//현재 페이지부터 마지막 페이지까지 조회
 		for {
 			for _, item := range res.Items {
+				cnt++
 				if cblogger.Level.String() == "debug" {
 					cblogger.Debug(item)
 				}
@@ -292,68 +179,10 @@ func (imageHandler *GCPImageHandler) listImagesByProject(projectIds []string) ([
 			}
 		} // for : 멀티 페이지 처리
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
 
 	return imageList, nil
-}
-
-// listImagesByFamily: walks the given project list in order, and for each family
-// registered for a project (projectFamilyMap), queries only the "single latest active
-// image" via Images.GetFromFamily(). Unlike listImagesByProject(), it never scans a
-// full project, so the server-side scan cost disappears even for projects with a very
-// large number of images (e.g. deeplearning-platform-release) — at the cost of one
-// individual HTTP call per family. Measured that calling 48 families sequentially was
-// actually slower than 5 List() calls (per-request round-trip latency adds up), so the
-// requests are run in parallel instead (same pattern as
-// RegionZoneHandler.ListRegionZone()).
-//
-// If a single family lookup fails (e.g. arrExtendedImageFamilyMap has gone stale
-// because Google retired a family), it's skipped best-effort with just a log line
-// instead of failing the whole listing — unlike the Stage 1 deprecated filter, which
-// reflects GCP's raw data as-is, this list is a curated list we maintain ourselves, so
-// it's safer for one stale entry not to fail all of ListImage().
-func (imageHandler *GCPImageHandler) listImagesByFamily(projectIds []string, projectFamilyMap map[string][]string) []*irs.ImageInfo {
-	type familyKey struct {
-		projectId string
-		family    string
-	}
-
-	var keys []familyKey
-	for _, projectId := range projectIds {
-		for _, family := range projectFamilyMap[projectId] {
-			keys = append(keys, familyKey{projectId, family})
-		}
-	}
-
-	// Results are collected by index to preserve order — this keeps the original order
-	// of the arrExtendedImageProjectList/family list (i.e. the same order as the
-	// existing listImagesByProject() result).
-	results := make([]*irs.ImageInfo, len(keys))
-	var wg sync.WaitGroup
-	for i, key := range keys {
-		wg.Add(1)
-		go func(i int, key familyKey) {
-			defer wg.Done()
-			image, err := imageHandler.Client.Images.GetFromFamily(key.projectId, key.family).Do()
-			if err != nil {
-				cblogger.Errorf("Failed to retrieve the latest image of family [%s] in project [%s] — skipping: %v", key.family, key.projectId, err)
-				return
-			}
-			if cblogger.Level.String() == "debug" {
-				cblogger.Debug(image)
-			}
-			info := mappingImageInfo(image)
-			results[i] = &info
-		}(i, key)
-	}
-	wg.Wait()
-
-	var imageList []*irs.ImageInfo
-	for _, info := range results {
-		if info != nil {
-			imageList = append(imageList, info)
-		}
-	}
-	return imageList
 }
 
 // Name 기반으로 VM생성에 필요한 URL및 Image API 호출과 CB 리턴 정보 조회용
