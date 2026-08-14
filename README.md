@@ -46,21 +46,21 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 
 ## Supported Cloud Providers
 
-| Provider      | VM Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | K8S | Object<br> Storage |
-|:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|:-----------:|
-| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
-| Azure         | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
-| GCP           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
-| Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        |
-| Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        |
-| IBM           | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
-| OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | TBD           | O        |
-| NCP           | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | https://github.com/cloud-barista/cb-spider/issues/1607           | O        |
-| NHN           | NA             | O                   | O             | O              | O                 | O                 | O               | O<br>(Note1)   | O    | O    | O     | O           | O        |
-| KT            | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | https://github.com/cloud-barista/cb-spider/issues/1718<br>(Note2)| TBD  | O        |
-| KT Classic    | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O              | O    | O   | O       | NA          | -        |
+| Provider      | VM Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | K8S | Object<br> Storage | MySQL | MariaDB |
+|:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|:-----------:|:-----:|:-------:|
+| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        | O | O |
+| Azure         | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        | O | NA |
+| GCP           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        | O | NA |
+| Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        | O | O |
+| Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        | O | NA |
+| IBM           | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        | O | NA |
+| OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | TBD           | O        | O | O |
+| NCP           | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | https://github.com/cloud-barista/cb-spider/issues/1607           | O        | O | NA |
+| NHN           | NA             | O                   | O             | O              | O                 | O                 | O               | O<br>(Note1)   | O    | O    | O     | O           | O        | O | O |
+| KT            | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O<br>(Note2)| TBD  | O        | NA | NA |
+| KT Classic    | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O              | O    | O   | O       | NA          | -        | NA | NA |
 
-※ WIP: Work In Progress,  NA: Not Applicable,  -: Excluded (Classic Resource)  
+※ NA: Not Applicable,  -: Excluded (Classic Resource)  
 
 <details>
 <summary><b>Provider-specific Notes</b></summary>

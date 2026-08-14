@@ -43,6 +43,7 @@ type CloudConnection interface {
 	CreateQuotaInfoHandler() (irs.QuotaInfoHandler, error)
 
 	CreateRDBMSHandler() (irs.RDBMSHandler, error)
+	CreateDBSpecHandler() (irs.DBSpecHandler, error)
 
 	CreatePublicIPHandler() (irs.PublicIPHandler, error)
 

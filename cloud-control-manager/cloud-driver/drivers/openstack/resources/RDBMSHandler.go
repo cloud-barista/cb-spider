@@ -92,7 +92,7 @@ func (handler *OpenStackRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMet
 	}
 
 	if len(instanceSpecOptions[requestedEngine]) == 0 {
-		metaInfo.MarkStatic("DBInstanceSpecOptions", "Trove returned no flavors for this deployment; showing an empty list rather than live data.")
+		metaInfo.MarkStatic("DBSpecOptions", "Trove returned no flavors for this deployment; showing an empty list rather than live data.")
 	}
 
 	// Min is never derived from a live value; Trove/Cinder don't expose a minimum disk size.
@@ -325,7 +325,7 @@ func (opts troveCreateOpts) ToInstanceCreateMap() (map[string]any, error) {
 }
 
 // CreateRDBMS creates a new Trove database instance.
-// DBInstanceSpec accepts either a Nova flavor UUID or a flavor name (e.g.
+// DBSpec accepts either a Nova flavor UUID or a flavor name (e.g.
 // "m1.small"). In DevStack, Trove uses the same Nova flavor catalog so the
 // names and UUIDs are identical to the VM spec list.
 // After the instance reaches ACTIVE status, EnableRootUser is called and, when
@@ -345,8 +345,8 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 	if rdbmsReqInfo.DBEngineVersion == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec (flavor name or UUID) is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec (flavor name or UUID) is required")
 	}
 	if rdbmsReqInfo.StorageSize == "" {
 		return irs.RDBMSInfo{}, errors.New("StorageSize is required")
@@ -358,7 +358,7 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 	}
 
 	// Resolve flavor name → UUID (Trove shares Nova flavors in DevStack)
-	flavorRef, err := handler.resolveFlavorRef(rdbmsReqInfo.DBInstanceSpec)
+	flavorRef, err := handler.resolveFlavorRef(rdbmsReqInfo.DBSpec)
 	if err != nil {
 		return irs.RDBMSInfo{}, err
 	}
@@ -855,7 +855,7 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 
 		DBEngine:        inst.Datastore.Type,
 		DBEngineVersion: inst.Datastore.Version,
-		DBInstanceSpec:  flavorName,
+		DBSpec:          flavorName,
 		DBInstanceType:  "NA",
 
 		StorageType: func() string {

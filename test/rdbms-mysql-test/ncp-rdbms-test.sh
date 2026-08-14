@@ -16,7 +16,7 @@ export CREATE_JSON='{
     "Name": "cb-spider-mysql-test",
     "VPCName": "vpc-01",
     "SubnetNames": ["subnet-01"],
-    "DBInstanceSpec": "SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003",
+    "DBSpec": "SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003",
     "DBEngine": "mysql",
     "DBEngineVersion": "8.0.36",
     "MasterUserName": "myadmin",

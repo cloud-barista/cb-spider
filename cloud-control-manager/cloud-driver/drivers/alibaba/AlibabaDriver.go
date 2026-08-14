@@ -77,6 +77,10 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.QuotaInfoHandler = true
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.DBSpecHandler = true
+	drvCapabilityInfo.RDBMSMySQLHandler = true
+	drvCapabilityInfo.RDBMSMariaDBHandler = true
+	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = true

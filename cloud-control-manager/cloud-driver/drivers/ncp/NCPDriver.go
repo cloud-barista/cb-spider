@@ -76,6 +76,10 @@ func (NcpVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPC_CIDR = true
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.DBSpecHandler = true
+	drvCapabilityInfo.RDBMSMySQLHandler = true
+	drvCapabilityInfo.RDBMSMariaDBHandler = false    // not implemented
+	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // not implemented
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.NICHandler = false
 

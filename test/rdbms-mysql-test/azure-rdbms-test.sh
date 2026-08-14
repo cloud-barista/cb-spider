@@ -16,7 +16,7 @@ export CREATE_JSON='{
     "VPCName": "vpc-01",
     "DBEngine": "mysql",
     "DBEngineVersion": "8.0.21",
-    "DBInstanceSpec": "Standard_B1ms",
+    "DBSpec": "Standard_B1ms",
     "StorageSize": "20",
     "MasterUserName": "myadmin",
     "MasterUserPassword": "Password123!",

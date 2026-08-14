@@ -112,7 +112,7 @@ type RDBMSCreateRequest struct {
 
 		DBEngine        string `json:"DBEngine" validate:"required" example:"mysql"`
 		DBEngineVersion string `json:"DBEngineVersion" validate:"required" example:"8.0"`
-		DBInstanceSpec  string `json:"DBInstanceSpec" validate:"required" example:"db.t3.medium"`
+		DBSpec          string `json:"DBSpec" validate:"required" example:"db.t3.medium"`
 		StorageSize     string `json:"StorageSize" validate:"required" example:"100"` // in GB
 
 		// StorageType: storage volume type. Use GetMetaInfo() to discover available options per CSP.
@@ -184,7 +184,7 @@ func CreateRDBMS(c echo.Context) error {
 
 		DBEngine:        req.ReqInfo.DBEngine,
 		DBEngineVersion: req.ReqInfo.DBEngineVersion,
-		DBInstanceSpec:  req.ReqInfo.DBInstanceSpec,
+		DBSpec:          req.ReqInfo.DBSpec,
 		StorageType:     req.ReqInfo.StorageType,
 		StorageSize:     req.ReqInfo.StorageSize,
 		Iops:            req.ReqInfo.Iops,
@@ -447,6 +447,39 @@ func GetRDBMSMetaInfo(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, result)
+}
+
+// RDBMSEngineListResponse represents the response body structure for the ListRDBMSEngine API.
+type RDBMSEngineListResponse struct {
+	Result []string `json:"rdbmsengine" validate:"required" description:"A list of RDBMS engines supported by the CSP for this connection"`
+}
+
+// listRDBMSEngine godoc
+// @ID list-rdbms-engine
+// @Summary List RDBMS Engines
+// @Description Retrieve the list of RDBMS engines (e.g., mysql, mariadb, postgresql) that the CSP supports for a specific connection, derived from the connection's driver capability information (GET /driver/capability).
+// @Tags [RDBMS Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list supported RDBMS engines for"
+// @Success 200 {object} RDBMSEngineListResponse "List of RDBMS engines supported by the CSP"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /rdbmsengine [get]
+func ListRDBMSEngine(c echo.Context) error {
+	cblog.Info("call ListRDBMSEngine()")
+
+	connectionName := c.QueryParam("ConnectionName")
+
+	result, err := cmrt.ListRDBMSEngine(connectionName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	jsonResult := RDBMSEngineListResponse{
+		Result: result,
+	}
+	return c.JSON(http.StatusOK, &jsonResult)
 }
 
 // getRDBMSOwnerVPC godoc

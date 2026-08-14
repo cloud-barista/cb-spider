@@ -85,6 +85,11 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.RDBMSHandler = true // pre-existing gap: RDBMSHandler.go/CreateRDBMSHandler() were already implemented but this flag was never set
+	drvCapabilityInfo.DBSpecHandler = true
+	drvCapabilityInfo.RDBMSMySQLHandler = true
+	drvCapabilityInfo.RDBMSMariaDBHandler = false    // not implemented: Azure Database for MySQL Flexible Server driver only supports mysql
+	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // not implemented: same reason as MariaDB above
 
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true

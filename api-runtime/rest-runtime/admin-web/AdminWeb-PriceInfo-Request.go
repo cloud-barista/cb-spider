@@ -10,8 +10,10 @@ package adminweb
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -24,6 +26,29 @@ func productFamilyList() []string {
 
 func regionList() []string {
 	return []string{"No regions available"}
+}
+
+// driverCapabilityPrice is the subset of DriverCapabilityInfo needed to tell whether this
+// connection's CSP driver supports Price Info at all (e.g. OpenStack/NHN/KT do not).
+type driverCapabilityPrice struct {
+	PriceInfoHandler bool `json:"PriceInfoHandler"`
+}
+
+// isPriceInfoSupported reports whether connConfig's CSP driver supports Price Info, so the
+// Price page can say so up front instead of only failing on Fetch. Fails open (true) if the
+// capability lookup itself fails, so a hiccup there doesn't hide the page's real content.
+func isPriceInfoSupported(connConfig string) bool {
+	resBody, err := getResourceList_JsonByte("driver/capability?ConnectionName=" + url.QueryEscape(connConfig))
+	if err != nil {
+		cblog.Warnf("PriceInfoRequest: failed to load driver capability for %s: %v", connConfig, err)
+		return true
+	}
+	var capability driverCapabilityPrice
+	if err := json.Unmarshal(resBody, &capability); err != nil {
+		cblog.Warnf("PriceInfoRequest: failed to parse driver capability for %s: %v", connConfig, err)
+		return true
+	}
+	return capability.PriceInfoHandler
 }
 
 //====================================== PriceInfo Request
@@ -60,22 +85,28 @@ func PriceInfoRequest(c echo.Context) error {
 		return c.HTML(http.StatusOK, htmlStr)
 	}
 
+	providerName, _ := getProviderName(connConfig)
+
 	type PageData struct {
-		LoggingUrl        template.JS
-		ConnectionName    string
-		RegionList        []string
-		ProductFamilyList []string
-		LoggingResult     template.JS
-		APIUsername       string
-		APIPassword       string
+		LoggingUrl         template.JS
+		ConnectionName     string
+		ProviderName       string
+		RegionList         []string
+		ProductFamilyList  []string
+		LoggingResult      template.JS
+		APIUsername        string
+		APIPassword        string
+		PriceInfoSupported bool
 	}
 
 	data := PageData{
 		ConnectionName: connConfig,
+		ProviderName:   providerName,
 		// RegionList:        regionNameList,
-		ProductFamilyList: productFamilyList(),
-		APIUsername:       os.Getenv("SPIDER_USERNAME"),
-		APIPassword:       os.Getenv("SPIDER_PASSWORD"),
+		ProductFamilyList:  productFamilyList(),
+		APIUsername:        os.Getenv("SPIDER_USERNAME"),
+		PriceInfoSupported: isPriceInfoSupported(connConfig),
+		APIPassword:        os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	// Parse the HTML template

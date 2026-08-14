@@ -65,7 +65,7 @@ while IFS= read -r storage_type; do
     \"VPCName\": \"vpc-01\",
     \"DBEngine\": \"mariadb\",
     \"DBEngineVersion\": \"10.6\",
-    \"DBInstanceSpec\": \"m1.small\",
+    \"DBSpec\": \"m1.small\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"20\",
     \"MasterUserName\": \"myadmin\",

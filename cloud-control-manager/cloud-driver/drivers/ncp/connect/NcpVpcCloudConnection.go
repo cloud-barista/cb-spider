@@ -228,6 +228,16 @@ func (cloudConn *NcpVpcCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, 
 	return &rdbmsHandler, nil
 }
 
+func (cloudConn *NcpVpcCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := ncprs.NcpVpcRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		MysqlClient:    cloudConn.MysqlClient,
+		PostgresClient: cloudConn.PostgresClient,
+	}
+	return &handler, nil
+}
+
 func (cloudConn *NcpVpcCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := ncprs.NcpVpcNICHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient, VpcClient: cloudConn.VpcClient}
 	return &handler, nil

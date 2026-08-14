@@ -64,11 +64,11 @@ func getProviderClient(authOpts ktvpcsdk.AuthOptions) (*ktvpcsdk.ProviderClient,
 	providerClientCacheMu.RUnlock()
 
 	if ok && time.Now().Before(cached.expiresAt) {
-		cblogger.Infof("KT Cloud: reusing cached auth token for user=%s (expires %s)", authOpts.Username, cached.expiresAt.Format(time.RFC3339))
+		cblogger.Infof("KT Cloud: reusing cached auth token (expires %s)", cached.expiresAt.Format(time.RFC3339))
 		return cached.client, nil
 	}
 
-	cblogger.Infof("KT Cloud: obtaining new auth token for user=%s", authOpts.Username)
+	cblogger.Info("KT Cloud: obtaining new auth token")
 	client, err := ostack.AuthenticatedClient(authOpts)
 	if err != nil {
 		return nil, err
@@ -122,6 +122,10 @@ func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.SINGLE_VPC = true
 
 	drvCapabilityInfo.RDBMSHandler = false
+	drvCapabilityInfo.DBSpecHandler = true
+	drvCapabilityInfo.RDBMSMySQLHandler = false
+	drvCapabilityInfo.RDBMSMariaDBHandler = false
+	drvCapabilityInfo.RDBMSPostgreSQLHandler = false
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.NICHandler = false
 

@@ -46,11 +46,11 @@ const (
 // Use GetMetaInfo() to discover what each CSP supports before creating an RDBMS instance.
 // @description RDBMS Meta Information for CSP-specific capabilities
 type RDBMSMetaInfo struct {
-	DBEngine              string           `json:"DBEngine" example:"mysql"`                                    // Requested DB engine name. e.g., mysql, mariadb, postgresql
-	SupportedVersions     []string         `json:"SupportedVersions" example:"8.0,8.4"`                         // Supported versions for the requested DB engine
-	DBInstanceSpecOptions []string         `json:"DBInstanceSpecOptions,omitempty" example:"db.t3.medium,1000"` // Available DBInstanceSpec values for the requested DB engine. "NA" if CSP does not provide spec list API.
-	StorageTypeOptions    []string         `json:"StorageTypeOptions,omitempty" example:"gp2,gp3,io1"`          // Available storage types for the requested DB engine
-	StorageSizeRangeGB    StorageSizeRange `json:"StorageSizeRangeGB,omitempty"`                                // Min/Max storage size in decimal GB (10^9 bytes) for the requested DB engine. Converted from the CSP's native unit when that unit is objectively known (see GiBToGB); left unconverted, with a DataSourceNotes caveat, when the native unit cannot be confirmed.
+	DBEngine           string           `json:"DBEngine" example:"mysql"`                            // Requested DB engine name. e.g., mysql, mariadb, postgresql
+	SupportedVersions  []string         `json:"SupportedVersions" example:"8.0,8.4"`                 // Supported versions for the requested DB engine
+	DBSpecOptions      []string         `json:"DBSpecOptions,omitempty" example:"db.t3.medium,1000"` // Available DBSpec values for the requested DB engine. "NA" if CSP does not provide spec list API.
+	StorageTypeOptions []string         `json:"StorageTypeOptions,omitempty" example:"gp2,gp3,io1"`  // Available storage types for the requested DB engine
+	StorageSizeRangeGB StorageSizeRange `json:"StorageSizeRangeGB,omitempty"`                        // Min/Max storage size in decimal GB (10^9 bytes) for the requested DB engine. Converted from the CSP's native unit when that unit is objectively known (see GiBToGB); left unconverted, with a DataSourceNotes caveat, when the native unit cannot be confirmed.
 
 	SupportsHighAvailability   bool   `json:"SupportsHighAvailability"`       // true if HA/Multi-AZ can be configured
 	SupportsBackup             bool   `json:"SupportsBackup"`                 // true if managed automatic backup is supported
@@ -59,7 +59,7 @@ type RDBMSMetaInfo struct {
 	SupportsDeletionProtection bool   `json:"SupportsDeletionProtection"`     // true if deletion protection is available
 	SupportsEncryption         bool   `json:"SupportsEncryption"`             // true if storage encryption is available
 
-	SupportsStorageTypeSelection    bool `json:"SupportsStorageTypeSelection"`    // true if user can specify StorageType at creation; false if CSP sets it automatically (e.g., Azure, NCP)
+	SupportsStorageTypeSelection     bool `json:"SupportsStorageTypeSelection"`     // true if user can specify StorageType at creation; false if CSP sets it automatically (e.g., Azure, NCP)
 	SupportsStorageSizeConfiguration bool `json:"SupportsStorageSizeConfiguration"` // true if user can specify StorageSize at creation; false if CSP manages size automatically (e.g., NCP)
 
 	RequiresSubnet        bool `json:"RequiresSubnet"`        // true if SubnetNames is required at creation
@@ -105,7 +105,7 @@ func NormalizeRDBMSEngine(dbEngine string) (string, error) {
 	}
 }
 
-func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbInstanceSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup, supportsStorageTypeSelection, supportsStorageSizeConfiguration bool, supportsTag bool) (RDBMSMetaInfo, error) {
+func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup, supportsStorageTypeSelection, supportsStorageSizeConfiguration bool, supportsTag bool) (RDBMSMetaInfo, error) {
 	normalizedEngine, err := NormalizeRDBMSEngine(dbEngine)
 	if err != nil {
 		return RDBMSMetaInfo{}, err
@@ -116,25 +116,25 @@ func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, d
 		return RDBMSMetaInfo{}, fmt.Errorf("DBEngine '%s' is not supported", normalizedEngine)
 	}
 
-	instanceSpecs := append([]string(nil), dbInstanceSpecOptions[normalizedEngine]...)
+	instanceSpecs := append([]string(nil), dbSpecOptions[normalizedEngine]...)
 	storageTypes := append([]string(nil), storageTypeOptions[normalizedEngine]...)
 	return RDBMSMetaInfo{
-		DBEngine:                   normalizedEngine,
-		SupportedVersions:          versions,
-		DBInstanceSpecOptions:      instanceSpecs,
-		StorageTypeOptions:         storageTypes,
-		StorageSizeRangeGB:         storageSizeRange,
-		SupportsHighAvailability:   supportsHighAvailability,
-		SupportsBackup:             supportsBackup,
-		BackupRetentionRange:       backupRetentionRange,
-		SupportsPublicAccess:       supportsPublicAccess,
-		SupportsDeletionProtection: supportsDeletionProtection,
-		SupportsEncryption:         supportsEncryption,
-		SupportsStorageTypeSelection:    supportsStorageTypeSelection,
+		DBEngine:                         normalizedEngine,
+		SupportedVersions:                versions,
+		DBSpecOptions:                    instanceSpecs,
+		StorageTypeOptions:               storageTypes,
+		StorageSizeRangeGB:               storageSizeRange,
+		SupportsHighAvailability:         supportsHighAvailability,
+		SupportsBackup:                   supportsBackup,
+		BackupRetentionRange:             backupRetentionRange,
+		SupportsPublicAccess:             supportsPublicAccess,
+		SupportsDeletionProtection:       supportsDeletionProtection,
+		SupportsEncryption:               supportsEncryption,
+		SupportsStorageTypeSelection:     supportsStorageTypeSelection,
 		SupportsStorageSizeConfiguration: supportsStorageSizeConfiguration,
-		RequiresSubnet:             requiresSubnet,
-		RequiresSecurityGroup:      requiresSecurityGroup,
-		SupportsTag:                supportsTag,
+		RequiresSubnet:                   requiresSubnet,
+		RequiresSecurityGroup:            requiresSecurityGroup,
+		SupportsTag:                      supportsTag,
 	}, nil
 }
 
@@ -179,8 +179,8 @@ type RDBMSInfo struct {
 	DBEngineVersion string `json:"DBEngineVersion" validate:"required" example:"8.0"` // e.g., "8.0", "10.6", "15"
 
 	// Instance Spec
-	DBInstanceSpec string `json:"DBInstanceSpec" validate:"required" example:"db.t3.medium"` // CSP instance class/type
-	DBInstanceType string `json:"DBInstanceType,omitempty" example:"Primary"`                // Primary | ReadReplica (for response)
+	DBSpec         string `json:"DBSpec" validate:"required" example:"db.t3.medium"` // CSP instance class/type
+	DBInstanceType string `json:"DBInstanceType,omitempty" example:"Primary"`        // Primary | ReadReplica (for response)
 
 	// Storage
 	// StorageType: storage volume type for the RDBMS instance.

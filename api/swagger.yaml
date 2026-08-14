@@ -391,6 +391,57 @@ definitions:
         description: 1-12, *
         type: string
     type: object
+  spider.DBSpecInfo:
+    description: Database Instance Spec Information for CSP-specific DBSpec values
+    properties:
+      DBEngine:
+        description: mysql | mariadb | postgresql — engine this spec applies to
+        example: mysql
+        type: string
+      DataSource:
+        additionalProperties:
+          $ref: '#/definitions/spider.RDBMSDataSource'
+        description: |-
+          DataSource records, per field name, whether that field's value was obtained live
+          from the CSP API ("API") or is a fixed/unconvertible value ("Static") for this
+          response. A field with no entry here is "API". Same convention as RDBMSMetaInfo.
+        type: object
+      DataSourceNotes:
+        additionalProperties:
+          type: string
+        type: object
+      KeyValueList:
+        description: CSP-specific extras (e.g. raw source value/unit, IOPS, architecture,
+          reference price)
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MemSizeMiB:
+        description: Memory size in MiB. "-1" when the CSP's native unit cannot be
+          objectively confirmed (see DataSourceNotes)
+        example: "4096"
+        type: string
+      Name:
+        description: CSP original spec/class/flavor name
+        example: db.t3.medium
+        type: string
+      Region:
+        description: Region where this spec is orderable
+        example: us-east-1
+        type: string
+      StorageSizeRangeGB:
+        allOf:
+        - $ref: '#/definitions/spider.StorageSizeRange'
+        description: |-
+          StorageSizeRangeGB is the valid StorageSize range (GB) the caller may request for
+          THIS spec when creating a database instance — NOT a disk built into the spec.
+          {-1,-1} means "no per-spec constraint known" (falls back to RDBMSMetaInfo.StorageSizeRangeGB).
+      VCpu:
+        allOf:
+        - $ref: '#/definitions/spider.VCpuInfo'
+        description: CPU details. Count is "-1" when the CSP does not expose it and
+          no objective cross-service basis exists to derive it
+    type: object
   spider.DiskInfo:
     properties:
       CreatedTime:
@@ -1385,13 +1436,13 @@ definitions:
         description: e.g., "8.0", "10.6", "15"
         example: "8.0"
         type: string
-      DBInstanceSpec:
-        description: Instance Spec
-        example: db.t3.medium
-        type: string
       DBInstanceType:
         description: Primary | ReadReplica (for response)
         example: Primary
+        type: string
+      DBSpec:
+        description: Instance Spec
+        example: db.t3.medium
         type: string
       DeletionProtection:
         default: false
@@ -1473,7 +1524,7 @@ definitions:
     required:
     - DBEngine
     - DBEngineVersion
-    - DBInstanceSpec
+    - DBSpec
     - IId
     - MasterUserName
     - Status
@@ -1491,9 +1542,9 @@ definitions:
         description: Requested DB engine name. e.g., mysql, mariadb, postgresql
         example: mysql
         type: string
-      DBInstanceSpecOptions:
-        description: Available DBInstanceSpec values for the requested DB engine.
-          "NA" if CSP does not provide spec list API.
+      DBSpecOptions:
+        description: Available DBSpec values for the requested DB engine. "NA" if
+          CSP does not provide spec list API.
         example:
         - db.t3.medium
         - "1000"
@@ -2728,6 +2779,15 @@ definitions:
     required:
     - count
     type: object
+  spider.DBSpecListResponse:
+    properties:
+      dbspec:
+        items:
+          $ref: '#/definitions/spider.DBSpecInfo'
+        type: array
+    required:
+    - dbspec
+    type: object
   spider.DiskAttachRequest:
     properties:
       ConnectionName:
@@ -2860,6 +2920,9 @@ definitions:
       clusterHandler:
         description: 'support: true, do not support: false'
         type: boolean
+      dbspecHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
       diskHandler:
         description: 'support: true, do not support: false'
         type: boolean
@@ -2894,6 +2957,15 @@ definitions:
         description: 'support: true, do not support: false'
         type: boolean
       rdbmshandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      rdbmsmariaDBHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      rdbmsmySQLHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      rdbmspostgreSQLHandler:
         description: 'support: true, do not support: false'
         type: boolean
       regionZoneHandler:
@@ -3574,6 +3646,15 @@ definitions:
     - Port
     - Protocol
     type: object
+  spider.OriginalDBSpecListResponse:
+    properties:
+      DBSpecInfo:
+        additionalProperties: true
+        description: CSP-specific JSON format
+        type: object
+    required:
+    - DBSpecInfo
+    type: object
   spider.OriginalRegionListResponse:
     properties:
       RegionInfo:
@@ -3799,7 +3880,7 @@ definitions:
           DBEngineVersion:
             example: "8.0"
             type: string
-          DBInstanceSpec:
+          DBSpec:
             example: db.t3.medium
             type: string
           DeletionProtection:
@@ -3859,7 +3940,7 @@ definitions:
         required:
         - DBEngine
         - DBEngineVersion
-        - DBInstanceSpec
+        - DBSpec
         - MasterUserName
         - MasterUserPassword
         - Name
@@ -3892,6 +3973,15 @@ definitions:
         type: string
     required:
     - ConnectionName
+    type: object
+  spider.RDBMSEngineListResponse:
+    properties:
+      rdbmsengine:
+        items:
+          type: string
+        type: array
+    required:
+    - rdbmsengine
     type: object
   spider.RDBMSListResponse:
     properties:
@@ -7283,6 +7373,177 @@ paths:
       summary: Delete CSP VPC
       tags:
       - '[VPC Management]'
+  /dborgspec:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Original Database instance specs for a specific
+        DB engine, associated with a specific connection. <br> The response structure
+        may vary depending on the requested CSP.
+      operationId: list-org-db-spec
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Dynamic JSON structure representing the list of Original Database
+            instance specs
+          schema:
+            $ref: '#/definitions/spider.OriginalDBSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Original Database Instance Specs
+      tags:
+      - '[Cloud Metadata] DB Spec'
+  /dborgspec/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Original Database instance spec.
+      operationId: get-org-db-spec
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      - description: The name of the DB instance spec to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Original Database instance spec
+          schema:
+            $ref: '#/definitions/spider.OriginalDBSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Original Database Instance Spec
+      tags:
+      - '[Cloud Metadata] DB Spec'
+  /dbspec:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Database instance specs (vCPU/Memory/StorageSize
+        details) for a specific DB engine, associated with a specific connection.
+      operationId: list-db-spec
+      parameters:
+      - description: The name of the Connection to list DB instance specs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Database instance specs
+          schema:
+            $ref: '#/definitions/spider.DBSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Database Instance Specs
+      tags:
+      - '[Cloud Metadata] DB Spec'
+  /dbspec/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details (vCPU/Memory/StorageSize) of a specific Database
+        instance spec.
+      operationId: get-db-spec
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      - description: The name of the DB instance spec to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Database instance spec
+          schema:
+            $ref: '#/definitions/spider.DBSpecInfo'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Database Instance Spec
+      tags:
+      - '[Cloud Metadata] DB Spec'
   /destroy:
     delete:
       consumes:
@@ -10241,6 +10502,38 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Delete Database in RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbmsengine:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the list of RDBMS engines (e.g., mysql, mariadb, postgresql)
+        that the CSP supports for a specific connection, derived from the connection's
+        driver capability information (GET /driver/capability).
+      operationId: list-rdbms-engine
+      parameters:
+      - description: The name of the Connection to list supported RDBMS engines for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of RDBMS engines supported by the CSP
+          schema:
+            $ref: '#/definitions/spider.RDBMSEngineListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List RDBMS Engines
       tags:
       - '[RDBMS Management]'
   /rdbmsmetainfo:

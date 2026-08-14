@@ -637,7 +637,7 @@
 
     <div class="content">
         <div class="header-with-progress">
-            <button class="add-button" onclick="showOverlay()">+ Cluster</button>            
+            <button class="add-button" onclick="showOverlay()" {{if not .ClusterSupported}}disabled title="This CSP does not support Cluster"{{end}}>+ Cluster</button>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
                 <span id="timeDisplay"></span>
@@ -761,7 +761,13 @@
             </tr>
             {{end}}
         </table>
-        
+
+        {{if not .ClusterSupported}}
+        <div style="margin: 12px 0; padding: 10px; background:#fdf0f0; border:1px solid #e0a0a0; color:#a02020; font-size:13px;">
+            The current CSP ({{.ProviderName}}) does not support Cluster.
+        </div>
+        {{end}}
+
     </div>
 
     <div id="overlay" class="overlay">

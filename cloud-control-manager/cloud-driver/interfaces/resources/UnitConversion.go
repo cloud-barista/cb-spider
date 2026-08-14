@@ -6,21 +6,6 @@ import (
 	"strconv"
 )
 
-// ConvertMBToMiB converts an MB string to a MiB string (int string).
-func ConvertMBToMiB(mbStr string) (string, error) {
-	mb, err := strconv.Atoi(mbStr)
-	if err != nil {
-		return "-1", fmt.Errorf("invalid MB value: %v", err)
-	}
-	return ConvertMBToMiBInt64(int64(mb)), nil
-}
-
-// ConvertMBToMiBInt64 converts MB (int64) to a MiB string (int string).
-func ConvertMBToMiBInt64(mb int64) string {
-	mib := int(mb * 1000 / 1024)
-	return strconv.Itoa(mib)
-}
-
 // ConvertMiBToGB converts a MiB string to a GB string (int string).
 func ConvertMiBToGB(mibStr string) (string, error) {
 	mib, err := strconv.Atoi(mibStr)

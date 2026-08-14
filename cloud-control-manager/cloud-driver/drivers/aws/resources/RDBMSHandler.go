@@ -313,8 +313,8 @@ func (handler *AwsRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	if rdbmsReqInfo.DBEngineVersion == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required")
 	}
 	if rdbmsReqInfo.MasterUserName == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
@@ -351,7 +351,7 @@ func (handler *AwsRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	// Build CreateDBInstance input
 	input := &rds.CreateDBInstanceInput{
 		DBInstanceIdentifier: aws.String(rdbmsReqInfo.IId.NameId),
-		DBInstanceClass:      aws.String(rdbmsReqInfo.DBInstanceSpec),
+		DBInstanceClass:      aws.String(rdbmsReqInfo.DBSpec),
 		Engine:               aws.String(rdbmsReqInfo.DBEngine),
 		EngineVersion:        aws.String(rdbmsReqInfo.DBEngineVersion),
 		MasterUsername:       aws.String(rdbmsReqInfo.MasterUserName),
@@ -675,7 +675,7 @@ func (handler *AwsRDBMSHandler) convertDBInstanceToRDBMSInfo(dbInstance *rds.DBI
 	rdbmsInfo.DBEngineVersion = aws.StringValue(dbInstance.EngineVersion)
 
 	// Instance Spec
-	rdbmsInfo.DBInstanceSpec = aws.StringValue(dbInstance.DBInstanceClass)
+	rdbmsInfo.DBSpec = aws.StringValue(dbInstance.DBInstanceClass)
 	if aws.BoolValue(dbInstance.MultiAZ) {
 		rdbmsInfo.DBInstanceType = "Multi-AZ"
 	} else {

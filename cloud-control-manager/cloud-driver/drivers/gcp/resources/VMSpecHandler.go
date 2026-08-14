@@ -72,7 +72,10 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 				Count:    strconv.FormatInt(i.GuestCpus, 10),
 				ClockGHz: "-1",
 			},
-			MemSizeMiB: irs.ConvertMBToMiBInt64(i.MemoryMb), // MB -> MiB
+			// GCP's MachineType.MemoryMb is documented as "MB" but is actually already MiB
+			// (e.g. n1-standard-1 returns 3840, matching its real 3.75 GiB spec exactly);
+			// no unit conversion is applied.
+			MemSizeMiB: strconv.FormatInt(i.MemoryMb, 10),
 			DiskSizeGB: "-1",
 			Gpu:        gpuInfoList,
 		}
@@ -126,7 +129,9 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 			Count:    strconv.FormatInt(info.GuestCpus, 10),
 			ClockGHz: "-1",
 		},
-		MemSizeMiB: irs.ConvertMBToMiBInt64(info.MemoryMb), // MB -> MiB
+		// GCP's MachineType.MemoryMb is documented as "MB" but is actually already MiB;
+		// no unit conversion is applied (see ListVMSpec).
+		MemSizeMiB: strconv.FormatInt(info.MemoryMb, 10),
 
 		DiskSizeGB: "-1",
 		Gpu:        gpuInfoList,

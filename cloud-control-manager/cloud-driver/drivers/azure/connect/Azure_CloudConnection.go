@@ -331,6 +331,15 @@ func (cloudConn *AzureCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, e
 	return &rdbmsHandler, nil
 }
 
+func (cloudConn *AzureCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := azrs.AzureRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &handler, nil
+}
+
 func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreatePublicIPHandler()!")
 	handler := azrs.AzurePublicIPHandler{

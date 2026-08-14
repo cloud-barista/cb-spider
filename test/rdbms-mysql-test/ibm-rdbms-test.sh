@@ -16,7 +16,7 @@ export CREATE_JSON='{
     "VPCName": "vpc-01",
     "DBEngine": "mysql",
     "DBEngineVersion": "8.4",
-    "DBInstanceSpec": "multitenant",
+    "DBSpec": "multitenant",
     "StorageSize": "30",
     "MasterUserName": "admin",
     "MasterUserPassword": "Passwordspider123",

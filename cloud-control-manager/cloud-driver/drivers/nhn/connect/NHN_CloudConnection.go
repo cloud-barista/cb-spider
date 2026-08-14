@@ -188,6 +188,15 @@ func (cloudConn *NhnCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, err
 	return &rdbmsHandler, nil
 }
 
+func (cloudConn *NhnCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := nhnrs.NhnCloudRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		DBClient:       cloudConn.DBClient,
+	}
+	return &handler, nil
+}
+
 func (cloudConn *NhnCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := nhnrs.NhnCloudNICHandler{RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient, VMClient: cloudConn.VMClient}
 	return &handler, nil

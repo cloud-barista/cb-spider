@@ -15,7 +15,7 @@ export LOG_DIR="${LOG_DIR:-/tmp/st_logs_$$}"
 
 mkdir -p "${RESULT_DIR}" "${LOG_DIR}"
 
-# ── Fetch StorageTypeOptions and DBInstanceSpecOptions from metainfo ──────────
+# ── Fetch StorageTypeOptions and DBSpecOptions from metainfo ──────────
 echo "[${CSP_NAME}] Fetching StorageTypeOptions from rdbmsmetainfo..."
 meta_resp=$(curl -u "${SPIDER_AUTH}" -sX GET \
     "${SPIDER_URL}/spider/rdbmsmetainfo?DBEngine=mariadb&ConnectionName=${CONNECTION_NAME}" 2>&1)
@@ -40,12 +40,12 @@ fi
 # actually valid for the region/zone returned by DescribeAvailableZones.
 # Using a hardcoded spec risks incompatibility (e.g., rds.mariadb.s4.large is only
 # valid for local_ssd; cloud_essd requires a different spec class).
-meta_spec=$(echo "${meta_resp}" | jq -r '.DBInstanceSpecOptions[0]? // empty' 2>/dev/null)
+meta_spec=$(echo "${meta_resp}" | jq -r '.DBSpecOptions[0]? // empty' 2>/dev/null)
 if [[ -z "${meta_spec}" ]]; then
     meta_spec="rds.mariadb.s4.large"
-    echo "[${CSP_NAME}] No DBInstanceSpecOptions in metainfo; falling back to ${meta_spec}"
+    echo "[${CSP_NAME}] No DBSpecOptions in metainfo; falling back to ${meta_spec}"
 else
-    echo "[${CSP_NAME}] Using DBInstanceSpec from metainfo: ${meta_spec}"
+    echo "[${CSP_NAME}] Using DBSpec from metainfo: ${meta_spec}"
 fi
 
 echo "[${CSP_NAME}] StorageTypeOptions: $(echo "${storage_types}" | tr '\n' ' ')"
@@ -77,7 +77,7 @@ while IFS= read -r storage_type; do
     \"SubnetNames\": [\"subnet-01\"],
     \"DBEngine\": \"mariadb\",
     \"DBEngineVersion\": \"10.6\",
-    \"DBInstanceSpec\": \"${db_instance_spec}\",
+    \"DBSpec\": \"${db_instance_spec}\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"${db_storage_size}\",
     \"MasterUserName\": \"myadmin\",

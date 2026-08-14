@@ -117,7 +117,7 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 	metaInfo := irs.RDBMSMetaInfo{
 		DBEngine:                         "mysql",
 		SupportedVersions:                versions,
-		DBInstanceSpecOptions:            instanceSpecs,
+		DBSpecOptions:                    instanceSpecs,
 		StorageTypeOptions:               []string{"NA"},
 		StorageSizeRangeGB:               irs.StorageSizeRange{Min: 10, Max: 6000},
 		SupportsHighAvailability:         true,
@@ -134,7 +134,7 @@ func (handler *NcpVpcRDBMSHandler) getMysqlMetaInfo() (irs.RDBMSMetaInfo, error)
 	metaInfo.MarkStatic("StorageTypeOptions", "NCP G3 generation sets storage type (SSD) automatically; not user-selectable or queryable via API.")
 	metaInfo.MarkStatic("StorageSizeRangeGB", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative. No unit conversion is applied because the value is not derived from any CSP-reported unit.")
 	if len(instanceSpecs) == 0 {
-		metaInfo.MarkStatic("DBInstanceSpecOptions", "MySQL G3 product spec query failed for this request; returned an empty list instead of live data.")
+		metaInfo.MarkStatic("DBSpecOptions", "MySQL G3 product spec query failed for this request; returned an empty list instead of live data.")
 	}
 	return metaInfo, nil
 }
@@ -212,7 +212,7 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 	metaInfo := irs.RDBMSMetaInfo{
 		DBEngine:                         "postgresql",
 		SupportedVersions:                versions,
-		DBInstanceSpecOptions:            instanceSpecs,
+		DBSpecOptions:                    instanceSpecs,
 		StorageTypeOptions:               []string{"NA"},
 		StorageSizeRangeGB:               irs.StorageSizeRange{Min: 10, Max: 6000},
 		SupportsHighAvailability:         true,
@@ -228,7 +228,7 @@ func (handler *NcpVpcRDBMSHandler) getPostgresqlMetaInfo() (irs.RDBMSMetaInfo, e
 	metaInfo.MarkStatic("StorageTypeOptions", "NCP G3 generation sets storage type (SSD) automatically; not user-selectable or queryable via API.")
 	metaInfo.MarkStatic("StorageSizeRangeGB", "NCP has no storage-size query API; range shown (10-6000GB) is a known approximation, not authoritative. No unit conversion is applied because the value is not derived from any CSP-reported unit.")
 	if len(instanceSpecs) == 0 {
-		metaInfo.MarkStatic("DBInstanceSpecOptions", "PostgreSQL product spec query failed for this request; returned an empty list instead of live data.")
+		metaInfo.MarkStatic("DBSpecOptions", "PostgreSQL product spec query failed for this request; returned an empty list instead of live data.")
 	}
 	return metaInfo, nil
 }
@@ -367,11 +367,11 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 		CloudMysqlImageProductCode: &imageProductCode,
 	}
 
-	// DBInstanceSpec is required: it specifies CPU, memory, and base storage configuration
-	if reqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required for NCP MySQL instance creation. Use GetMetaInfo to get available options")
+	// DBSpec is required: it specifies CPU, memory, and base storage configuration
+	if reqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required for NCP MySQL instance creation. Use GetMetaInfo to get available options")
 	}
-	createReq.CloudMysqlProductCode = &reqInfo.DBInstanceSpec
+	createReq.CloudMysqlProductCode = &reqInfo.DBSpec
 
 	if reqInfo.DBEngineVersion != "" {
 		createReq.EngineVersionCode = &reqInfo.DBEngineVersion
@@ -470,11 +470,11 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 		CloudPostgresqlImageProductCode: &imageProductCode,
 	}
 
-	// DBInstanceSpec is required: it specifies CPU, memory, and base storage configuration
-	if reqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required for NCP PostgreSQL instance creation. Use GetMetaInfo to get available options")
+	// DBSpec is required: it specifies CPU, memory, and base storage configuration
+	if reqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required for NCP PostgreSQL instance creation. Use GetMetaInfo to get available options")
 	}
-	createReq.CloudPostgresqlProductCode = &reqInfo.DBInstanceSpec
+	createReq.CloudPostgresqlProductCode = &reqInfo.DBSpec
 
 	if reqInfo.DBEngineVersion != "" {
 		createReq.EngineVersionCode = &reqInfo.DBEngineVersion
@@ -1050,7 +1050,7 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 	if len(inst.CloudMysqlServerInstanceList) > 0 {
 		serverInst := inst.CloudMysqlServerInstanceList[0]
 		info.VpcIID = irs.IID{NameId: "NA", SystemId: derefStr(serverInst.VpcNo)}
-		info.DBInstanceSpec = derefStr(serverInst.CloudMysqlProductCode)
+		info.DBSpec = derefStr(serverInst.CloudMysqlProductCode)
 
 		// Set endpoint with port
 		var domain string
@@ -1183,7 +1183,7 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 	if len(inst.CloudPostgresqlServerInstanceList) > 0 {
 		serverInst := inst.CloudPostgresqlServerInstanceList[0]
 		info.VpcIID = irs.IID{NameId: "NA", SystemId: derefStr(serverInst.VpcNo)}
-		info.DBInstanceSpec = derefStr(serverInst.CloudPostgresqlProductCode)
+		info.DBSpec = derefStr(serverInst.CloudPostgresqlProductCode)
 
 		// Set endpoint with port
 		var domain string
