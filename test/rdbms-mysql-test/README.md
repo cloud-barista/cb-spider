@@ -280,7 +280,7 @@ tail -f /tmp/rdbms_logs_<PID>/log_aws.txt
 | CSP | Note |
 |-----|------|
 | AWS | SubnetGroup 생성을 위해 **다른 AZ의 서브넷 2개 이상** 필요. Security Group `sg-01` 사전 생성 필요 |
-| Tencent | `DBInstanceSpec`은 메모리 크기(MB) 지정 (예: `8000` = 8GB) |
+| Tencent | `DBSpec`은 메모리 크기(MB) 지정 (예: `8000` = 8GB) |
 | IBM | StorageType 지정 불가 (SupportsStorageTypeSelection=false). |
 | NCP | StorageSize/StorageType 지정 불가 (CSP 자동 관리). G3(KVM) generation만 지원. Public 도메인은 생성 후 콘솔에서 별도 신청 필요 |
 

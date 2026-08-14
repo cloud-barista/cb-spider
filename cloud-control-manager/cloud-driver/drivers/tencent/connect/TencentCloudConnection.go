@@ -204,6 +204,11 @@ func (cloudConn *TencentCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler,
 	return &handler, nil
 }
 
+func (cloudConn *TencentCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := trs.TencentRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.CDBClient}
+	return &handler, nil
+}
+
 func (cloudConn *TencentCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := trs.TencentNICHandler{Region: cloudConn.Region, VPCClient: cloudConn.VNetworkClient}
 	return &handler, nil

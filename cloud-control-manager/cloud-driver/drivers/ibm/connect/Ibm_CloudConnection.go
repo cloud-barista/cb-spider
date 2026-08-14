@@ -244,6 +244,16 @@ func (cloudConn *IbmCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, err
 	return &rdbmsHandler, nil
 }
 
+func (cloudConn *IbmCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := ibmrs.IbmRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+		CloudDBService: cloudConn.CloudDBService,
+	}
+	return &handler, nil
+}
+
 func (cloudConn *IbmCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := ibmrs.IbmNICHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, VpcService: cloudConn.VpcService}
 	return &handler, nil

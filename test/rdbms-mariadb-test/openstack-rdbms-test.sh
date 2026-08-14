@@ -17,7 +17,7 @@ export CREATE_JSON='{
     "VPCName": "vpc-01",
     "DBEngine": "mariadb",
     "DBEngineVersion": "10.6",
-    "DBInstanceSpec": "m1.small",
+    "DBSpec": "m1.small",
     "StorageSize": "20",
     "MasterUserName": "myadmin",
     "MasterUserPassword": "Password123!",

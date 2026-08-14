@@ -61,7 +61,7 @@ while IFS= read -r storage_type; do
     \"VPCName\": \"vpc-01\",
     \"DBEngine\": \"mariadb\",
     \"DBEngineVersion\": \"10.6\",
-    \"DBInstanceSpec\": \"db.t3.medium\",
+    \"DBSpec\": \"db.t3.medium\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"${storage_size}\",
     ${iops_field}

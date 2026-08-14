@@ -183,7 +183,7 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 | 항목 | 값 |
 |------|-----|
 | DBEngine / Version | `mariadb` / `10.6` |
-| DBInstanceSpec | `db.t3.medium` |
+| DBSpec | `db.t3.medium` |
 | StorageSize | `100 GB` (io1/io2 포함 전 타입 동일) |
 | Connection | `aws-config01` |
 | Region / Zone | `ap-southeast-2` / `ap-southeast-2a` |
@@ -197,12 +197,12 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 
 ### Alibaba
 
-`StorageTypeOptions`와 `DBInstanceSpecOptions`를 모두 metainfo API에서 동적으로 조회하며, 지역/존에 유효한 스펙을 자동 선택합니다(하드코딩된 스펙은 StorageType과 호환되지 않을 수 있음).
+`StorageTypeOptions`와 `DBSpecOptions`를 모두 metainfo API에서 동적으로 조회하며, 지역/존에 유효한 스펙을 자동 선택합니다(하드코딩된 스펙은 StorageType과 호환되지 않을 수 있음).
 
 | 항목 | 값 |
 |------|-----|
 | DBEngine / Version | `mariadb` / `10.6` |
-| DBInstanceSpec | metainfo `DBInstanceSpecOptions[0]` (조회 실패 시 `rds.mariadb.s4.large`로 폴백) |
+| DBSpec | metainfo `DBSpecOptions[0]` (조회 실패 시 `rds.mariadb.s4.large`로 폴백) |
 | StorageSize | 기본 `20 GB`, `cloud_essd2`는 `500 GB`, `cloud_essd3`는 `1500 GB` |
 | Connection | `alibaba-beijing-config` |
 | Region / Zone | `cn-beijing` / `cn-beijing-f` |
@@ -218,7 +218,7 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 | 항목 | 값 |
 |------|-----|
 | DBEngine / Version | `mariadb` / `10.6` |
-| DBInstanceSpec | `m1.small` |
+| DBSpec | `m1.small` |
 | StorageSize | `20 GB` |
 | Connection | `openstack-config01` |
 | Region / Zone | `RegionOne` / `nova` |
@@ -233,7 +233,7 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 | 항목 | 값 |
 |------|-----|
 | DBEngine / Version | `mariadb` / `MARIADB_V101118` |
-| DBInstanceSpec | `m2.c2m4` |
+| DBSpec | `m2.c2m4` |
 | StorageSize | `20 GB` |
 | Connection | `nhn-korea-pangyo1-config` |
 | Region / Zone | `KR1` / `kr-pub-a` |

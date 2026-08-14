@@ -3790,6 +3790,252 @@
                 }
             }
         },
+        "/dborgspec": {
+            "get": {
+                "description": "Retrieve a list of Original Database instance specs for a specific DB engine, associated with a specific connection. \u003cbr\u003e The response structure may vary depending on the requested CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "List Original Database Instance Specs",
+                "operationId": "list-org-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dynamic JSON structure representing the list of Original Database instance specs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalDBSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dborgspec/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Original Database instance spec.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "Get Original Database Instance Spec",
+                "operationId": "get-org-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the DB instance spec to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Original Database instance spec",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalDBSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dbspec": {
+            "get": {
+                "description": "Retrieve a list of Database instance specs (vCPU/Memory/StorageSize details) for a specific DB engine, associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "List Database Instance Specs",
+                "operationId": "list-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list DB instance specs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Database instance specs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DBSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dbspec/{Name}": {
+            "get": {
+                "description": "Retrieve details (vCPU/Memory/StorageSize) of a specific Database instance spec.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "Get Database Instance Spec",
+                "operationId": "get-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the DB instance spec to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Database instance spec",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DBSpecInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/destroy": {
             "delete": {
                 "description": "Deletes all resources associated with a specific cloud connection. This action is irreversible.",
@@ -8117,6 +8363,51 @@
                     },
                     "501": {
                         "description": "Not Supported by driver",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/rdbmsengine": {
+            "get": {
+                "description": "Retrieve the list of RDBMS engines (e.g., mysql, mariadb, postgresql) that the CSP supports for a specific connection, derived from the connection's driver capability information (GET /driver/capability).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "List RDBMS Engines",
+                "operationId": "list-rdbms-engine",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list supported RDBMS engines for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of RDBMS engines supported by the CSP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSEngineListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -13897,6 +14188,68 @@
                 }
             }
         },
+        "spider.DBSpecInfo": {
+            "description": "Database Instance Spec Information for CSP-specific DBSpec values",
+            "type": "object",
+            "properties": {
+                "DBEngine": {
+                    "description": "mysql | mariadb | postgresql — engine this spec applies to",
+                    "type": "string",
+                    "example": "mysql"
+                },
+                "DataSource": {
+                    "description": "DataSource records, per field name, whether that field's value was obtained live\nfrom the CSP API (\"API\") or is a fixed/unconvertible value (\"Static\") for this\nresponse. A field with no entry here is \"API\". Same convention as RDBMSMetaInfo.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/spider.RDBMSDataSource"
+                    }
+                },
+                "DataSourceNotes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "KeyValueList": {
+                    "description": "CSP-specific extras (e.g. raw source value/unit, IOPS, architecture, reference price)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "MemSizeMiB": {
+                    "description": "Memory size in MiB. \"-1\" when the CSP's native unit cannot be objectively confirmed (see DataSourceNotes)",
+                    "type": "string",
+                    "example": "4096"
+                },
+                "Name": {
+                    "description": "CSP original spec/class/flavor name",
+                    "type": "string",
+                    "example": "db.t3.medium"
+                },
+                "Region": {
+                    "description": "Region where this spec is orderable",
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "StorageSizeRangeGB": {
+                    "description": "StorageSizeRangeGB is the valid StorageSize range (GB) the caller may request for\nTHIS spec when creating a database instance — NOT a disk built into the spec.\n{-1,-1} means \"no per-spec constraint known\" (falls back to RDBMSMetaInfo.StorageSizeRangeGB).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.StorageSizeRange"
+                        }
+                    ]
+                },
+                "VCpu": {
+                    "description": "CPU details. Count is \"-1\" when the CSP does not expose it and no objective cross-service basis exists to derive it",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.VCpuInfo"
+                        }
+                    ]
+                }
+            }
+        },
         "spider.DiskInfo": {
             "type": "object",
             "required": [
@@ -15260,7 +15613,7 @@
             "required": [
                 "DBEngine",
                 "DBEngineVersion",
-                "DBInstanceSpec",
+                "DBSpec",
                 "IId",
                 "MasterUserName",
                 "Status",
@@ -15291,15 +15644,15 @@
                     "type": "string",
                     "example": "8.0"
                 },
-                "DBInstanceSpec": {
-                    "description": "Instance Spec",
-                    "type": "string",
-                    "example": "db.t3.medium"
-                },
                 "DBInstanceType": {
                     "description": "Primary | ReadReplica (for response)",
                     "type": "string",
                     "example": "Primary"
+                },
+                "DBSpec": {
+                    "description": "Instance Spec",
+                    "type": "string",
+                    "example": "db.t3.medium"
                 },
                 "DeletionProtection": {
                     "description": "Protection",
@@ -15415,8 +15768,8 @@
                     "type": "string",
                     "example": "mysql"
                 },
-                "DBInstanceSpecOptions": {
-                    "description": "Available DBInstanceSpec values for the requested DB engine. \"NA\" if CSP does not provide spec list API.",
+                "DBSpecOptions": {
+                    "description": "Available DBSpec values for the requested DB engine. \"NA\" if CSP does not provide spec list API.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -17121,6 +17474,20 @@
                 }
             }
         },
+        "spider.DBSpecListResponse": {
+            "type": "object",
+            "required": [
+                "dbspec"
+            ],
+            "properties": {
+                "dbspec": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.DBSpecInfo"
+                    }
+                }
+            }
+        },
         "spider.DiskAttachRequest": {
             "type": "object",
             "required": [
@@ -17306,6 +17673,10 @@
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
+                "dbspecHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
                 "diskHandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
@@ -17351,6 +17722,18 @@
                     "type": "boolean"
                 },
                 "rdbmshandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "rdbmsmariaDBHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "rdbmsmySQLHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "rdbmspostgreSQLHandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
@@ -18317,6 +18700,19 @@
                 }
             }
         },
+        "spider.OriginalDBSpecListResponse": {
+            "type": "object",
+            "required": [
+                "DBSpecInfo"
+            ],
+            "properties": {
+                "DBSpecInfo": {
+                    "description": "CSP-specific JSON format",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
         "spider.OriginalRegionListResponse": {
             "type": "object",
             "required": [
@@ -18626,7 +19022,7 @@
                     "required": [
                         "DBEngine",
                         "DBEngineVersion",
-                        "DBInstanceSpec",
+                        "DBSpec",
                         "MasterUserName",
                         "MasterUserPassword",
                         "Name",
@@ -18647,7 +19043,7 @@
                             "type": "string",
                             "example": "8.0"
                         },
-                        "DBInstanceSpec": {
+                        "DBSpec": {
                             "type": "string",
                             "example": "db.t3.medium"
                         },
@@ -18752,6 +19148,20 @@
                     "description": "required when driver uses SQL (e.g. AWS, IBM)",
                     "type": "string",
                     "example": "P@ssw0rd"
+                }
+            }
+        },
+        "spider.RDBMSEngineListResponse": {
+            "type": "object",
+            "required": [
+                "rdbmsengine"
+            ],
+            "properties": {
+                "rdbmsengine": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

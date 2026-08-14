@@ -379,8 +379,8 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 	if rdbmsReqInfo.IId.NameId == "" {
 		return irs.RDBMSInfo{}, errors.New("RDBMS NameId is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required (Memory in MB)")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required (Memory in MB)")
 	}
 	if rdbmsReqInfo.StorageSize == "" {
 		return irs.RDBMSInfo{}, errors.New("StorageSize is required (in GB)")
@@ -392,13 +392,13 @@ func (handler *TencentRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 		return irs.RDBMSInfo{}, fmt.Errorf("Tencent Cloud Database does not support custom MasterUserName: the admin user is always %q. Set MasterUserName to %q or leave it empty", tencentDefaultAdminUser, tencentDefaultAdminUser)
 	}
 
-	// DBInstanceSpec must be memory(MB) from Tencent CDB DescribeCdbZoneConfig API
-	memory, err := strconv.ParseInt(rdbmsReqInfo.DBInstanceSpec, 10, 64)
+	// DBSpec must be memory(MB) from Tencent CDB DescribeCdbZoneConfig API
+	memory, err := strconv.ParseInt(rdbmsReqInfo.DBSpec, 10, 64)
 	if err != nil {
-		return irs.RDBMSInfo{}, fmt.Errorf("DBInstanceSpec must be numeric memory size in MB (e.g., 1000, 2000, 4000). Use GetMetaInfo API to get available memory options. Error: %w", err)
+		return irs.RDBMSInfo{}, fmt.Errorf("DBSpec must be numeric memory size in MB (e.g., 1000, 2000, 4000). Use GetMetaInfo API to get available memory options. Error: %w", err)
 	}
 	if memory <= 0 {
-		return irs.RDBMSInfo{}, fmt.Errorf("DBInstanceSpec must be positive integer (memory in MB), got %d", memory)
+		return irs.RDBMSInfo{}, fmt.Errorf("DBSpec must be positive integer (memory in MB), got %d", memory)
 	}
 
 	// Parse storage size (volume in GB)
@@ -835,7 +835,7 @@ func (handler *TencentRDBMSHandler) convertToRDBMSInfo(inst *cdb.InstanceInfo) i
 
 	// Instance spec (memory)
 	if inst.Memory != nil {
-		rdbmsInfo.DBInstanceSpec = strconv.FormatInt(*inst.Memory, 10)
+		rdbmsInfo.DBSpec = strconv.FormatInt(*inst.Memory, 10)
 	}
 
 	// Storage
@@ -1034,7 +1034,7 @@ func (handler *TencentRDBMSHandler) enrichBackupInfo(rdbmsInfo *irs.RDBMSInfo) {
 func (handler *TencentRDBMSHandler) resolveMemoryMBFromSpec(spec string) (int64, error) {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
-		return 0, errors.New("DBInstanceSpec is empty")
+		return 0, errors.New("DBSpec is empty")
 	}
 
 	memoryMB, err := strconv.ParseInt(spec, 10, 64)
@@ -1043,10 +1043,10 @@ func (handler *TencentRDBMSHandler) resolveMemoryMBFromSpec(spec string) (int64,
 	}
 
 	if handler.VMClient == nil {
-		return 0, fmt.Errorf("DBInstanceSpec [%s] is not numeric and VM client is unavailable; provide memory in MB or a valid Tencent VM spec", spec)
+		return 0, fmt.Errorf("DBSpec [%s] is not numeric and VM client is unavailable; provide memory in MB or a valid Tencent VM spec", spec)
 	}
 	if handler.Region.Zone == "" {
-		return 0, fmt.Errorf("DBInstanceSpec [%s] looks like VM spec, but connection Zone is empty; Tencent VM spec resolution requires Zone", spec)
+		return 0, fmt.Errorf("DBSpec [%s] looks like VM spec, but connection Zone is empty; Tencent VM spec resolution requires Zone", spec)
 	}
 
 	request := cvm.NewDescribeZoneInstanceConfigInfosRequest()
@@ -1063,7 +1063,7 @@ func (handler *TencentRDBMSHandler) resolveMemoryMBFromSpec(spec string) (int64,
 
 	response, queryErr := handler.VMClient.DescribeZoneInstanceConfigInfos(request)
 	if queryErr != nil {
-		return 0, fmt.Errorf("failed to resolve DBInstanceSpec [%s] from Tencent VM spec: %w", spec, queryErr)
+		return 0, fmt.Errorf("failed to resolve DBSpec [%s] from Tencent VM spec: %w", spec, queryErr)
 	}
 	if response.Response == nil || len(response.Response.InstanceTypeQuotaSet) == 0 {
 		availableSpecs, _ := handler.listAvailableVMSpecNames(20)

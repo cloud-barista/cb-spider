@@ -597,10 +597,14 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize, resource
 	}
 
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region:     region,
-		Name:       *vmSpec.Name,
-		VCpu:       irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10), ClockGHz: "-1"},
-		MemSizeMiB: irs.ConvertMBToMiBInt64(int64(*vmSpec.MemoryInMB)), // MB -> MiB
+		Region: region,
+		Name:   *vmSpec.Name,
+		VCpu:   irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10), ClockGHz: "-1"},
+		// Azure's VirtualMachineSize.MemoryInMB is documented as "MB" but is actually already
+		// MiB (e.g. Standard_B12ms returns 49152, matching its real 48 GiB spec exactly, the
+		// same "MB"-labeled-but-really-MiB convention as ResourceDiskSizeInMB below); no unit
+		// conversion is applied.
+		MemSizeMiB: strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
 		// ref) https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series
 		DiskSizeGB:   irs.ConvertMiBToGBInt64(int64(*vmSpec.ResourceDiskSizeInMB)), // MiB(real) -> GB
 		Gpu:          gpuInfoList,

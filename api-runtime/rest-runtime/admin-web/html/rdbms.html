@@ -913,6 +913,16 @@
         gap: 8px;
         font-size: 11px;
     }
+    .metainfo-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #cfe2f3;
+        border-top: 2px solid #1a5276;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: middle;
+    }
     .metainfo-item {
         background: white;
         border: 1px solid #d0dff0;
@@ -988,7 +998,7 @@
 
     <div class="content">
         <div class="header-with-progress">
-            <button class="add-button" onclick="showOverlay()">+ RDBMS</button>
+            <button class="add-button" onclick="showOverlay()" {{if not .RDBMSSupported}}disabled title="This CSP does not support RDBMS"{{end}}>+ RDBMS</button>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
                 <span id="timeDisplay"></span>
@@ -1056,7 +1066,7 @@
                     <table class="inner-table">
                         <tr>
                             <th>Spec</th>
-                            <td>{{$rdbms.DBInstanceSpec}}</td>
+                            <td>{{$rdbms.DBSpec}}</td>
                         </tr>
                         <tr>
                             <th>Type</th>
@@ -1151,10 +1161,16 @@
             {{end}}
             {{if not .RDBMSs}}
             <tr>
-                <td colspan="11" class="center-align">No RDBMSs found for this connection.</td>
+                <td colspan="12" class="center-align">No RDBMSs found for this connection.</td>
             </tr>
             {{end}}
         </table>
+
+        {{if not .RDBMSSupported}}
+        <div style="margin: 12px 0; padding: 10px; background:#fdf0f0; border:1px solid #e0a0a0; color:#a02020; font-size:13px;">
+            The current CSP ({{.ProviderName}}) does not support RDBMS.
+        </div>
+        {{end}}
 
         <!-- DB Detail Panel (like S3 Object Panel) -->
         <div id="db-panel" style="display:none; border-top: 2px solid #ccc; margin-top: 20px; padding-top: 20px;">
@@ -1351,7 +1367,7 @@
                     </div>
                     <div class="form-group">
                         <label for="dbEngineVersion">Version:</label>
-                        <select id="dbEngineVersion" name="dbEngineVersion" required style="background-color: #F5F5DC; width: 65%;">
+                        <select id="dbEngineVersion" name="dbEngineVersion" required style="background-color: #F5F5DC; width: 65%;" onchange="syncMetaInfoTagSelection('version', 'dbEngineVersion')">
                             <option value="">Loading...</option>
                         </select>
                     </div>
@@ -1361,8 +1377,8 @@
                 <fieldset class="info-group">
                     <legend>Instance Spec:</legend>
                     <div class="form-group">
-                        <label for="dbInstanceSpec">Instance Spec:</label>
-                        <select id="dbInstanceSpec" name="dbInstanceSpec" required style="width: 65%;">
+                        <label for="dbSpec">Instance Spec:</label>
+                        <select id="dbSpec" name="dbSpec" required style="width: 65%;" onchange="syncMetaInfoTagSelection('spec', 'dbSpec')">
                             <option value="">Loading...</option>
                         </select>
                     </div>
@@ -1373,7 +1389,7 @@
                     </div>
                     <div class="form-group">
                         <label for="storageType">Storage Type:</label>
-                        <select id="storageType" name="storageType" style="width: 65%;">
+                        <select id="storageType" name="storageType" style="width: 65%;" onchange="syncMetaInfoTagSelection('storage', 'storageType')">
                             <option value="">Loading...</option>
                         </select>
                     </div>
@@ -1459,7 +1475,7 @@
                 <div class="form-group">
                     <label for="rdbms-tag-container">Tags:</label>
                     <div id="rdbms-tag-container"></div>
-                    <button type="button" onclick="addRDBMSTagField()">+</button>
+                    <button type="button" id="addRdbmsTagBtn" onclick="addRDBMSTagField()">+</button>
                 </div>
                 <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
                     <button type="submit">Add RDBMS</button>
@@ -1483,6 +1499,10 @@
             <span style="color:white; font-size:13px; font-weight:bold;">&#128203; RDBMS MetaInfo</span>
             <div style="display:flex; align-items:center; gap:8px;">
                 <span id="metaInfoSubtitle" style="color:#aed6f1; font-size:10px;"></span>
+                <span id="metaInfoCacheBadge" title="Showing cached data — click Refresh to re-fetch from the CSP"
+                    style="display:none; background:#f4d03f; color:#5d4600; border-radius:3px; padding:1px 5px; font-size:9px; font-weight:bold;">CACHED</span>
+                <button type="button" id="metaInfoRefreshBtn" onclick="refreshRDBMSMetaInfo()" title="Re-fetch MetaInfo, bypassing the cache"
+                    style="background:#2874a6; color:white; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:12px; font-weight:bold; line-height:1.4;">&#8635;</button>
                 <button type="button" onclick="hideMetaInfoOverlay()"
                     style="background:#c0392b; color:white; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:12px; font-weight:bold; line-height:1.4;">X</button>
             </div>
@@ -1696,12 +1716,12 @@
         const vpcName = document.getElementById('vpcName').value.trim();
         const dbEngine = document.getElementById('dbEngine').value.trim();
         const dbEngineVersion = document.getElementById('dbEngineVersion').value.trim();
-        const dbInstanceSpec = document.getElementById('dbInstanceSpec').value.trim();
+        const dbSpec = document.getElementById('dbSpec').value.trim();
         const storageSize = document.getElementById('storageSize').value.trim();
         const masterUserName = document.getElementById('masterUserName').value.trim();
         const masterUserPassword = document.getElementById('masterUserPassword').value.trim();
 
-        if (!rdbmsName || !vpcName || !dbEngine || !dbEngineVersion || !dbInstanceSpec || !storageSize || !masterUserName || !masterUserPassword) {
+        if (!rdbmsName || !vpcName || !dbEngine || !dbEngineVersion || !dbSpec || !storageSize || !masterUserName || !masterUserPassword) {
             alert("Please fill in all required fields.");
             return false;
         }
@@ -1735,7 +1755,7 @@
         const vpcName = document.getElementById('vpcName').value;
         const dbEngine = document.getElementById('dbEngine').value;
         const dbEngineVersion = document.getElementById('dbEngineVersion').value;
-        const dbInstanceSpec = document.getElementById('dbInstanceSpec').value;
+        const dbSpec = document.getElementById('dbSpec').value;
         const storageSizeInput = document.getElementById('storageSize');
         const storageSize = storageSizeInput.disabled ? undefined : storageSizeInput.value;
         const storageType = document.getElementById('storageType').value.trim();
@@ -1770,7 +1790,7 @@
                 VPCName: vpcName,
                 DBEngine: dbEngine,
                 DBEngineVersion: dbEngineVersion,
-                DBInstanceSpec: dbInstanceSpec,
+                DBSpec: dbSpec,
                 StorageSize: storageSize,
                 StorageType: storageType || undefined,
                 SubnetNames: selectedSubnets.length > 0 ? selectedSubnets : undefined,
@@ -1826,7 +1846,11 @@
 
     function showOverlay() {
         showProgressBar();
-        Promise.all([loadVPCs(), loadRDBMSMetaInfo(), setDefaultMasterUser()]).then(() => {
+        // Resolve which DB Engines this connection's CSP supports first, so the engine
+        // select's default value is already valid before loadRDBMSMetaInfo() reads it.
+        loadDBEngineCapability().then(() => {
+            return Promise.all([loadVPCs(), loadRDBMSMetaInfo(), setDefaultMasterUser()]);
+        }).then(() => {
             const region = '{{.RegionName}}';
             const rdbmsNameInput = document.getElementById('rdbmsName');
             rdbmsNameInput.value = `${region}-rdbms-${Math.random().toString(36).substring(2, 5)}`;
@@ -1849,7 +1873,7 @@
         // Reset MetaInfo-driven selects
         const versionSelect = document.getElementById('dbEngineVersion');
         versionSelect.innerHTML = '<option value="">Loading...</option>';
-        const specSelect = document.getElementById('dbInstanceSpec');
+        const specSelect = document.getElementById('dbSpec');
         specSelect.innerHTML = '<option value="">Loading...</option>';
         const storageTypeSelect = document.getElementById('storageType');
         storageTypeSelect.innerHTML = '<option value="">Loading...</option>';
@@ -2013,7 +2037,7 @@
             versionSelect.value = defaults.version;
         }
 
-        const specSelect = document.getElementById('dbInstanceSpec');
+        const specSelect = document.getElementById('dbSpec');
         if (defaults.spec && Array.from(specSelect.options).some(o => o.value === defaults.spec)) {
             specSelect.value = defaults.spec;
         }
@@ -2023,28 +2047,89 @@
         }
     }
 
-    function loadRDBMSMetaInfo() {
-        const connConfig = document.getElementById('connConfig').value;
-        const dbEngine = document.getElementById('dbEngine').value;
-        const url = `/spider/rdbmsmetainfo?DBEngine=${encodeURIComponent(dbEngine)}&ConnectionName=${encodeURIComponent(connConfig)}`;
+    // Grays out (disables) <option>s in the DB Engine select that this connection's CSP
+    // driver does not support, using the per-engine flags from GetDriverCapability, so the
+    // user can't pick an engine that would only fail later after a MetaInfo round-trip.
+    function applyDBEngineCapability(capability) {
+        const engineFlags = {
+            mysql: !!(capability && capability.RDBMSMySQLHandler),
+            mariadb: !!(capability && capability.RDBMSMariaDBHandler),
+            postgresql: !!(capability && capability.RDBMSPostgreSQLHandler)
+        };
+        const dbEngineSelect = document.getElementById('dbEngine');
+        if (!dbEngineSelect) return;
 
-        return fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
+        let selectedIsSupported = false;
+        Array.from(dbEngineSelect.options).forEach(option => {
+            const supported = engineFlags[option.value];
+            option.disabled = !supported;
+            option.style.color = supported ? '' : '#aaa';
+            option.title = supported ? '' : 'Not supported by this connection\'s CSP';
+            if (option.value === dbEngineSelect.value && supported) {
+                selectedIsSupported = true;
             }
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json()
-                    .catch(() => ({}))
-                    .then(body => {
-                        throw new Error(body.message || `MetaInfo API returned status ${response.status}`);
-                    });
+        });
+
+        // If the currently selected engine (default: mysql) turned out to be unsupported,
+        // fall back to the first engine this CSP does support.
+        if (!selectedIsSupported) {
+            const firstSupported = Array.from(dbEngineSelect.options).find(o => !o.disabled);
+            if (firstSupported) {
+                dbEngineSelect.value = firstSupported.value;
             }
-            return response.json();
-        })
-        .then(metaInfo => {
+        }
+    }
+
+    function loadDBEngineCapability() {
+        const connConfig = document.getElementById('connConfig').value;
+        return fetch(`/spider/driver/capability?ConnectionName=${encodeURIComponent(connConfig)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Driver capability API returned status ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(capability => applyDBEngineCapability(capability))
+            .catch(error => {
+                // Fail open: if capability can't be determined, leave every engine option
+                // enabled rather than blocking the Add RDBMS form entirely.
+                console.error('Error loading driver capability:', error);
+            });
+    }
+
+    let metaInfoRequestSeq = 0;
+
+    function showMetaInfoLoading(dbEngine, connConfig) {
+        const content = document.getElementById('metaInfoContent');
+        if (content) {
+            content.innerHTML = '<div style="display:flex; align-items:center; gap:8px; color:#888; font-size:11px; padding:8px 0;">' +
+                '<span class="metainfo-spinner"></span><span>Loading MetaInfo for ' + escapeHtml(dbEngine) + '...</span></div>';
+        }
+        const subtitle = document.getElementById('metaInfoSubtitle');
+        if (subtitle) {
+            subtitle.textContent = `Engine: ${dbEngine}  |  Connection: ${connConfig}  (loading...)`;
+        }
+        const badge = document.getElementById('metaInfoCacheBadge');
+        if (badge) badge.style.display = 'none';
+    }
+
+    function showMetaInfoError(error) {
+        const content = document.getElementById('metaInfoContent');
+        if (content) {
+            content.innerHTML = '<div style="color:#c0392b; font-size:11px; padding:8px 0;">Failed to load MetaInfo: ' +
+                escapeHtml(error && error.message ? error.message : 'unknown error') + '</div>';
+        }
+    }
+
+    // RDBMSMetaInfo rarely changes for a given (connection, DB engine) pair, so once fetched
+    // it is kept here and reused instantly on subsequent DB Engine switches — no re-fetch
+    // until the page is reloaded or a not-yet-seen connection/engine combination is picked.
+    const metaInfoCache = {};
+
+    function applyRDBMSMetaInfo(metaInfo, isCached) {
+            const cacheBadge = document.getElementById('metaInfoCacheBadge');
+            if (cacheBadge) cacheBadge.style.display = isCached ? '' : 'none';
+
             // Update Subnet/SG label required status
             const subnetLabel = document.getElementById('subnetLabel');
             const sgLabel = document.getElementById('sgLabel');
@@ -2078,10 +2163,10 @@
             }
 
             // Populate Instance Spec select
-            const specSelect = document.getElementById('dbInstanceSpec');
+            const specSelect = document.getElementById('dbSpec');
             specSelect.innerHTML = '';
-            if (metaInfo.DBInstanceSpecOptions && metaInfo.DBInstanceSpecOptions.length > 0) {
-                metaInfo.DBInstanceSpecOptions.forEach((spec, index) => {
+            if (metaInfo.DBSpecOptions && metaInfo.DBSpecOptions.length > 0) {
+                metaInfo.DBSpecOptions.forEach((spec, index) => {
                     const option = document.createElement('option');
                     option.value = spec;
                     option.text = spec;
@@ -2100,7 +2185,7 @@
                 emptyOption.value = '';
                 emptyOption.text = '(optional)';
                 storageTypeSelect.appendChild(emptyOption);
-                
+
                 metaInfo.StorageTypeOptions.forEach((storageType, index) => {
                     const option = document.createElement('option');
                     option.value = storageType;
@@ -2129,9 +2214,9 @@
             // Update Storage Size hint
             const storageSizeHint = document.getElementById('storageSizeHint');
             const storageSizeInput = document.getElementById('storageSize');
-            if (metaInfo.StorageSizeRange) {
-                const min = metaInfo.StorageSizeRange.Min;
-                const max = metaInfo.StorageSizeRange.Max;
+            if (metaInfo.StorageSizeRangeGB) {
+                const min = metaInfo.StorageSizeRangeGB.Min;
+                const max = metaInfo.StorageSizeRangeGB.Max;
                 storageSizeInput.min = min;
                 // Some CSPs report no upper quota limit as Max <= 0 ("unlimited");
                 // don't set a max attribute in that case, or the browser rejects
@@ -2190,21 +2275,100 @@
                 backupRetentionHint.textContent = '';
                 backupRetentionInput.placeholder = '(optional)';
             }
+            backupRetentionInput.disabled = metaInfo.SupportsBackup === false;
+            if (backupRetentionInput.disabled) {
+                backupRetentionInput.value = '';
+            }
+
+            // Disable Advanced Options controls this CSP/engine doesn't support (per
+            // MetaInfo's Supports* flags), forcing them back to "No"/off rather than
+            // leaving them clickable only to fail at creation time.
+            [
+                ['highAvailability', metaInfo.SupportsHighAvailability],
+                ['publicAccess', metaInfo.SupportsPublicAccess],
+                ['encryption', metaInfo.SupportsEncryption],
+                ['deletionProtection', metaInfo.SupportsDeletionProtection]
+            ].forEach(([id, supported]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const disabled = supported === false;
+                el.disabled = disabled;
+                if (disabled) {
+                    el.value = 'false';
+                }
+            });
+
+            const addTagBtn = document.getElementById('addRdbmsTagBtn');
+            if (addTagBtn) {
+                addTagBtn.disabled = metaInfo.SupportsTag === false;
+            }
 
             // Pre-select CSP-specific values known to succeed (see test/rdbms-mysql-test/*.sh)
             applyCSPRDBMSTestDefaults();
 
             // Populate MetaInfo Reference Panel
             populateMetaInfoPanel(metaInfo);
+    }
+
+    function loadRDBMSMetaInfo(forceRefresh) {
+        const connConfig = document.getElementById('connConfig').value;
+        const dbEngine = document.getElementById('dbEngine').value;
+        const cacheKey = connConfig + '::' + dbEngine;
+        const cached = metaInfoCache[cacheKey];
+        if (cached && !forceRefresh) {
+            // Served from cache — bump the sequence so any still in-flight fetch from a
+            // previous selection is ignored if it resolves after this.
+            ++metaInfoRequestSeq;
+            applyRDBMSMetaInfo(cached, true);
+            return Promise.resolve();
+        }
+
+        const requestSeq = ++metaInfoRequestSeq;
+        showMetaInfoLoading(dbEngine, connConfig);
+        const url = `/spider/rdbmsmetainfo?DBEngine=${encodeURIComponent(dbEngine)}&ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json()
+                    .catch(() => ({}))
+                    .then(body => {
+                        throw new Error(body.message || `MetaInfo API returned status ${response.status}`);
+                    });
+            }
+            return response.json();
+        })
+        .then(metaInfo => {
+            if (requestSeq !== metaInfoRequestSeq) {
+                // A newer DB Engine switch already superseded this response; discard it so
+                // stale data can never overwrite what the user is currently looking at.
+                return;
+            }
+            metaInfoCache[cacheKey] = metaInfo;
+            applyRDBMSMetaInfo(metaInfo, false);
         })
         .catch(error => {
-            console.error('Error loading RDBMS MetaInfo:', error);
-            // Set error states
-            document.getElementById('dbEngineVersion').innerHTML = '<option value="">Error loading versions</option>';
-            document.getElementById('dbInstanceSpec').innerHTML = '<option value="">Error loading specs</option>';
-            document.getElementById('storageType').innerHTML = '<option value="">Error loading types</option>';
+            if (requestSeq === metaInfoRequestSeq) {
+                console.error('Error loading RDBMS MetaInfo:', error);
+                // Set error states
+                document.getElementById('dbEngineVersion').innerHTML = '<option value="">Error loading versions</option>';
+                document.getElementById('dbSpec').innerHTML = '<option value="">Error loading specs</option>';
+                document.getElementById('storageType').innerHTML = '<option value="">Error loading types</option>';
+                showMetaInfoError(error);
+            }
             throw error;
         });
+    }
+
+    // Bound to the MetaInfo panel's refresh (⟳) button — forces a live re-fetch, bypassing
+    // metaInfoCache, and replaces the cached entry with the fresh result.
+    function refreshRDBMSMetaInfo() {
+        loadRDBMSMetaInfo(true);
     }
 
     function applyMetaInfoBadge(el) {
@@ -2212,7 +2376,7 @@
         const value = el.dataset.value;
 
         // Map field type to form select id
-        const selectId = { version: 'dbEngineVersion', spec: 'dbInstanceSpec', storage: 'storageType' }[field];
+        const selectId = { version: 'dbEngineVersion', spec: 'dbSpec', storage: 'storageType' }[field];
         if (!selectId) return;
 
         const select = document.getElementById(selectId);
@@ -2230,6 +2394,21 @@
         const siblings = el.closest('.metainfo-tags').querySelectorAll('.metainfo-tag[data-field="' + field + '"]');
         siblings.forEach(s => s.classList.remove('selected'));
         el.classList.add('selected');
+    }
+
+    // Reverse direction of applyMetaInfoBadge: when the user changes the Add New RDBMS
+    // form's Version/Instance Spec/Storage Type select directly (rather than clicking a
+    // MetaInfo panel badge), highlight the matching badge in the MetaInfo panel and clear
+    // any previously-selected one for that field, so the two stay in sync either way.
+    function syncMetaInfoTagSelection(field, selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const value = select.value;
+
+        const tags = document.querySelectorAll('.metainfo-tag[data-field="' + field + '"]');
+        tags.forEach(tag => {
+            tag.classList.toggle('selected', tag.dataset.value === value);
+        });
     }
 
     function showMetaInfoOverlay() {
@@ -2304,7 +2483,7 @@
             // Clickable badges: read current value from form to mark selected
             let currentVal = '';
             if (fieldType === 'version') currentVal = (document.getElementById('dbEngineVersion') || {}).value || '';
-            if (fieldType === 'spec')    currentVal = (document.getElementById('dbInstanceSpec')   || {}).value || '';
+            if (fieldType === 'spec')    currentVal = (document.getElementById('dbSpec')   || {}).value || '';
             if (fieldType === 'storage') currentVal = (document.getElementById('storageType')      || {}).value || '';
             return '<div class="metainfo-tags">' + arr.map(v => {
                 const sel = v === currentVal ? ' selected' : '';
@@ -2312,8 +2491,8 @@
             }).join('') + '</div>';
         }
 
-        const storageSizeText = metaInfo.StorageSizeRange
-            ? `Min: ${metaInfo.StorageSizeRange.Min} GB, Max: ${metaInfo.StorageSizeRange.Max > 0 ? metaInfo.StorageSizeRange.Max + ' GB' : 'Unlimited'}`
+        const storageSizeText = metaInfo.StorageSizeRangeGB
+            ? `Min: ${metaInfo.StorageSizeRangeGB.Min} GB, Max: ${metaInfo.StorageSizeRangeGB.Max > 0 ? metaInfo.StorageSizeRangeGB.Max + ' GB' : 'Unlimited'}`
             : '<span style="color:#888;">N/A</span>';
 
         content.innerHTML = `
@@ -2323,7 +2502,7 @@
             </div>
             <div class="metainfo-item metainfo-full-width">
                 <div class="metainfo-label">Instance Spec Options <span style="font-weight:normal;color:#888;font-size:10px;">(click to select)</span></div>
-                <div class="metainfo-value">${tagsHtml(metaInfo.DBInstanceSpecOptions, 'spec')}</div>
+                <div class="metainfo-value">${tagsHtml(metaInfo.DBSpecOptions, 'spec')}</div>
             </div>
             <div class="metainfo-item metainfo-full-width">
                 <div class="metainfo-label">Storage Type Options <span style="font-weight:normal;color:#888;font-size:10px;">(click to select)</span></div>

@@ -178,6 +178,37 @@ func GetRDBMSMetaInfo(connectionName string, dbEngine string) (*cres.RDBMSMetaIn
 	return &info, nil
 }
 
+// ListRDBMSEngine returns the RDBMS engine names (e.g., "mysql", "mariadb", "postgresql")
+// that the connection's CSP driver supports, derived from the same per-engine capability
+// flags exposed by GetDriverCapabilityInfo()/GET /driver/capability (RDBMSHandler,
+// RDBMSMySQLHandler, RDBMSMariaDBHandler, RDBMSPostgreSQLHandler). RDBMSHandler gates the
+// whole group: if it is false, the CSP driver does not support RDBMS at all, so the
+// per-engine flags are not meaningful and an empty list is returned.
+func ListRDBMSEngine(connectionName string) ([]string, error) {
+	cblog.Info("call ListRDBMSEngine()")
+
+	capability, err := GetDriverCapabilityInfo(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	engines := []string{}
+	if capability.RDBMSHandler {
+		if capability.RDBMSMySQLHandler {
+			engines = append(engines, "mysql")
+		}
+		if capability.RDBMSMariaDBHandler {
+			engines = append(engines, "mariadb")
+		}
+		if capability.RDBMSPostgreSQLHandler {
+			engines = append(engines, "postgresql")
+		}
+	}
+
+	return engines, nil
+}
+
 // (1) check existence(UserID)
 // (2) get resource info(CSP-ID)
 // (3) create spiderIID: {UserID, SP-XID:CSP-ID}

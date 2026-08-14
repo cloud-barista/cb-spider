@@ -221,8 +221,10 @@ type nhnRDSCreateInstanceRequest struct {
 }
 
 type nhnRDSDBFlavorInfo struct {
-	DBFlavorId   string `json:"dbFlavorId"`
-	DBFlavorName string `json:"dbFlavorName"`
+	DBFlavorId   string  `json:"dbFlavorId"`
+	DBFlavorName string  `json:"dbFlavorName"`
+	Vcpus        float64 `json:"vcpus"` // number of vCPUs; typed float64 to tolerate a non-integer value from the API
+	Ram          int64   `json:"ram"`   // RAM in MiB (OpenStack Trove-derived convention; NHN RDS flavor names like "m2.c1m2" encode 1 vCPU/2GiB matching this field)
 }
 
 type nhnRDSFlavorListResponse struct {
@@ -606,8 +608,8 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 		return irs.RDBMSInfo{}, errors.New("RDBMS instance name is required")
 	case rdbmsReqInfo.DBEngineVersion == "":
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required (use the value from MetaInfo, e.g. MYSQL_V8032)")
-	case rdbmsReqInfo.DBInstanceSpec == "":
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec (NHN DB flavor UUID) is required")
+	case rdbmsReqInfo.DBSpec == "":
+		return irs.RDBMSInfo{}, errors.New("DBSpec (NHN DB flavor UUID) is required")
 	case rdbmsReqInfo.StorageSize == "":
 		return irs.RDBMSInfo{}, errors.New("StorageSize is required")
 	case rdbmsReqInfo.MasterUserName == "":
@@ -662,9 +664,9 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 	}
 
 	// Resolve DB flavor UUID from name or pass-through if already a UUID
-	flavorId, err := handler.resolveRDSFlavorIdWithEndpoint(ctx, endpointFn, rdbmsReqInfo.DBInstanceSpec)
+	flavorId, err := handler.resolveRDSFlavorIdWithEndpoint(ctx, endpointFn, rdbmsReqInfo.DBSpec)
 	if err != nil {
-		newErr := fmt.Errorf("failed to resolve NHN Cloud RDS flavor '%s': %w", rdbmsReqInfo.DBInstanceSpec, err)
+		newErr := fmt.Errorf("failed to resolve NHN Cloud RDS flavor '%s': %w", rdbmsReqInfo.DBSpec, err)
 		LoggingError(callLogInfo, newErr)
 		return irs.RDBMSInfo{}, newErr
 	}
@@ -1512,7 +1514,7 @@ func convertNhnRDSInstanceToRDBMSInfo(inst nhnRDSDBInstance, ownerVPCName string
 
 		DBEngine:        dbEngine,
 		DBEngineVersion: inst.DBVersion,
-		DBInstanceSpec:  e.DBFlavorName,
+		DBSpec:          e.DBFlavorName,
 		DBInstanceType:  "NA",
 
 		StorageType: storageType,

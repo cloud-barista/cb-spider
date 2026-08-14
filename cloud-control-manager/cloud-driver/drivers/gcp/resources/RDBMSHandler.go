@@ -319,8 +319,8 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	if rdbmsReqInfo.DBEngineVersion == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required")
 	}
 	if rdbmsReqInfo.MasterUserName == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
@@ -347,7 +347,7 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	//   HYPERDISK_BALANCED  | db-c4a-highmem-*        | Enterprise Plus
 	//   HYPERDISK_BALANCED  | db-custom-N4-*          | Enterprise
 	if rdbmsReqInfo.StorageType != "" {
-		spec := rdbmsReqInfo.DBInstanceSpec
+		spec := rdbmsReqInfo.DBSpec
 		st := rdbmsReqInfo.StorageType
 		const storageMapping = "\n\n  StorageType mapping:\n" +
 			"    PD_SSD (fixed)     : db-perf-optimized-N-* (Enterprise Plus)\n" +
@@ -390,14 +390,14 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 
 	// Build settings
 	settings := &sqladmin.Settings{
-		Tier:           rdbmsReqInfo.DBInstanceSpec, // e.g., "db-custom-2-7680"
+		Tier:           rdbmsReqInfo.DBSpec, // e.g., "db-custom-2-7680"
 		DataDiskSizeGb: storageSizeGB,
 	}
 
 	// Edition: N2 (db-perf-optimized-N-*) and C4A (db-c4a-highmem-*) require ENTERPRISE_PLUS.
 	// N4 (db-custom-N4-*) and Shared/Dedicated core (db-custom-*) use ENTERPRISE (default).
-	if strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-perf-optimized") ||
-		strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-c4a") {
+	if strings.HasPrefix(rdbmsReqInfo.DBSpec, "db-perf-optimized") ||
+		strings.HasPrefix(rdbmsReqInfo.DBSpec, "db-c4a") {
 		settings.Edition = "ENTERPRISE_PLUS"
 	}
 
@@ -406,7 +406,7 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	// - HYPERDISK_BALANCED: auto-assigned for C4A and N4 machine series; do not set DataDiskType.
 	// - Shared/Dedicated core (db-custom-*): PD_SSD or PD_HDD can be selected; set DataDiskType.
 	if rdbmsReqInfo.StorageType != "" &&
-		!strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-perf-optimized") &&
+		!strings.HasPrefix(rdbmsReqInfo.DBSpec, "db-perf-optimized") &&
 		rdbmsReqInfo.StorageType != "HYPERDISK_BALANCED" {
 		settings.DataDiskType = rdbmsReqInfo.StorageType
 	}
@@ -706,7 +706,7 @@ func (handler *GCPRDBMSHandler) convertToRDBMSInfo(instance *sqladmin.DatabaseIn
 
 	// Instance Spec
 	if instance.Settings != nil {
-		rdbmsInfo.DBInstanceSpec = instance.Settings.Tier
+		rdbmsInfo.DBSpec = instance.Settings.Tier
 
 		// Storage
 		rdbmsInfo.StorageSize = strconv.FormatInt(instance.Settings.DataDiskSizeGb, 10)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Tencent Cloud RDBMS Test Script
-# Note: Subnet required. DBInstanceSpec is memory size in MB (e.g., 8000 = 8GB).
+# Note: Subnet required. DBSpec is memory size in MB (e.g., 8000 = 8GB).
 # Author: CB-Spider Team
 
 export CSP_NAME="TENCENT"
@@ -17,7 +17,7 @@ export CREATE_JSON='{
     "SubnetNames": ["subnet-01"],
     "DBEngine": "mysql",
     "DBEngineVersion": "8.0",
-    "DBInstanceSpec": "8000",
+    "DBSpec": "8000",
     "StorageSize": "50",
     "MasterUserName": "root",
     "MasterUserPassword": "Password123!",

@@ -145,6 +145,10 @@ func (cloudConn *KtCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, erro
 	return nil, fmt.Errorf("KT Classic Cloud Driver: RDBMSHandler not supported")
 }
 
+func (cloudConn *KtCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	return nil, fmt.Errorf("KT Classic Cloud Driver: DBSpecHandler not supported")
+}
+
 func (cloudConn *KtCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	return nil, fmt.Errorf("KT Classic Cloud Driver: NICHandler not supported")
 }

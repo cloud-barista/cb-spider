@@ -68,7 +68,7 @@ while IFS= read -r storage_type; do
     \"SubnetNames\": [\"subnet-01\"],
     \"DBEngine\": \"mysql\",
     \"DBEngineVersion\": \"8.0\",
-    \"DBInstanceSpec\": \"${db_instance_spec}\",
+    \"DBSpec\": \"${db_instance_spec}\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"${db_storage_size}\",
     \"MasterUserName\": \"myadmin\",

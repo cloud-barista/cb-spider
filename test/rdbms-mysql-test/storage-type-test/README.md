@@ -195,7 +195,7 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 
 ### AWS
 
-| StorageType | DBInstanceSpec | StorageSize | Iops |
+| StorageType | DBSpec | StorageSize | Iops |
 |-------------|---------------|-------------|------|
 | gp2 | db.t3.medium | 100 GB | - |
 | gp3 | db.t3.medium | 100 GB | - |
@@ -218,7 +218,7 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 
 GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 직접 지정.
 
-| StorageType | DBInstanceSpec | StorageSize | Edition | Machine Series |
+| StorageType | DBSpec | StorageSize | Edition | Machine Series |
 |-------------|---------------|-------------|---------|---------------|
 | PD_SSD | db-perf-optimized-N-4 | 10 GB | Enterprise Plus | N2 |
 | PD_SSD | db-custom-2-8192 | 10 GB | Enterprise | Shared/Dedicated core |
@@ -241,7 +241,7 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 
 ### Alibaba
 
-| StorageType | DBInstanceSpec | StorageSize | 비고 |
+| StorageType | DBSpec | StorageSize | 비고 |
 |-------------|---------------|-------------|------|
 | cloud_auto | mysql.n4.large.1 | 20 GB | |
 | cloud_essd | mysql.n4.large.1 | 20 GB | ESSD PL1 |
@@ -262,7 +262,7 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 
 ### Tencent
 
-| StorageType | DBInstanceSpec | StorageSize |
+| StorageType | DBSpec | StorageSize |
 |-------------|---------------|-------------|
 | local_ssd | 8000 (MB) | 50 GB |
 | CLOUD_HSSD | 8000 (MB) | 50 GB |
@@ -273,7 +273,7 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - Connection: `tencent-beijing3-config`
 - Region: `ap-beijing` / Zone: `ap-beijing-3`
 - SubnetNames: `subnet-01`
-- DBInstanceSpec: 메모리 크기 MB 단위 지정 (8000 = 8 GB)
+- DBSpec: 메모리 크기 MB 단위 지정 (8000 = 8 GB)
 
 **특이사항**
 - 동시 주문 거부 발생 가능 (OperationDenied.OtherOderInProcess) → 드라이버 자동 재시도 처리
@@ -293,7 +293,7 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 
 ### OpenStack
 
-| StorageType | DBInstanceSpec | StorageSize |
+| StorageType | DBSpec | StorageSize |
 |-------------|---------------|-------------|
 | __DEFAULT__ | m1.small | 20 GB |
 | RBD | m1.small | 20 GB |
@@ -306,7 +306,7 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 
 ### NHN
 
-| StorageType | DBInstanceSpec | StorageSize |
+| StorageType | DBSpec | StorageSize |
 |-------------|---------------|-------------|
 | General HDD | m2.c2m4 | 20 GB |
 | General SSD | m2.c2m4 | 20 GB |

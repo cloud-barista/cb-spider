@@ -389,7 +389,7 @@ func getRoutes() []route {
 		{"PUT", "/nic/:Name/attach", AttachNIC},
 		{"PUT", "/nic/:Name/detach", DetachNIC},
 
-		{"POST",   "/nic/:Name/privateip",     AddNICPrivateIP},
+		{"POST", "/nic/:Name/privateip", AddNICPrivateIP},
 		{"DELETE", "/nic/:Name/privateip/:IP", RemoveNICPrivateIP},
 
 		{"GET", "/nic/:Name/osconfigscript", GetNICOSConfigScript},
@@ -571,6 +571,15 @@ func getRoutes() []route {
 		//-- for meta info
 		{"GET", "/rdbmsmetainfo", GetRDBMSMetaInfo},
 
+		//-- for supported engine list
+		{"GET", "/rdbmsengine", ListRDBMSEngine},
+
+		//-- DBSpec Handler
+		{"GET", "/dbspec", ListDBSpec},
+		{"GET", "/dbspec/:Name", GetDBSpec},
+		{"GET", "/dborgspec", ListOrgDBSpec},
+		{"GET", "/dborgspec/:Name", GetOrgDBSpec},
+
 		//-- for management
 		{"GET", "/allrdbms", ListAllRDBMS},
 		{"GET", "/allrdbmsinfo", ListAllRDBMSInfo},
@@ -706,11 +715,11 @@ func getRoutes() []route {
 			{"GET", "/adminweb/nic/:ConnectConfig", aw.NICManagement},
 			{"GET", "/adminweb/topology/:ConnectConfig", aw.TopologyManagement},
 
-		//----------Topology Layout (MetaDB persistence, multi-version)
-		{"GET",    "/topology/layout",         ListTopologyLayouts},  // list all versions
-		{"GET",    "/topology/layout/version",  GetTopologyLayout},   // get one version (full)
-		{"POST",   "/topology/layout",         SaveTopologyLayout},   // save/upsert a version
-		{"DELETE", "/topology/layout",         DeleteTopologyLayout}, // delete one version
+			//----------Topology Layout (MetaDB persistence, multi-version)
+			{"GET", "/topology/layout", ListTopologyLayouts},       // list all versions
+			{"GET", "/topology/layout/version", GetTopologyLayout}, // get one version (full)
+			{"POST", "/topology/layout", SaveTopologyLayout},       // save/upsert a version
+			{"DELETE", "/topology/layout", DeleteTopologyLayout},   // delete one version
 			{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
 			{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
 			{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
@@ -718,6 +727,7 @@ func getRoutes() []route {
 			{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 			{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 			{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
+			{"GET", "/adminweb/dbspec/:ConnectConfig", aw.DBSpec},
 			{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
 			{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
 			{"GET", "/adminweb/quota/:ConnectConfig", aw.Quota},

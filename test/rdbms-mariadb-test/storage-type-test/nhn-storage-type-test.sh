@@ -68,7 +68,7 @@ while IFS= read -r storage_type; do
     \"SubnetNames\": [\"subnet-01\"],
     \"DBEngine\": \"mariadb\",
     \"DBEngineVersion\": \"MARIADB_V101118\",
-    \"DBInstanceSpec\": \"m2.c2m4\",
+    \"DBSpec\": \"m2.c2m4\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"20\",
     \"MasterUserName\": \"myadmin\",

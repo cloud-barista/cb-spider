@@ -270,8 +270,8 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 	if rdbmsReqInfo.DBEngine == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngine is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required")
 	}
 	if rdbmsReqInfo.MasterUserName == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
@@ -420,8 +420,8 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 			Network: network,
 		},
 		SKU: &armmysqlfs.SKU{
-			Name: &rdbmsReqInfo.DBInstanceSpec,
-			Tier: skuTierFromSpec(rdbmsReqInfo.DBInstanceSpec),
+			Name: &rdbmsReqInfo.DBSpec,
+			Tier: skuTierFromSpec(rdbmsReqInfo.DBSpec),
 		},
 	}
 
@@ -785,7 +785,7 @@ func (handler *AzureRDBMSHandler) convertToRDBMSInfo(server *armmysqlfs.Server) 
 	// SKU
 	if server.SKU != nil {
 		if server.SKU.Name != nil {
-			rdbmsInfo.DBInstanceSpec = *server.SKU.Name
+			rdbmsInfo.DBSpec = *server.SKU.Name
 		}
 		if server.SKU.Tier != nil {
 			rdbmsInfo.DBInstanceType = string(*server.SKU.Tier)
