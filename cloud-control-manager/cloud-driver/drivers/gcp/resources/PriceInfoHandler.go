@@ -27,7 +27,18 @@ import (
 
 var validFilterKey map[string]bool
 
-const pricingURL = "https://cloud.google.com/compute/all-pricing?hl=en"
+// gcpPricingSubPages lists the GCP Compute Engine pricing sub-pages.
+// The pricing table used to live at a single URL
+// (https://cloud.google.com/compute/all-pricing), but that URL now 301-redirects
+// to a links-only overview page with no pricing data. The actual per-region,
+// per-machine-type prices now live in these category sub-pages instead.
+var gcpPricingSubPages = []string{
+	"https://cloud.google.com/products/compute/pricing/general-purpose?hl=en",
+	"https://cloud.google.com/products/compute/pricing/compute-optimized?hl=en",
+	"https://cloud.google.com/products/compute/pricing/memory-optimized?hl=en",
+	"https://cloud.google.com/products/compute/pricing/storage-optimized?hl=en",
+	"https://cloud.google.com/products/compute/pricing/accelerator-optimized?hl=en",
+}
 
 type PriceData struct {
 	Region      string
@@ -88,18 +99,76 @@ var (
 	reRegion    = regexp.MustCompile(`"([A-Za-z][^"]+?\s?\([a-z0-9-]+\))"`)
 )
 
-// fetchPricingData fetches and parses Google Cloud pricing data
+// fetchPricingData fetches all GCP pricing sub-pages in parallel, parses each,
+// and merges the results into a single region:machineType price cache.
 func fetchPricingData() (map[string]*PriceData, error) {
+	type pageResult struct {
+		url     string
+		entries []*PriceData
+		err     error
+	}
+
+	results := make(chan pageResult, len(gcpPricingSubPages))
+	for _, url := range gcpPricingSubPages {
+		go func(u string) {
+			data, err := fetchOnePricingPage(u)
+			if err != nil {
+				results <- pageResult{url: u, err: err}
+				return
+			}
+			entries, err := parsePricingDataList(data, u)
+			results <- pageResult{url: u, entries: entries, err: err}
+		}(url)
+	}
+
+	var allPriceData []*PriceData
+	var pageErrors []string
+	for range gcpPricingSubPages {
+		r := <-results
+		if r.err != nil {
+			cblogger.Errorf("GCP pricing: failed for %s: %v", r.url, r.err)
+			pageErrors = append(pageErrors, fmt.Sprintf("%s: %v", r.url, r.err))
+			continue
+		}
+		allPriceData = append(allPriceData, r.entries...)
+	}
+
+	if len(pageErrors) == len(gcpPricingSubPages) {
+		return nil, fmt.Errorf("all GCP pricing page fetches failed: %s", strings.Join(pageErrors, "; "))
+	}
+	if len(pageErrors) > 0 {
+		cblogger.Warnf("GCP pricing: %d/%d pages failed: %s", len(pageErrors), len(gcpPricingSubPages), strings.Join(pageErrors, "; "))
+	}
+
+	allPriceData = coalesceByRegionMachine(allPriceData)
+	if len(allPriceData) == 0 {
+		return nil, errors.New("no valid pricing data found")
+	}
+
+	priceCache := make(map[string]*PriceData, len(allPriceData))
+	for _, priceData := range allPriceData {
+		key := fmt.Sprintf("%s:%s", priceData.Region, priceData.MachineType)
+		priceCache[key] = priceData
+	}
+
+	cblogger.Infof("Created pricing cache with %d entries from %d pages", len(priceCache), len(gcpPricingSubPages))
+
+	return priceCache, nil
+}
+
+// fetchOnePricingPage fetches a single GCP pricing sub-page, retrying on
+// transient failures or undersized responses.
+func fetchOnePricingPage(url string) ([]byte, error) {
 	const minDataSize = 100 * 1024
 	const maxRetries = 3
 	const timeout = 5 * time.Minute
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		cblogger.Infof("Attempt %d/%d: Fetching pricing data from %s", attempt, maxRetries, pricingURL)
+		cblogger.Infof("Attempt %d/%d: Fetching pricing data from %s", attempt, maxRetries, url)
 
 		client := &http.Client{Timeout: timeout}
 
-		req, err := http.NewRequest("GET", pricingURL, nil)
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			cblogger.Error("Failed to create request:", err)
 			continue
@@ -121,10 +190,10 @@ func fetchPricingData() (map[string]*PriceData, error) {
 			}
 			continue
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			cblogger.Errorf("HTTP request returned status: %d", resp.StatusCode)
+			resp.Body.Close()
 			if attempt < maxRetries {
 				time.Sleep(5 * time.Second)
 			}
@@ -140,9 +209,9 @@ func fetchPricingData() (map[string]*PriceData, error) {
 			gzReader, err := gzip.NewReader(resp.Body)
 			if err != nil {
 				cblogger.Error("Failed to create gzip reader:", err)
+				resp.Body.Close()
 				continue
 			}
-			defer gzReader.Close()
 			reader = gzReader
 		}
 
@@ -159,6 +228,7 @@ func fetchPricingData() (map[string]*PriceData, error) {
 				break
 			}
 		}
+		resp.Body.Close()
 
 		if len(data) < minDataSize {
 			cblogger.Errorf("Data size (%d bytes) is less than minimum required (%d bytes)", len(data), minDataSize)
@@ -168,22 +238,11 @@ func fetchPricingData() (map[string]*PriceData, error) {
 			continue
 		}
 
-		cblogger.Infof("Successfully fetched %d bytes", len(data))
-
-		// Parse the data and return price cache
-		priceCache, err := parsePricingData(data)
-		if err != nil {
-			cblogger.Error("Failed to parse pricing data:", err)
-			if attempt < maxRetries {
-				time.Sleep(5 * time.Second)
-			}
-			continue
-		}
-
-		return priceCache, nil
+		cblogger.Infof("Successfully fetched %d bytes from %s", len(data), url)
+		return data, nil
 	}
 
-	return nil, errors.New("failed to fetch pricing data after all retry attempts")
+	return nil, fmt.Errorf("failed to fetch %s after all retry attempts", url)
 }
 
 // findBlocksByBrackets finds pricing blocks in the HTML
@@ -207,7 +266,7 @@ func findBlocksByBrackets(b []byte) [][2]int {
 }
 
 // parseBlock parses a pricing block and extracts price data
-func parseBlock(block []byte, sectionIdx int) []*PriceData {
+func parseBlock(block []byte, sourceURL string) []*PriceData {
 	s := string(block)
 	s = strings.ReplaceAll(s, "\u00a0", " ")
 
@@ -253,7 +312,7 @@ func parseBlock(block []byte, sectionIdx int) []*PriceData {
 			Amount:      amt,
 			Currency:    "USD",
 			Unit:        "Hour",
-			Source:      pricingURL,
+			Source:      sourceURL,
 		})
 	}
 
@@ -283,37 +342,22 @@ func coalesceByRegionMachine(priceData []*PriceData) []*PriceData {
 	return out
 }
 
-// parsePricingData parses the fetched HTML data and returns the price cache
-func parsePricingData(data []byte) (map[string]*PriceData, error) {
+// parsePricingDataList parses the fetched HTML data from one pricing sub-page
+// and returns the extracted price entries. Merging/deduplication across pages
+// happens in fetchPricingData.
+func parsePricingDataList(data []byte, sourceURL string) ([]*PriceData, error) {
 	spans := findBlocksByBrackets(data)
 	if len(spans) == 0 {
 		return nil, errors.New("no pricing blocks found")
 	}
 
 	var allPriceData []*PriceData
-	for i, sp := range spans {
+	for _, sp := range spans {
 		blk := data[sp[0]:sp[1]]
-		blockPriceData := parseBlock(blk, i)
-		allPriceData = append(allPriceData, blockPriceData...)
+		allPriceData = append(allPriceData, parseBlock(blk, sourceURL)...)
 	}
 
-	allPriceData = coalesceByRegionMachine(allPriceData)
-	if len(allPriceData) == 0 {
-		return nil, errors.New("no valid pricing data found")
-	}
-
-	// Create price cache
-	priceCache := make(map[string]*PriceData)
-
-	// Populate cache with new data
-	for _, priceData := range allPriceData {
-		key := fmt.Sprintf("%s:%s", priceData.Region, priceData.MachineType)
-		priceCache[key] = priceData
-	}
-
-	cblogger.Infof("Created pricing cache with %d entries", len(priceCache))
-
-	return priceCache, nil
+	return allPriceData, nil
 }
 
 // getPriceFromCache retrieves price data from cache
