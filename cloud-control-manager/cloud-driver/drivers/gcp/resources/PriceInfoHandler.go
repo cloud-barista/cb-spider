@@ -38,6 +38,7 @@ var gcpPricingSubPages = []string{
 	"https://cloud.google.com/products/compute/pricing/memory-optimized?hl=en",
 	"https://cloud.google.com/products/compute/pricing/storage-optimized?hl=en",
 	"https://cloud.google.com/products/compute/pricing/accelerator-optimized?hl=en",
+	"https://cloud.google.com/products/compute/pricing/network-optimized?hl=en",
 }
 
 type PriceData struct {

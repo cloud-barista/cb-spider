@@ -46,8 +46,41 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
+	var vmSpecInfo []*irs.VMSpecInfo
+
 	callLogStart := call.Start()
-	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+	// MachineTypes.List returns at most one page (default 500 items) per call;
+	// Pages() follows NextPageToken so zones with more machine types than that
+	// aren't silently truncated.
+	err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Pages(vmSpecHandler.Ctx, func(page *compute.MachineTypeList) error {
+		for _, i := range page.Items {
+
+			gpuInfoList := []irs.GpuInfo{}
+			if i.Accelerators != nil {
+				gpuInfoList = acceleratorsToGPUInfoList(i.Accelerators)
+
+			}
+			info := irs.VMSpecInfo{
+				Region: zone,
+				Name:   i.Name,
+				VCpu: irs.VCpuInfo{
+					Count:    strconv.FormatInt(i.GuestCpus, 10),
+					ClockGHz: "-1",
+				},
+				// GCP's MachineType.MemoryMb is documented as "MB" but is actually already MiB
+				// (e.g. n1-standard-1 returns 3840, matching its real 3.75 GiB spec exactly);
+				// no unit conversion is applied.
+				MemSizeMiB: strconv.FormatInt(i.MemoryMb, 10),
+				DiskSizeGB: "-1",
+				Gpu:        gpuInfoList,
+			}
+
+			info.KeyValueList = irs.StructToKeyValueList(i)
+
+			vmSpecInfo = append(vmSpecInfo, &info)
+		}
+		return nil
+	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -57,33 +90,7 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		return []*irs.VMSpecInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	var vmSpecInfo []*irs.VMSpecInfo
-	for _, i := range resp.Items {
 
-		gpuInfoList := []irs.GpuInfo{}
-		if i.Accelerators != nil {
-			gpuInfoList = acceleratorsToGPUInfoList(i.Accelerators)
-
-		}
-		info := irs.VMSpecInfo{
-			Region: zone,
-			Name:   i.Name,
-			VCpu: irs.VCpuInfo{
-				Count:    strconv.FormatInt(i.GuestCpus, 10),
-				ClockGHz: "-1",
-			},
-			// GCP's MachineType.MemoryMb is documented as "MB" but is actually already MiB
-			// (e.g. n1-standard-1 returns 3840, matching its real 3.75 GiB spec exactly);
-			// no unit conversion is applied.
-			MemSizeMiB: strconv.FormatInt(i.MemoryMb, 10),
-			DiskSizeGB: "-1",
-			Gpu:        gpuInfoList,
-		}
-
-		info.KeyValueList = irs.StructToKeyValueList(i)
-
-		vmSpecInfo = append(vmSpecInfo, &info)
-	}
 	return vmSpecInfo, nil
 }
 
