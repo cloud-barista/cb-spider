@@ -327,6 +327,8 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	// get SecurityGroup & SecurityGroupAttribute for Alibaba
 	request := ecs.CreateDescribeSecurityGroupsRequest()
 	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50)
 	cblogger.Debug(request)
 
 	// logger for HisCall
@@ -341,25 +343,31 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 		ErrorMSG:     "",
 	}
 
+	var securityGroups []ecs.SecurityGroup
+	curPage := 1
 	callLogStart := call.Start()
-	result, err := securityHandler.Client.DescribeSecurityGroups(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	for {
+		result, err := securityHandler.Client.DescribeSecurityGroups(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-
-		cblogger.Error(err)
-		return nil, err
+		securityGroups = append(securityGroups, result.SecurityGroups.SecurityGroup...)
+		if len(securityGroups) >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Debug(call.String(callLogInfo))
 
-	cblogger.Debug(result)
-	//cblogger.Debug(result)
-	//ecs.DescribeSecurityGroupsResponse
-
 	var securityInfoList []*irs.SecurityInfo
-	for _, curSecurityGroup := range result.SecurityGroups.SecurityGroup {
+	for _, curSecurityGroup := range securityGroups {
 		curSecurityInfo, errSecurityInfo := securityHandler.ExtractSecurityInfo(&curSecurityGroup)
 		if errSecurityInfo != nil {
 			cblogger.Error(errSecurityInfo)

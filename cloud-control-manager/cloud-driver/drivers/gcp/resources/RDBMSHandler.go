@@ -284,7 +284,17 @@ func (handler *GCPRDBMSHandler) ListIID() ([]*irs.IID, error) {
 	// In CB-Spider, the ProjectID is often stored in the credential
 	projectId = handler.getProjectId()
 
-	resp, err := handler.Client.Instances.List(projectId).Do()
+	var iidList []*irs.IID
+	err := handler.Client.Instances.List(projectId).Pages(context.Background(), func(resp *sqladmin.InstancesListResponse) error {
+		for _, instance := range resp.Items {
+			iid := &irs.IID{
+				NameId:   instance.Name,
+				SystemId: instance.Name,
+			}
+			iidList = append(iidList, iid)
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -292,15 +302,6 @@ func (handler *GCPRDBMSHandler) ListIID() ([]*irs.IID, error) {
 		return nil, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
-
-	var iidList []*irs.IID
-	for _, instance := range resp.Items {
-		iid := &irs.IID{
-			NameId:   instance.Name,
-			SystemId: instance.Name,
-		}
-		iidList = append(iidList, iid)
-	}
 
 	return iidList, nil
 }
@@ -552,7 +553,14 @@ func (handler *GCPRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 	start := call.Start()
 
 	projectId := handler.getProjectId()
-	resp, err := handler.Client.Instances.List(projectId).Do()
+	var rdbmsList []*irs.RDBMSInfo
+	err := handler.Client.Instances.List(projectId).Pages(context.Background(), func(resp *sqladmin.InstancesListResponse) error {
+		for _, instance := range resp.Items {
+			rdbmsInfo := handler.convertToRDBMSInfo(instance)
+			rdbmsList = append(rdbmsList, &rdbmsInfo)
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -560,12 +568,6 @@ func (handler *GCPRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 		return nil, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
-
-	var rdbmsList []*irs.RDBMSInfo
-	for _, instance := range resp.Items {
-		rdbmsInfo := handler.convertToRDBMSInfo(instance)
-		rdbmsList = append(rdbmsList, &rdbmsInfo)
-	}
 
 	return rdbmsList, nil
 }
@@ -880,18 +882,19 @@ func (handler *GCPRDBMSHandler) DeleteDatabase(rdbmsSystemId, dbEngine, dbName s
 // This is used to determine if a Service Networking Peering can be safely deleted (only when no instances remain).
 func (handler *GCPRDBMSHandler) listInstancesInVPC(vpcNetwork string) ([]*sqladmin.DatabaseInstance, error) {
 	projectId := handler.getProjectId()
-	resp, err := handler.Client.Instances.List(projectId).Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list Cloud SQL instances: %w", err)
-	}
-
 	var instances []*sqladmin.DatabaseInstance
-	for _, instance := range resp.Items {
-		if instance.Settings != nil && instance.Settings.IpConfiguration != nil {
-			if instance.Settings.IpConfiguration.PrivateNetwork == vpcNetwork {
-				instances = append(instances, instance)
+	err := handler.Client.Instances.List(projectId).Pages(context.Background(), func(resp *sqladmin.InstancesListResponse) error {
+		for _, instance := range resp.Items {
+			if instance.Settings != nil && instance.Settings.IpConfiguration != nil {
+				if instance.Settings.IpConfiguration.PrivateNetwork == vpcNetwork {
+					instances = append(instances, instance)
+				}
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Cloud SQL instances: %w", err)
 	}
 	return instances, nil
 }

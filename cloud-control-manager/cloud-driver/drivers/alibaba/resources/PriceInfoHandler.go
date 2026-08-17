@@ -212,15 +212,22 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 		instanceTypesRequest.MaximumGPUAmount = requests.NewInteger(gpuMemoryInt)
 	}
 
-	instanceTypesResponse, err := priceInfoHandler.EcsClient.DescribeInstanceTypes(instanceTypesRequest)
-	if err != nil {
-		cblogger.Error("Failed to get instance types: ", err)
-		return "", err
-	}
-
 	instanceTypesInfo := make(map[string]ecs.InstanceType)
-	for _, typeInfo := range instanceTypesResponse.InstanceTypes.InstanceType {
-		instanceTypesInfo[typeInfo.InstanceTypeId] = typeInfo
+	for {
+		instanceTypesResponse, err := priceInfoHandler.EcsClient.DescribeInstanceTypes(instanceTypesRequest)
+		if err != nil {
+			cblogger.Error("Failed to get instance types: ", err)
+			return "", err
+		}
+
+		for _, typeInfo := range instanceTypesResponse.InstanceTypes.InstanceType {
+			instanceTypesInfo[typeInfo.InstanceTypeId] = typeInfo
+		}
+
+		if instanceTypesResponse.NextToken == "" {
+			break
+		}
+		instanceTypesRequest.NextToken = instanceTypesResponse.NextToken
 	}
 
 	filteredInstanceTypesInfo := make(map[string]ecs.InstanceType)

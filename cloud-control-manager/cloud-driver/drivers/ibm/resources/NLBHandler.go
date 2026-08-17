@@ -1210,17 +1210,18 @@ func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID, vpcIID
 		}
 
 		// Get VPC subnets
-		listSubnetOptions := &vpcv1.ListSubnetsOptions{}
-		subnets, _, err := nlbHandler.VpcService.ListSubnetsWithContext(nlbHandler.Ctx, listSubnetOptions)
+		vpc, err := GetRawVPC(vpcIID, nlbHandler.VpcService, nlbHandler.Ctx)
+		if err != nil {
+			return []irs.IID{}, "", errors.New(fmt.Sprintf("Failed to get VPC: %s", err.Error()))
+		}
+		subnets, err := getVPCRawSubnets(vpc, nlbHandler.VpcService, nlbHandler.Ctx)
 		if err != nil {
 			return []irs.IID{}, "", errors.New(fmt.Sprintf("Failed to get VPC subnets: %s", err.Error()))
 		}
 
 		// Find first subnet in the specified VPC
-		for _, subnet := range subnets.Subnets {
-			if subnet.VPC != nil && *subnet.VPC.ID == vpcIID.SystemId {
-				return []irs.IID{}, *subnet.ID, nil
-			}
+		if len(subnets) > 0 {
+			return []irs.IID{}, *subnets[0].ID, nil
 		}
 
 		return []irs.IID{}, "", errors.New(fmt.Sprintf("No subnets found in VPC %s. Please create at least one subnet in the VPC before creating NLB", vpcIID.NameId))

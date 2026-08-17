@@ -611,109 +611,119 @@ func (tagHandler *IbmTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 
 	var tagInfo []*irs.TagInfo
 
-	scanResult, _, err := tagHandler.SearchService.Search(searchOptions)
-	if err != nil {
-		getErr := fmt.Errorf("Failed to list tag. err = %s", err)
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return tagInfo, err
-	}
-
-	if len(scanResult.Items) == 0 {
-		return []*irs.TagInfo{}, errors.New("resource not found")
-	}
-
-	searchOptions.SearchCursor = scanResult.SearchCursor
-
-	for _, item := range scanResult.Items {
-		var tagFound bool
-
-		tags, ok := item.GetProperty("tags").([]interface{})
-		if !ok {
-			cblogger.Error("Tags are not in expected format")
-			continue
+	firstPage := true
+	for {
+		scanResult, _, err := tagHandler.SearchService.Search(searchOptions)
+		if err != nil {
+			getErr := fmt.Errorf("Failed to list tag. err = %s", err)
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return tagInfo, err
 		}
-		for _, tag := range tags {
-			tagStr, ok := tag.(string)
+
+		if len(scanResult.Items) == 0 {
+			if firstPage {
+				return []*irs.TagInfo{}, errors.New("resource not found")
+			}
+			break
+		}
+		firstPage = false
+
+		for _, item := range scanResult.Items {
+			var tagFound bool
+
+			tags, ok := item.GetProperty("tags").([]interface{})
 			if !ok {
-				cblogger.Errorf("Tag is not a string (%v)", tag)
+				cblogger.Error("Tags are not in expected format")
 				continue
 			}
-			if strings.Contains(tagStr, keyword) {
-				tagFound = true
-				break
-			}
-		}
-
-		if tagFound {
-			var tagKeyValue []irs.KeyValue
 			for _, tag := range tags {
 				tagStr, ok := tag.(string)
 				if !ok {
 					cblogger.Errorf("Tag is not a string (%v)", tag)
 					continue
 				}
-				parts := strings.SplitN(tagStr, ":", 2)
-				if parts[0] == ibmMasterUserTagKey {
+				if strings.Contains(tagStr, keyword) {
+					tagFound = true
+					break
+				}
+			}
+
+			if tagFound {
+				var tagKeyValue []irs.KeyValue
+				for _, tag := range tags {
+					tagStr, ok := tag.(string)
+					if !ok {
+						cblogger.Errorf("Tag is not a string (%v)", tag)
+						continue
+					}
+					parts := strings.SplitN(tagStr, ":", 2)
+					if parts[0] == ibmMasterUserTagKey {
+						continue
+					}
+					value := ""
+					if len(parts) > 1 {
+						value = parts[1]
+					}
+					tagKeyValue = append(tagKeyValue, irs.KeyValue{
+						Key:   parts[0],
+						Value: value,
+					})
+				}
+
+				rType, ok := item.GetProperty("type").(string)
+				if !ok {
+					cblogger.Error("type is not a string")
 					continue
 				}
-				value := ""
-				if len(parts) > 1 {
-					value = parts[1]
-				}
-				tagKeyValue = append(tagKeyValue, irs.KeyValue{
-					Key:   parts[0],
-					Value: value,
-				})
-			}
-
-			rType, ok := item.GetProperty("type").(string)
-			if !ok {
-				cblogger.Error("type is not a string")
-				continue
-			}
-			rsType, err := ibmTypeToRSType(rType)
-			if err != nil {
-				cblogger.Error(err)
-				continue
-			}
-
-			name, ok := item.GetProperty("name").(string)
-			if !ok {
-				cblogger.Error("name is not a string")
-				continue
-			}
-			resourceId, ok := item.GetProperty("resource_id").(string)
-			if !ok {
-				cblogger.Error("resource_id is not a string")
-				continue
-			}
-
-			if rsType == irs.CLUSTER {
-				clusterHandler := &IbmClusterHandler{
-					CredentialInfo: tagHandler.CredentialInfo,
-					Region:         tagHandler.Region,
-					Ctx:            tagHandler.Ctx,
-					VpcService:     tagHandler.VpcService,
-					ClusterService: tagHandler.ClusterService,
-					TaggingService: tagHandler.TaggingService,
-					SearchService:  tagHandler.SearchService,
-				}
-				rawCluster, err := clusterHandler.getRawCluster(irs.IID{NameId: name})
+				rsType, err := ibmTypeToRSType(rType)
 				if err != nil {
 					cblogger.Error(err)
 					continue
 				}
-				resourceId = rawCluster.Id
-			}
 
-			tagInfo = append(tagInfo, &irs.TagInfo{
-				ResType:      rsType,
-				ResIId:       irs.IID{NameId: name, SystemId: resourceId},
-				TagList:      tagKeyValue,
-				KeyValueList: []irs.KeyValue{}, // reserved for optional usage
-			})
+				name, ok := item.GetProperty("name").(string)
+				if !ok {
+					cblogger.Error("name is not a string")
+					continue
+				}
+				resourceId, ok := item.GetProperty("resource_id").(string)
+				if !ok {
+					cblogger.Error("resource_id is not a string")
+					continue
+				}
+
+				if rsType == irs.CLUSTER {
+					clusterHandler := &IbmClusterHandler{
+						CredentialInfo: tagHandler.CredentialInfo,
+						Region:         tagHandler.Region,
+						Ctx:            tagHandler.Ctx,
+						VpcService:     tagHandler.VpcService,
+						ClusterService: tagHandler.ClusterService,
+						TaggingService: tagHandler.TaggingService,
+						SearchService:  tagHandler.SearchService,
+					}
+					rawCluster, err := clusterHandler.getRawCluster(irs.IID{NameId: name})
+					if err != nil {
+						cblogger.Error(err)
+						continue
+					}
+					resourceId = rawCluster.Id
+				}
+
+				tagInfo = append(tagInfo, &irs.TagInfo{
+					ResType:      rsType,
+					ResIId:       irs.IID{NameId: name, SystemId: resourceId},
+					TagList:      tagKeyValue,
+					KeyValueList: []irs.KeyValue{}, // reserved for optional usage
+				})
+			}
 		}
+
+		if scanResult.SearchCursor == nil || *scanResult.SearchCursor == "" {
+			break
+		}
+		searchOptions.SearchCursor = scanResult.SearchCursor
 	}
 
 	LoggingInfo(hiscallInfo, start)

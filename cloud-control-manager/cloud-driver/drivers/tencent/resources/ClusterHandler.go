@@ -140,14 +140,15 @@ func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 	}
 	calllogger.Info(call.String(callLogInfo))
 
-	cluster_info_list := make([]*irs.ClusterInfo, *res.Response.TotalCount)
-	for i, cluster := range res.Response.Clusters {
-		cluster_info_list[i], err = getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *cluster.ClusterId)
+	cluster_info_list := make([]*irs.ClusterInfo, 0, len(res.Response.Clusters))
+	for _, cluster := range res.Response.Clusters {
+		clusterInfo, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *cluster.ClusterId)
 		if err != nil {
 			err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 			cblogger.Error(err)
 			return nil, err
 		}
+		cluster_info_list = append(cluster_info_list, clusterInfo)
 	}
 
 	return cluster_info_list, nil

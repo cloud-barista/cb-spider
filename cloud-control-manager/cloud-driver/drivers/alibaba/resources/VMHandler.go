@@ -1188,6 +1188,8 @@ func (vmHandler *AlibabaVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 	request := ecs.CreateDescribeInstanceStatusRequest()
 	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(100)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -1201,35 +1203,39 @@ func (vmHandler *AlibabaVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		ErrorMSG:     "",
 	}
 
-	callLogStart := call.Start()
-	response, err := vmHandler.Client.DescribeInstanceStatus(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-
-		cblogger.Error(err.Error())
-		return nil, err
-	}
-	callogger.Info(call.String(callLogInfo))
-
-	cblogger.Info("Success", response)
-	if response.TotalCount < 1 {
-		return nil, nil
-	}
-
 	var vmInfoList []*irs.VMStatusInfo
-	for _, vm := range response.InstanceStatuses.InstanceStatus {
-		cblogger.Infof("Cur VM:[%s] / ECS Status : [%s]", vm.InstanceId, vm.Status)
-		vmStatus, errStatus := vmHandler.ConvertVMStatusString(vm.Status)
-		if errStatus != nil {
-			cblogger.Error(errStatus.Error())
-			return nil, errStatus
+	curPage := 1
+	callLogStart := call.Start()
+	for {
+		response, err := vmHandler.Client.DescribeInstanceStatus(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+			cblogger.Error(err.Error())
+			return nil, err
 		}
-		curVmStatusInfo := irs.VMStatusInfo{IId: irs.IID{SystemId: vm.InstanceId}, VmStatus: vmStatus}
-		vmInfoList = append(vmInfoList, &curVmStatusInfo)
+
+		cblogger.Info("Success", response)
+		for _, vm := range response.InstanceStatuses.InstanceStatus {
+			cblogger.Infof("Cur VM:[%s] / ECS Status : [%s]", vm.InstanceId, vm.Status)
+			vmStatus, errStatus := vmHandler.ConvertVMStatusString(vm.Status)
+			if errStatus != nil {
+				cblogger.Error(errStatus.Error())
+				return nil, errStatus
+			}
+			curVmStatusInfo := irs.VMStatusInfo{IId: irs.IID{SystemId: vm.InstanceId}, VmStatus: vmStatus}
+			vmInfoList = append(vmInfoList, &curVmStatusInfo)
+		}
+
+		if len(vmInfoList) >= response.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
 
 	return vmInfoList, nil
 }

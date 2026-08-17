@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	taglib "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
@@ -229,26 +230,38 @@ func (securityHandler *TencentSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 		ErrorMSG:     "",
 	}
 
-	request := vpc.NewDescribeSecurityGroupsRequest()
-	request.Limit = common.StringPtr("100") //default : 20 / max : 100
+	var securityGroupSet []*vpc.SecurityGroup
+	var offset uint64 = 0
+	limit := uint64(100) //default : 20 / max : 100
 
 	callLogStart := call.Start()
-	response, err := securityHandler.Client.DescribeSecurityGroups(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	for {
+		request := vpc.NewDescribeSecurityGroupsRequest()
+		request.Offset = common.StringPtr(strconv.FormatUint(offset, 10))
+		request.Limit = common.StringPtr(strconv.FormatUint(limit, 10))
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		response, err := securityHandler.Client.DescribeSecurityGroups(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-		cblogger.Error(err)
-		return nil, err
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug(response.ToJsonString())
+
+		securityGroupSet = append(securityGroupSet, response.Response.SecurityGroupSet...)
+		if response.Response.TotalCount == nil || uint64(len(securityGroupSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
-	//cblogger.Debug(response)
-	cblogger.Debug(response.ToJsonString())
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
 	var results []*irs.SecurityInfo
-	for _, securityGroup := range response.Response.SecurityGroupSet {
+	for _, securityGroup := range securityGroupSet {
 		// 	securityInfo := ExtractSecurityInfo(securityGroup)
 		securityInfo, errSecurity := securityHandler.GetSecurity(irs.IID{NameId: *securityGroup.SecurityGroupName, SystemId: *securityGroup.SecurityGroupId})
 		if errSecurity != nil {
@@ -776,25 +789,37 @@ func (securityHandler *TencentSecurityHandler) ListIID() ([]*irs.IID, error) {
 
 	callLogInfo := GetCallLogScheme(securityHandler.Region, call.VPCSUBNET, "ListIID", "DescribeSecurityGroups()")
 
-	request := vpc.NewDescribeSecurityGroupsRequest()
-	request.Limit = common.StringPtr("100") //default : 20 / max : 100
+	var offset uint64 = 0
+	limit := uint64(100) //default : 20 / max : 100
 
 	start := call.Start()
-	response, err := securityHandler.Client.DescribeSecurityGroups(request)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	for {
+		request := vpc.NewDescribeSecurityGroupsRequest()
+		request.Offset = common.StringPtr(strconv.FormatUint(offset, 10))
+		request.Limit = common.StringPtr(strconv.FormatUint(limit, 10))
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		cblogger.Error(err)
-		return nil, err
+		response, err := securityHandler.Client.DescribeSecurityGroups(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(start)
+			callLogInfo.ErrorMSG = err.Error()
+			calllogger.Error(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug("SecurityGroup Count : ", *response.Response.TotalCount)
+
+		for _, securityGroup := range response.Response.SecurityGroupSet {
+			iid := irs.IID{SystemId: *securityGroup.SecurityGroupId}
+			iidList = append(iidList, &iid)
+		}
+
+		if response.Response.TotalCount == nil || uint64(len(iidList)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Debug(call.String(callLogInfo))
-	cblogger.Debug("SecurityGroup Count : ", *response.Response.TotalCount)
-	for _, securityGroup := range response.Response.SecurityGroupSet {
-		iid := irs.IID{SystemId: *securityGroup.SecurityGroupId}
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

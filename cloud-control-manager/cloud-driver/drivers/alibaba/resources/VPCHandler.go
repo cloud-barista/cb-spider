@@ -220,6 +220,8 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 	request := vpc.CreateDescribeVpcsRequest()
 	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -232,32 +234,42 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
-	callLogStart := call.Start()
-
-	result, err := VPCHandler.Client.DescribeVpcs(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Debug(result)
-	//cblogger.Debug(result)
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		return nil, err
-	}
-	callogger.Info(call.String(callLogInfo))
 
 	var vpcInfoList []*irs.VPCInfo
-	for _, curVpc := range result.Vpcs.Vpc {
-		cblogger.Infof("[%s] VPC information retrieval", curVpc.VpcId)
-		//vpcInfo := ExtractVpcDescribeInfo(&curVpc)
-		vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: curVpc.VpcId})
+	var vpcIds []string
+	curPage := 1
+	callLogStart := call.Start()
+	for {
+		result, err := VPCHandler.Client.DescribeVpcs(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			return nil, err
+		}
+
+		for _, curVpc := range result.Vpcs.Vpc {
+			vpcIds = append(vpcIds, curVpc.VpcId)
+		}
+
+		if len(vpcIds) >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
+	for _, vpcId := range vpcIds {
+		cblogger.Infof("[%s] VPC information retrieval", vpcId)
+		vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcId})
 		if vpcErr != nil {
 			return nil, vpcErr
 		}
 		vpcInfoList = append(vpcInfoList, &vpcInfo)
 	}
 
-	cblogger.Debug(result)
-	//cblogger.Debug(vpcInfoList)
 	return vpcInfoList, nil
 }
 

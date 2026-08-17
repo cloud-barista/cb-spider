@@ -353,19 +353,23 @@ func (tagHandler *AwsTagHandler) GetAllEFSTags() ([]*irs.TagInfo, error) {
 	// Step 1: List all file systems
 	input := &efs.DescribeFileSystemsInput{}
 
-	result, err := tagHandler.EFSClient.DescribeFileSystems(input)
+	var fileSystems []*efs.FileSystemDescription
+	err := tagHandler.EFSClient.DescribeFileSystemsPages(input, func(page *efs.DescribeFileSystemsOutput, lastPage bool) bool {
+		fileSystems = append(fileSystems, page.FileSystems...)
+		return !lastPage
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe file systems: %w", err)
 	}
 
-	if len(result.FileSystems) == 0 {
+	if len(fileSystems) == 0 {
 		return nil, fmt.Errorf("no file systems found")
 	}
 
 	// Step 2: Get tags for each file system
 	var allTagInfos []*irs.TagInfo
 
-	for _, fs := range result.FileSystems {
+	for _, fs := range fileSystems {
 		resIID := irs.IID{
 			NameId:   aws.StringValue(fs.Name),
 			SystemId: aws.StringValue(fs.FileSystemId),

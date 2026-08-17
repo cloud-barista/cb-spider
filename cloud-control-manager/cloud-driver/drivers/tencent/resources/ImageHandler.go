@@ -98,26 +98,37 @@ func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		ErrorMSG:     "",
 	}
 
-	request := cvm.NewDescribeImagesRequest()
-	request.Limit = common.Uint64Ptr(100) //default : 20 / max : 100
+	var imageSet []*cvm.Image
+	var offset uint64 = 0
+	limit := uint64(100) //default : 20 / max : 100
 
 	callLogStart := call.Start()
-	response, err := imageHandler.Client.DescribeImages(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	for {
+		request := cvm.NewDescribeImagesRequest()
+		request.Offset = &offset
+		request.Limit = &limit
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		response, err := imageHandler.Client.DescribeImages(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-		cblogger.Error(err)
-		return nil, err
+			cblogger.Error(err)
+			return nil, err
+		}
+
+		imageSet = append(imageSet, response.Response.ImageSet...)
+		if response.Response.TotalCount == nil || int64(len(imageSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
-	//cblogger.Debug(response)
-	//cblogger.Debug(response.ToJsonString())
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
 	//cnt := 0
-	for _, curImage := range response.Response.ImageSet {
+	for _, curImage := range imageSet {
 		cblogger.Debugf("[%s] AMI information processing", *curImage.ImageId)
 		imageInfo := ExtractImageDescribeInfo(curImage)
 		imageInfoList = append(imageInfoList, &imageInfo)

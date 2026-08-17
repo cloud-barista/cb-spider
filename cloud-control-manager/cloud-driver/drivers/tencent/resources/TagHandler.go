@@ -445,29 +445,35 @@ func (t *TencentTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.
 		return nil, fmt.Errorf("%s", msg)
 	}
 
-	req := taglib.NewDescribeResourceTagsRequest()
-	if resType != irs.ALL {
-		serviceTypeStr, resourcePrefixStr := rsTypeToTencentTypeMapParse(rsTypeToTencentTypeMap[resType])
-		req.ServiceType = common.StringPtr(serviceTypeStr)
-		req.ResourcePrefix = common.StringPtr(resourcePrefixStr)
-	}
-	req.ResourceRegion = common.StringPtr(t.Region.Region)
-	req.Limit = common.Uint64Ptr(1)
+	var rows []*taglib.TagResource
+	var offset uint64 = 0
+	limit := uint64(100)
 
-	initRes, err := t.TagClient.DescribeResourceTags(req)
-	if err != nil {
-		return nil, err
-	}
+	for {
+		req := taglib.NewDescribeResourceTagsRequest()
+		if resType != irs.ALL {
+			serviceTypeStr, resourcePrefixStr := rsTypeToTencentTypeMapParse(rsTypeToTencentTypeMap[resType])
+			req.ServiceType = common.StringPtr(serviceTypeStr)
+			req.ResourcePrefix = common.StringPtr(resourcePrefixStr)
+		}
+		req.ResourceRegion = common.StringPtr(t.Region.Region)
+		req.Offset = &offset
+		req.Limit = &limit
 
-	req.Limit = common.Uint64Ptr(*initRes.Response.TotalCount)
+		res, err := t.TagClient.DescribeResourceTags(req)
+		if err != nil {
+			return nil, err
+		}
 
-	res, err := t.TagClient.DescribeResourceTags(req)
-	if err != nil {
-		return nil, err
+		rows = append(rows, res.Response.Rows...)
+		if res.Response.TotalCount == nil || uint64(len(rows)) >= *res.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
 
 	tagInfoResIdArr := map[irs.RSType][]string{}
-	for _, tag := range res.Response.Rows {
+	for _, tag := range rows {
 		if strings.Contains(*tag.TagKey, keyword) || strings.Contains(*tag.TagValue, keyword) || keyword == "" || keyword == "*" {
 			resourceIdSplitArr := strings.Split(*tag.ResourceId, "-")
 			tagInfoResIdArr[resourceIdStartStrToRsType[resourceIdSplitArr[0]]] = append(tagInfoResIdArr[resourceIdStartStrToRsType[resourceIdSplitArr[0]]], *tag.ResourceId)

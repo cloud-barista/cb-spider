@@ -906,28 +906,29 @@ func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	for _, zoneItem := range regionZoneInfo.ZoneList {
 		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
 
-		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Pages(vmHandler.Ctx, func(serverList *compute.InstanceList) error {
+			for _, s := range serverList.Items {
+				if s.Name != "" {
+					vmId := s.Name
+					status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
+					vmStatusInfo := irs.VMStatusInfo{
+						IId: irs.IID{
+							NameId:   vmId,
+							SystemId: vmId,
+						},
+						VmStatus: status,
+					}
+					vmStatusList = append(vmStatusList, &vmStatusInfo)
+				}
+			}
+			return nil
+		})
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
 			cblogger.Error(err)
 			continue // skip to next zone
-		}
-
-		for _, s := range serverList.Items {
-			if s.Name != "" {
-				vmId := s.Name
-				status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
-				vmStatusInfo := irs.VMStatusInfo{
-					IId: irs.IID{
-						NameId:   vmId,
-						SystemId: vmId,
-					},
-					VmStatus: status,
-				}
-				vmStatusList = append(vmStatusList, &vmStatusInfo)
-			}
 		}
 		callogger.Info(call.String(callLogInfo))
 	}
@@ -1043,16 +1044,17 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	for _, zoneItem := range regionZoneInfo.ZoneList {
 		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
 
-		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Pages(vmHandler.Ctx, func(serverList *compute.InstanceList) error {
+			for _, server := range serverList.Items {
+				vmInfo := vmHandler.mappingServerInfo(server)
+				vmList = append(vmList, &vmInfo)
+			}
+			return nil
+		})
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 		if err != nil {
 			cblogger.Errorf("Error fetching VM instances in zone %s: %v", zoneItem.Name, err)
 			continue // try next zone
-		}
-
-		for _, server := range serverList.Items {
-			vmInfo := vmHandler.mappingServerInfo(server)
-			vmList = append(vmList, &vmInfo)
 		}
 
 		callogger.Info(call.String(callLogInfo))
@@ -1530,20 +1532,21 @@ func (vmHandler *GCPVMHandler) ListIID() ([]*irs.IID, error) {
 	for _, zoneItem := range regionZoneInfo.ZoneList {
 		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
 
-		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Pages(vmHandler.Ctx, func(serverList *compute.InstanceList) error {
+			for _, server := range serverList.Items {
+				iid := irs.IID{
+					NameId:   server.Name,
+					SystemId: server.Name,
+				}
+				iidList = append(iidList, &iid)
+			}
+			return nil
+		})
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
 
 		if err != nil {
 			cblogger.Errorf("Error fetching VM instances in zone %s: %v", zoneItem.Name, err)
 			continue // try next zone
-		}
-
-		for _, server := range serverList.Items {
-			iid := irs.IID{
-				NameId:   server.Name,
-				SystemId: server.Name,
-			}
-			iidList = append(iidList, &iid)
 		}
 
 		calllogger.Info(call.String(hiscallInfo))

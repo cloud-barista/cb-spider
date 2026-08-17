@@ -17,19 +17,32 @@ import (
 )
 
 func DescribeDisks(client *cbs.Client, diskIIDs []irs.IID) ([]*cbs.Disk, error) {
-	request := cbs.NewDescribeDisksRequest()
+	var allDisks []*cbs.Disk
+	var offset uint64 = 0
+	limit := uint64(100)
 
-	if diskIIDs != nil {
-		request.DiskIds = common.StringPtrs([]string{diskIIDs[0].SystemId})
+	for {
+		request := cbs.NewDescribeDisksRequest()
+		if diskIIDs != nil {
+			request.DiskIds = common.StringPtrs([]string{diskIIDs[0].SystemId})
+		}
+		request.Offset = &offset
+		request.Limit = &limit
+
+		response, err := client.DescribeDisks(request)
+		if err != nil {
+			cblogger.Error(err)
+			return nil, err
+		}
+
+		allDisks = append(allDisks, response.Response.DiskSet...)
+		if response.Response.TotalCount == nil || uint64(len(allDisks)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
 
-	response, err := client.DescribeDisks(request)
-	if err != nil {
-		cblogger.Error(err)
-		return nil, err
-	}
-
-	return response.Response.DiskSet, nil
+	return allDisks, nil
 }
 
 func DescribeDisksByDiskID(client *cbs.Client, diskIID irs.IID) (cbs.Disk, error) {
@@ -302,24 +315,40 @@ func ListSubnet(client *vpc.Client, reqVpcId string) ([]irs.SubnetInfo, error){
 		ErrorMSG:     "",
 	}
 
-	request := vpc.NewDescribeSubnetsRequest()
-	request.Filters = []*vpc.Filter{
-		&vpc.Filter{
-			Name:   common.StringPtr("vpc-id"),
-			Values: common.StringPtrs([]string{reqVpcId}),
-		},
-	}
+	var subnetSet []*vpc.Subnet
+	var offset uint64 = 0
+	limit := uint64(100)
 
 	callLogStart := call.Start()
-	response, err := client.DescribeSubnets(request)
+	for {
+		request := vpc.NewDescribeSubnetsRequest()
+		request.Filters = []*vpc.Filter{
+			&vpc.Filter{
+				Name:   common.StringPtr("vpc-id"),
+				Values: common.StringPtrs([]string{reqVpcId}),
+			},
+		}
+		request.Offset = common.StringPtr(strconv.FormatUint(offset, 10))
+		request.Limit = common.StringPtr(strconv.FormatUint(limit, 10))
+
+		response, err := client.DescribeSubnets(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callogger.Info(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
+
+		subnetSet = append(subnetSet, response.Response.SubnetSet...)
+		if response.Response.TotalCount == nil || uint64(len(subnetSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
+	}
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
-	if err != nil {
-		cblogger.Error(err)
-		return nil, err
-	}
-	
-	for _, curSubnet := range response.Response.SubnetSet {
+
+	for _, curSubnet := range subnetSet {
 		cblogger.Infof("[%s] Check Subnet Information", *curSubnet.SubnetId)
 		resSubnetInfo := irs.SubnetInfo{
 			IId:       irs.IID{SystemId: *curSubnet.SubnetId, NameId: *curSubnet.SubnetName},

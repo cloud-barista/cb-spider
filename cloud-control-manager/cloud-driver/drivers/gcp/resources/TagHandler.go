@@ -83,11 +83,15 @@ func (t *GCPTagHandler) getCloudSQLInstance(resIID irs.IID) (*sqladmin.DatabaseI
 }
 
 func (t *GCPTagHandler) getRDBMSInstances() ([]*sqladmin.DatabaseInstance, error) {
-	resp, err := t.SQLAdminClient.Instances.List(t.Credential.ProjectID).Do()
+	var instances []*sqladmin.DatabaseInstance
+	err := t.SQLAdminClient.Instances.List(t.Credential.ProjectID).Pages(t.Ctx, func(resp *sqladmin.InstancesListResponse) error {
+		instances = append(instances, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Items, nil
+	return instances, nil
 }
 
 func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
@@ -491,20 +495,28 @@ func (t *GCPTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string
 	}
 }
 func (t *GCPTagHandler) getVms() ([]*compute.Instance, error) {
-	vms, err := t.ComputeClient.Instances.List(t.Credential.ProjectID, t.Region.Zone).Do()
+	var vms []*compute.Instance
+	err := t.ComputeClient.Instances.List(t.Credential.ProjectID, t.Region.Zone).Pages(t.Ctx, func(page *compute.InstanceList) error {
+		vms = append(vms, page.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return vms.Items, nil
+	return vms, nil
 }
 
 func (t *GCPTagHandler) getDisks() ([]*compute.Disk, error) {
-	disks, err := t.ComputeClient.Disks.List(t.Credential.ProjectID, t.Region.Zone).Do()
+	var disks []*compute.Disk
+	err := t.ComputeClient.Disks.List(t.Credential.ProjectID, t.Region.Zone).Pages(t.Ctx, func(page *compute.DiskList) error {
+		disks = append(disks, page.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return disks.Items, nil
+	return disks, nil
 }
 
 func (t *GCPTagHandler) getClusters() ([]*container.Cluster, error) {

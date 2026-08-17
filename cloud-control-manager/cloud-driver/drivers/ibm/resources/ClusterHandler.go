@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -614,6 +615,98 @@ func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	return true, nil
 }
 
+// getEndpointGatewayNextHref extracts the "start" cursor from an endpoint gateway list page's Next link.
+func getEndpointGatewayNextHref(next *vpcv1.PageLink) (string, error) {
+	if next != nil {
+		href := *next.Href
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", err
+		}
+		paramMap, _ := url.ParseQuery(u.RawQuery)
+		if paramMap != nil {
+			safe := paramMap["start"]
+			if safe != nil && len(safe) > 0 {
+				return safe[0], nil
+			}
+		}
+	}
+	return "", errors.New("NOT NEXT")
+}
+
+// getAllEndpointGateways fetches every endpoint gateway in the resource group, following pagination.
+func getAllEndpointGateways(vpcService *vpcv1.VpcV1, resourceGroupId string) ([]vpcv1.EndpointGateway, error) {
+	options := &vpcv1.ListEndpointGatewaysOptions{
+		ResourceGroupID: core.StringPtr(resourceGroupId),
+	}
+	result, _, err := vpcService.ListEndpointGateways(options)
+	if err != nil {
+		return nil, err
+	}
+
+	var allGateways []vpcv1.EndpointGateway
+	for {
+		allGateways = append(allGateways, result.EndpointGateways...)
+		nextstr, _ := getEndpointGatewayNextHref(result.Next)
+		if nextstr == "" {
+			break
+		}
+		options := &vpcv1.ListEndpointGatewaysOptions{
+			ResourceGroupID: core.StringPtr(resourceGroupId),
+			Start:           core.StringPtr(nextstr),
+		}
+		result, _, err = vpcService.ListEndpointGateways(options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list endpoint gateways during pagination: %w", err)
+		}
+	}
+	return allGateways, nil
+}
+
+// getPublicGatewayNextHref extracts the "start" cursor from a public gateway list page's Next link.
+func getPublicGatewayNextHref(next *vpcv1.PageLink) (string, error) {
+	if next != nil {
+		href := *next.Href
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", err
+		}
+		paramMap, _ := url.ParseQuery(u.RawQuery)
+		if paramMap != nil {
+			safe := paramMap["start"]
+			if safe != nil && len(safe) > 0 {
+				return safe[0], nil
+			}
+		}
+	}
+	return "", errors.New("NOT NEXT")
+}
+
+// getAllPublicGateways fetches every public gateway in the account, following pagination.
+func getAllPublicGateways(vpcService *vpcv1.VpcV1, ctx context.Context) ([]vpcv1.PublicGateway, error) {
+	options := vpcService.NewListPublicGatewaysOptions()
+	result, _, err := vpcService.ListPublicGatewaysWithContext(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	var allGateways []vpcv1.PublicGateway
+	for {
+		allGateways = append(allGateways, result.PublicGateways...)
+		nextstr, _ := getPublicGatewayNextHref(result.Next)
+		if nextstr == "" {
+			break
+		}
+		options := vpcService.NewListPublicGatewaysOptions()
+		options.SetStart(nextstr)
+		result, _, err = vpcService.ListPublicGatewaysWithContext(ctx, options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list public gateways during pagination: %w", err)
+		}
+	}
+	return allGateways, nil
+}
+
 func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 	start := call.Start()
@@ -646,9 +739,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 	}
 
 	// Get Network.Subnet Info
-	rawVpeList, _, getRawVpeListErr := ic.VpcService.ListEndpointGateways(&vpcv1.ListEndpointGatewaysOptions{
-		ResourceGroupID: core.StringPtr(resourceGroupId),
-	})
+	endpointGateways, getRawVpeListErr := getAllEndpointGateways(ic.VpcService, resourceGroupId)
 	if getRawVpeListErr != nil {
 		cblogger.Error(getRawVpeListErr)
 		LoggingError(hiscallInfo, getRawVpeListErr)
@@ -656,7 +747,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 	}
 
 	var target vpcv1.EndpointGateway
-	for _, rawVpe := range rawVpeList.EndpointGateways {
+	for _, rawVpe := range endpointGateways {
 		if *rawVpe.Name == fmt.Sprintf("iks-%s", irsCluster.IId.SystemId) {
 			target = rawVpe
 		}
@@ -1800,15 +1891,13 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 	}
 
 	// Get Network.Subnet Info
-	rawVpeList, _, getRawVpeListErr := ic.VpcService.ListEndpointGateways(&vpcv1.ListEndpointGatewaysOptions{
-		ResourceGroupID: core.StringPtr(resourceGroupId),
-	})
+	endpointGateways, getRawVpeListErr := getAllEndpointGateways(ic.VpcService, resourceGroupId)
 	if getRawVpeListErr != nil {
 		return irs.ClusterInfo{}, getRawVpeListErr
 	}
 
 	var target vpcv1.EndpointGateway
-	for _, rawVpe := range rawVpeList.EndpointGateways {
+	for _, rawVpe := range endpointGateways {
 		if *rawVpe.Name == fmt.Sprintf("iks-%s", rawCluster.Id) {
 			target = rawVpe
 		}
@@ -2277,15 +2366,14 @@ func (ic *IbmClusterHandler) ensureSubnetPublicGateway(subnetId, vpcId string) e
 
 	// Check for existing public gateway in the same zone
 	var publicGatewayId string
-	listPublicGatewaysOptions := ic.VpcService.NewListPublicGatewaysOptions()
-	publicGateways, _, listErr := ic.VpcService.ListPublicGatewaysWithContext(ic.Ctx, listPublicGatewaysOptions)
+	publicGateways, listErr := getAllPublicGateways(ic.VpcService, ic.Ctx)
 	if listErr != nil {
 		cblogger.Errorf("Failed to list public gateways: %v", listErr)
 		return fmt.Errorf("failed to list public gateways: %w", listErr)
 	}
 
 	// Look for an existing public gateway in the same zone and VPC
-	for _, gw := range publicGateways.PublicGateways {
+	for _, gw := range publicGateways {
 		if gw.Zone != nil && gw.Zone.Name != nil && subnet.Zone != nil && subnet.Zone.Name != nil &&
 			*gw.Zone.Name == *subnet.Zone.Name &&
 			gw.VPC != nil && gw.VPC.ID != nil && *gw.VPC.ID == vpcId {

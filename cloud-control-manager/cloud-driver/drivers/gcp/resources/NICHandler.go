@@ -47,17 +47,19 @@ func (h *GCPNICHandler) ListNIC() ([]*irs.NICInfo, error) {
 	hiscallInfo := GetCallLogScheme(h.Region, call.NIC, "All", "instances.list()")
 	start := call.Start()
 	projectID := h.Credential.ProjectID
-	result, err := h.Client.Instances.List(projectID, h.Region.Zone).Context(h.Ctx).Do()
+	var list []*irs.NICInfo
+	err := h.Client.Instances.List(projectID, h.Region.Zone).Pages(h.Ctx, func(result *compute.InstanceList) error {
+		for _, inst := range result.Items {
+			for i, ni := range inst.NetworkInterfaces {
+				info := extractGCPNICInfo(inst.Name, i, ni)
+				list = append(list, &info)
+			}
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil { cblogger.Error(err); LoggingError(hiscallInfo, err); return nil, err }
 	LoggingInfo(hiscallInfo, start)
-	var list []*irs.NICInfo
-	for _, inst := range result.Items {
-		for i, ni := range inst.NetworkInterfaces {
-			info := extractGCPNICInfo(inst.Name, i, ni)
-			list = append(list, &info)
-		}
-	}
 	if list == nil { list = []*irs.NICInfo{} }
 	return list, nil
 }
