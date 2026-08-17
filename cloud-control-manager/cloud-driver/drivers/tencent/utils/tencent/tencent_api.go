@@ -41,13 +41,31 @@ func GetClusters(secret_id string, secret_key string, region_id string) (*tke.De
 	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
 	client, _ := tke.NewClient(credential, region_id, cpf)
 
-	request := tke.NewDescribeClustersRequest()
-	response, err := client.DescribeClusters(request)
-	if err != nil {
-		return nil, err
+	var allClusters []*tke.Cluster
+	var offset int64 = 0
+	limit := int64(100)
+	var lastResponse *tke.DescribeClustersResponse
+
+	for {
+		request := tke.NewDescribeClustersRequest()
+		request.Offset = &offset
+		request.Limit = &limit
+
+		response, err := client.DescribeClusters(request)
+		if err != nil {
+			return nil, err
+		}
+		lastResponse = response
+
+		allClusters = append(allClusters, response.Response.Clusters...)
+		if response.Response.TotalCount == nil || int64(len(allClusters)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
 
-	return response, nil
+	lastResponse.Response.Clusters = allClusters
+	return lastResponse, nil
 }
 
 func GetCluster(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DescribeClustersResponse, error) {

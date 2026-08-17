@@ -207,13 +207,13 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	if vmReqInfo.ImageType == irs.MyImage {
-		snapshotList, _, listSnapshotErr := vmHandler.VpcService.ListSnapshotsWithContext(vmHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+		snapshots, listSnapshotErr := getAllSnapshots(vmHandler.VpcService, vmHandler.Ctx)
 		if listSnapshotErr != nil {
 			return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", listSnapshotErr.Error()))
 		}
 
 		var associatedSnapshots []vpcv1.Snapshot
-		for _, snapshot := range snapshotList.Snapshots {
+		for _, snapshot := range snapshots {
 			if strings.Split(*snapshot.Name, DEV)[0] == myImage.IId.NameId {
 				associatedSnapshots = append(associatedSnapshots, snapshot)
 			}

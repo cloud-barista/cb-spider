@@ -68,7 +68,17 @@ func (MyImageHandler *GCPMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 
 	projectID := MyImageHandler.Credential.ProjectID
 
-	myImageList, err := MyImageHandler.Client.MachineImages.List(projectID).Do()
+	err := MyImageHandler.Client.MachineImages.List(projectID).Pages(MyImageHandler.Ctx, func(myImageList *compute.MachineImageList) error {
+		for _, myImage := range myImageList.Items {
+			myImageInfo, err := MyImageHandler.convertMyImageInfo(myImage)
+			if err != nil {
+				cblogger.Error(err)
+				continue
+			}
+			myImageInfoList = append(myImageInfoList, &myImageInfo)
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -76,15 +86,6 @@ func (MyImageHandler *GCPMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 		return nil, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
-
-	for _, myImage := range myImageList.Items {
-		myImageInfo, err := MyImageHandler.convertMyImageInfo(myImage)
-		if err != nil {
-			cblogger.Error(err)
-			continue
-		}
-		myImageInfoList = append(myImageInfoList, &myImageInfo)
-	}
 
 	return myImageInfoList, nil
 }
@@ -216,7 +217,16 @@ func (ImageHandler *GCPMyImageHandler) ListIID() ([]*irs.IID, error) {
 
 	projectID := ImageHandler.Credential.ProjectID
 
-	myImageList, err := ImageHandler.Client.MachineImages.List(projectID).Do()
+	var iidList []*irs.IID
+
+	err := ImageHandler.Client.MachineImages.List(projectID).Pages(ImageHandler.Ctx, func(myImageList *compute.MachineImageList) error {
+		for _, myImage := range myImageList.Items {
+			iid := irs.IID{NameId: myImage.Name, SystemId: myImage.Name}
+
+			iidList = append(iidList, &iid)
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -224,14 +234,6 @@ func (ImageHandler *GCPMyImageHandler) ListIID() ([]*irs.IID, error) {
 		return nil, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
-
-	var iidList []*irs.IID
-
-	for _, myImage := range myImageList.Items {
-		iid := irs.IID{NameId: myImage.Name, SystemId: myImage.Name}
-
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

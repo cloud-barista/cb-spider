@@ -131,22 +131,23 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 		for _, zoneItem := range regionZoneInfo.ZoneList {
 			// get Disks by Zone
 			hiscallInfo.ElapsedTime = call.Elapsed(start)
-			diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()
+			err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Pages(DiskHandler.Ctx, func(diskList *compute.DiskList) error {
+				for _, disk := range diskList.Items {
+					diskInfo, err := convertDiskInfo(disk)
+					if err != nil {
+						cblogger.Error(err)
+						return err
+					}
+					diskInfoList = append(diskInfoList, &diskInfo)
+				}
+				return nil
+			})
 			if err != nil {
 				cblogger.Error(err)
 				LoggingError(hiscallInfo, err)
 				return nil, err
 			}
 			calllogger.Info(call.String(hiscallInfo))
-
-			for _, disk := range diskList.Items {
-				diskInfo, err := convertDiskInfo(disk)
-				if err != nil {
-					cblogger.Error(err)
-					return nil, err
-				}
-				diskInfoList = append(diskInfoList, &diskInfo)
-			}
 		}
 
 	}
@@ -567,17 +568,18 @@ func (DiskHandler *GCPDiskHandler) ListIID() ([]*irs.IID, error) {
 	var iidList []*irs.IID
 
 	for _, zoneItem := range regionZoneInfo.ZoneList {
-		diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()
+		err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Pages(DiskHandler.Ctx, func(diskList *compute.DiskList) error {
+			for _, disk := range diskList.Items {
+				iid := irs.IID{NameId: disk.Name, SystemId: disk.Name}
+				iidList = append(iidList, &iid)
+			}
+			return nil
+		})
 
 		if err != nil {
 			cblogger.Error(err)
 			LoggingError(hiscallInfo, err)
 			return nil, err
-		}
-
-		for _, disk := range diskList.Items {
-			iid := irs.IID{NameId: disk.Name, SystemId: disk.Name}
-			iidList = append(iidList, &iid)
 		}
 	}
 

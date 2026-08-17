@@ -393,7 +393,43 @@ func (vVPCHandler *GCPVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 	callLogStart := call.Start()
 
-	vpcList, err := vVPCHandler.Client.Networks.List(projectID).Do()
+	var vpcInfo []*irs.VPCInfo
+
+	err := vVPCHandler.Client.Networks.List(projectID).Pages(vVPCHandler.Ctx, func(vpcList *compute.NetworkList) error {
+		for _, item := range vpcList.Items {
+			// Use Networks.List() result directly instead of calling GetVPC()
+			subnetInfoList := []irs.SubnetInfo{}
+
+			// Get subnet information if subnets exist
+			if item.Subnetworks != nil {
+				for _, subnetURL := range item.Subnetworks {
+					str := strings.Split(subnetURL, "/")
+					region := str[len(str)-3]
+					subnet := str[len(str)-1]
+					infoSubnet, err := vVPCHandler.Client.Subnetworks.Get(projectID, region, subnet).Do()
+					if err != nil {
+						cblogger.Error(err)
+						return err
+					}
+					subnetInfoList = append(subnetInfoList, mappingSubnet(infoSubnet))
+				}
+			}
+
+			networkInfo := irs.VPCInfo{
+				IId: irs.IID{
+					NameId:   item.Name,
+					SystemId: item.Name,
+				},
+				IPv4_CIDR:      "GCP VPC does not support IPv4_CIDR",
+				SubnetInfoList: subnetInfoList,
+			}
+			// Use StructToKeyValueList for VPC metadata
+			networkInfo.KeyValueList = irs.StructToKeyValueList(item)
+
+			vpcInfo = append(vpcInfo, &networkInfo)
+		}
+		return nil
+	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -401,44 +437,9 @@ func (vVPCHandler *GCPVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 		callogger.Info(call.String(callLogInfo))
 
-		return nil, err
+		return vpcInfo, err
 	}
 	callogger.Info(call.String(callLogInfo))
-
-	var vpcInfo []*irs.VPCInfo
-
-	for _, item := range vpcList.Items {
-		// Use Networks.List() result directly instead of calling GetVPC()
-		subnetInfoList := []irs.SubnetInfo{}
-
-		// Get subnet information if subnets exist
-		if item.Subnetworks != nil {
-			for _, subnetURL := range item.Subnetworks {
-				str := strings.Split(subnetURL, "/")
-				region := str[len(str)-3]
-				subnet := str[len(str)-1]
-				infoSubnet, err := vVPCHandler.Client.Subnetworks.Get(projectID, region, subnet).Do()
-				if err != nil {
-					cblogger.Error(err)
-					return vpcInfo, err
-				}
-				subnetInfoList = append(subnetInfoList, mappingSubnet(infoSubnet))
-			}
-		}
-
-		networkInfo := irs.VPCInfo{
-			IId: irs.IID{
-				NameId:   item.Name,
-				SystemId: item.Name,
-			},
-			IPv4_CIDR:      "GCP VPC does not support IPv4_CIDR",
-			SubnetInfoList: subnetInfoList,
-		}
-		// Use StructToKeyValueList for VPC metadata
-		networkInfo.KeyValueList = irs.StructToKeyValueList(item)
-
-		vpcInfo = append(vpcInfo, &networkInfo)
-	}
 
 	return vpcInfo, nil
 }
@@ -767,7 +768,19 @@ func (vpcHandler *GCPVPCHandler) ListIID() ([]*irs.IID, error) {
 
 	projectID := vpcHandler.Credential.ProjectID
 
-	vpcList, err := vpcHandler.Client.Networks.List(projectID).Do()
+	var iidList []*irs.IID
+
+	err := vpcHandler.Client.Networks.List(projectID).Pages(vpcHandler.Ctx, func(vpcList *compute.NetworkList) error {
+		for _, item := range vpcList.Items {
+			iid := irs.IID{
+				NameId:   item.Name,
+				SystemId: item.Name,
+			}
+
+			iidList = append(iidList, &iid)
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 
 	if err != nil {
@@ -776,17 +789,6 @@ func (vpcHandler *GCPVPCHandler) ListIID() ([]*irs.IID, error) {
 		return nil, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
-
-	var iidList []*irs.IID
-
-	for _, item := range vpcList.Items {
-		iid := irs.IID{
-			NameId:   item.Name,
-			SystemId: item.Name,
-		}
-
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

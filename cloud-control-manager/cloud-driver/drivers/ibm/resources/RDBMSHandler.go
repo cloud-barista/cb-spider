@@ -809,13 +809,25 @@ func (handler *IbmRDBMSHandler) listResourceInstances(serviceID string) ([]resou
 		ResourceID: &serviceID,
 	}
 
-	result, _, err := handler.ResourceController.ListResourceInstances(listOpts)
-	if err != nil {
-		return nil, err
-	}
+	for {
+		result, _, err := handler.ResourceController.ListResourceInstances(listOpts)
+		if err != nil {
+			return nil, err
+		}
+		if result == nil {
+			break
+		}
 
-	if result != nil && result.Resources != nil {
 		allInstances = append(allInstances, result.Resources...)
+
+		if result.NextURL == nil || *result.NextURL == "" {
+			break
+		}
+		next, err := core.GetQueryParam(result.NextURL, "start")
+		if err != nil || next == nil || *next == "" {
+			break
+		}
+		listOpts.Start = next
 	}
 
 	return allInstances, nil

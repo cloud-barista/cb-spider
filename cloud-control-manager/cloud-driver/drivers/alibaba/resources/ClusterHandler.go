@@ -1185,19 +1185,34 @@ func aliDeleteNatGateway(vpcClient *vpc2016.Client, regionId, natGatewayId strin
 }
 
 func aliDescribeClustersV1(csClient *cs2015.Client, regionId string) ([]*cs2015.DescribeClustersV1ResponseBodyClusters, error) {
-	describeClustersV1Request := &cs2015.DescribeClustersV1Request{
-		ClusterType: tea.String("ManagedKubernetes"),
-		RegionId:    tea.String(regionId),
-		//RegionId: tea.String("ap-northeast-1"),
-	}
-	cblogger.Debug(describeClustersV1Request)
-	describeClustersV1Response, err := csClient.DescribeClustersV1(describeClustersV1Request)
-	if err != nil {
-		return make([]*cs2015.DescribeClustersV1ResponseBodyClusters, 0), err
-	}
-	cblogger.Debug(describeClustersV1Response.Body)
+	var allClusters []*cs2015.DescribeClustersV1ResponseBodyClusters
+	pageNumber := int64(1)
 
-	return describeClustersV1Response.Body.Clusters, nil
+	for {
+		describeClustersV1Request := &cs2015.DescribeClustersV1Request{
+			ClusterType: tea.String("ManagedKubernetes"),
+			RegionId:    tea.String(regionId),
+			//RegionId: tea.String("ap-northeast-1"),
+			PageNumber: tea.Int64(pageNumber),
+			PageSize:   tea.Int64(50),
+		}
+		cblogger.Debug(describeClustersV1Request)
+		describeClustersV1Response, err := csClient.DescribeClustersV1(describeClustersV1Request)
+		if err != nil {
+			return make([]*cs2015.DescribeClustersV1ResponseBodyClusters, 0), err
+		}
+		cblogger.Debug(describeClustersV1Response.Body)
+
+		allClusters = append(allClusters, describeClustersV1Response.Body.Clusters...)
+
+		pageInfo := describeClustersV1Response.Body.PageInfo
+		if pageInfo == nil || pageInfo.TotalCount == nil || int64(len(allClusters)) >= int64(*pageInfo.TotalCount) {
+			break
+		}
+		pageNumber++
+	}
+
+	return allClusters, nil
 }
 
 func aliDescribeClusterDetail(csClient *cs2015.Client, clusterId string) (*cs2015.DescribeClusterDetailResponseBody, error) {
@@ -1244,18 +1259,32 @@ func existNotDeletedClusterWithTagInVpc(csClient *cs2015.Client, regionId, vpcId
 }
 
 func aliDescribeVSwitches(vpcClient *vpc2016.Client, regionId, vpcId string) ([]*vpc2016.DescribeVSwitchesResponseBodyVSwitchesVSwitch, error) {
-	describeVSwitchesRequest := &vpc2016.DescribeVSwitchesRequest{
-		RegionId: tea.String(regionId),
-		VpcId:    tea.String(vpcId),
-	}
-	//cblogger.Debug(describeVSwitchesRequest)
-	describeVSwitchesResponse, err := vpcClient.DescribeVSwitches(describeVSwitchesRequest)
-	if err != nil {
-		return make([]*vpc2016.DescribeVSwitchesResponseBodyVSwitchesVSwitch, 0), err
-	}
-	//cblogger.Debug(describeVSwitchesResponse.Body.VSwitches.VSwitch)
+	var allVSwitches []*vpc2016.DescribeVSwitchesResponseBodyVSwitchesVSwitch
+	pageNumber := int32(1)
 
-	return describeVSwitchesResponse.Body.VSwitches.VSwitch, nil
+	for {
+		describeVSwitchesRequest := &vpc2016.DescribeVSwitchesRequest{
+			RegionId:   tea.String(regionId),
+			VpcId:      tea.String(vpcId),
+			PageNumber: tea.Int32(pageNumber),
+			PageSize:   tea.Int32(50),
+		}
+		//cblogger.Debug(describeVSwitchesRequest)
+		describeVSwitchesResponse, err := vpcClient.DescribeVSwitches(describeVSwitchesRequest)
+		if err != nil {
+			return make([]*vpc2016.DescribeVSwitchesResponseBodyVSwitchesVSwitch, 0), err
+		}
+		//cblogger.Debug(describeVSwitchesResponse.Body.VSwitches.VSwitch)
+
+		allVSwitches = append(allVSwitches, describeVSwitchesResponse.Body.VSwitches.VSwitch...)
+
+		if describeVSwitchesResponse.Body.TotalCount == nil || int32(len(allVSwitches)) >= *describeVSwitchesResponse.Body.TotalCount {
+			break
+		}
+		pageNumber++
+	}
+
+	return allVSwitches, nil
 }
 
 // compareVersionStrings compares two version strings (supports 3-digit and 4-digit versions)
@@ -1699,17 +1728,32 @@ func aliDescribeClusterNodePoolDetail(csClient *cs2015.Client, clusterId, nodepo
 }
 
 func aliDescribeClusterNodes(csClient *cs2015.Client, clusterId, nodepoolId string) ([]*cs2015.DescribeClusterNodesResponseBodyNodes, error) {
-	describeClusterNodesRequest := &cs2015.DescribeClusterNodesRequest{
-		NodepoolId: tea.String(nodepoolId),
-	}
-	//cblogger.Debug(describeClusterNodesRequest)
-	describeClusterNodesResponse, err := csClient.DescribeClusterNodes(tea.String(clusterId), describeClusterNodesRequest)
-	if err != nil {
-		return nil, err
-	}
-	//cblogger.Debug(describeClusterNodesResponse.Body)
+	var allNodes []*cs2015.DescribeClusterNodesResponseBodyNodes
+	pageNumber := 1
 
-	return describeClusterNodesResponse.Body.Nodes, nil
+	for {
+		describeClusterNodesRequest := &cs2015.DescribeClusterNodesRequest{
+			NodepoolId: tea.String(nodepoolId),
+			PageNumber: tea.String(strconv.Itoa(pageNumber)),
+			PageSize:   tea.String("100"),
+		}
+		//cblogger.Debug(describeClusterNodesRequest)
+		describeClusterNodesResponse, err := csClient.DescribeClusterNodes(tea.String(clusterId), describeClusterNodesRequest)
+		if err != nil {
+			return nil, err
+		}
+		//cblogger.Debug(describeClusterNodesResponse.Body)
+
+		allNodes = append(allNodes, describeClusterNodesResponse.Body.Nodes...)
+
+		page := describeClusterNodesResponse.Body.Page
+		if page == nil || page.TotalCount == nil || int64(len(allNodes)) >= int64(*page.TotalCount) {
+			break
+		}
+		pageNumber++
+	}
+
+	return allNodes, nil
 }
 
 func aliModifyClusterNodePoolAutoScalingEnable(csClient *cs2015.Client, clusterId, nodepoolId string, enable bool) (*cs2015.ModifyClusterNodePoolResponseBody, error) {

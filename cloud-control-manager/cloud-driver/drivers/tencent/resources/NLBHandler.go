@@ -279,35 +279,47 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		ErrorMSG:     "",
 	}
 
-	request := clb.NewDescribeLoadBalancersRequest()
+	var loadBalancerSet []*clb.LoadBalancer
+	var offset int64 = 0
+	limit := int64(100)
+
 	callLogStart := call.Start()
-	response, err := NLBHandler.Client.DescribeLoadBalancers(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	for {
+		request := clb.NewDescribeLoadBalancersRequest()
+		request.Offset = &offset
+		request.Limit = &limit
 
-	cblogger.Debug(response.ToJsonString())
+		response, err := NLBHandler.Client.DescribeLoadBalancers(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug(response.ToJsonString())
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-		cblogger.Error(err)
-		return nil, err
+		loadBalancerSet = append(loadBalancerSet, response.Response.LoadBalancerSet...)
+		if response.Response.TotalCount == nil || uint64(len(loadBalancerSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Debug(call.String(callLogInfo))
 
-	cblogger.Debug("NLB count : ", *response.Response.TotalCount)
+	cblogger.Debug("NLB count : ", len(loadBalancerSet))
 
 	var nlbInfoList []*irs.NLBInfo
-	if *response.Response.TotalCount > 0 {
-		for _, curNLB := range response.Response.LoadBalancerSet {
-			cblogger.Debugf("[%s] NLB information retrieval - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
-			nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerId})
+	for _, curNLB := range loadBalancerSet {
+		cblogger.Debugf("[%s] NLB information retrieval - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
+		nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerId})
 
-			if nlbErr != nil {
-				cblogger.Error(nlbErr)
-				return nil, nlbErr
-			}
-			nlbInfoList = append(nlbInfoList, &nlbInfo)
+		if nlbErr != nil {
+			cblogger.Error(nlbErr)
+			return nil, nlbErr
 		}
+		nlbInfoList = append(nlbInfoList, &nlbInfo)
 	}
 
 	cblogger.Debugf("Number of returned result items: [%d]", len(nlbInfoList))
@@ -1103,24 +1115,36 @@ func (NLBHandler *TencentNLBHandler) ListIID() ([]*irs.IID, error) {
 
 	callLogInfo := GetCallLogScheme(NLBHandler.Region, call.CLUSTER, "ListIID", "DescribeLoadBalancers()")
 
-	request := clb.NewDescribeLoadBalancersRequest()
-	start := call.Start()
-	response, err := NLBHandler.Client.DescribeLoadBalancers(request)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	var offset int64 = 0
+	limit := int64(100)
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		return nil, err
-	}
-	calllogger.Debug(call.String(callLogInfo))
-	cblogger.Debug("NLB count : ", *response.Response.TotalCount)
-	if *response.Response.TotalCount > 0 {
+	start := call.Start()
+	for {
+		request := clb.NewDescribeLoadBalancersRequest()
+		request.Offset = &offset
+		request.Limit = &limit
+
+		response, err := NLBHandler.Client.DescribeLoadBalancers(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(start)
+			callLogInfo.ErrorMSG = err.Error()
+			calllogger.Error(call.String(callLogInfo))
+			return nil, err
+		}
+		cblogger.Debug("NLB count : ", *response.Response.TotalCount)
+
 		for _, curNLB := range response.Response.LoadBalancerSet {
 			iid := irs.IID{SystemId: *curNLB.LoadBalancerId}
 			iidList = append(iidList, &iid)
 		}
+
+		if response.Response.TotalCount == nil || uint64(len(iidList)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	calllogger.Debug(call.String(callLogInfo))
 
 	return iidList, nil
 }

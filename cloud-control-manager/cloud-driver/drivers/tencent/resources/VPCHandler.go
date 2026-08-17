@@ -12,6 +12,7 @@ package resources
 
 import (
 	"errors"
+	"strconv"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -179,36 +180,48 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		ErrorMSG:     "",
 	}
 
-	request := vpc.NewDescribeVpcsRequest()
-	callLogStart := call.Start()
-	response, err := VPCHandler.Client.DescribeVpcs(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	var vpcSet []*vpc.Vpc
+	var offset uint64 = 0
+	limit := uint64(100)
 
-	cblogger.Debug(response.ToJsonString())
-	//cblogger.Debug(result)
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
-		cblogger.Error(err)
-		return nil, err
+	callLogStart := call.Start()
+	for {
+		request := vpc.NewDescribeVpcsRequest()
+		request.Offset = common.StringPtr(strconv.FormatUint(offset, 10))
+		request.Limit = common.StringPtr(strconv.FormatUint(limit, 10))
+
+		response, err := VPCHandler.Client.DescribeVpcs(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug(response.ToJsonString())
+
+		vpcSet = append(vpcSet, response.Response.VpcSet...)
+		if response.Response.TotalCount == nil || uint64(len(vpcSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("VPC Count : ", *response.Response.TotalCount)
+	cblogger.Info("VPC Count : ", len(vpcSet))
 
 	var vpcInfoList []*irs.VPCInfo
-	if *response.Response.TotalCount > 0 {
-		for _, curVpc := range response.Response.VpcSet {
-			cblogger.Debugf("[%s] VPC Infomation reteive - [%s]", *curVpc.VpcId, *curVpc.VpcName)
-			vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: *curVpc.VpcId})
-			// cblogger.Info("==>조회 결과")
-			// cblogger.Debug(vpcInfo)
-			if vpcErr != nil {
-				cblogger.Error(vpcErr)
-				return nil, vpcErr
-			}
-			vpcInfoList = append(vpcInfoList, &vpcInfo)
+	for _, curVpc := range vpcSet {
+		cblogger.Debugf("[%s] VPC Infomation reteive - [%s]", *curVpc.VpcId, *curVpc.VpcName)
+		vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: *curVpc.VpcId})
+		// cblogger.Info("==>조회 결과")
+		// cblogger.Debug(vpcInfo)
+		if vpcErr != nil {
+			cblogger.Error(vpcErr)
+			return nil, vpcErr
 		}
+		vpcInfoList = append(vpcInfoList, &vpcInfo)
 	}
 
 	cblogger.Debugf("Number of Return Results List : [%d]", len(vpcInfoList))
@@ -344,29 +357,43 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetIn
 		}
 	*/
 
-	request := vpc.NewDescribeSubnetsRequest()
-	request.Filters = []*vpc.Filter{
-		&vpc.Filter{
-			Name:   common.StringPtr("vpc-id"),
-			Values: common.StringPtrs([]string{reqVpcId}),
-		},
+	var subnetSet []*vpc.Subnet
+	var offset uint64 = 0
+	limit := uint64(100)
+
+	for {
+		request := vpc.NewDescribeSubnetsRequest()
+		request.Filters = []*vpc.Filter{
+			&vpc.Filter{
+				Name:   common.StringPtr("vpc-id"),
+				Values: common.StringPtrs([]string{reqVpcId}),
+			},
+		}
+		request.Offset = common.StringPtr(strconv.FormatUint(offset, 10))
+		request.Limit = common.StringPtr(strconv.FormatUint(limit, 10))
+
+		// callLogStart := call.Start()
+		response, err := VPCHandler.Client.DescribeSubnets(request)
+		// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		//cblogger.Debug(response.ToJsonString())
+		cblogger.Debug(response)
+		if err != nil {
+			// callLogInfo.ErrorMSG = err.Error()
+			// callogger.Error(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
+		// callogger.Info(call.String(callLogInfo))
+
+		subnetSet = append(subnetSet, response.Response.SubnetSet...)
+		if response.Response.TotalCount == nil || uint64(len(subnetSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
 
-	// callLogStart := call.Start()
-	response, err := VPCHandler.Client.DescribeSubnets(request)
-	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-
-	//cblogger.Debug(response.ToJsonString())
-	cblogger.Debug(response)
-	if err != nil {
-		// callLogInfo.ErrorMSG = err.Error()
-		// callogger.Error(call.String(callLogInfo))
-		cblogger.Error(err)
-		return nil, err
-	}
-	// callogger.Info(call.String(callLogInfo))
-
-	for _, curSubnet := range response.Response.SubnetSet {
+	for _, curSubnet := range subnetSet {
 		cblogger.Infof("[%s] Check Subnet Information", *curSubnet.SubnetId)
 		resSubnetInfo := irs.SubnetInfo{
 			IId:       irs.IID{SystemId: *curSubnet.SubnetId, NameId: *curSubnet.SubnetName},
@@ -553,29 +580,38 @@ func (vpcHandler *TencentVPCHandler) ListIID() ([]*irs.IID, error) {
 
 	callLogInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "ListIID", "DescribeVpcs()")
 
-	request := vpc.NewDescribeVpcsRequest()
+	var offset uint64 = 0
+	limit := uint64(100)
 
 	start := call.Start()
-	response, err := vpcHandler.Client.DescribeVpcs(request)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+	for {
+		request := vpc.NewDescribeVpcsRequest()
+		request.Offset = common.StringPtr(strconv.FormatUint(offset, 10))
+		request.Limit = common.StringPtr(strconv.FormatUint(limit, 10))
 
-	cblogger.Debug(response.ToJsonString())
-	//cblogger.Debug(result)
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		cblogger.Error(err)
-		return nil, err
-	}
-	calllogger.Debug(call.String(callLogInfo))
-	cblogger.Debug("VPC Count : ", *response.Response.TotalCount)
-	if *response.Response.TotalCount > 0 {
+		response, err := vpcHandler.Client.DescribeVpcs(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(start)
+			callLogInfo.ErrorMSG = err.Error()
+			calllogger.Error(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug(response.ToJsonString())
+
 		for _, curVpc := range response.Response.VpcSet {
 			cblogger.Debugf("[%s] VPC information retrieval", *curVpc.VpcId)
 			iid := irs.IID{SystemId: *curVpc.VpcId}
 			iidList = append(iidList, &iid)
 		}
+
+		if response.Response.TotalCount == nil || uint64(len(iidList)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	calllogger.Debug(call.String(callLogInfo))
 
 	return iidList, nil
 }

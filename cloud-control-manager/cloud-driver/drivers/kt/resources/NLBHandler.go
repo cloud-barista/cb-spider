@@ -1405,20 +1405,21 @@ func (nlbHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 		Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
-	firstPage, err := ktvpclb.List(nlbHandler.NLBClient, listOpts).FirstPage() // Not 'NetworkClient', Not 'AllPages()'
+	var nlbList []ktvpclb.LoadBalancer
+	err := ktvpclb.List(nlbHandler.NLBClient, listOpts).EachPage(func(page pagination.Page) (bool, error) {
+		loadBalancers, err := ktvpclb.ExtractLoadBalancers(page)
+		if err != nil {
+			return false, fmt.Errorf("Failed to Extract NLB List : [%v]", err)
+		}
+		nlbList = append(nlbList, loadBalancers...)
+		return true, nil
+	})
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NLB List from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
 	loggingInfo(callLogInfo, start)
-
-	nlbList, err := ktvpclb.ExtractLoadBalancers(firstPage)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Extract NLB List : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
 
 	if len(nlbList) < 1 {
 		cblogger.Info("### There is No NLB!!")
