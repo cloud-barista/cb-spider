@@ -1356,7 +1356,12 @@
 
                 <!-- DB Engine -->
                 <fieldset class="info-group">
-                    <legend>DB Engine:</legend>
+                    <legend>DB Engine:
+                        <span id="dbEngineApplyingIndicator" style="display:none; font-weight: normal; font-size: 11px; color: #888; margin-left: 6px;">
+                            <span class="metainfo-spinner" style="width:10px; height:10px; border-width:2px;"></span>
+                            <span id="dbEngineApplyingText">Loading settings...</span>
+                        </span>
+                    </legend>
                     <div class="form-group">
                         <label for="dbEngine">Engine:</label>
                         <select id="dbEngine" name="dbEngine" required style="background-color: #E6E6FA; width: 65%;" onchange="loadRDBMSMetaInfo()">
@@ -2024,13 +2029,23 @@
         TENCENT:   { version: '8.0',        spec: '8000', storage: 50 }
     };
 
+    // Values verified to work by test/rdbms-mariadb-test/*.sh for each CSP
+    const CSP_MARIADB_TEST_DEFAULTS = {
+        AWS:       { version: '10.6',           spec: 'db.t3.medium', storage: 100 },
+        ALIBABA:   { version: '10.6',           spec: 'rds.mariadb.s4.large', storage: 20 },
+        NHN:       { version: 'MARIADB_V101118', spec: 'm2.c2m4', storage: 20 },
+        OPENSTACK: { version: '10.4',           spec: 'm1.small', storage: 20 }
+    };
+
     function applyCSPRDBMSTestDefaults() {
         const providerName = (document.getElementById('currentProviderName').value || '').toUpperCase();
-        const key = Object.keys(CSP_RDBMS_TEST_DEFAULTS).find(k => providerName.includes(k));
+        const dbEngine = (document.getElementById('dbEngine').value || '').toLowerCase();
+        const defaultsTable = dbEngine === 'mariadb' ? CSP_MARIADB_TEST_DEFAULTS : CSP_RDBMS_TEST_DEFAULTS;
+        const key = Object.keys(defaultsTable).find(k => providerName.includes(k));
         if (!key) {
             return;
         }
-        const defaults = CSP_RDBMS_TEST_DEFAULTS[key];
+        const defaults = defaultsTable[key];
 
         const versionSelect = document.getElementById('dbEngineVersion');
         if (defaults.version && Array.from(versionSelect.options).some(o => o.value === defaults.version)) {
@@ -2099,7 +2114,33 @@
 
     let metaInfoRequestSeq = 0;
 
+    // Version/Spec/Storage Type (and the CSP-specific defaults derived from them) only
+    // get applied once the MetaInfo fetch resolves, so without an explicit loading state
+    // these fields silently keep showing the previous engine's values in the meantime —
+    // this makes that wait visible instead of letting it look like nothing happened.
+    function setEngineDependentFieldsLoading(isLoading, dbEngine) {
+        const indicator = document.getElementById('dbEngineApplyingIndicator');
+        if (indicator) {
+            indicator.style.display = isLoading ? '' : 'none';
+        }
+        const indicatorText = document.getElementById('dbEngineApplyingText');
+        if (indicatorText && isLoading && dbEngine) {
+            indicatorText.textContent = `Applying ${dbEngine} settings...`;
+        }
+        ['dbEngineVersion', 'dbSpec', 'storageType', 'storageSize'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = isLoading;
+        });
+        if (isLoading) {
+            document.getElementById('dbEngineVersion').innerHTML = '<option value="">Loading...</option>';
+            document.getElementById('dbSpec').innerHTML = '<option value="">Loading...</option>';
+            document.getElementById('storageType').innerHTML = '<option value="">Loading...</option>';
+        }
+    }
+
     function showMetaInfoLoading(dbEngine, connConfig) {
+        setEngineDependentFieldsLoading(true, dbEngine);
+
         const content = document.getElementById('metaInfoContent');
         if (content) {
             content.innerHTML = '<div style="display:flex; align-items:center; gap:8px; color:#888; font-size:11px; padding:8px 0;">' +
@@ -2127,6 +2168,8 @@
     const metaInfoCache = {};
 
     function applyRDBMSMetaInfo(metaInfo, isCached) {
+            setEngineDependentFieldsLoading(false);
+
             const cacheBadge = document.getElementById('metaInfoCacheBadge');
             if (cacheBadge) cacheBadge.style.display = isCached ? '' : 'none';
 
@@ -2355,6 +2398,7 @@
         .catch(error => {
             if (requestSeq === metaInfoRequestSeq) {
                 console.error('Error loading RDBMS MetaInfo:', error);
+                setEngineDependentFieldsLoading(false);
                 // Set error states
                 document.getElementById('dbEngineVersion').innerHTML = '<option value="">Error loading versions</option>';
                 document.getElementById('dbSpec').innerHTML = '<option value="">Error loading specs</option>';
