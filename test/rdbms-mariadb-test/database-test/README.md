@@ -180,24 +180,24 @@ tail -f /tmp/rdbms_mgmt_logs_<PID>/log_aws.txt
 
 | CSP | Note |
 |-----|------|
-| OpenStack | 이 환경은 MariaDB Trove datastore 구축 전 상태로, 상위 create 시험(Step 4)이 실패하면 인스턴스가 없어 본 시험도 FAIL로 이어짐. Trove datastore 구성 후 정상 동작 예상 |
+| OpenStack | 상위 create 시험(Step 4)이 실패하면 인스턴스가 없어 본 시험도 FAIL로 이어짐 |
 
 ## 시험 결과
 
-### 2026-08-10
+시험 날짜: 2026-08-18
 
-상위 디렉토리 create 시험(Step 4)에서 OpenStack 인스턴스 생성이 `DBEngineVersion '10.6'` 미지원으로 실패하여, 본 시험에서도 OpenStack만 FAIL로 나타남 (인스턴스 부재).
+4개 CSP 전부 PASS했습니다.
 
 ```
 =======================================================================================================
-            RDBMS DATABASE MANAGEMENT TEST SUMMARY - ALL CSPs (MariaDB)
+             RDBMS DATABASE MANAGEMENT TEST SUMMARY - ALL CSPs (MariaDB)
 =======================================================================================================
 CSP          | CreateDB   | ListDB   | FoundInList  | DeleteDB   | VerifyDeleted | Elapsed
 -------------------------------------------------------------------------------------------------------
-AWS          | PASS       | PASS     | FOUND        | PASS       | PASS          | 17s
-ALIBABA      | PASS       | PASS     | FOUND        | PASS       | PASS          | 21s
-OPENSTACK    | FAIL       | FAIL     | NOT_FOUND    | FAIL       | FAIL          | 4s
-NHN          | PASS       | PASS     | FOUND        | PASS       | PASS          | 31s
+AWS          | PASS       | PASS     | FOUND        | PASS       | PASS          | 8s
+ALIBABA      | PASS       | PASS     | FOUND        | PASS       | PASS          | 17s
+OPENSTACK    | PASS       | PASS     | FOUND        | PASS       | PASS          | 28s
+NHN          | PASS       | PASS     | FOUND        | PASS       | PASS          | 33s
 -------------------------------------------------------------------------------------------------------
-Total: 3 PASS, 1 FAIL
+Total: 4 PASS, 0 FAIL
 ```

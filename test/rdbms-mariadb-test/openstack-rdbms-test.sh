@@ -16,7 +16,7 @@ export CREATE_JSON='{
     "Name": "cb-spider-mariadb-test",
     "VPCName": "vpc-01",
     "DBEngine": "mariadb",
-    "DBEngineVersion": "10.6",
+    "DBEngineVersion": "10.4",
     "DBSpec": "m1.small",
     "StorageSize": "20",
     "MasterUserName": "myadmin",
