@@ -217,14 +217,11 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 
 | 항목 | 값 |
 |------|-----|
-| DBEngine / Version | `mariadb` / `10.6` |
+| DBEngine / Version | `mariadb` / `10.4` |
 | DBSpec | `m1.small` |
 | StorageSize | `20 GB` |
 | Connection | `openstack-config01` |
 | Region / Zone | `RegionOne` / `nova` |
-
-**특이사항**
-- MariaDB Trove datastore가 구축전 상태
 
 ---
 
@@ -242,27 +239,27 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 
 ## 시험 결과
 
-### 2026-08-10
+시험 날짜: 2026-08-18
 
-OpenStack은 이 환경에 MariaDB Trove datastore가 아직 구축되지 않아 `DBEngineVersion '10.6' cannot be found` 오류로 CREATE_ERROR 발생 (datastore 구축 후 정상 동작 예상).
+전체 11건 PASS했습니다.
 
 ```
 ================================================================================================================================
-                          RDBMS StorageType Test Summary - All CSPs (MariaDB)
+                           RDBMS StorageType Test Summary - All CSPs (MariaDB)
 ================================================================================================================================
 CSP          | StorageType(Req)     | StorageType(Ret)   | Result | DB Status      | Elapsed    | Reason
 --------------------------------------------------------------------------------------------------------------------------------
-AWS          | gp2                  | gp2                | PASS   | Available      | 4m41s      | -
-AWS          | gp3                  | gp3                | PASS   | Available      | 4m41s      | -
-AWS          | io1                  | io1                | PASS   | Available      | 4m41s      | -
-AWS          | io2                  | io2                | PASS   | Available      | 4m42s      | -
-ALIBABA      | cloud_essd           | cloud_essd         | PASS   | Available      | 3m26s      | -
-ALIBABA      | cloud_essd2          | cloud_essd2        | PASS   | Available      | 3m6s       | -
-ALIBABA      | cloud_essd3          | cloud_essd3        | PASS   | Available      | 3m36s      | -
-OPENSTACK    | __DEFAULT__          | N/A                | FAIL   | CREATE_ERROR   | 1s         | -
-OPENSTACK    | RBD                  | N/A                | FAIL   | CREATE_ERROR   | 1s         | -
-NHN          | General HDD          | General HDD        | PASS   | Available      | 9m22s      | -
-NHN          | General SSD          | General SSD        | PASS   | Available      | 10m20s     | -
+AWS          | gp2                  | gp2                | PASS   | Available      | 5m14s      | -
+AWS          | gp3                  | gp3                | PASS   | Available      | 4m42s      | -
+AWS          | io1                  | io1                | PASS   | Available      | 5m15s      | -
+AWS          | io2                  | io2                | PASS   | Available      | 5m14s      | -
+ALIBABA      | cloud_essd           | cloud_essd         | PASS   | Available      | 3m39s      | -
+ALIBABA      | cloud_essd2          | cloud_essd2        | PASS   | Available      | 3m23s      | -
+ALIBABA      | cloud_essd3          | cloud_essd3        | PASS   | Available      | 3m24s      | -
+OPENSTACK    | __DEFAULT__          | NA                 | PASS   | Available      | 4m28s      | OpenStack Trove does not expose StorageType post-creation; Available=PASS
+OPENSTACK    | RBD                  | NA                 | PASS   | Available      | 4m58s      | OpenStack Trove does not expose StorageType post-creation; Available=PASS
+NHN          | General HDD          | General HDD        | PASS   | Available      | 10m36s     | -
+NHN          | General SSD          | General SSD        | PASS   | Available      | 10m21s     | -
 --------------------------------------------------------------------------------------------------------------------------------
-Total: 11  PASS: 9  FAIL: 2  SKIP: 0
+Total: 11  PASS: 11  FAIL: 0  SKIP: 0
 ```

@@ -47,7 +47,7 @@ RDBMS 생성 전에 각 CSP에 VPC와 서브넷이 미리 생성되어 있어야
 |-----|------------|---------|------|------|
 | AWS | ✅ | ✅ | `10.6` | Amazon RDS for MariaDB |
 | Alibaba | ✅ | ✅ | `10.6` | AliCloud RDS for MariaDB |
-| OpenStack | ⚠️ | ❌ | `10.6` | **현재 이 환경은 MariaDB Trove datastore 구축 전 상태** (설치되면 정상 동작 예상) — 시험 스크립트는 그대로 유지 |
+| OpenStack | ✅ | ❌ | `10.4` | Trove for OpenStack |
 | NHN | ✅ | ❌ | `MARIADB_V101118` | NHN RDS for MariaDB |
 
 
@@ -59,7 +59,7 @@ RDBMS 생성 전에 각 CSP에 VPC와 서브넷이 미리 생성되어 있어야
 |-----|--------|---------|------|---------|
 | AWS | mariadb | 10.6 | db.t3.medium | 100GB |
 | Alibaba | mariadb | 10.6 | metainfo 동적 조회 (예: `mariadb.n2.medium.2c`, 조회 실패 시 `rds.mariadb.s4.large`로 폴백) | 20GB |
-| OpenStack | mariadb | 10.6 | m1.small | 20GB (Trove 구축 후 정상 동작 예상) |
+| OpenStack | mariadb | 10.4 | m1.small | 20GB |
 | NHN | mariadb | MARIADB_V101118 | m2.c2m4 | 20GB |
 
 ## Usage
@@ -157,24 +157,22 @@ rdbms-mariadb-test/
 
 ## 시험 결과
 
-### 2026-08-10
+시험 날짜: 2026-08-18
 
-`./all_test.sh` 전체 시험 수트 실행 결과입니다 (Step 2/4/5/7은 하위 시험 또는 OpenStack MariaDB Trove datastore 미구축으로 인한 실패 — 상세는 각 하위 디렉토리 README 참고).
+`./all_test.sh` 전체 시험 수트 실행 결과, 4개 CSP(AWS/Alibaba/OpenStack/NHN) 전 Step PASS했습니다.
 
 ```
  PASS | Step 1: Network Prepare (VPC/Subnet/SG)
- FAIL | Step 2: StorageType Validation Test (exit code: 1)
+ PASS | Step 2: StorageType Validation Test
  PASS | Step 3: Delete StorageType RDBMS Instances
- FAIL | Step 4: RDBMS Instance Create (all CSPs) (exit code: 1)
- FAIL | Step 5: Database Management Test (CRUD inside instance) (exit code: 1)
+ PASS | Step 4: RDBMS Instance Create (all CSPs)
+ PASS | Step 5: Database Management Test (CRUD inside instance)
  PASS | Step 6: Tag Management Test (SupportsTag=true CSPs)
- FAIL | Step 7: RDBMS Instance Delete (all CSPs) (exit code: 1)
+ PASS | Step 7: RDBMS Instance Delete (all CSPs)
  PASS | Step 8: Network Cleanup (VPC/Subnet/SG)
 
- Total: 4 PASS, 4 FAIL
+ Total: 8 PASS, 0 FAIL
 ```
-
-OpenStack을 제외한 3개 CSP(AWS/Alibaba/NHN)는 Create부터 Delete까지 전 단계 PASS했습니다. OpenStack은 이 환경에 MariaDB Trove datastore가 아직 구축되지 않아 `Datastore version '10.6' cannot be found` 오류로 인스턴스 생성에 실패했고, 이로 인해 이후 DB 관리 시험(Step 5) 및 삭제(Step 7)에서도 OpenStack만 실패로 이어졌습니다 (인스턴스 부재로 인한 연쇄 실패이며, datastore 구축 후 정상 동작 예상).
 
 **RDBMS Instance Create (Step 4) 상세:**
 
@@ -184,26 +182,26 @@ OpenStack을 제외한 3개 CSP(AWS/Alibaba/NHN)는 Create부터 Delete까지 �
 =================================================================================================================================================================================
 CSP          | Status      | Engine   | Version      | Spec                     | Storage                  | Endpoint                                 | PublicAccess | Elapsed
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-AWS          | Available   | mariadb  | 10.6.27      | db.t3.medium             | 100GB|gp2                | cb-spider-mariadb-test-***.ap-southeast-2.rds.amazonaws.com:3306        | true         | 4m44s
-ALIBABA      | Available   | mariadb  | 10.6         | mariadb.n2.medium.2c     | 20GB|cloud_essd          | *.*.*.*:3306                             | true         | 3m20s
-OPENSTACK    | CREATE_ERROR | Datastore version '10.6' cannot be found. |              |                          |                                          |              | -
-NHN          | Available   | mariadb  | MARIADB_V101118 | m2.c2m4                  | 20GB|General SSD         | ***.external.kr1.mariadb.rds.nhncloudservice.com:3306                   | true         | 10m8s
+AWS          | Available   | mariadb  | 10.6.27      | db.t3.medium             | 100GB|gp2                | cb-spider-mariadb-test-***.ap-southeast-2.rds.amazonaws.com:3306        | true         | 4m40s
+ALIBABA      | Available   | mariadb  | 10.6         | mariadb.n2.medium.2c     | 20GB|cloud_essd          | *.*.*.*:3306                             | true         | 3m28s
+OPENSTACK    | Available   | mariadb  | 10.4         | m1.small                 | 20GB|NA                  | *.*.*.*:3306                              | true         | 3m58s
+NHN          | Available   | mariadb  | MARIADB_V101118 | m2.c2m4                  | 20GB|General SSD         | ***.external.kr1.mariadb.rds.nhncloudservice.com:3306                   | true         | 9m53s
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Failed : 1
+Failed : 0
 ```
 
 **RDBMS Instance Delete (Step 7) 상세:**
 
 ```
 ============================================================
-     RDBMS DELETE SUMMARY - ALL CSPs (MariaDB)
+      RDBMS DELETE SUMMARY - ALL CSPs (MariaDB)
 ============================================================
 CSP          | Result         | Detail               | Elapsed
 ------------------------------------------------------------
-AWS          | DELETED        | ok                   | 3m56s
+AWS          | DELETED        | ok                   | 3m49s
 ALIBABA      | DELETED        | ok                   | 23s
-OPENSTACK    | NOT_FOUND      | Relational Database 'cb-spider-mariadb-test' does not exist in connection 'openstack-config01' | -
-NHN          | DELETED        | ok                   | 19s
+OPENSTACK    | DELETED        | ok                   | 20s
+NHN          | DELETED        | ok                   | 18s
 ------------------------------------------------------------
-Failed : 1
+Failed : 0
 ```
