@@ -201,6 +201,9 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
 			ServerCreateCount:          minCount,
 			InitScriptNo:               initScriptNo,
+
+			// Request a Public IP be assigned as part of VM creation itself (Public Subnet + single-instance creation only).
+			AssociateWithPublicIp: ncloud.Bool(true),
 		}
 
 	} else { // In case of My Image
@@ -276,6 +279,9 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
 			ServerCreateCount:          minCount,
 			InitScriptNo:               initScriptNo,
+
+			// Request a Public IP be assigned as part of VM creation itself (Public Subnet + single-instance creation only).
+			AssociateWithPublicIp: ncloud.Bool(true),
 		}
 
 		// BlockStorageMappingList is only supported for KVM; XEN/RHV images must omit it.
@@ -978,32 +984,9 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		return irs.VMInfo{}, newErr
 	}
 
-	// Create a PublicIp, if the instance doesn't have a 'Public IP' after creation.
-	if strings.EqualFold(ncloud.StringValue(NcpInstance.PublicIp), "") {
-		publicIpReq := vserver.CreatePublicIpInstanceRequest{
-			ServerInstanceNo: NcpInstance.ServerInstanceNo,
-			RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
-		}
-
-		// CAUTION!! : The number of Public IPs cannot be more than the number of instances on NCP cloud default service.
-		result, err := vmHandler.VMClient.V2Api.CreatePublicIpInstance(&publicIpReq)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Create Public IP : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if len(result.PublicIpInstanceList) < 1 {
-			newErr := fmt.Errorf("Failed to Create Any Public IP!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-
-		publicIp = result.PublicIpInstanceList[0].PublicIp
-		privateIp = result.PublicIpInstanceList[0].PrivateIp
-
-		cblogger.Infof("*** PublicIp : %s ", ncloud.StringValue(publicIp))
-		cblogger.Infof("Finished to Create Public IP")
-	} else {
+	// Public IP is now requested at VM creation time via CreateServerInstancesRequest.AssociateWithPublicIp,
+	// so NCP VPC assigns and returns it directly on the server instance once creation completes.
+	if !strings.EqualFold(ncloud.StringValue(NcpInstance.PublicIp), "") {
 		publicIp = NcpInstance.PublicIp
 		cblogger.Infof("*** NcpInstance.PublicIp : %s ", ncloud.StringValue(publicIp))
 
@@ -1026,6 +1009,10 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		privateIp = result.PublicIpInstanceList[0].PrivateIp
 
 		cblogger.Infof("Finished to Get PublicIP InstanceNo")
+	} else {
+		// e.g. VM created on a Private Subnet, where a Public IP cannot be assigned.
+		publicIp = ncloud.String("")
+		privateIp = ncloud.String("")
 	}
 
 	// PublicIpID : Using for deleting the PublicIP
