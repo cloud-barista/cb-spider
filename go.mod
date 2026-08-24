@@ -71,7 +71,7 @@ require (
 	github.com/go-openapi/strfmt v0.25.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/goccy/go-json v0.10.5
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/go-version v1.6.0
 	github.com/itchyny/gojq v0.12.17
 	github.com/jeremywohl/flatten v1.0.1
