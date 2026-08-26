@@ -363,7 +363,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		//NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{{AssociatePublicIpAddress: aws.Bool(true)}},
 
 		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{ // PublicIp 할당을 위해 SubnetId와 보안 그룹을 이 곳에서 정의해야 함.
-			{AssociatePublicIpAddress: aws.Bool(true),
+			{AssociatePublicIpAddress: aws.Bool(vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP),
 				DeviceIndex: aws.Int64(0),
 				Groups:      aws.StringSlice(newSecurityGroupIds),
 				SubnetId:    aws.String(subnetID),

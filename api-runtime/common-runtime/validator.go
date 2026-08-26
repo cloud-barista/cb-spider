@@ -48,13 +48,33 @@ func ValidateStruct(is interface{}, emptyPermissionList []string) error {
 	for i := 0; i < inValue.NumField(); i++ {
 		fv := inValue.Field(i)
 		switch fv.Kind() {
-		case reflect.Struct, reflect.Ptr:
+		case reflect.Struct:
 			err := ValidateStruct(fv.Interface(), emptyPermissionList)
 			if err != nil {
 				if retErr != nil {
 					retErr = fmt.Errorf("%v\n%v", retErr, err)
 				} else {
 					retErr = err
+				}
+			}
+		case reflect.Ptr:
+			// A nil pointer (e.g. an unset optional *bool) has nothing to
+			// validate. A non-nil pointer is only recursed into when it
+			// points to a Struct/Slice - ValidateStruct's own Ptr-dereference
+			// logic below expects that; a pointer to a scalar (e.g. *bool)
+			// has no sub-fields to check, so it's intentionally skipped.
+			if fv.IsNil() {
+				continue
+			}
+			switch fv.Elem().Kind() {
+			case reflect.Struct, reflect.Slice:
+				err := ValidateStruct(fv.Interface(), emptyPermissionList)
+				if err != nil {
+					if retErr != nil {
+						retErr = fmt.Errorf("%v\n%v", retErr, err)
+					} else {
+						retErr = err
+					}
 				}
 			}
 		case reflect.Slice:

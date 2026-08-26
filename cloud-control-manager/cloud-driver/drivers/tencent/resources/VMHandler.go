@@ -171,10 +171,20 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	request.InstanceChargeType = common.StringPtr("POSTPAID_BY_HOUR")
 
-	request.InternetAccessible = &cvm.InternetAccessible{
-		// 	InternetChargeType: common.StringPtr("TRAFFIC_POSTPAID_BY_HOUR"),
-		PublicIpAssigned:        common.BoolPtr(true),
-		InternetMaxBandwidthOut: common.Int64Ptr(1), //Public Ip를 할당하려면 The maximum outbound bandwidth of the public network가 1Mbps이상이어야 함.
+	assignPublicIP := vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP
+	if assignPublicIP {
+		request.InternetAccessible = &cvm.InternetAccessible{
+			// 	InternetChargeType: common.StringPtr("TRAFFIC_POSTPAID_BY_HOUR"),
+			PublicIpAssigned:        common.BoolPtr(true),
+			InternetMaxBandwidthOut: common.Int64Ptr(1), //Public Ip를 할당하려면 The maximum outbound bandwidth of the public network가 1Mbps이상이어야 함.
+		}
+	} else {
+		// Tencent rejects InternetMaxBandwidthOut when PublicIpAssigned is false
+		// ("does not support set bandwidth without public ip address"), so omit
+		// InternetAccessible entirely rather than setting a zero/unused bandwidth.
+		request.InternetAccessible = &cvm.InternetAccessible{
+			PublicIpAssigned: common.BoolPtr(false),
+		}
 	}
 
 	request.InstanceName = common.StringPtr(vmReqInfo.IId.NameId)
@@ -785,11 +795,18 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		allPublicIPs = append(allPublicIPs, nic.PublicIPs...)
 	}
 	// Set primary PrivateIP from primary NIC (DeviceIndex == 0).
-	// PublicIP is already set from DescribeInstances above (authoritative) — do not override.
+	// PublicIP from DescribeInstances above is authoritative when present, but an
+	// EIP bound at the ENI level (AssociateAddress with NetworkInterfaceId, as
+	// used by AssignVMDefaultPublicIP) doesn't show up in curVm.PublicIpAddresses -
+	// only in the NIC's own PrivateIpAddressSet - so fall back to the primary
+	// NIC's public IP when the instance-level field left it empty.
 	for _, nic := range vmInfo.NICs {
 		if nic.DeviceIndex == 0 {
 			if len(nic.PrivateIPs) > 0 {
 				vmInfo.PrivateIP = nic.PrivateIPs[0]
+			}
+			if vmInfo.PublicIP == "" && len(nic.PublicIPs) > 0 && nic.PublicIPs[0] != "" {
+				vmInfo.PublicIP = nic.PublicIPs[0]
 			}
 			if nic.IId.NameId != "" {
 				vmInfo.NetworkInterface = nic.IId.NameId

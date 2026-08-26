@@ -347,6 +347,7 @@ func (cloudConn *AzureCloudConnection) CreatePublicIPHandler() (irs.PublicIPHand
 		Ctx:            cloudConn.Ctx,
 		PublicIPClient: cloudConn.PublicIPClient,
 		NicClient:      cloudConn.VNicClient,
+		VMClient:       cloudConn.VMClient,
 	}
 	return &handler, nil
 }

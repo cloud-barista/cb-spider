@@ -283,13 +283,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 		NetworkInterfaces: []*compute.NetworkInterface{
 			{
-				AccessConfigs: []*compute.AccessConfig{
-					{
-						Type: "ONE_TO_ONE_NAT",
-						Name: "External NAT", // default
-
-					},
-				},
 				Network:    networkURL,
 				Subnetwork: subnetWorkURL,
 			},
@@ -306,6 +299,15 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		Tags: &compute.Tags{
 			Items: securityTags,
 		},
+	}
+
+	if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+		instance.NetworkInterfaces[0].AccessConfigs = []*compute.AccessConfig{
+			{
+				Type: "ONE_TO_ONE_NAT",
+				Name: "External NAT", // default
+			},
+		}
 	}
 
 	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
@@ -1234,6 +1236,11 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		}
 	}
 
+	var gcpPublicIP string
+	if len(server.NetworkInterfaces) > 0 && len(server.NetworkInterfaces[0].AccessConfigs) > 0 {
+		gcpPublicIP = server.NetworkInterfaces[0].AccessConfigs[0].NatIP
+	}
+
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
 			NameId: server.Name,
@@ -1256,7 +1263,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			SystemId: server.Labels["keypair"],
 		},
 		ImageIId:  vmHandler.getImageIID(server),
-		PublicIP:  server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+		PublicIP:  gcpPublicIP,
 		PrivateIP: server.NetworkInterfaces[0].NetworkIP,
 		VpcIID: irs.IID{
 			NameId:   vpcName,

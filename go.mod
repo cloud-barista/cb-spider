@@ -26,7 +26,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.415
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.136
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.1064
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.3.134
 	golang.org/x/crypto v0.52.0
 	golang.org/x/oauth2 v0.36.0
 	google.golang.org/api v0.272.0
@@ -63,6 +63,9 @@ require (
 	github.com/alibabacloud-go/ecs-20140526/v4 v4.24.17
 	github.com/alibabacloud-go/tea v1.3.11
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
+	github.com/aws/aws-sdk-go-v2 v1.43.8
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.38
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.323.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20251103105234-6cbc5279b7fb
 	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20260713072217-58ff4a0ab139
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20260522111605-48d0ba7e7251
@@ -117,6 +120,11 @@ require (
 	github.com/alibabacloud-go/openapi-util v0.1.1 // indirect
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7 // indirect
 	github.com/aliyun/credentials-go v1.4.5 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.39 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.39 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.39 // indirect
+	github.com/aws/smithy-go v1.27.10 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect

@@ -52,4 +52,12 @@ type PublicIPHandler interface {
 	// GCP: nicIID holds the NIC name (e.g. "nic0", "nic1"), privateIP is ignored.
 	AssociatePublicIP(publicIPIID IID, vmIID IID, nicIID IID, privateIP string) (PublicIPInfo, error)
 	DisassociatePublicIP(publicIPIID IID) (bool, error)
+
+	// RemoveDefaultPublicIP removes whatever public IP is currently attached to
+	// vmIID's default (primary) network interface, using the CSP's own native
+	// mechanism - regardless of whether it was ever tracked as a separate
+	// CB-Spider PublicIP resource. Used for VMs created with the default
+	// AssignPublicIP=true (CSP-native auto-assign), where no CB-Spider PublicIP
+	// name exists to reference via the usual Associate/Disassociate/Delete path.
+	RemoveDefaultPublicIP(vmIID IID) (bool, error)
 }

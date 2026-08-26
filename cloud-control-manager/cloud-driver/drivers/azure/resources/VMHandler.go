@@ -171,14 +171,17 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 
 	// 2. related Resource Create // publicip, vnic
 	// 2-1. related Resource Create - PublicIP
-	publicIPIId, err := CreatePublicIP(vmHandler, vmReqInfo)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
+	var publicIPIId irs.IID
+	if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+		publicIPIId, err = CreatePublicIP(vmHandler, vmReqInfo)
+		if err != nil {
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		cleanResources.PublicIPName = publicIPIId.NameId
 	}
-	cleanResources.PublicIPName = publicIPIId.NameId
 
 	// 2-1. related Resource Create - VNIC
 	vNicIId, err := CreateVNic(vmHandler, vmReqInfo, publicIPIId)
@@ -350,13 +353,11 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			}
 			vmOpts.Tags = map[string]*string{
 				"keypair":   &vmReqInfo.KeyPairIID.NameId,
-				"publicip":  &publicIPIId.NameId,
 				"createdBy": &vmReqInfo.IId.NameId,
 			}
 		} else {
 			vmOpts.Properties.OSProfile.AdminPassword = &vmReqInfo.VMUserPasswd
 			vmOpts.Tags = map[string]*string{
-				"publicip":  &publicIPIId.NameId,
 				"createdBy": &vmReqInfo.IId.NameId,
 			}
 		}
@@ -369,9 +370,11 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		adminUserName := WindowBuitinUser
 		vmOpts.Properties.OSProfile.AdminUsername = &adminUserName
 		vmOpts.Tags = map[string]*string{
-			"publicip":  &publicIPIId.NameId,
 			"createdBy": &vmReqInfo.IId.NameId,
 		}
+	}
+	if publicIPIId.NameId != "" {
+		vmOpts.Tags["publicip"] = &publicIPIId.NameId
 	}
 	// tags := setTags(vmReqInfo.TagList)
 	if vmReqInfo.TagList != nil {
@@ -1616,10 +1619,12 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId 
 		Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
 			Subnet:                    &resp.Subnet,
 			PrivateIPAllocationMethod: &privateIPAllocationMethod,
-			PublicIPAddress: &armnetwork.PublicIPAddress{
-				ID: &publicIPIId.SystemId,
-			},
 		},
+	}
+	if publicIPIId.SystemId != "" {
+		ipConfig.Properties.PublicIPAddress = &armnetwork.PublicIPAddress{
+			ID: &publicIPIId.SystemId,
+		}
 	}
 	ipConfigArr = append(ipConfigArr, ipConfig)
 

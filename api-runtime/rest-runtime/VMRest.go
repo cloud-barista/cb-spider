@@ -165,6 +165,8 @@ type VMStartRequest struct {
 		RootDiskSize  string   `json:"RootDiskSize,omitempty" validate:"omitempty" example:"30"`                          // 100 or default, if not specified, default is used (unit is GB)
 		DataDiskNames []string `json:"DataDiskNames,omitempty" validate:"omitempty" example:"data-disk-01, data-disk-02"` // Data disks in the same zone as this VM
 
+		AssignPublicIP *bool `json:"AssignPublicIP,omitempty" validate:"omitempty" example:"true"` // nil or true: assign a Public IP at creation (default, current behavior). false: do not assign.
+
 		VMUserId     string `json:"VMUserId,omitempty" validate:"omitempty" example:"Administrator"`    // Administrator, Windows Only
 		VMUserPasswd string `json:"VMUserPasswd,omitempty" validate:"omitempty" example:"password1234"` // Windows Only
 
@@ -225,6 +227,8 @@ func StartVM(c echo.Context) error {
 		RootDiskSize: req.ReqInfo.RootDiskSize,
 
 		DataDiskIIDs: diskIIDList,
+
+		AssignPublicIP: req.ReqInfo.AssignPublicIP,
 
 		VMUserId:     req.ReqInfo.VMUserId,
 		VMUserPasswd: req.ReqInfo.VMUserPasswd,
