@@ -31,8 +31,6 @@ import (
 	volumeboot "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
 	keys "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/keypairs"
 	startstop "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/startstop"
-	ktl3fips "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/layer3/floatingips"
-	ktports "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/ports"
 	ktsubnets "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/pagination"
 
@@ -363,28 +361,7 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 		cblogger.Infof("# PrivateIP of New VM : [%s]", privateIP)
 
-		cblogger.Info("# Start to Create New Public IP!!")
-		var publicIPId string
-		var creatErr error
-		var ok bool
-		if ok, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
-			newErr := fmt.Errorf("Failed to Create a PublicIP : [%v]", creatErr)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-		cblogger.Infof("# New PublicIP ID : [%s]", publicIPId)
-		time.Sleep(time.Second * 2)
-
-		publicIp, err := vmHandler.findPublicIPByID(publicIPId)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Find the PublicIP with the ID : [%v]", err)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-
-		// To Create PortForwarding and Firewall Rules
+		// To Register SecurityGroupInfo to DB (kept regardless of AssignPublicIP, for VM.SecurityGroupIIds reporting)
 		var sgSystemIDs []string
 		var keyValueList []irs.KeyValue
 		for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
@@ -409,37 +386,64 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 		cblogger.Infof(" === S/G Info to Register to DB : [%v]", sgInfo)
 
-		// // # Get Tier NameId
-		// var tierId string
-		// for key, _ := range vmResult.Addresses {
-		// 	tierId = key
-		// }
+		if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+			cblogger.Info("# Start to Create New Public IP!!")
+			var publicIPId string
+			var creatErr error
+			var ok bool
+			if ok, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
+				newErr := fmt.Errorf("Failed to Create a PublicIP : [%v]", creatErr)
+				cblogger.Error(newErr.Error())
+				loggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+			cblogger.Infof("# New PublicIP ID : [%s]", publicIPId)
+			time.Sleep(time.Second * 2)
 
-		vpcHandler := KTVpcVPCHandler{
-			RegionInfo:    vmHandler.RegionInfo,
-			NetworkClient: vmHandler.NetworkClient, // Required!!
-		}
-		tierNetworkId, err := vpcHandler.getNetworkIdWithTierId(vmReqInfo.SubnetIID.SystemId)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Network ID!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		cblogger.Infof("# Subnet(Tier) NetworkId : %s", *tierNetworkId)
+			publicIp, err := vmHandler.findPublicIPByID(publicIPId)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Find the PublicIP with the ID : [%v]", err)
+				cblogger.Error(newErr.Error())
+				loggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
 
-		// Create PortForwarding and Firewall Rules
-		secRuleSet := SecurityRuleSet{
-			TierNetworkId:          *tierNetworkId,
-			SecurityGroupSystemIDs: sgSystemIDs,
-			PrivateIP:              privateIP,
-			PublicIP:               publicIp,
-			PublicIPId:             publicIPId,
-		}
-		if ok, err := vmHandler.createPortForwardingFirewallRules(&secRuleSet); !ok {
-			newErr := fmt.Errorf("Failed to Create PortForwarding and Firewall Rules : [%v]", err)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
+			// // # Get Tier NameId
+			// var tierId string
+			// for key, _ := range vmResult.Addresses {
+			// 	tierId = key
+			// }
+
+			vpcHandler := KTVpcVPCHandler{
+				RegionInfo:    vmHandler.RegionInfo,
+				NetworkClient: vmHandler.NetworkClient, // Required!!
+			}
+			tierNetworkId, err := vpcHandler.getNetworkIdWithTierId(vmReqInfo.SubnetIID.SystemId)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the Network ID!!")
+				cblogger.Error(newErr.Error())
+				return irs.VMInfo{}, newErr
+			}
+			cblogger.Infof("# Subnet(Tier) NetworkId : %s", *tierNetworkId)
+
+			// Create PortForwarding and Firewall Rules
+			secRuleSet := SecurityRuleSet{
+				TierNetworkId:          *tierNetworkId,
+				SecurityGroupSystemIDs: sgSystemIDs,
+				PrivateIP:              privateIP,
+				PublicIP:               publicIp,
+				PublicIPId:             publicIPId,
+			}
+			if ok, err := vmHandler.createPortForwardingFirewallRules(&secRuleSet); !ok {
+				newErr := fmt.Errorf("Failed to Create PortForwarding and Firewall Rules : [%v]", err)
+				cblogger.Error(newErr.Error())
+				loggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		} else {
+			cblogger.Info("# AssignPublicIP=false: skipping Public IP creation and PortForwarding/Firewall rule setup. " +
+				"KT Cloud VPC enforces Security Groups only via per-PublicIP Firewall/PortForwarding rules, " +
+				"so the requested SecurityGroups will NOT be enforced at the network level for this VM.")
 		}
 
 		// Get vm info
@@ -1269,6 +1273,21 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 
 	// Build NICs info from attachinterfaces
 	{
+		// Private IP -> Public IP map, built once from PortForwarding rules -
+		// the mechanism KT Cloud VPC actually uses to bind a public IP to a
+		// private IP (see StartVM/AssociatePublicIP). Neutron's layer-3
+		// floating-ip model (ktl3fips) does not reflect this and was
+		// previously queried per-NIC for no real benefit; a single
+		// PortForwarding list covers every NIC.
+		fipMap := map[string]string{}
+		if pfRuleList, pfErr := vmHandler.listPortForwarding(); pfErr == nil {
+			for _, rule := range pfRuleList {
+				if rule.MappedIP != "" {
+					fipMap[rule.MappedIP] = rule.PublicIP
+				}
+			}
+		}
+
 		pager := ktattachinterfaces.List(vmHandler.VMClient, vm.ID)
 		allPages, aiErr := pager.AllPages()
 		if aiErr == nil {
@@ -1277,10 +1296,13 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 				var vmNICs []irs.VMNICInfo
 				var allPrivateIPs []string
 				for idx, iface := range ifaces {
+					// NIC NameId: KT Cloud VPC's Neutron-shaped `ports` API is
+					// the only source for a friendlier port name, and it has
+					// been observed to hang/fail persistently - not worth the
+					// risk for a display-only value, so this just uses the
+					// port ID directly (same as every other CSP falls back to
+					// when no friendly name is available).
 					nicNameId := iface.PortID
-					if p, pErr := ktports.Get(vmHandler.NetworkClient, iface.PortID).Extract(); pErr == nil && p.Name != "" {
-						nicNameId = p.Name
-					}
 					nicInfo := irs.VMNICInfo{
 						DeviceIndex: idx,
 						IId:         irs.IID{NameId: nicNameId, SystemId: iface.PortID},
@@ -1295,16 +1317,6 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 						}
 						// Note: vmInfo.SubnetIID is set from vm.Addresses key below (not from NIC loop),
 						// which gives the tier name directly (old approach, more reliable for KT Cloud).
-					}
-					// Build FloatingIP map (fixedIP → publicIP)
-					fipMap := map[string]string{}
-					fipPages, fipErr := ktl3fips.List(vmHandler.NetworkClient, ktl3fips.ListOpts{PortID: iface.PortID}).AllPages()
-					if fipErr == nil {
-						if fips, fipErr2 := ktl3fips.ExtractFloatingIPs(fipPages); fipErr2 == nil {
-							for _, fip := range fips {
-								fipMap[fip.FixedIP] = fip.FloatingIP
-							}
-						}
 					}
 					var privateIPs []string
 					var publicIPs []string

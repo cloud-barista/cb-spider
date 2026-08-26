@@ -4515,6 +4515,11 @@ definitions:
         type: string
       ReqInfo:
         properties:
+          AssignPublicIP:
+            description: 'nil or true: assign a Public IP at creation (default, current
+              behavior). false: do not assign.'
+            example: true
+            type: boolean
           DataDiskNames:
             description: Data disks in the same zone as this VM
             example:
@@ -13379,6 +13384,149 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get VM
+      tags:
+      - '[VM Management]'
+  /vm/{Name}/publicip:
+    delete:
+      consumes:
+      - application/json
+      description: "Disassociate and DELETE the PublicIP that was assigned via AssignVMDefaultPublicIP.
+        Fails if the VM has no default PublicIP assigned. \U0001F577️"
+      operationId: unassign-vm-default-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for unassigning the default PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unassign operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unassign Default PublicIP from a VM
+      tags:
+      - '[VM Management]'
+    post:
+      consumes:
+      - application/json
+      description: "Create a new PublicIP and attach it to the VM's default NIC (nic0)
+        - the same effect as creating the VM with AssignPublicIP=true. Fails if the
+        VM already has a default PublicIP. \U0001F577️"
+      operationId: assign-vm-default-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for assigning a default PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the assigned PublicIP
+          schema:
+            $ref: '#/definitions/spider.PublicIPInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Assign Default PublicIP to a VM
+      tags:
+      - '[VM Management]'
+  /vm/{Name}/publicip/{PublicIPName}:
+    delete:
+      consumes:
+      - application/json
+      description: "Detach a PublicIP previously attached via AttachVMPublicIP, WITHOUT
+        deleting the PublicIP resource itself (it belongs to the user). Fails if the
+        VM has no default PublicIP assigned. \U0001F577️"
+      operationId: detach-vm-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the PublicIP to detach
+        in: path
+        name: PublicIPName
+        required: true
+        type: string
+      - description: Request body for detaching the PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the detach operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Detach a PublicIP from a VM
+      tags:
+      - '[VM Management]'
+    put:
+      consumes:
+      - application/json
+      description: "Attach a PublicIP that was previously created via the PublicIP
+        Manager (POST /publicip) to the VM's default NIC (nic0). Fails if the VM already
+        has a default PublicIP. \U0001F577️"
+      operationId: attach-vm-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the existing PublicIP to attach
+        in: path
+        name: PublicIPName
+        required: true
+        type: string
+      - description: Request body for attaching the PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the attached PublicIP
+          schema:
+            $ref: '#/definitions/spider.PublicIPInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Attach an existing PublicIP to a VM
       tags:
       - '[VM Management]'
   /vm/imagespecfavorite:

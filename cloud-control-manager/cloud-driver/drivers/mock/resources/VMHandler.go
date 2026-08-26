@@ -150,6 +150,11 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		return irs.VMInfo{}, err
 	}
 
+	mockPublicIP := "4.3.2.1"
+	if vmReqInfo.AssignPublicIP != nil && !*vmReqInfo.AssignPublicIP {
+		mockPublicIP = ""
+	}
+
 	// vm creation
 	vmInfo := irs.VMInfo{
 		IId:       vmReqInfo.IId,
@@ -168,7 +173,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 		VMUserPasswd: vmReqInfo.VMUserPasswd,
 
 		NICs: []irs.VMNICInfo{{IId: irs.IID{NameId: "mockni0", SystemId: "mockni0"}}},
-		PublicIP:         "4.3.2.1",
+		PublicIP:         mockPublicIP,
 		PublicDNS:        vmReqInfo.IId.NameId + ".spider.barista.com",
 		PrivateIP:        "1.2.3.4",
 		PrivateDNS:       vmReqInfo.IId.NameId + ".spider.barista.com",

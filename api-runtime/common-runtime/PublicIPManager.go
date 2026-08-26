@@ -11,6 +11,7 @@ package commonruntime
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -521,12 +522,23 @@ func AssociatePublicIP(connectionName string, publicIPName string, vmName string
 	}
 	pipDriverIID := getDriverIID(cres.IID{NameId: pipIIDInfo.NameId, SystemId: pipIIDInfo.SystemId})
 
-	// Resolve VM IID (used by NCP)
+	// Resolve VM IID (used by NCP, and by GCP's AssociatePublicIP which keys
+	// off vmIID.NameId alone and ignores nicIID - so when the caller used the
+	// documented Flow B shape (NICName="{vmName}/nic0", VMName omitted), the
+	// VM name must be recovered from NICName's prefix).
+	effectiveVMName := vmName
+	if effectiveVMName == "" && nicName != "" {
+		if providerName, pErr := ccm.GetProviderNameByConnectionName(connectionName); pErr == nil && strings.EqualFold(providerName, "GCP") {
+			if idx := strings.Index(nicName, "/"); idx > 0 {
+				effectiveVMName = nicName[:idx]
+			}
+		}
+	}
 	vmDriverIID := cres.IID{}
-	if vmName != "" {
+	if effectiveVMName != "" {
 		var vmIIDInfo VMIIDInfo
-		if err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vmName); err != nil {
-			cblog.Error(err); return nil, fmt.Errorf("VM '%s' not found in connection '%s': %w", vmName, connectionName, err)
+		if err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, effectiveVMName); err != nil {
+			cblog.Error(err); return nil, fmt.Errorf("VM '%s' not found in connection '%s': %w", effectiveVMName, connectionName, err)
 		}
 		vmDriverIID = getDriverIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
 	}

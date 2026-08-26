@@ -165,9 +165,12 @@ func (cloudConn *KTCloudVpcConnection) CreateNICHandler() (irs.NICHandler, error
 func (cloudConn *KTCloudVpcConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("KT Cloud VPC Driver: called CreatePublicIPHandler()!")
 	handler := ktvpcrs.KTVpcPublicIPHandler{
-		RegionInfo:    cloudConn.RegionInfo,
-		NetworkClient: cloudConn.NetworkClient,
-		VMClient:      cloudConn.VMClient,
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		NetworkClient:  cloudConn.NetworkClient,
+		VMClient:       cloudConn.VMClient,
+		ImageClient:    cloudConn.ImageClient,
+		VolumeClient:   cloudConn.VolumeClient,
 	}
 	return &handler, nil
 }

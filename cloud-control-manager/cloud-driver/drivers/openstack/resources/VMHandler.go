@@ -301,17 +301,19 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 
 		if currentStatus == "active" {
-			// Floating IP 연결 시도
-			ok, ipStr, err := vmHandler.AssociatePublicIP(serverResult.ID)
-			if !ok {
-				publicIPStr = ipStr // 실패 시에도 생성된 public IP 값 반환됨
-				createErr = errors.New(fmt.Sprintf("Failed to startVM err = failed to Associate PublicIP, err : %s", err))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
+			if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+				// Floating IP 연결 시도
+				ok, ipStr, err := vmHandler.AssociatePublicIP(serverResult.ID)
+				if !ok {
+					publicIPStr = ipStr // 실패 시에도 생성된 public IP 값 반환됨
+					createErr = errors.New(fmt.Sprintf("Failed to startVM err = failed to Associate PublicIP, err : %s", err))
+					cblogger.Error(createErr.Error())
+					LoggingError(hiscallInfo, createErr)
+					return irs.VMInfo{}, createErr
+				}
+				publicIPStr = ipStr // 성공 시 생성된 public IP 값 저장
+				cblogger.Info(fmt.Sprintf("Public IP created and associated: %s", publicIPStr))
 			}
-			publicIPStr = ipStr // 성공 시 생성된 public IP 값 저장
-			cblogger.Info(fmt.Sprintf("Public IP created and associated: %s", publicIPStr))
 			break
 		}
 		curRetryCnt++

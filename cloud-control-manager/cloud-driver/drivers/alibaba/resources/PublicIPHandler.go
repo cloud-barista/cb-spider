@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -24,6 +25,7 @@ import (
 type AlibabaPublicIPHandler struct {
 	Region    idrv.RegionInfo
 	VpcClient *vpc.Client
+	EcsClient *ecs.Client
 }
 
 func (h *AlibabaPublicIPHandler) ListIID() ([]*irs.IID, error) {
@@ -324,6 +326,32 @@ func (h *AlibabaPublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool
 	}
 
 	_, err = h.VpcClient.UnassociateEipAddress(req)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}
+
+// RemoveDefaultPublicIP removes the CSP-native auto-assigned (non-EIP) public
+// IP from the VM via ModifyInstanceNetworkSpec(InternetMaxBandwidthOut: 0).
+// Works on a running instance and takes effect immediately, but the address
+// is released back to Alibaba's pool right away and cannot be recovered -
+// this is a one-way removal, applicable regardless of whether the address
+// was ever tracked as a separate CB-Spider PublicIP (EIP) resource.
+func (h *AlibabaPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.Region, call.PUBLICIP, vmIID.NameId, "ModifyInstanceNetworkSpec()")
+	start := call.Start()
+
+	req := ecs.CreateModifyInstanceNetworkSpecRequest()
+	req.InstanceId = vmIID.SystemId
+	req.InternetMaxBandwidthOut = requests.NewInteger(0)
+
+	_, err := h.EcsClient.ModifyInstanceNetworkSpec(req)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)

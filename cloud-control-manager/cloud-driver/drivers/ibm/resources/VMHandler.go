@@ -375,84 +375,85 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	// 3.Attach FloatingIP
-
-	// 3-1. Create FloatingIP
-	rand.Seed(time.Now().UnixNano())
-	floatingIPName := *createInstance.Zone.Name + "-floatingip-" + strconv.FormatInt(rand.Int63n(10000000), 10)
-	floatingIPExist, err := vmHandler.checkFloatingIPName(floatingIPName)
-	if err != nil || floatingIPExist {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Faild Generator FloatingIP Name"))
-		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
-		if deleteErr != nil {
-			createErr = errors.New(fmt.Sprintf("%s, %s ", createErr.Error(), deleteErr.Error()))
-		}
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	createFloatingIPOptions := &vpcv1.CreateFloatingIPOptions{}
-	createFloatingIPOptions.SetFloatingIPPrototype(&vpcv1.FloatingIPPrototype{
-		Name: &floatingIPName,
-		Zone: &vpcv1.ZoneIdentity{
-			Name: createInstance.Zone.Name,
-		},
-	})
-
-	floatingIP, _, err := vmHandler.VpcService.CreateFloatingIPWithContext(vmHandler.Ctx, createFloatingIPOptions)
-
-	if err != nil {
-		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
-		if err != nil {
+	if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+		// 3-1. Create FloatingIP
+		rand.Seed(time.Now().UnixNano())
+		floatingIPName := *createInstance.Zone.Name + "-floatingip-" + strconv.FormatInt(rand.Int63n(10000000), 10)
+		floatingIPExist, err := vmHandler.checkFloatingIPName(floatingIPName)
+		if err != nil || floatingIPExist {
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = Faild Generator FloatingIP Name"))
+			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
 			if deleteErr != nil {
-				newErrText := err.Error() + deleteErr.Error()
-				err = errors.New(newErrText)
+				createErr = errors.New(fmt.Sprintf("%s, %s ", createErr.Error(), deleteErr.Error()))
+			}
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		createFloatingIPOptions := &vpcv1.CreateFloatingIPOptions{}
+		createFloatingIPOptions.SetFloatingIPPrototype(&vpcv1.FloatingIPPrototype{
+			Name: &floatingIPName,
+			Zone: &vpcv1.ZoneIdentity{
+				Name: createInstance.Zone.Name,
+			},
+		})
+
+		floatingIP, _, err := vmHandler.VpcService.CreateFloatingIPWithContext(vmHandler.Ctx, createFloatingIPOptions)
+
+		if err != nil {
+			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+			if err != nil {
+				if deleteErr != nil {
+					newErrText := err.Error() + deleteErr.Error()
+					err = errors.New(newErrText)
+				}
+				createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VMInfo{}, createErr
 			}
 			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
 
-	//  3-2. Bind FloatingIP via VNI model using UpdateFloatingIP.
-	// Get the VNI ID from the primary network attachment returned by CreateInstance.
-	// For VNI-model instances, PrimaryNetworkAttachment.VirtualNetworkInterface.ID holds the VNI ID.
-	// PrimaryNetworkInterface is always populated (as a read-only representation) but does not
-	// support AddInstanceNetworkInterfaceFloatingIP for VNI-model instances.
-	var vniID string
-	if createInstance.PrimaryNetworkAttachment != nil &&
-		createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface != nil &&
-		createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface.ID != nil {
-		vniID = *createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface.ID
-	}
-	if vniID == "" {
-		// VNI ID unavailable — cannot bind floating IP without fallback to classic NIC model.
-		// NO FALLBACK: fail loudly.
-		err = errors.New("VNI ID not found in PrimaryNetworkAttachment; cannot bind floating IP in VNI model")
-		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
-		if deleteErr != nil {
-			err = errors.New(err.Error() + "; " + deleteErr.Error())
+		//  3-2. Bind FloatingIP via VNI model using UpdateFloatingIP.
+		// Get the VNI ID from the primary network attachment returned by CreateInstance.
+		// For VNI-model instances, PrimaryNetworkAttachment.VirtualNetworkInterface.ID holds the VNI ID.
+		// PrimaryNetworkInterface is always populated (as a read-only representation) but does not
+		// support AddInstanceNetworkInterfaceFloatingIP for VNI-model instances.
+		var vniID string
+		if createInstance.PrimaryNetworkAttachment != nil &&
+			createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface != nil &&
+			createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface.ID != nil {
+			vniID = *createInstance.PrimaryNetworkAttachment.VirtualNetworkInterface.ID
 		}
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	_, err = floatingIPBindVNI(*floatingIP.ID, vniID, vmHandler.VpcService, vmHandler.Ctx)
+		if vniID == "" {
+			// VNI ID unavailable — cannot bind floating IP without fallback to classic NIC model.
+			// NO FALLBACK: fail loudly.
+			err = errors.New("VNI ID not found in PrimaryNetworkAttachment; cannot bind floating IP in VNI model")
+			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+			if deleteErr != nil {
+				err = errors.New(err.Error() + "; " + deleteErr.Error())
+			}
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+		_, err = floatingIPBindVNI(*floatingIP.ID, vniID, vmHandler.VpcService, vmHandler.Ctx)
 
-	if err != nil {
-		deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
-		if deleteErr != nil {
-			err = errors.New(err.Error() + deleteErr.Error())
+		if err != nil {
+			deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
+			if deleteErr != nil {
+				err = errors.New(err.Error() + deleteErr.Error())
+			}
+			createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
 		}
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
 	}
 	createInstanceIId := irs.IID{
 		NameId:   *createInstance.Name,

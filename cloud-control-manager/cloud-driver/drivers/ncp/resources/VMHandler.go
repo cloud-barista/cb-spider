@@ -203,7 +203,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			InitScriptNo:               initScriptNo,
 
 			// Request a Public IP be assigned as part of VM creation itself (Public Subnet + single-instance creation only).
-			AssociateWithPublicIp: ncloud.Bool(true),
+			AssociateWithPublicIp: ncloud.Bool(vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP),
 		}
 
 	} else { // In case of My Image
@@ -281,7 +281,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			InitScriptNo:               initScriptNo,
 
 			// Request a Public IP be assigned as part of VM creation itself (Public Subnet + single-instance creation only).
-			AssociateWithPublicIp: ncloud.Bool(true),
+			AssociateWithPublicIp: ncloud.Bool(vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP),
 		}
 
 		// BlockStorageMappingList is only supported for KVM; XEN/RHV images must omit it.
@@ -1015,6 +1015,11 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		privateIp = ncloud.String("")
 	}
 
+	sshAccessPoint := ""
+	if *publicIp != "" {
+		sshAccessPoint = *publicIp + ":22"
+	}
+
 	// PublicIpID : Using for deleting the PublicIP
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
@@ -1041,7 +1046,7 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		KeyPairIId:     irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
 		PublicIP:       *publicIp,
 		PrivateIP:      *privateIp,
-		SSHAccessPoint: *publicIp + ":22",
+		SSHAccessPoint: sshAccessPoint,
 		KeyValueList:   irs.StructToKeyValueList(NcpInstance),
 	}
 
@@ -1104,6 +1109,9 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 			}
 			if len(allPrivateIPs) > 0 {
 				vmInfo.PrivateIPs = allPrivateIPs
+				if vmInfo.PrivateIP == "" {
+					vmInfo.PrivateIP = allPrivateIPs[0]
+				}
 			}
 			for _, acgNo := range acgNos {
 				sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: acgNo})

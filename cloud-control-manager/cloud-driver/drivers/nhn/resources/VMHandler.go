@@ -118,19 +118,21 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		return irs.VMInfo{}, newErr
 	}
 
-	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vpc.ID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
+	if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+		isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vpc.ID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
 
-	if !isConnectedToGateway {
-		newErr := fmt.Errorf("Routing Table of the VPC need to be connected to an Internet Gateway to use Public IP!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
+		if !isConnectedToGateway {
+			newErr := fmt.Errorf("Routing Table of the VPC need to be connected to an Internet Gateway to use Public IP!!")
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
 	}
 
 	// Check if VM Name is Duplicated
@@ -505,20 +507,23 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	vmInfo := irs.VMInfo{}
 	if strings.EqualFold(nhnVM.Status, "active") {
-		// Associate Public IP to the VM
-		if ok, err := vmHandler.associatePublicIP(nhnVM.ID); !ok {
-			newErr := fmt.Errorf("Failed to Start VM. Failed to Associate PublicIP : %v", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-		// Get Final VM info
-		nhnVM, err := servers.Get(vmHandler.VMClient, nhnVM.ID).Extract()
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get New VM Info. %s", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
+		if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+			// Associate Public IP to the VM
+			if ok, err := vmHandler.associatePublicIP(nhnVM.ID); !ok {
+				newErr := fmt.Errorf("Failed to Start VM. Failed to Associate PublicIP : %v", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+			// Get Final VM info
+			var getErr error
+			nhnVM, getErr = servers.Get(vmHandler.VMClient, nhnVM.ID).Extract()
+			if getErr != nil {
+				newErr := fmt.Errorf("Failed to Get New VM Info. %s", getErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
 		}
 
 		var mappingErr error

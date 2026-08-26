@@ -304,3 +304,48 @@ func (h *NcpVpcPublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool,
 
 	return true, nil
 }
+
+// RemoveDefaultPublicIP removes whatever Public IP Instance is currently
+// associated with the VM, discovered live via GetPublicIpInstanceList
+// filtered by ServerName (regardless of whether it was ever tracked as a
+// separate CB-Spider PublicIP resource) - then disassociates and deletes it
+// via the existing DisassociatePublicIP/DeletePublicIP methods. Works on a
+// running VM - no stop/restart required.
+func (h *NcpVpcPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.RegionInfo.Zone, call.PUBLICIP, vmIID.NameId, "RemoveDefaultPublicIP()")
+	start := call.Start()
+
+	req := &vserver.GetPublicIpInstanceListRequest{
+		RegionCode: ncloud.String(h.RegionInfo.Region),
+		ServerName: ncloud.String(vmIID.NameId),
+	}
+	resp, err := h.VMClient.V2Api.GetPublicIpInstanceList(req)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if len(resp.PublicIpInstanceList) == 0 {
+		err := fmt.Errorf("no PublicIP found attached to VM %s", vmIID.NameId)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	for _, pip := range resp.PublicIpInstanceList {
+		pipIID := irs.IID{SystemId: ncloud.StringValue(pip.PublicIpInstanceNo)}
+		if _, err := h.DisassociatePublicIP(pipIID); err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+		if _, err := h.DeletePublicIP(pipIID); err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+	}
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}

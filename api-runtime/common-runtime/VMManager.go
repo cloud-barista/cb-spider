@@ -828,6 +828,8 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		MSG  string
 	}
 
+	assignPublicIP := reqInfo.AssignPublicIP == nil || *reqInfo.AssignPublicIP
+
 	waiter := NewWaiter(15, 600) // (sleep, timeout)
 	var publicIP string
 	for {
@@ -844,7 +846,9 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 
 			return nil, err
 		}
-		if vmInfo.PublicIP != "" {
+		// When AssignPublicIP=false, the VM will never get a PublicIP, so
+		// don't wait for one - just confirm the VM is gettable and move on.
+		if !assignPublicIP || vmInfo.PublicIP != "" {
 			publicIP = vmInfo.PublicIP
 			break
 		}
@@ -857,7 +861,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		}
 	}
 
-	if !checkError.Flag && !isWindowsOS && providerName != "MOCK" {
+	if !checkError.Flag && !isWindowsOS && providerName != "MOCK" && assignPublicIP {
 		// --- <step-2> Check SSHD Daemon of new VM
 		waiter2 := NewWaiter(2, 120) // (sleep, timeout)
 
@@ -1105,6 +1109,8 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 		VMUserId:     reqInfo.VMUserId,
 		VMUserPasswd: reqInfo.VMUserPasswd,
+
+		AssignPublicIP: reqInfo.AssignPublicIP,
 
 		TagList: reqInfo.TagList,
 	}

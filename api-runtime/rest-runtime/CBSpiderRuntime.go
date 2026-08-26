@@ -411,6 +411,11 @@ func getRoutes() []route {
 		{"GET", "/vm/:Name", GetVM},
 		{"DELETE", "/vm/:Name", TerminateVM},
 
+		{"POST", "/vm/:Name/publicip", AssignVMDefaultPublicIP},
+		{"DELETE", "/vm/:Name/publicip", UnassignVMDefaultPublicIP},
+		{"PUT", "/vm/:Name/publicip/:PublicIPName", AttachVMPublicIP},
+		{"DELETE", "/vm/:Name/publicip/:PublicIPName", DetachVMPublicIP},
+
 		{"GET", "/vmstatus", ListVMStatus},
 		{"GET", "/vmstatus/:Name", GetVMStatus},
 

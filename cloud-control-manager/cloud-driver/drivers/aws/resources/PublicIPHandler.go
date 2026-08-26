@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -19,12 +20,22 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	// aws-sdk-go-v2 is used ONLY by RemoveDefaultPublicIP below, for the single
+	// API (ModifyNetworkInterfaceAttribute.AssociatePublicIpAddress, added by
+	// AWS in 2024) that does not exist in the v1 SDK version (v1.39.4) pinned
+	// for the rest of this driver. Kept isolated to this one function so the
+	// rest of the AWS driver is completely unaffected by this dependency.
+	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	credentialsv2 "github.com/aws/aws-sdk-go-v2/credentials"
+	ec2v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
 type AwsPublicIPHandler struct {
-	Region     idrv.RegionInfo
-	Client     *ec2.EC2
-	TagHandler *AwsTagHandler
+	Region         idrv.RegionInfo
+	Client         *ec2.EC2
+	TagHandler     *AwsTagHandler
+	CredentialInfo idrv.CredentialInfo
 }
 
 // ListIID returns all EIP IIDs in the current region (VPC domain only).
@@ -305,6 +316,71 @@ func (h *AwsPublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool, er
 
 	_, err = h.Client.DisassociateAddress(&ec2.DisassociateAddressInput{
 		AssociationId: aws.String(associationId),
+	})
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}
+
+// RemoveDefaultPublicIP removes the CSP-native auto-assigned public IPv4
+// address from the VM's primary network interface (eth0) via
+// ModifyNetworkInterfaceAttribute(AssociatePublicIpAddress: false). This is
+// AWS's own dedicated mechanism (added 2024) for detaching the non-EIP
+// auto-assign public IP from a RUNNING instance - no stop/start required -
+// and applies regardless of whether the address was ever tracked as a
+// separate CB-Spider PublicIP (Elastic IP) resource.
+//
+// The AssociatePublicIpAddress field does not exist on aws-sdk-go v1.39.4
+// (pinned for the rest of this driver), so this ONE call uses aws-sdk-go-v2
+// instead - added as an isolated, additional dependency touching only this
+// function; every other AWS operation in this driver is unaffected.
+func (h *AwsPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.Region, call.PUBLICIP, vmIID.NameId, "ModifyNetworkInterfaceAttribute()")
+	start := call.Start()
+
+	// Find the primary ENI via the existing v1 client - only the actual
+	// detach call below needs v2.
+	result, err := h.Client.DescribeInstances(&ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(vmIID.SystemId)},
+	})
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if len(result.Reservations) == 0 || len(result.Reservations[0].Instances) == 0 {
+		err := fmt.Errorf("VM %s not found", vmIID.NameId)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	var primaryENIId string
+	for _, ni := range result.Reservations[0].Instances[0].NetworkInterfaces {
+		if ni.Attachment != nil && aws.Int64Value(ni.Attachment.DeviceIndex) == 0 {
+			primaryENIId = aws.StringValue(ni.NetworkInterfaceId)
+			break
+		}
+	}
+	if primaryENIId == "" {
+		err := fmt.Errorf("primary network interface not found for VM %s", vmIID.NameId)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	v2Client := ec2v2.New(ec2v2.Options{
+		Region: h.Region.Region,
+		Credentials: credentialsv2.NewStaticCredentialsProvider(
+			h.CredentialInfo.ClientId, h.CredentialInfo.ClientSecret, h.CredentialInfo.StsToken),
+	})
+	_, err = v2Client.ModifyNetworkInterfaceAttribute(context.TODO(), &ec2v2.ModifyNetworkInterfaceAttributeInput{
+		NetworkInterfaceId:       awsv2.String(primaryENIId),
+		AssociatePublicIpAddress: awsv2.Bool(false),
 	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {

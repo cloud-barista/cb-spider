@@ -468,6 +468,36 @@ func (h *IbmPublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool, er
 	return true, nil
 }
 
+// RemoveDefaultPublicIP removes whatever FloatingIP is currently attached to
+// the VM's primary VNI, using the same discovery+unbind+delete logic that
+// TerminateVM's cleanup already uses (removeFloatingIps/floatingIPUnBindVNI).
+// This works regardless of whether the FloatingIP was ever tracked as a
+// separate CB-Spider PublicIP resource, since it discovers it live from IBM
+// VPC's own API. Works on a running VM - no stop/restart required.
+func (h *IbmPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.Region, call.PUBLICIP, vmIID.NameId, "RemoveDefaultPublicIP()")
+	start := call.Start()
+
+	instanceOptions := &vpcv1.GetInstanceOptions{}
+	instanceOptions.SetID(vmIID.SystemId)
+	instance, _, err := h.VpcService.GetInstanceWithContext(h.Ctx, instanceOptions)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	if err := removeFloatingIps(*instance, h.VpcService, h.Ctx); err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}
+
 // waitForFloatingIPAvailable polls until the floating IP has no target (Available) or timeout.
 func (h *IbmPublicIPHandler) waitForFloatingIPAvailable(floatingIPId string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
