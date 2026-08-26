@@ -11,8 +11,10 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,14 +151,23 @@ func AdminWebSessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func redirectToLogin(c echo.Context) error {
+	// Preserve the originally requested path+query so the user can be sent
+	// back to it (instead of always the home page) after logging back in.
+	reqURI := c.Request().URL.RequestURI()
+	target := "/spider/adminweb/"
+	if reqURI != "/spider/adminweb/" && reqURI != "/spider/adminweb" {
+		target = "/spider/adminweb/?redirect=" + url.QueryEscape(reqURI)
+	}
+	targetJS := fmt.Sprintf("%q", target)
+
 	// If loaded in iframe, redirect the top-level window
 	return c.HTML(http.StatusUnauthorized, `<!DOCTYPE html>
 <html><head><title>Session Required</title></head>
 <body><script>
 if (window.top !== window.self) {
-    window.top.location.href = '/spider/adminweb/';
+    window.top.location.href = `+targetJS+`;
 } else {
-    window.location.href = '/spider/adminweb/';
+    window.location.href = `+targetJS+`;
 }
 </script></body></html>`)
 }

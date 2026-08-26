@@ -722,6 +722,7 @@
                     document.getElementById('authArea').style.display = 'flex';
                     document.getElementById('authUsernameText').textContent = result.data.username || username;
                     hideAboutOverlay(true);
+                    goToPendingRedirect();
                 } else {
                     loginBtn.disabled = false;
                     loginBtn.textContent = 'Login';
@@ -745,8 +746,39 @@
             window.location.href = '/spider/adminweb/logout';
         }
 
+        // Only ever redirect back into our own adminweb body_frame paths -
+        // never treat the redirect value as an arbitrary/external URL.
+        function isSafeAdminwebRedirect(path) {
+            return typeof path === 'string' &&
+                path.indexOf('/spider/adminweb/') === 0 &&
+                path.indexOf('//') !== 0 &&
+                path.toLowerCase().indexOf('javascript:') === -1;
+        }
+
+        // Navigate the body_frame iframe back to the page the user was on
+        // before being sent to the login screen, if any.
+        function goToPendingRedirect() {
+            var redirect = sessionStorage.getItem('pendingRedirect');
+            sessionStorage.removeItem('pendingRedirect');
+            if (redirect && isSafeAdminwebRedirect(redirect)) {
+                var iframe = document.querySelector('iframe[name="body_frame"]');
+                if (iframe) {
+                    iframe.src = redirect;
+                }
+            }
+        }
+
         // On page load: check auth status via server-side session
         window.addEventListener('load', function() {
+            var redirectParam = new URLSearchParams(window.location.search).get('redirect');
+            if (redirectParam && isSafeAdminwebRedirect(redirectParam)) {
+                sessionStorage.setItem('pendingRedirect', redirectParam);
+                // Clean the query string from the visible URL
+                window.history.replaceState({}, document.title, '/spider/adminweb/');
+            } else if (redirectParam) {
+                window.history.replaceState({}, document.title, '/spider/adminweb/');
+            }
+
             fetch('/spider/adminweb/authinfo')
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
@@ -756,6 +788,7 @@
                             sessionStorage.removeItem('skipAbout');
                             document.getElementById('authArea').style.display = 'flex';
                             document.getElementById('authUsernameText').textContent = data.username;
+                            goToPendingRedirect();
                         } else {
                             // No valid server session - show login
                             showAboutOverlay('login');

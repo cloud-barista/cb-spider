@@ -114,6 +114,9 @@
     .content {
         margin-top: 100px;
     }
+    .fixed-header.dashboard-fullscreen h1 {
+        display: none;
+    }
     .connection-status-banner {
         display: none;
         position: fixed;
@@ -327,29 +330,54 @@
         }, '*');
     }
 
-    var isAppFullscreen = false;
+    var FULLSCREEN_STORAGE_KEY = 'dashboardFullscreen';
+    // "Show Empty Connections" reloads this page via window.location.href, which
+    // re-runs this script from scratch. Track fullscreen state in sessionStorage
+    // (not just a JS var) so it survives that reload - the parent frame's own
+    // fullscreen state (left-menu/top-menu hidden) already survives it since
+    // main.html itself isn't reloaded, so without this the title would pop back
+    // while the rest of the layout stayed expanded.
+    var isAppFullscreen = sessionStorage.getItem(FULLSCREEN_STORAGE_KEY) === '1';
     var FULLSCREEN_ENTER_ICON_PATH = 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z';
     var FULLSCREEN_EXIT_ICON_PATH = 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z';
 
-    function toggleFullscreen() {
-        isAppFullscreen = !isAppFullscreen;
-        window.parent.postMessage({ type: 'toggleAppFullscreen' }, '*');
+    function syncContentOffset() {
+        var header = document.querySelector('.fixed-header');
+        var content = document.querySelector('.content');
+        if (header && content) {
+            content.style.marginTop = header.offsetHeight + 'px';
+        }
+    }
 
+    function applyFullscreenState() {
         var btn = document.getElementById('fullscreenBtn');
         var icon = document.getElementById('fullscreenIconPath');
+        var header = document.querySelector('.fixed-header');
         if (isAppFullscreen) {
             icon.setAttribute('d', FULLSCREEN_EXIT_ICON_PATH);
             btn.title = 'Exit Full Screen';
+            header.classList.add('dashboard-fullscreen');
         } else {
             icon.setAttribute('d', FULLSCREEN_ENTER_ICON_PATH);
             btn.title = 'Full Screen';
+            header.classList.remove('dashboard-fullscreen');
         }
+        syncContentOffset();
+    }
+
+    function toggleFullscreen() {
+        isAppFullscreen = !isAppFullscreen;
+        sessionStorage.setItem(FULLSCREEN_STORAGE_KEY, isAppFullscreen ? '1' : '0');
+        window.parent.postMessage({ type: 'toggleAppFullscreen' }, '*');
+        applyFullscreenState();
     }
 
     document.addEventListener('DOMContentLoaded', function() {
         lastSuccessfulRefresh = new Date();
         toggleRefresh();
+        applyFullscreenState();
     });
+    window.addEventListener('resize', syncContentOffset);
 </script>
 </head>
 <body>
