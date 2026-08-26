@@ -62,6 +62,8 @@ RDBMS 생성 전에 각 CSP에 VPC와 서브넷이 미리 생성되어 있어야
 | OpenStack | mariadb | 10.4 | m1.small | 20GB |
 | NHN | mariadb | MARIADB_V101118 | m2.c2m4 | 20GB |
 
+> **NHN 참고**: NHN Cloud RDS는 VPC Security Group과는 별개인 전용 "DB Security Group"이 있어야 외부 접속이 가능합니다. `nhn-rdbms-test.sh`는 `"NHNAutoOpenDBSecurityGroup": true`를 설정해 전체 개방(`0.0.0.0/0`) DB Security Group을 자동 생성하고, 인스턴스 삭제 시 함께 자동 삭제되도록 합니다 — 시험 편의를 위한 옵션이며, 운영 환경에서는 NHN 콘솔/API로 특정 CIDR만 허용하는 DB Security Group을 직접 구성하는 것을 권장합니다.
+
 ## Usage
 
 ### Quick Start (Full Test Suite)

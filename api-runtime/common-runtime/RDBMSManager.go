@@ -414,31 +414,46 @@ func CreateRDBMS(connectionName string, rsType string, reqInfo cres.RDBMSInfo, I
 	//+++++++++++++++++++++++++++++++++++++++++++
 
 	// SecurityGroupIIDs translation
-	for idx, sgIID := range reqInfo.SecurityGroupIIDs {
-		sgSPLock.RLock(connectionName, sgIID.NameId)
-		defer sgSPLock.RUnlock(connectionName, sgIID.NameId)
-		var sgIIdInfo SGIIDInfo
-		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-			var iidInfoList []*SGIIDInfo
-			err := getAuthIIDInfoList(connectionName, &iidInfoList)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+	//
+	// NHN Cloud RDBMS does not use SecurityGroupNames/SecurityGroupIIDs at all
+	// (see RDBMSInfo.NHNAutoOpenDBSecurityGroup instead): NHN Cloud RDS DB
+	// Security Groups are a resource type separate from the VPC/Neutron
+	// security group this loop resolves, so a name given here would never
+	// correspond to a real registered SecurityGroup and resolution would
+	// always fail with "not found". Skip translation entirely for NHN so any
+	// value the caller sent is simply ignored, matching the driver's behavior.
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if !strings.EqualFold(providerName, "NHN") {
+		for idx, sgIID := range reqInfo.SecurityGroupIIDs {
+			sgSPLock.RLock(connectionName, sgIID.NameId)
+			defer sgSPLock.RUnlock(connectionName, sgIID.NameId)
+			var sgIIdInfo SGIIDInfo
+			if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+				var iidInfoList []*SGIIDInfo
+				err := getAuthIIDInfoList(connectionName, &iidInfoList)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				sgIIdInfo = *castedIIDInfo.(*SGIIDInfo)
+			} else {
+				err = infostore.GetByConditions(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
 			}
-			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgIID.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-			sgIIdInfo = *castedIIDInfo.(*SGIIDInfo)
-		} else {
-			err = infostore.GetByConditions(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgIID.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
+			reqInfo.SecurityGroupIIDs[idx] = getDriverIID(cres.IID{NameId: sgIIdInfo.NameId, SystemId: sgIIdInfo.SystemId})
 		}
-		reqInfo.SecurityGroupIIDs[idx] = getDriverIID(cres.IID{NameId: sgIIdInfo.NameId, SystemId: sgIIdInfo.SystemId})
 	}
 	//+++++++++++++++++++++++++++++++++++++++++++
 

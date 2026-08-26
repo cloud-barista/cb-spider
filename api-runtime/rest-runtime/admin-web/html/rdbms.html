@@ -894,6 +894,14 @@
         vertical-align: middle;
     }
 
+    /* Disabled state for Subnets/Security Groups dropdowns (CSPs that don't use them) */
+    .sg-custom-select.disabled .sg-selected-display {
+        background-color: #eee;
+        color: #999;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
     /* MetaInfo Reference Panel */
     #metaInfoPanel {
         background-color: #f0f7ff;
@@ -1106,6 +1114,12 @@
                             <th>Public</th>
                             <td>{{if $rdbms.PublicAccess}}Yes{{else}}No{{end}}</td>
                         </tr>
+                        {{if eq $.ProviderName "NHN"}}
+                        <tr>
+                            <th>Auto-open DB SG</th>
+                            <td>{{if $rdbms.NHNAutoOpenDBSecurityGroup}}Yes{{else}}No{{end}}</td>
+                        </tr>
+                        {{end}}
                     </table>
                 </td>
 
@@ -1423,6 +1437,19 @@
                             <div class="sg-dropdown-list" id="sgDropdownList"></div>
                         </div>
                     </div>
+                    <div id="nhnAutoOpenDBSecurityGroupGroup" style="display:none;">
+                        <div class="form-group">
+                            <label for="nhnAutoOpenDBSecurityGroup">Auto-open DB SG:</label>
+                            <select id="nhnAutoOpenDBSecurityGroup" name="nhnAutoOpenDBSecurityGroup" style="background-color: #E6E6FA; width: 65%;">
+                                <option value="false">No</option>
+                                <option value="true" selected>Yes</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: -6px;">
+                            <label></label>
+                            <small style="flex: 2; text-align: left; color: #666;">NHN only. Requires Public Access = Yes. Auto-creates a fully-open (0.0.0.0/0) DB Security Group and deletes it automatically when the instance is deleted.</small>
+                        </div>
+                    </div>
                 </fieldset>
 
                 <!-- Authentication -->
@@ -1450,7 +1477,7 @@
                     </div>
                     <div class="form-group">
                         <label for="publicAccess">Public Access:</label>
-                        <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;">
+                        <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;" onchange="updateSubnetFieldAvailability(); updateNHNAutoOpenSGAvailability()">
                             <option value="false">No</option>
                             <option value="true" selected>Yes</option>
                         </select>
@@ -1553,6 +1580,10 @@
 
     let currentRequiresSubnet = false;
     let currentRequiresSecurityGroup = false;
+    // RequiresSubnet from the last-applied RDBMSMetaInfo, kept around so the
+    // Subnet field's disabled/required state can be recomputed on demand
+    // (e.g. when Public Access changes for Azure) without re-fetching MetaInfo.
+    let lastMetaInfoRequiresSubnet = false;
 
     // Helper function to create fetch options with Basic Auth if credentials are set
     function createFetchOptions(options = {}) {
@@ -1747,6 +1778,15 @@
             }
         }
 
+        const nhnAutoOpenDBSecurityGroupEl = document.getElementById('nhnAutoOpenDBSecurityGroup');
+        if (isNHNProvider() && nhnAutoOpenDBSecurityGroupEl && nhnAutoOpenDBSecurityGroupEl.value === 'true') {
+            const publicAccess = document.getElementById('publicAccess').value === 'true';
+            if (!publicAccess) {
+                alert("Auto-open DB Security Group requires Public Access = Yes.");
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -1788,6 +1828,10 @@
             Value: tagInput.querySelector('.rdbms-tag-value').value
         }));
 
+        // NHN-only convenience option (hidden/reset to false for all other providers)
+        const nhnAutoOpenDBSecurityGroupEl = document.getElementById('nhnAutoOpenDBSecurityGroup');
+        const nhnAutoOpenDBSecurityGroup = !!nhnAutoOpenDBSecurityGroupEl && nhnAutoOpenDBSecurityGroupEl.value === 'true';
+
         const data = {
             ConnectionName: connConfig,
             ReqInfo: {
@@ -1804,6 +1848,7 @@
                 MasterUserPassword: masterUserPassword,
                 HighAvailability: highAvailability,
                 PublicAccess: publicAccess,
+                NHNAutoOpenDBSecurityGroup: nhnAutoOpenDBSecurityGroup || undefined,
                 Encryption: encryption,
                 DeletionProtection: deletionProtection,
                 BackupRetentionDays: backupRetentionDays,
@@ -2174,21 +2219,44 @@
             if (cacheBadge) cacheBadge.style.display = isCached ? '' : 'none';
 
             // Update Subnet/SG label required status
-            const subnetLabel = document.getElementById('subnetLabel');
             const sgLabel = document.getElementById('sgLabel');
-            if (metaInfo.RequiresSubnet) {
-                subnetLabel.innerHTML = 'Subnets: <span style="color: red;">*</span>';
-                currentRequiresSubnet = true;
-            } else {
-                subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(optional)</span>';
-                currentRequiresSubnet = false;
-            }
-            if (metaInfo.RequiresSecurityGroup) {
-                sgLabel.innerHTML = 'Security Groups: <span style="color: red;">*</span>';
-                currentRequiresSecurityGroup = true;
-            } else {
-                sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(optional)</span>';
+
+            lastMetaInfoRequiresSubnet = !!metaInfo.RequiresSubnet;
+            updateSubnetFieldAvailability();
+
+            const sgWrapper = document.getElementById('securityGroupSelectWrapper');
+            if (isSecurityGroupUnusedProvider()) {
+                // SecurityGroupNames has no effect on this CSP's RDBMS create
+                // API — the driver never reads it, so disable the field
+                // instead of letting users interact with an input that does
+                // nothing.
+                if (sgWrapper) sgWrapper.classList.add('disabled');
+                document.getElementById('sgSelectedText').textContent = 'Not used by this CSP';
+                document.getElementById('sgDropdownList').innerHTML = '';
+                sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(not used)</span>';
                 currentRequiresSecurityGroup = false;
+            } else {
+                if (sgWrapper) sgWrapper.classList.remove('disabled');
+                if (metaInfo.RequiresSecurityGroup) {
+                    sgLabel.innerHTML = 'Security Groups: <span style="color: red;">*</span>';
+                    currentRequiresSecurityGroup = true;
+                } else {
+                    sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(optional)</span>';
+                    currentRequiresSecurityGroup = false;
+                }
+            }
+
+            // NHN-only convenience option: auto-create/attach a fully-open
+            // DB Security Group (see RDBMSInfo.NHNAutoOpenDBSecurityGroup).
+            const nhnSGGroup = document.getElementById('nhnAutoOpenDBSecurityGroupGroup');
+            if (nhnSGGroup) {
+                if (isNHNProvider()) {
+                    nhnSGGroup.style.display = '';
+                    updateNHNAutoOpenSGAvailability();
+                } else {
+                    nhnSGGroup.style.display = 'none';
+                    document.getElementById('nhnAutoOpenDBSecurityGroup').value = 'false';
+                }
             }
 
             // Populate Version select
@@ -2617,9 +2685,14 @@
         const vpcSelect = document.getElementById('vpcName');
         const subnetDropdownList = document.getElementById('subnetDropdownList');
         const subnetSelectedText = document.getElementById('subnetSelectedText');
-        
+
         subnetDropdownList.innerHTML = '';
-        
+
+        if (isSubnetUnusedProvider()) {
+            subnetSelectedText.textContent = 'Not used by this CSP';
+            return;
+        }
+
         if (!vpcSelect.value) {
             subnetSelectedText.textContent = 'Select VPC first';
             return;
@@ -2694,7 +2767,13 @@
         const sgDropdownList = document.getElementById('sgDropdownList');
         const sgSelectedText = document.getElementById('sgSelectedText');
         const vpcSelect = document.getElementById('vpcName');
-        
+
+        if (isSecurityGroupUnusedProvider()) {
+            sgDropdownList.innerHTML = '';
+            sgSelectedText.textContent = 'Not used by this CSP';
+            return;
+        }
+
         if (!vpcSelect.value) {
             sgSelectedText.textContent = 'Select VPC first';
             sgDropdownList.innerHTML = '';
@@ -3077,6 +3156,107 @@
     // SQL password is still needed for table/row operations on all CSPs.
     const CSP_NATIVE_DB_PROVIDERS = ['NCP', 'NHN', 'GCP', 'ALIBABA', 'TENCENT', 'OPENSTACK', 'KT', 'AZURE'];
 
+    // CSPs whose RDBMS create API never reads SecurityGroupNames — the field
+    // is silently ignored. The Add-RDBMS form keeps it visible but disables
+    // it for these providers, instead of hiding it or letting users interact
+    // with an input that does nothing. AWS requires a Security Group;
+    // Tencent optionally uses one (shares the VM's SG) — both stay enabled.
+    const RDBMS_SG_UNUSED_PROVIDERS = ['ALIBABA', 'AZURE', 'GCP', 'IBM', 'NCP', 'OPENSTACK', 'NHN'];
+
+    // CSPs whose RDBMS create API never reads SubnetNames, under any
+    // PublicAccess setting. AWS/Alibaba/Tencent/NCP/NHN require a subnet and
+    // stay enabled. Azure is NOT in this static list — it's handled
+    // dynamically in isSubnetUnusedProvider() since it only uses SubnetIIDs
+    // for its VPC-private mode (PublicAccess=false).
+    const RDBMS_SUBNET_UNUSED_PROVIDERS = ['GCP', 'IBM', 'OPENSTACK'];
+
+    function isSecurityGroupUnusedProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return RDBMS_SG_UNUSED_PROVIDERS.indexOf(provider) >= 0;
+    }
+
+    function isSubnetUnusedProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        if (provider === 'AZURE') {
+            // Azure only uses SubnetIIDs for its VPC-private mode
+            // (PublicAccess=false); with PublicAccess=true (the default) the
+            // field has no effect. Re-evaluated live via updateSubnetFieldAvailability().
+            const publicAccessEl = document.getElementById('publicAccess');
+            return !publicAccessEl || publicAccessEl.value !== 'false';
+        }
+        return RDBMS_SUBNET_UNUSED_PROVIDERS.indexOf(provider) >= 0;
+    }
+
+    // Recomputes the Subnets field's disabled/required state. Called on
+    // MetaInfo load and whenever Public Access changes (Azure's Subnet usage
+    // depends on it — see isSubnetUnusedProvider). Re-populates the dropdown
+    // if the field just became enabled and a VPC is already selected.
+    function updateSubnetFieldAvailability() {
+        const subnetLabel = document.getElementById('subnetLabel');
+        const subnetWrapper = document.getElementById('subnetSelectWrapper');
+        const wasDisabled = !!(subnetWrapper && subnetWrapper.classList.contains('disabled'));
+
+        if (isSubnetUnusedProvider()) {
+            if (subnetWrapper) subnetWrapper.classList.add('disabled');
+            document.getElementById('subnetSelectedText').textContent = 'Not used by this CSP';
+            document.getElementById('subnetDropdownList').innerHTML = '';
+            subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(not used)</span>';
+            currentRequiresSubnet = false;
+            return;
+        }
+
+        if (subnetWrapper) subnetWrapper.classList.remove('disabled');
+
+        // Azure's requirement is dynamic (only required in VPC-private mode)
+        // and isn't reflected in the static RequiresSubnet MetaInfo flag.
+        const azurePrivateModeRequiresSubnet = isAzureProvider() &&
+            document.getElementById('publicAccess').value === 'false';
+
+        if (lastMetaInfoRequiresSubnet || azurePrivateModeRequiresSubnet) {
+            subnetLabel.innerHTML = 'Subnets: <span style="color: red;">*</span>';
+            currentRequiresSubnet = true;
+        } else {
+            subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(optional)</span>';
+            currentRequiresSubnet = false;
+        }
+
+        // The dropdown was cleared while disabled — repopulate it now that
+        // it's usable again (no-ops if no VPC is selected yet).
+        if (wasDisabled) {
+            updateSubnets();
+        }
+    }
+
+    function isAzureProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return provider === 'AZURE';
+    }
+
+    function isNHNProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return provider === 'NHN';
+    }
+
+    // NHNAutoOpenDBSecurityGroup requires PublicAccess=true (enforced by the
+    // backend too — see validateForm()). Keep the control in sync with
+    // Public Access so users can't set an invalid combination in the first
+    // place: force it to No and lock it while Public Access=No, and hand
+    // control back (defaulting to Yes again) once Public Access=Yes.
+    function updateNHNAutoOpenSGAvailability() {
+        if (!isNHNProvider()) return;
+        const select = document.getElementById('nhnAutoOpenDBSecurityGroup');
+        if (!select) return;
+
+        const publicAccess = document.getElementById('publicAccess').value === 'true';
+        if (publicAccess) {
+            select.disabled = false;
+            select.value = 'true';
+        } else {
+            select.disabled = true;
+            select.value = 'false';
+        }
+    }
+
     function isNativeDBProvider() {
         const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
         return CSP_NATIVE_DB_PROVIDERS.indexOf(provider) >= 0;
@@ -3153,20 +3333,11 @@
             return;
         }
 
-        // For CSP-native providers, skip SQL connect test (DB management uses CSP API).
-        // Password is still stored for table/row SQL operations.
-        if (isNativeDBProvider()) {
-            currentDBPassword = password;
-            currentDBName = null;
-            statusEl.textContent = '✓ Connected — Select a database below';
-            statusEl.className = 'db-connect-status connected';
-            document.getElementById('db-database-panel').style.display = 'block';
-            document.getElementById('db-table-panel').style.display = 'none';
-            document.getElementById('db-row-panel').style.display = 'none';
-            loadDatabases();
-            return;
-        }
-
+        // Always verify the password with a real SQL connection before
+        // proceeding, on every CSP (including CSP-native DB-management
+        // providers) — Table browsing needs a real SQL connection regardless
+        // of provider, so a wrong password should fail here, not silently
+        // succeed and only surface an error later when opening a table.
         statusEl.textContent = 'Connecting...';
         statusEl.className = 'db-connect-status';
 

@@ -55,6 +55,7 @@ while IFS= read -r storage_type; do
     \"Name\": \"${rdbms_name}\",
     \"VPCName\": \"vpc-01\",
     \"SubnetNames\": [\"subnet-01\"],
+    \"NHNAutoOpenDBSecurityGroup\": true,
     \"DBEngine\": \"mysql\",
     \"DBEngineVersion\": \"MYSQL_V8408\",
     \"DBSpec\": \"m2.c2m4\",

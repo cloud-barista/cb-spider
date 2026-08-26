@@ -15701,6 +15701,11 @@
                     "description": "Master user password (for Create request only)",
                     "type": "string"
                 },
+                "NHNAutoOpenDBSecurityGroup": {
+                    "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with\nPublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN\nCloud RDS DB Security Group, attaches it at creation, and deletes it\nautomatically when the instance is deleted. Ignored by every other CSP.\nSecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at\nall: NHN Cloud RDS DB Security Groups are a resource type separate from\nthe VPC/Neutron security group CB-Spider manages, so when this flag is\nfalse (the default), you must create one yourself via the NHN Cloud\nconsole or API and attach it to the instance for external SQL access.",
+                    "type": "boolean",
+                    "default": false
+                },
                 "PublicAccess": {
                     "description": "Access",
                     "type": "boolean",
@@ -19067,6 +19072,11 @@
                         "MasterUserPassword": {
                             "type": "string",
                             "example": "password123!"
+                        },
+                        "NHNAutoOpenDBSecurityGroup": {
+                            "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.\nWhen true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)\nNHN Cloud RDS DB Security Group, and deletes it automatically when the\ninstance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does\nnot use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup\ninstead); if this flag is false (default), create and attach a DB\nSecurity Group yourself via the NHN Cloud console/API for external\nSQL access.",
+                            "type": "boolean",
+                            "default": false
                         },
                         "Name": {
                             "type": "string",

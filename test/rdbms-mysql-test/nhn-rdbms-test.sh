@@ -15,6 +15,7 @@ export CREATE_JSON='{
     "Name": "cb-spider-mysql-test",
     "VPCName": "vpc-01",
     "SubnetNames": ["subnet-01"],
+    "NHNAutoOpenDBSecurityGroup": true,
     "DBEngine": "mysql",
     "DBEngineVersion": "MYSQL_V8408",
     "DBSpec": "m2.c2m4",

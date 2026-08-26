@@ -112,6 +112,8 @@ StorageType은 지정하지 않으며, CSP 기본값으로 생성됩니다. 결�
 | NCP | 8.0.36 | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | CSP 관리 | ✅ |
 | NHN | MYSQL_V8408 | m2.c2m4 | 20GB | ✅ |
 
+> **NHN 참고**: NHN Cloud RDS는 VPC Security Group과는 별개인 전용 "DB Security Group"이 있어야 외부 접속이 가능합니다. `nhn-rdbms-test.sh`는 `"NHNAutoOpenDBSecurityGroup": true`를 설정해 전체 개방(`0.0.0.0/0`) DB Security Group을 자동 생성하고, 인스턴스 삭제 시 함께 자동 삭제되도록 합니다 — 시험 편의를 위한 옵션이며, 운영 환경에서는 NHN 콘솔/API로 특정 CIDR만 허용하는 DB Security Group을 직접 구성하는 것을 권장합니다.
+
 ## Configuration
 
 테스트 실행 전에 CB-Spider 접속 정보를 환경변수로 설정하거나, `run-all-csp-rdbms-tests.sh` / `delete-all-csp-rdbms.sh` 파일 내부의 기본값을 직접 수정합니다.
