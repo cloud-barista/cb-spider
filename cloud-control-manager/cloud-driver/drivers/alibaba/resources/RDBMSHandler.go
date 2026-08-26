@@ -206,6 +206,7 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alib
 	for _, eng := range engineNames {
 		instanceSpecSet := map[string]bool{}
 		seenLookup := map[string]bool{}
+		firstCall := true
 		for _, lookup := range storageLookups[eng.aliName] {
 			if lookup.engineVersion != latestVersionByEngine[eng.aliName] {
 				continue
@@ -215,6 +216,17 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alib
 				continue
 			}
 			seenLookup[lookupKey] = true
+
+			// A single GetMetaInfo() call can require one DescribeAvailableClasses
+			// request per (category, storageType) combination — for engines with
+			// several categories (Basic/HighAvailability/AlwaysOn/Finance) and
+			// storage types this can easily reach 10-20+ sequential calls. Pace
+			// them instead of firing back-to-back, or Alibaba's per-user rate
+			// limit rejects the burst with a "Throttling.User" error.
+			if !firstCall {
+				time.Sleep(describeAvailableClassesPacingDelay)
+			}
+			firstCall = false
 
 			classesReq := rds.CreateDescribeAvailableClassesRequest()
 			classesReq.Engine = eng.aliName
@@ -259,14 +271,22 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alib
 	return instanceSpecOptions, irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
 }
 
+// describeAvailableClassesPacingDelay is slept between successive
+// DescribeAvailableClasses calls within a single GetMetaInfo() request (see
+// fetchRDBMSInstanceOptions) so the (category, storageType) combinations for
+// an engine version are queried as a paced sequence rather than a burst,
+// which is what triggers Alibaba's per-user "Throttling.User" rate limit.
+const describeAvailableClassesPacingDelay = 400 * time.Millisecond
+
 func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.DescribeAvailableClassesRequest) (*rds.DescribeAvailableClassesResponse, error) {
 	type describeAvailableClassesResult struct {
 		response *rds.DescribeAvailableClassesResponse
 		err      error
 	}
 
-	const maxThrottleRetry = 5
-	const throttleWait = 5 * time.Second
+	const maxThrottleRetry = 6
+	const throttleBaseWait = 5 * time.Second
+	const throttleMaxWait = 60 * time.Second
 
 	for attempt := 0; ; attempt++ {
 		resultChan := make(chan describeAvailableClassesResult, 1)
@@ -281,9 +301,18 @@ func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.Descri
 			timer.Stop()
 			if result.err != nil {
 				if strings.Contains(result.err.Error(), "ErrorCode: Throttling") && attempt < maxThrottleRetry {
-					cblogger.Warnf("Throttling error for DescribeAvailableClasses (engine=%s, version=%s, zone=%s): %v. Waiting %s before retrying...",
-						request.Engine, request.EngineVersion, request.ZoneId, result.err, throttleWait)
-					time.Sleep(throttleWait)
+					// Exponential backoff (5s, 10s, 20s, 40s, 60s, 60s...): a fixed
+					// 5s retry proved too short against Alibaba's observed
+					// recommended cooldown (X-Acs-Retry-After up to ~14s) for this
+					// API, so back off further on repeated throttling instead of
+					// hammering it at the same short interval.
+					wait := throttleBaseWait << attempt
+					if wait > throttleMaxWait || wait <= 0 {
+						wait = throttleMaxWait
+					}
+					cblogger.Warnf("Throttling error for DescribeAvailableClasses (engine=%s, version=%s, zone=%s): %v. Waiting %s before retrying (attempt %d/%d)...",
+						request.Engine, request.EngineVersion, request.ZoneId, result.err, wait, attempt+1, maxThrottleRetry)
+					time.Sleep(wait)
 					continue
 				}
 				return nil, result.err

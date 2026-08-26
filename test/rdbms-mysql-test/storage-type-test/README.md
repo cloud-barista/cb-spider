@@ -315,6 +315,7 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - Connection: `nhn-korea-pangyo1-config`
 - Region: `KR1` / Zone: `kr-pub-a`
 - SubnetNames: `subnet-01`
+- `NHNAutoOpenDBSecurityGroup: true` — NHN Cloud RDS는 VPC Security Group과는 별개인 전용 "DB Security Group"이 있어야 외부 접속이 가능하므로, 시험 편의를 위해 이 옵션으로 전체 개방(`0.0.0.0/0`) DB Security Group을 자동 생성/삭제합니다. 운영 환경에서는 사용을 권장하지 않습니다.
 
 ---
 

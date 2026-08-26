@@ -196,9 +196,28 @@ type nhnRDSDBSecurityGroupDetail struct {
 	Description         string `json:"description"`
 }
 
+// nhnRDSDBSecurityGroupDetailResponse decodes the response of
+// GET /v3.0/db-security-groups/{id}. The exact response shape for this
+// specific endpoint isn't confirmed (NHN's public API guide is truncated
+// before this section, and a live call returned an empty name/description
+// when decoded flat) — LIST db-security-groups is confirmed to nest its
+// items under a "dbSecurityGroups" array, so this also accepts a "dbSecurityGroup"
+// singular-object shape for the single-item GET, in addition to a flat
+// top-level shape, and Detail() returns whichever was actually populated.
 type nhnRDSDBSecurityGroupDetailResponse struct {
 	Header nhnRDSResponseHeader `json:"header"`
 	nhnRDSDBSecurityGroupDetail
+	Nested *nhnRDSDBSecurityGroupDetail `json:"dbSecurityGroup,omitempty"`
+}
+
+// Detail returns the populated DB security group fields regardless of
+// whether the response was flat or nested under "dbSecurityGroup" (see
+// nhnRDSDBSecurityGroupDetailResponse).
+func (r nhnRDSDBSecurityGroupDetailResponse) Detail() nhnRDSDBSecurityGroupDetail {
+	if r.Nested != nil && (r.Nested.DBSecurityGroupId != "" || r.Nested.DBSecurityGroupName != "" || r.Nested.Description != "") {
+		return *r.Nested
+	}
+	return r.nhnRDSDBSecurityGroupDetail
 }
 
 type nhnRDSCreateInstanceRequest struct {
@@ -616,6 +635,8 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
 	case rdbmsReqInfo.MasterUserPassword == "":
 		return irs.RDBMSInfo{}, errors.New("MasterUserPassword is required")
+	case rdbmsReqInfo.NHNAutoOpenDBSecurityGroup && !rdbmsReqInfo.PublicAccess:
+		return irs.RDBMSInfo{}, errors.New("NHNAutoOpenDBSecurityGroup requires PublicAccess=true")
 	}
 
 	storageSize, err := strconv.Atoi(rdbmsReqInfo.StorageSize)
@@ -679,24 +700,32 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 		return irs.RDBMSInfo{}, newErr
 	}
 
-	// Build DB Security Group IDs.
-	// If SecurityGroupIIDs are provided, use their SystemIds (NHN RDS DB SG UUIDs).
-	// Otherwise auto-create a permissive SG that allows inbound on DB_PORT from 0.0.0.0/0.
-	var dbSGIds []string
-	if len(rdbmsReqInfo.SecurityGroupIIDs) > 0 {
-		for _, sg := range rdbmsReqInfo.SecurityGroupIIDs {
-			if sg.SystemId != "" {
-				dbSGIds = append(dbSGIds, sg.SystemId)
-			}
-		}
-	}
-	if len(dbSGIds) == 0 {
-		// Resolve subnet CIDR for private-access restriction (best-effort)
-		subnetCidr := ""
-		if !rdbmsReqInfo.PublicAccess && subnetId != "" {
-			subnetCidr = handler.fetchSubnetCidr(ctx, subnetId)
-		}
-		autoSGId, sgErr := handler.createDefaultDBSecurityGroup(ctx, endpointFn, rdbmsReqInfo.IId.NameId, rdbmsReqInfo.PublicAccess, subnetCidr)
+	// DB Security Group handling.
+	//
+	// Officially, CB-Spider does NOT manage NHN Cloud RDS DB Security Groups
+	// by default (same as Alibaba/Azure/GCP/IBM/NCP/OpenStack) —
+	// SecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at
+	// all. NHN Cloud's DB SG is a separate resource type from the VPC/Neutron
+	// security group Spider manages, so the user must create a DB Security
+	// Group with the desired access rules via the NHN Cloud console or API
+	// and attach it to the DB instance themselves (independently of Spider)
+	// for external SQL access.
+	//
+	// Setting NHNAutoOpenDBSecurityGroup=true (requires PublicAccess=true,
+	// validated above) is an official convenience option: CB-Spider then
+	// auto-creates a fully-open (0.0.0.0/0) DB Security Group, attaches it at
+	// creation, and deletes it automatically when the instance is deleted
+	// (see DeleteRDBMS).
+	//
+	// dbSGIds must stay a non-nil (possibly empty) slice: the NHN API docs
+	// mark dbSecurityGroupIds as optional, but a Go nil slice marshals to
+	// JSON `null`, and NHN's backend appears to fault (500) on a null value
+	// for this field rather than treating it like an omitted/empty one — the
+	// same reason UserGroupIds below is always set to []string{} rather than
+	// left nil.
+	dbSGIds := []string{}
+	if rdbmsReqInfo.NHNAutoOpenDBSecurityGroup {
+		autoSGId, sgErr := handler.createDefaultDBSecurityGroup(ctx, endpointFn, rdbmsReqInfo.IId.NameId)
 		if sgErr != nil {
 			LoggingError(callLogInfo, sgErr)
 			return irs.RDBMSInfo{}, sgErr
@@ -813,6 +842,10 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 	if strings.HasPrefix(strings.ToUpper(rdbmsReqInfo.DBEngineVersion), "MARIADB_") {
 		result.DBEngine = "mariadb"
 	}
+	// We already know whether this instance's DB Security Group was just
+	// auto-created (validated at the top of this function), so reflect it
+	// directly rather than re-deriving it via a live SG lookup.
+	result.NHNAutoOpenDBSecurityGroup = rdbmsReqInfo.NHNAutoOpenDBSecurityGroup
 	return result, nil
 }
 
@@ -877,6 +910,11 @@ func (handler *NhnCloudRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 			if strings.HasPrefix(strings.ToUpper(detail.DBVersion), "MARIADB_") {
 				info.DBEngine = "mariadb"
 			}
+			// See the matching comment in GetRDBMS: re-derive live from the
+			// attached SG's description tag.
+			if autoSGIds := handler.collectAutoCBSpiderSGIdsWithEndpoint(ctx, endpointFn, detail.DBSecurityGroupIds); len(autoSGIds) > 0 {
+				info.NHNAutoOpenDBSecurityGroup = true
+			}
 			rdbmsList = append(rdbmsList, &info)
 		}
 	}
@@ -932,6 +970,13 @@ func (handler *NhnCloudRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo, 
 		if strings.HasPrefix(strings.ToUpper(result.DBVersion), "MARIADB_") {
 			info.DBEngine = "mariadb"
 		}
+		// Surface whether the currently attached DB SG(s) include one CB-Spider
+		// auto-created (see NHNAutoOpenDBSecurityGroup), so this is visible on
+		// GetRDBMS/ListRDBMS even though CB-Spider never stores that choice
+		// anywhere itself — it's re-derived live from the SG's description tag.
+		if autoSGIds := handler.collectAutoCBSpiderSGIdsWithEndpoint(ctx, endpointFn, result.DBSecurityGroupIds); len(autoSGIds) > 0 {
+			info.NHNAutoOpenDBSecurityGroup = true
+		}
 		return info, nil
 	}
 
@@ -961,10 +1006,16 @@ func (handler *NhnCloudRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error)
 	}
 
 	// Collect DB security group IDs before deleting the instance so we can
-	// clean up any SGs that were auto-created by CB-Spider.
+	// clean up any SGs that were auto-created by CB-Spider (identified by
+	// their description tag, see createDefaultDBSecurityGroup). This only
+	// ever finds anything for an instance that was created with
+	// NHNAutoOpenDBSecurityGroup=true — user-managed DB Security Groups never
+	// carry that description tag, so they are left untouched.
 	var getInstResp nhnRDSGetInstanceResponse
-	if err := handler.getRDSWithEndpoint(ctx, endpointFn, "/v3.0/db-instances/"+dbInstanceId, &getInstResp); err == nil {
-		_ = checkRDSResponseHeader(getInstResp.Header) // ignore header error here
+	if err := handler.getRDSWithEndpoint(ctx, endpointFn, "/v3.0/db-instances/"+dbInstanceId, &getInstResp); err != nil {
+		cblogger.Warnf("[NHN RDS] failed to fetch instance '%s' before delete (auto-created DB SG cleanup will be skipped): %v", dbInstanceId, err)
+	} else if hdrErr := checkRDSResponseHeader(getInstResp.Header); hdrErr != nil {
+		cblogger.Warnf("[NHN RDS] error response fetching instance '%s' before delete (auto-created DB SG cleanup will be skipped): %v", dbInstanceId, hdrErr)
 	}
 	autoSGIds := handler.collectAutoCBSpiderSGIdsWithEndpoint(ctx, endpointFn, getInstResp.DBSecurityGroupIds)
 
@@ -979,12 +1030,30 @@ func (handler *NhnCloudRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error)
 		return false, err
 	}
 
-	// Delete auto-created DB SGs (best-effort; log but do not fail)
-	for _, sgId := range autoSGIds {
-		if delErr := handler.deleteRDSWithEndpoint(ctx, endpointFn, "/v3.0/db-security-groups/"+sgId, nil); delErr != nil {
-			cblogger.Warnf("[NHN RDS] failed to delete auto-created DB security group '%s': %v", sgId, delErr)
+	// Delete auto-created DB SGs (best-effort; log but do not fail the
+	// instance deletion itself). NHN Cloud RDS instance deletion is
+	// asynchronous (deleteResp is a job, not a completed operation), and NHN
+	// rejects deleting a DB Security Group that is still attached to an
+	// instance that hasn't finished deleting yet — so we must wait for the
+	// deletion job to actually reach COMPLETED before attempting SG cleanup,
+	// otherwise the SG delete call fails silently and the SG is orphaned.
+	// autoSGIds is always empty unless the instance was created with
+	// NHNAutoOpenDBSecurityGroup=true, so user-managed DB Security Groups are
+	// never touched — and ordinary deletes (the vast majority) skip this
+	// extra wait entirely since there's nothing to clean up.
+	if len(autoSGIds) > 0 {
+		waitCtx, waitCancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer waitCancel()
+		if err := handler.waitForRDSJobCompletion(waitCtx, endpointFn, deleteResp.JobId); err != nil {
+			cblogger.Warnf("[NHN RDS] instance deletion accepted, but failed waiting for it to complete before cleaning up auto-created DB security group(s) (they may need manual cleanup): %v", err)
 		} else {
-			cblogger.Infof("[NHN RDS] deleted auto-created DB security group '%s'", sgId)
+			for _, sgId := range autoSGIds {
+				if delErr := handler.deleteRDSWithEndpoint(waitCtx, endpointFn, "/v3.0/db-security-groups/"+sgId, nil); delErr != nil {
+					cblogger.Warnf("[NHN RDS] failed to delete auto-created DB security group '%s': %v", sgId, delErr)
+				} else {
+					cblogger.Infof("[NHN RDS] deleted auto-created DB security group '%s'", sgId)
+				}
+			}
 		}
 	}
 
@@ -1041,48 +1110,6 @@ func (handler *NhnCloudRDBMSHandler) postRDSWithEndpoint(ctx context.Context, en
 	return nil
 }
 
-// collectAutoCBSpiderSGIds inspects the given DB SG IDs and returns those
-// that were auto-created by CB-Spider (identified by description prefix).
-func (handler *NhnCloudRDBMSHandler) collectAutoCBSpiderSGIds(ctx context.Context, sgIds []string) []string {
-	var auto []string
-	for _, id := range sgIds {
-		var detail nhnRDSDBSecurityGroupDetailResponse
-		if err := handler.getRDS(ctx, "/v3.0/db-security-groups/"+id, &detail); err != nil {
-			continue
-		}
-		if checkRDSResponseHeader(detail.Header) != nil {
-			continue
-		}
-		if strings.HasPrefix(detail.Description, "Auto-created by CB-Spider:") {
-			auto = append(auto, id)
-		}
-	}
-	return auto
-}
-
-// fetchSubnetCidr retrieves the CIDR of the given subnet ID from the NHN RDS subnet list.
-// Returns empty string on any error (best-effort).
-func (handler *NhnCloudRDBMSHandler) fetchSubnetCidr(ctx context.Context, subnetId string) string {
-	type nhnRDSSubnet struct {
-		SubnetId   string `json:"subnetId"`
-		SubnetCidr string `json:"subnetCidr"`
-	}
-	type nhnRDSSubnetListResponse struct {
-		Header  nhnRDSResponseHeader `json:"header"`
-		Subnets []nhnRDSSubnet       `json:"subnets"`
-	}
-	var resp nhnRDSSubnetListResponse
-	if err := handler.getRDS(ctx, "/v3.0/network/subnets", &resp); err != nil {
-		return ""
-	}
-	for _, s := range resp.Subnets {
-		if s.SubnetId == subnetId {
-			return s.SubnetCidr
-		}
-	}
-	return ""
-}
-
 // putRDS sends a PUT request to the NHN RDS for MySQL API.
 func (handler *NhnCloudRDBMSHandler) putRDS(ctx context.Context, path string, body interface{}, v interface{}) error {
 	endpoint, err := handler.rdsEndpoint()
@@ -1127,24 +1154,16 @@ func (handler *NhnCloudRDBMSHandler) putRDS(ctx context.Context, path string, bo
 	return nil
 }
 
-// createDefaultDBSecurityGroup creates a NHN Cloud RDS DB Security Group and returns its ID.
-// endpointFn selects the correct RDS endpoint (MySQL or MariaDB) for the DB instance being created.
-// If publicAccess is true, allows inbound DB port from 0.0.0.0/0.
-// If publicAccess is false and subnetCidr is non-empty, restricts inbound to the subnet CIDR only.
-func (handler *NhnCloudRDBMSHandler) createDefaultDBSecurityGroup(ctx context.Context, endpointFn func() (string, error), name string, publicAccess bool, subnetCidr string) (string, error) {
-	cidr := "0.0.0.0/0"
-	if !publicAccess && subnetCidr != "" {
-		cidr = subnetCidr
-	}
-	var desc string
-	if publicAccess {
-		desc = "Auto-created by CB-Spider: allow inbound DB port from 0.0.0.0/0"
-	} else {
-		desc = "Auto-created by CB-Spider: allow inbound DB port from subnet " + cidr
-	}
+// createDefaultDBSecurityGroup creates a fully-open (0.0.0.0/0) NHN Cloud RDS
+// DB Security Group for the RDBMSInfo.NHNAutoOpenDBSecurityGroup convenience
+// option and returns its ID. endpointFn selects the correct RDS endpoint
+// (MySQL or MariaDB) for the DB instance being created. Callers must ensure
+// PublicAccess=true before calling this (validated in CreateRDBMS).
+func (handler *NhnCloudRDBMSHandler) createDefaultDBSecurityGroup(ctx context.Context, endpointFn func() (string, error), name string) (string, error) {
+	const cidr = "0.0.0.0/0"
 	reqBody := nhnRDSCreateDBSecurityGroupRequest{
 		DBSecurityGroupName: name + "-sg",
-		Description:         desc,
+		Description:         "Auto-created by CB-Spider: allow inbound DB port from 0.0.0.0/0 (NHNAutoOpenDBSecurityGroup=true)",
 		Rules: []nhnRDSDBSecurityGroupRule{
 			{
 				Direction: "INGRESS",
@@ -1269,6 +1288,36 @@ func (handler *NhnCloudRDBMSHandler) pollRDSJobWithEndpoint(ctx context.Context,
 	}
 }
 
+// waitForRDSJobCompletion polls an NHN Cloud RDS async job until it reaches a
+// terminal state (COMPLETED or FAILED). Unlike pollRDSJobWithEndpoint, it
+// does not require a particular resourceRelations entry — it's for callers
+// (e.g. DeleteRDBMS) that only need to know the job finished, not extract a
+// created resource's ID.
+func (handler *NhnCloudRDBMSHandler) waitForRDSJobCompletion(ctx context.Context, endpointFn func() (string, error), jobId string) error {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for NHN Cloud RDS job %s", jobId)
+		case <-ticker.C:
+			var jobResp nhnRDSJobResponse
+			if err := handler.getRDSWithEndpoint(ctx, endpointFn, "/v3.0/jobs/"+jobId, &jobResp); err != nil {
+				return fmt.Errorf("failed to poll NHN Cloud RDS job %s: %w", jobId, err)
+			}
+			switch jobResp.JobStatus {
+			case "COMPLETED":
+				return nil
+			case "FAILED":
+				return fmt.Errorf("NHN Cloud RDS job %s failed", jobId)
+			default:
+				cblogger.Infof("[NHN RDS] job %s status: %s (waiting...)", jobId, jobResp.JobStatus)
+			}
+		}
+	}
+}
+
 // findRDSInstanceIDByNameWithEndpoint finds a DB instance UUID by name at the given endpoint.
 func (handler *NhnCloudRDBMSHandler) findRDSInstanceIDByNameWithEndpoint(ctx context.Context, endpointFn func() (string, error), name string) (string, error) {
 	var result nhnRDSListInstancesResponse
@@ -1380,12 +1429,14 @@ func (handler *NhnCloudRDBMSHandler) collectAutoCBSpiderSGIdsWithEndpoint(ctx co
 	for _, id := range sgIds {
 		var detail nhnRDSDBSecurityGroupDetailResponse
 		if err := handler.getRDSWithEndpoint(ctx, endpointFn, "/v3.0/db-security-groups/"+id, &detail); err != nil {
+			cblogger.Warnf("[NHN RDS] failed to fetch detail for DB security group '%s' (skipping auto-created check): %v", id, err)
 			continue
 		}
-		if checkRDSResponseHeader(detail.Header) != nil {
+		if hdrErr := checkRDSResponseHeader(detail.Header); hdrErr != nil {
+			cblogger.Warnf("[NHN RDS] error response fetching detail for DB security group '%s' (skipping auto-created check): %v", id, hdrErr)
 			continue
 		}
-		if strings.HasPrefix(detail.Description, "Auto-created by CB-Spider:") {
+		if strings.HasPrefix(detail.Detail().Description, "Auto-created by CB-Spider:") {
 			auto = append(auto, id)
 		}
 	}

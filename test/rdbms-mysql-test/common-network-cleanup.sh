@@ -23,8 +23,8 @@ SPIDER_AUTH="${SPIDER_AUTH:-admin:****}"
 # by the just-deleted RDBMS instance asynchronously, so a delete attempted right
 # after RDBMS deletion can hit a transient DependencyViolation/ResourceInUse-type
 # error. Retry with backoff before giving up.
-RETRY_COUNT="${NETWORK_DELETE_RETRIES:-5}"
-RETRY_INTERVAL="${NETWORK_DELETE_RETRY_INTERVAL:-15}"
+RETRY_COUNT="${NETWORK_DELETE_RETRIES:-10}"
+RETRY_INTERVAL="${NETWORK_DELETE_RETRY_INTERVAL:-20}"
 
 mkdir -p "$(dirname "${RESULT_FILE}")"
 

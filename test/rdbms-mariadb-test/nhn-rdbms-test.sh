@@ -15,6 +15,7 @@ export CREATE_JSON='{
     "Name": "cb-spider-mariadb-test",
     "VPCName": "vpc-01",
     "SubnetNames": ["subnet-01"],
+    "NHNAutoOpenDBSecurityGroup": true,
     "DBEngine": "mariadb",
     "DBEngineVersion": "MARIADB_V101118",
     "DBSpec": "m2.c2m4",

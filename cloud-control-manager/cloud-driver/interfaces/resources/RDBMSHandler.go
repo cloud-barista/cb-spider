@@ -212,6 +212,17 @@ type RDBMSInfo struct {
 	PublicAccess bool   `json:"PublicAccess,omitempty" default:"false"` // Whether publicly accessible
 	Endpoint     string `json:"Endpoint,omitempty"`                     // Connection endpoint (for response)
 
+	// NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with
+	// PublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN
+	// Cloud RDS DB Security Group, attaches it at creation, and deletes it
+	// automatically when the instance is deleted. Ignored by every other CSP.
+	// SecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at
+	// all: NHN Cloud RDS DB Security Groups are a resource type separate from
+	// the VPC/Neutron security group CB-Spider manages, so when this flag is
+	// false (the default), you must create one yourself via the NHN Cloud
+	// console or API and attach it to the instance for external SQL access.
+	NHNAutoOpenDBSecurityGroup bool `json:"NHNAutoOpenDBSecurityGroup,omitempty" default:"false"`
+
 	// Encryption - read-only, CSP-managed. Not configurable at creation via Spider.
 	Encryption bool `json:"Encryption,omitempty" default:"false"` // Storage encryption enabled (CSP default)
 

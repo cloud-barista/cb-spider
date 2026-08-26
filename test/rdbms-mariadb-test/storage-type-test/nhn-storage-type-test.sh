@@ -66,6 +66,7 @@ while IFS= read -r storage_type; do
     \"Name\": \"${rdbms_name}\",
     \"VPCName\": \"vpc-01\",
     \"SubnetNames\": [\"subnet-01\"],
+    \"NHNAutoOpenDBSecurityGroup\": true,
     \"DBEngine\": \"mariadb\",
     \"DBEngineVersion\": \"MARIADB_V101118\",
     \"DBSpec\": \"m2.c2m4\",
