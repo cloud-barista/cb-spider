@@ -163,9 +163,9 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		if strings.EqualFold(vmReqInfo.RootDiskType, "default") || strings.EqualFold(vmReqInfo.RootDiskType, "HDD") {
 			reqDiskType = KVMRootDiskType
 		} else if strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
-			newErr := fmt.Errorf("Invalid root disk type. KVM-based VMs only support root disks of the ‘HDD’ type.")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
+			reqDiskType = "FB1"
+		} else {
+			reqDiskType = vmReqInfo.RootDiskType
 		}
 
 		instanceReq = vserver.CreateServerInstancesRequest{

@@ -476,174 +476,51 @@ Disk 생성시 validation check
   - DiskType 별 min/max capacity check
 */
 func validateCreateDisk(diskReqInfo *irs.DiskInfo, availableDiskTypesInThisZone []string) error {
-	// Check Disk Exists
-
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
-	//disktype: cloud / cloud_efficiency / cloud_ssd / cloud_essd
-	//disksize: cloud|5|2000|GB / cloud_efficiency|20|32768|GB / cloud_ssd|20|32768|GB / cloud_essd_PL0|40|32768|GB / cloud_essd_PL1|20|32768|GB / cloud_essd_PL2|461|32768|GB / cloud_essd_PL3|1261|32768|GB
-
-	arrDiskType := cloudOSMetaInfo.DiskType
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-	arrRootDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
-	// Check Disk available
-	// Size :
-	// DiskCategory : cloud / cloud_efficiency / cloud_ssd / cloud_essd
-	// valid size : cloud 5 ~ 2000, cloud_efficiency 20 ~ 32768, cloud_ssd 20 ~ 32768, cloud_essd
-
-	reqDiskCategory := diskReqInfo.DiskType
-	diskSize := diskReqInfo.DiskSize
-
-	if reqDiskCategory == "" || reqDiskCategory == "default" {
-		for _, diskSizeOfType := range arrRootDiskSizeOfType {
-			diskSizeArr := strings.Split(diskSizeOfType, "|")
-			if ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
-				reqDiskCategory = diskSizeArr[0]       // ESSD
-				diskReqInfo.DiskType = reqDiskCategory // set default value
-				break
-			}
-		}
-	}
-	// 정의된 type인지
-	if !ContainString(arrDiskType, reqDiskCategory) {
-		return errors.New("Disktype : " + reqDiskCategory + "' is not valid")
-	}
-
-	if diskSize == "" || diskSize == "default" {
-		for _, diskSizeOfType := range arrRootDiskSizeOfType {
-			diskSizeArr := strings.Split(diskSizeOfType, "|")
-			if ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
-				diskSize = diskSizeArr[1]       // 20
-				diskReqInfo.DiskSize = diskSize // set default value
-				break
-			}
-		}
-	}
-
-	reqDiskSize, err := strconv.ParseInt(diskSize, 10, 64)
 	if err != nil {
+		cblogger.Error(err)
 		return err
 	}
-
-	diskSizeValue := DiskSize{}
-	isExists := false
-	for idx, _ := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-		reqDiskType := diskReqInfo.DiskType
-		switch reqDiskCategory {
-		case "cloud_essd":
-			// cloud_essd 는 performanceLevel(PL0, PL1, PL2, PL3) 에 따라 또 다시 min/max가 생김.
-			// cb-spider는 performanceLevel을 관리하지 않으므로 기본값인 PL2 를 사용한다.
-			// console 상 attach disk의 default는 PL1
-			reqDiskType += "_PL1"
+	if diskReqInfo.DiskType == "" || diskReqInfo.DiskType == "default" {
+		for _, diskSizeOfType := range cloudOSMetaInfo.RootDiskSize {
+			diskSizeArr := strings.Split(diskSizeOfType, "|")
+			if ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) {
+				diskReqInfo.DiskType = diskSizeArr[0]
+				break
+			}
 		}
-
-		if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-			isExists = true
+		if (diskReqInfo.DiskType == "" || diskReqInfo.DiskType == "default") && len(availableDiskTypesInThisZone) > 0 {
+			diskReqInfo.DiskType = availableDiskTypesInThisZone[0]
 		}
 	}
-
-	if !isExists {
-		return errors.New("Invalid Disk Type : " + diskReqInfo.DiskType)
+	if diskReqInfo.DiskSize == "" || diskReqInfo.DiskSize == "default" {
+		diskReqInfo.DiskSize = "20"
+		for _, diskSizeOfType := range cloudOSMetaInfo.RootDiskSize {
+			diskSizeArr := strings.Split(diskSizeOfType, "|")
+			if strings.EqualFold(diskReqInfo.DiskType, diskSizeArr[0]) {
+				diskReqInfo.DiskSize = diskSizeArr[1]
+				break
+			}
+		}
 	}
-
-	if reqDiskSize < diskSizeValue.diskMinSize {
-		cblogger.Error("Disk Size Error!!: ", reqDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+	if _, err := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64); err != nil {
+		return err
 	}
-
-	if reqDiskSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", reqDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-	}
-
-	// 실제로 diskType이 유효한지 check
-
 	return nil
 }
 
 func validateModifyDisk(diskReqInfo irs.DiskInfo, diskSize string) error {
-	// volume Size
 	orgDiskSize, err := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64)
 	if err != nil {
 		return err
 	}
-
 	targetDiskSize, err := strconv.ParseInt(diskSize, 10, 64)
-
 	if err != nil {
 		return err
 	}
-
-	if orgDiskSize < targetDiskSize {
-	} else {
+	if orgDiskSize >= targetDiskSize {
 		return errors.New("Target DiskSize : " + diskSize + " must be greater than Original DiskSize " + diskReqInfo.DiskSize)
 	}
-
-	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
-	//arrDiskType := cloudOSMetaInfo.DiskType
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-
-	//if !ContainString(arrDiskType, diskReqInfo.DiskType) {
-	//	return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
-	//}
-
-	diskSizeValue := DiskSize{}
-	isExists := false
-	for idx, _ := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-		reqDiskType := diskReqInfo.DiskType
-		switch reqDiskType {
-		case "cloud_essd":
-			// cloud_essd 는 performanceLevel(PL0, PL1, PL2, PL3) 에 따라 또 다시 min/max가 생김.
-			// cb-spider는 performanceLevel을 관리하지 않으므로 기본값인 PL2 를 사용한다.
-			reqDiskType += "_PL2"
-		}
-
-		if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-			isExists = true
-		}
-	}
-
-	if !isExists {
-		return errors.New("Invalid Disk Type : " + diskReqInfo.DiskType)
-	}
-
-	if targetDiskSize < diskSizeValue.diskMinSize {
-		cblogger.Error("Disk Size Error!!: ", targetDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
-	}
-
-	if targetDiskSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", targetDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-	}
-
 	return nil
 }
 

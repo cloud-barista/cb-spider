@@ -219,12 +219,6 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 		if isPublicWindowsImage { // # Incase of Public Windows image
 			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
-			if !strings.EqualFold(vmReqInfo.RootDiskSize, "") && !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultWinRootDiskSize) && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultWinRootDiskSize2) {
-				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 50GB/100GB for Linux and 100GB/150GB for Windows OS.")
-				cblogger.Error(newErr.Error())
-				loggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
 
 			// In case the Root Volume Size is not specified.
 			reqDiskSize := vmReqInfo.RootDiskSize
@@ -244,12 +238,6 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			}
 		} else { // # Incase of Public Linux image
 			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
-			if !strings.EqualFold(vmReqInfo.RootDiskSize, "") && !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultDiskSize) && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultDiskSize2) {
-				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 50GB/100GB for Linux and 100GB/150GB for Windows OS.")
-				cblogger.Error(newErr.Error())
-				loggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
 
 			// In case the Root Volume Size is not specified.
 			reqDiskSize := vmReqInfo.RootDiskSize

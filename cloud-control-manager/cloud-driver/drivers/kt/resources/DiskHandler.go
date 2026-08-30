@@ -83,11 +83,6 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 		loggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
-	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 { // 10~2000(GB)
-		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000.")
-		cblogger.Error(newErr.Error())
-		return irs.DiskInfo{}, newErr
-	}
 
 	create0pts := volumes2.CreateOpts{
 		AvailabilityZone: diskHandler.RegionInfo.Zone,
