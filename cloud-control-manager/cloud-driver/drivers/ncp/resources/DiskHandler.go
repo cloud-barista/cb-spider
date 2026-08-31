@@ -64,6 +64,8 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 		reqDiskTypeKVM = "FB1"
 	} else if strings.EqualFold(reqDiskType, "HDD") {
 		reqDiskTypeKVM = "CB1"
+	} else {
+		reqDiskTypeKVM = reqDiskType
 	}
 
 	if strings.EqualFold(reqDiskSizeGbStr, "") || strings.EqualFold(reqDiskSizeGbStr, "default") {
@@ -178,11 +180,6 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 	}
 	reqDiskSizeInt := int32(i)
 
-	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 {   // Range : 10~2000(GB)
-		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000(GB).")
-		cblogger.Error(newErr.Error())
-		return irs.DiskInfo{}, newErr		
-	}
 
 	// For Zone-based control!!
 	var reqZoneId string

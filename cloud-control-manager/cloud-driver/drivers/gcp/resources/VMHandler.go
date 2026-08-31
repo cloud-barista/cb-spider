@@ -18,7 +18,6 @@ import (
 	_ "errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -374,52 +373,12 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// diskType = cloudOSMetaInfo.RootDiskType[0]
 			} else {
 				diskType = vmReqInfo.RootDiskType
-
-				// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
-				diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Do()
-				if err != nil {
-					cblogger.Error("Invalid Disk Type Error!!")
-					return irs.VMInfo{}, err
-				}
-
-				cblogger.Info("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
-
-				//valid disk size 정의
-				re := regexp.MustCompile("GB-?") //ex) 10GB-65536GB
-				diskSizeArr := re.Split(diskSizeResp.ValidDiskSize, -1)
-				diskMinSize, err := strconv.ParseInt(diskSizeArr[0], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-
-				diskMaxSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-
-				// diskUnit := "GB" // 기본 단위는 GB
-
-				if iDiskSize < diskMinSize {
-					cblogger.Error("Disk Size Error!!: ", iDiskSize)
-					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
-					return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskMinSize, 10) + " GB).")
-				}
-
-				if iDiskSize > diskMaxSize {
-					cblogger.Error("Disk Size Error!!: ", iDiskSize)
-					//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
-					return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskMaxSize, 10) + " GB).")
-				}
+				cblogger.Infof("Root disk type %s / size %dGB; validation is delegated to GCP.", diskType, iDiskSize)
 			}
 
 			//imageSize = imageResp.DiskSizeGb
 
-			if iDiskSize < imageSize {
-				cblogger.Error("Disk Size Error!!: ", iDiskSize)
-				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
-			}
+			cblogger.Infof("Requested root disk size %dGB (image %dGB); validation is delegated to GCP.", iDiskSize, imageSize)
 
 			instance.Disks[0].InitializeParams.DiskSizeGb = iDiskSize
 

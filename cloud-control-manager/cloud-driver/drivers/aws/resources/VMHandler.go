@@ -197,10 +197,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			}
 
 			// 요청된 사이즈는 볼륨 사이즈 보다는 크거나 같아야 함.
-			if iChkDiskSize < imageVolumeSize {
-				cblogger.Errorf("The root volume must be larger than %dGB.", imageVolumeSize)
-				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Root Disk Size must be at least the default size ("+strconv.FormatInt(imageVolumeSize, 10)+" GB).", nil)
-			}
+			cblogger.Infof("Requested root disk size %dGB (image default %dGB); size validation is delegated to AWS.", iChkDiskSize, imageVolumeSize)
 		}
 	}
 

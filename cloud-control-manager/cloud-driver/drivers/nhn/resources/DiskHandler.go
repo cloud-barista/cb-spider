@@ -112,11 +112,6 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 		LoggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
-	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 { // 10~2000(GB)
-		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000.")
-		cblogger.Error(newErr.Error())
-		return irs.DiskInfo{}, newErr
-	}
 
 	start := call.Start()
 	create0pts := volumes.CreateOpts{
@@ -253,11 +248,7 @@ func (diskHandler *NhnCloudDiskHandler) ChangeDiskSize(diskIID irs.IID, newDiskS
 		return false, newErr
 	}
 
-	if newDiskSizeInt < 10 || newDiskSizeInt > 2000 { // 10~2000(GB)
-		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000.")
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	} else if newDiskSizeInt <= curDiskSizeInt {
+	if newDiskSizeInt <= curDiskSizeInt {
 		newErr := fmt.Errorf("Invalid Disk Size. New Disk Size must be Greater than Current Disk Size.")
 		cblogger.Error(newErr.Error())
 		return false, newErr

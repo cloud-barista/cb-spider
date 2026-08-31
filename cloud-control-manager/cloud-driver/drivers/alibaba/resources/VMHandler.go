@@ -337,8 +337,9 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 		}
 
-		if found == false {
-			return irs.VMInfo{}, errors.New("The disktype you entered is not available for this instancetype.")
+		if !found {
+			cblogger.Warnf("RootDiskType [%s] is not in the zone's reported list %v; passing through.", vmReqInfo.RootDiskType, supportedDiskTypes)
+			useDiskType = vmReqInfo.RootDiskType
 		}
 
 		request.SystemDiskCategory = useDiskType

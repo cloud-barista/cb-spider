@@ -340,10 +340,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			imageSize := *imageInfo.ImageSize
 			cblogger.Info("image : ", imageSize)
 
-			if rootDiskSize < imageSize {
-				cblogger.Error("Disk Size Error!!: ", rootDiskSize, imageSize)
-				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
-			}
+			cblogger.Infof("Requested root disk size %dGB (image %dGB); validation is delegated to Tencent.", rootDiskSize, imageSize)
 
 			cblogger.Info("rootDiskSize : ", rootDiskSize)
 			cblogger.Info("rootDiskSize : ", common.Int64Ptr(rootDiskSize))
