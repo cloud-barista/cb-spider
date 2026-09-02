@@ -972,6 +972,15 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	if nodeGroupReqInfo.MaxNodeSize < 1 { // MaxNodeSize must be at least 1
 		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The MaxNodeSize value must be greater than or equal to 1.", nil)
 	}
+	// AWS EKS cannot create a managed node group with autoscaling disabled.
+	// Reject it explicitly rather than silently ignoring the requested value.
+	// https://github.com/cloud-barista/cb-spider/issues/1496
+	if !nodeGroupReqInfo.OnAutoScaling {
+		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST,
+			"OnAutoScaling=false is not supported in AWS EKS. "+
+				"A managed node group is always backed by an Auto Scaling group. "+
+				"Please set OnAutoScaling=true and use Min/Max/Desired node size to control the node count.", nil)
+	}
 
 	// get or create Role Arn
 	eksRoleName := "cloud-barista-eks-nodegroup-role"
@@ -1366,10 +1375,29 @@ func (ClusterHandler *AwsClusterHandler) GetAutoScalingGroups(autoScalingGroupNa
 }
 
 /*
-There is a separate menu for AutoScaling.
+AWS EKS has no API to enable/disable autoscaling for a managed node group:
+a managed node group is always backed by an Auto Scaling group, and
+NodegroupScalingConfig carries only desiredSize/minSize/maxSize.
+
+Therefore an "on" request is a no-op success, and an "off" request is rejected
+with an explicit error so that the caller is made aware of the AWS behavior
+instead of receiving a silent (false, nil).
+https://github.com/cloud-barista/cb-spider/issues/1496
 */
 func (ClusterHandler *AwsClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
-	return false, nil
+	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s] / OnAutoScaling : [%t]", clusterIID.SystemId, nodeGroupIID.SystemId, on)
+
+	if !on {
+		err := awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST,
+			"Disabling autoscaling is not supported in AWS EKS. "+
+				"A managed node group is always backed by an Auto Scaling group. "+
+				"Please use the ChangeNodeGroupScaling API to adjust Min/Max/Desired node size instead.", nil)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	// Already on; nothing to change.
+	return true, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID,
@@ -2055,6 +2083,15 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	nodeGroupInfo.DesiredNodeSize = int(*scalingConfig.DesiredSize)
 	nodeGroupInfo.MinNodeSize = int(*scalingConfig.MinSize)
 	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
+
+	// AWS EKS: a managed node group is always backed by an Auto Scaling group.
+	// EKS exposes no API to toggle autoscaling on/off -- NodegroupScalingConfig
+	// carries only desiredSize/minSize/maxSize -- so this is always reported as true.
+	// https://github.com/cloud-barista/cb-spider/issues/1496
+	//
+	// Note: "true" means the node group is ASG-backed and scalable within Min/Max,
+	// not that a Cluster Autoscaler is currently running in the cluster.
+	nodeGroupInfo.OnAutoScaling = true
 
 	if nodeGroupTagList == nil {
 		nodeGroupTagList = make(map[string]*string)     // initialize after nil check
