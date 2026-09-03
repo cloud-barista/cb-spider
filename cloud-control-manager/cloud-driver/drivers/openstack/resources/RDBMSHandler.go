@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -708,8 +709,15 @@ func grantAdminPrivileges(endpoint, port, rootPassword, userName string) error {
 	if port == "" || port == "NA" {
 		port = "3306"
 	}
-	// DSN: root:<pass>@tcp(<host>:<port>)/?timeout=10s
-	dsn := fmt.Sprintf("root:%s@tcp(%s:%s)/?timeout=10s", rootPassword, endpoint, port)
+	// endpoint may already be a "host:port" pair (e.g. as returned by
+	// convertInstanceToRDBMSInfo), so avoid blindly re-appending port, which
+	// would produce an invalid address like "host:3306:3306".
+	address := net.JoinHostPort(endpoint, port)
+	if host, existingPort, err := net.SplitHostPort(endpoint); err == nil {
+		address = net.JoinHostPort(host, existingPort)
+	}
+	// DSN: root:<pass>@tcp(<address>)/?timeout=10s
+	dsn := fmt.Sprintf("root:%s@tcp(%s)/?timeout=10s", rootPassword, address)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return fmt.Errorf("grantAdminPrivileges: sql.Open failed: %w", err)
