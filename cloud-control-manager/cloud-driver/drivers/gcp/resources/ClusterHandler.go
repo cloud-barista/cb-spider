@@ -1680,7 +1680,7 @@ func (ClusterHandler *GCPClusterHandler) hasActiveOperations(projectID, zone, cl
 
 // GenerateClusterToken generates a token for cluster authentication
 // GCP uses OAuth2 access token for GKE cluster access
-func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
 	cblogger.Info("call GenerateClusterToken()")
 
 	// Create JWT config from credential info
@@ -1693,7 +1693,7 @@ func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID
 	res, err := json.Marshal(data)
 	if err != nil {
 		cblogger.Errorf("Failed to marshal credential data: %v", err)
-		return "", fmt.Errorf("failed to marshal credential data: %w", err)
+		return irs.ClusterToken{}, fmt.Errorf("failed to marshal credential data: %w", err)
 	}
 
 	// Use cloud-platform scope for GKE access
@@ -1701,7 +1701,7 @@ func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
 	if err != nil {
 		cblogger.Errorf("Failed to create JWT config: %v", err)
-		return "", fmt.Errorf("failed to create JWT config: %w", err)
+		return irs.ClusterToken{}, fmt.Errorf("failed to create JWT config: %w", err)
 	}
 
 	// Get token using the JWT config
@@ -1709,10 +1709,11 @@ func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID
 	token, err := tokenSource.Token()
 	if err != nil {
 		cblogger.Errorf("Failed to get access token: %v", err)
-		return "", fmt.Errorf("failed to get access token: %w", err)
+		return irs.ClusterToken{}, fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	return token.AccessToken, nil
+	// oauth2.Token already carries the server-provided expiry; do not discard it.
+	return irs.ClusterToken{Token: token.AccessToken, ExpiresAt: token.Expiry}, nil
 }
 
 func (ClusterHandler *GCPClusterHandler) createK8sClientFromKubeconfig(kubeconfigContent string) (*kubernetes.Clientset, error) {
@@ -1721,11 +1722,11 @@ func (ClusterHandler *GCPClusterHandler) createK8sClientFromKubeconfig(kubeconfi
 		return nil, fmt.Errorf("failed to create REST config from kubeconfig: %w", err)
 	}
 
-	token, err := ClusterHandler.GenerateClusterToken(irs.IID{})
+	clusterToken, err := ClusterHandler.GenerateClusterToken(irs.IID{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate cluster token: %w", err)
 	}
-	config.BearerToken = token
+	config.BearerToken = clusterToken.Token
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
