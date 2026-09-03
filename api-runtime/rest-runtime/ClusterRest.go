@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"strconv"
+	"time"
 )
 
 //================ Cluster Handler
@@ -755,8 +756,15 @@ type ClusterTokenResponse struct {
 	Status     ClusterTokenStatus `json:"status"`
 }
 
+// ClusterTokenStatus mirrors the Kubernetes ExecCredentialStatus
+// (client.authentication.k8s.io/v1).
 type ClusterTokenStatus struct {
 	Token string `json:"token" example:"k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA..."`
+
+	// ExpirationTimestamp is when the token stops being accepted, in RFC3339.
+	// It is omitted when the CSP provides no expiry information, which the spec allows:
+	// clients then keep the credential until a 401 forces a refresh.
+	ExpirationTimestamp *string `json:"expirationTimestamp,omitempty" example:"2026-09-02T05:15:00Z"`
 }
 
 // getClusterToken godoc
@@ -788,7 +796,7 @@ func GetClusterToken(c echo.Context) error {
 	}
 
 	// Get cluster info first to validate cluster exists and get token
-	token, err := cmrt.GenerateClusterToken(connectionName, clusterName)
+	clusterToken, err := cmrt.GenerateClusterToken(connectionName, clusterName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -798,9 +806,22 @@ func GetClusterToken(c echo.Context) error {
 		ApiVersion: "client.authentication.k8s.io/v1",
 		Kind:       "ExecCredential",
 		Status: ClusterTokenStatus{
-			Token: token,
+			Token:               clusterToken.Token,
+			ExpirationTimestamp: rfc3339OrNil(clusterToken.ExpiresAt),
 		},
 	}
 
 	return c.JSON(http.StatusOK, response)
+}
+
+// rfc3339OrNil renders a token expiry for the ExecCredential response, or nil when it is
+// unknown. A zero time means the driver could not determine the expiry; emitting it as a
+// timestamp would tell clients the credential is long expired, so the field is omitted
+// instead -- expirationTimestamp is optional in the spec.
+func rfc3339OrNil(t time.Time) *string {
+	if t.IsZero() {
+		return nil
+	}
+	s := t.UTC().Format(time.RFC3339)
+	return &s
 }

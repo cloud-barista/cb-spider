@@ -760,7 +760,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 // GenerateClusterToken generates a bearer token string for cluster authentication.
 // Returns an NCP IAM HMAC token (k8s-ncp-v1.xxx) — NOT a full kubeconfig YAML.
 // This token is used by the REST API's ExecCredential response (ClusterTokenResponse.Status.Token).
-func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
@@ -783,7 +783,7 @@ func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (stri
 	clusterList, err := ncpClustersGet(nvch.ClusterClient, nvch.Ctx)
 	if err != nil {
 		tokenErr = fmt.Errorf("failed to get cluster list: %w", err)
-		return "", tokenErr
+		return irs.ClusterToken{}, tokenErr
 	}
 
 	var targetCluster *vnks.Cluster
@@ -796,20 +796,22 @@ func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (stri
 	}
 	if targetCluster == nil || targetCluster.Uuid == nil {
 		tokenErr = fmt.Errorf("cluster not found or UUID is missing")
-		return "", tokenErr
+		return irs.ClusterToken{}, tokenErr
 	}
 
 	ncpRegion := nvch.normalizeRegionCode(nvch.RegionInfo.Region)
 	clusterUUID := ncloud.StringValue(targetCluster.Uuid)
 
+	// Capture the issue time before signing: the validity window is measured from it.
+	issuedAt := time.Now()
 	token, err := generateNCPIAMToken(nvch.CredentialInfo.ClientId, nvch.CredentialInfo.ClientSecret, clusterUUID, ncpRegion)
 	if err != nil {
 		tokenErr = fmt.Errorf("failed to generate NCP IAM token: %w", err)
-		return "", tokenErr
+		return irs.ClusterToken{}, tokenErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
-	return token, nil
+	return irs.ClusterToken{Token: token, ExpiresAt: issuedAt.Add(ncpTokenValidity)}, nil
 }
 
 // getKubeConfig retrieves kubeconfig with exec-based dynamic token authentication
@@ -2483,6 +2485,14 @@ type ncpTokenClaim struct {
 	Signature string `json:"signature"`
 	Path      string `json:"path"`
 }
+
+// ncpTokenValidity is how long an NCP IAM token stays acceptable.
+//
+// NCP returns no expiry: the token is signed locally (HMAC-SHA256) with no API call, and
+// the claim carries only the issue timestamp. This mirrors the constant used by the
+// official ncp-iam-authenticator, so it must be revisited if NCP changes that window.
+// Ref: https://github.com/NaverCloudPlatform/ncp-iam-authenticator (pkg/token: tokenValidity)
+const ncpTokenValidity = 240 * time.Second
 
 // generateNCPIAMToken generates a presigned NCP IAM token for Kubernetes authentication
 // This token is used by Kubernetes API server to authenticate kubectl requests

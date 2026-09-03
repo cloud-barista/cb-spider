@@ -551,8 +551,8 @@ func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, er
 
 // GenerateClusterToken generates a token for cluster authentication
 // IBM does not support dynamic token generation yet
-func (ic *IbmClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
-	return "", fmt.Errorf("GenerateClusterToken is not supported for IBM clusters yet")
+func (ic *IbmClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
+	return irs.ClusterToken{}, fmt.Errorf("GenerateClusterToken is not supported for IBM clusters yet")
 }
 
 func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {

@@ -175,8 +175,8 @@ func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs
 
 // GenerateClusterToken generates a token for cluster authentication
 // Tencent Cloud does not support dynamic token generation yet
-func (clusterHandler *TencentClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
-	return "", fmt.Errorf("GenerateClusterToken is not supported for Tencent Cloud clusters yet")
+func (clusterHandler *TencentClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
+	return irs.ClusterToken{}, fmt.Errorf("GenerateClusterToken is not supported for Tencent Cloud clusters yet")
 }
 
 func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {

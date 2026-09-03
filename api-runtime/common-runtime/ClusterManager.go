@@ -1203,36 +1203,36 @@ func GetCluster(connectionName string, rsType string, clusterName string, kubeco
 // Generate Token for Cluster Authentication
 // (1) get IID(NameId)
 // (2) generate token using driver
-func GenerateClusterToken(connectionName string, clusterName string) (string, error) {
+func GenerateClusterToken(connectionName string, clusterName string) (cres.ClusterToken, error) {
 	cblog.Info("call GenerateClusterToken()")
 
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
-		return "", err
+		return cres.ClusterToken{}, err
 	}
 
 	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
-		return "", err
+		return cres.ClusterToken{}, err
 	}
 
 	clusterName, err = EmptyCheckAndTrim("clusterName", clusterName)
 	if err != nil {
 		cblog.Error(err)
-		return "", err
+		return cres.ClusterToken{}, err
 	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
-		return "", err
+		return cres.ClusterToken{}, err
 	}
 
 	handler, err := cldConn.CreateClusterHandler()
 	if err != nil {
 		cblog.Error(err)
-		return "", err
+		return cres.ClusterToken{}, err
 	}
 
 	clusterSPLock.RLock(connectionName, clusterName)
@@ -1244,13 +1244,13 @@ func GenerateClusterToken(connectionName string, clusterName string) (string, er
 		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
-			return "", err
+			return cres.ClusterToken{}, err
 		}
 	} else {
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
 			cblog.Error(err)
-			return "", err
+			return cres.ClusterToken{}, err
 		}
 	}
 	var iidInfo *ClusterIIDInfo
@@ -1265,14 +1265,14 @@ func GenerateClusterToken(connectionName string, clusterName string) (string, er
 	if bool_ret == false {
 		err := fmt.Errorf("%s '%s' does not exist in connection '%s'", RSTypeString(CLUSTER), clusterName, connectionName)
 		cblog.Error(err)
-		return "", err
+		return cres.ClusterToken{}, err
 	}
 
 	// (2) generate token using driver
 	token, err := handler.GenerateClusterToken(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
 	if err != nil {
 		cblog.Error(err)
-		return "", err
+		return cres.ClusterToken{}, err
 	}
 
 	return token, nil

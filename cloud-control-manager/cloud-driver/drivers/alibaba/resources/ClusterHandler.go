@@ -289,8 +289,8 @@ func (ach *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 
 // GenerateClusterToken generates a token for cluster authentication
 // Alibaba Cloud does not support dynamic token generation yet
-func (ach *AlibabaClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
-	return "", fmt.Errorf("GenerateClusterToken is not supported for Alibaba Cloud clusters yet")
+func (ach *AlibabaClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
+	return irs.ClusterToken{}, fmt.Errorf("GenerateClusterToken is not supported for Alibaba Cloud clusters yet")
 }
 
 func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
