@@ -86,7 +86,8 @@ func (h *NcpVpcPublicIPHandler) CreatePublicIP(reqInfo irs.PublicIPInfo) (irs.Pu
 // waitForPublicIPStable polls until the given Public IP (a) leaves the async
 // INIT/CREAT state NCP puts it in right after creation or after being
 // auto-assigned at VM-creation time, AND (b) has no in-flight
-// PublicIpInstanceOperation ("공인IP인스턴스OP") - e.g. a just-completed
+// PublicIpInstanceOperation ("Public IP instance operation", per the NCP SDK
+// field doc) - e.g. a just-completed
 // Associate/Disassociate is still being applied. Any operation against the
 // IP while either condition holds (Disassociate, Delete, ...) fails with NCP
 // error 1080101 ("This is not an authorized IP in operation") - the
