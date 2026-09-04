@@ -254,5 +254,3 @@ Failed : 0
 - **AWS, GCP만 Resume 후 PublicIP가 바뀜(`CHANGED`)** — 나머지 8개 CSP(Azure/Alibaba/Tencent/IBM/OpenStack/NCP/NHN/KT)는 전부 `SAME`(동일 IP 유지).
 - Alibaba는 Suspend 중 조회된 PublicIP가 `(none)`이었으나 Resume 후 Initial과 동일 IP로 복귀 — 최종 비교는 `SAME`.
 - VM Delete, 기본 리소스(KeyPair/SG/VPC) Cleanup도 10개 CSP 전부 정상 완료.
-
-전체 CSP 상세 표 및 문서 조사와의 비교는 [`vm-default-publicip-analysis.md`](../../vm-default-publicip-analysis.md)의 "실제 시험 결과 (2026-08-20)" 섹션 참고.

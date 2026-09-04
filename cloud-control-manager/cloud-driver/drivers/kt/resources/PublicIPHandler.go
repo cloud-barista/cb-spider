@@ -19,7 +19,6 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	ips "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/floatingips"
-	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/ports"
 	portforward "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/layer3/portforwarding"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/layer3/staticnat"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/pagination"
@@ -337,9 +336,23 @@ func (h *KTVpcPublicIPHandler) AssociatePublicIP(publicIPIID irs.IID, vmIID irs.
 // with a timeout - the goroutine is abandoned (not cancelled) if it fires,
 // trading a leaked goroutine on the rare hang for a request that still
 // returns an error instead of hanging.
-func (h *KTVpcPublicIPHandler) resolveSecurityContext(vmIID irs.IID, nicIID irs.IID) (tierNetworkId string, sgSystemIDs []string, err error) {
+// resolveVMInfo fetches the VM's full VMInfo via GetVM() - the shared
+// lookup behind resolveSecurityContext (Tier/SecurityGroup info) and
+// resolveVMPrivateIP (PrivateIP). KT Cloud VPC does not really run on
+// Neutron - the openstack-shaped `ports` API (ports.Get/ports.List) is a
+// thin compatibility shim that has been observed to return persistent
+// Internal Server Errors, so it must not be used for any of this; GetVM()
+// is the only reliable source.
+//
+// GetVM() itself pulls in some unrelated lookups (image/disk info) and one
+// of those has been observed to hang indefinitely on a slow/misbehaving KT
+// API response. To avoid blocking this request forever, the call is bounded
+// with a timeout - the goroutine is abandoned (not cancelled) if it fires,
+// trading a leaked goroutine on the rare hang for a request that still
+// returns an error instead of hanging.
+func (h *KTVpcPublicIPHandler) resolveVMInfo(vmIID irs.IID) (irs.VMInfo, error) {
 	if vmIID.SystemId == "" && vmIID.NameId == "" {
-		return "", nil, fmt.Errorf("resolveSecurityContext: vmIID is required to resolve Tier/SecurityGroup info via GetVM()")
+		return irs.VMInfo{}, fmt.Errorf("vmIID is required to resolve VM info via GetVM()")
 	}
 
 	// GetVM() (via mappingVMInfo) uses ImageClient/VolumeClient too (e.g. for
@@ -375,15 +388,21 @@ func (h *KTVpcPublicIPHandler) resolveSecurityContext(vmIID irs.IID, nicIID irs.
 		resultCh <- getVMResult{vmInfo, getErr}
 	}()
 
-	var vmInfo irs.VMInfo
 	select {
 	case r := <-resultCh:
 		if r.err != nil {
-			return "", nil, fmt.Errorf("resolveSecurityContext: GetVM failed for VM [%s]: %w", vmIID.NameId, r.err)
+			return irs.VMInfo{}, fmt.Errorf("GetVM failed for VM [%s]: %w", vmIID.NameId, r.err)
 		}
-		vmInfo = r.vmInfo
+		return r.vmInfo, nil
 	case <-time.After(90 * time.Second):
-		return "", nil, fmt.Errorf("resolveSecurityContext: GetVM timed out after 90s for VM [%s]", vmIID.NameId)
+		return irs.VMInfo{}, fmt.Errorf("GetVM timed out after 90s for VM [%s]", vmIID.NameId)
+	}
+}
+
+func (h *KTVpcPublicIPHandler) resolveSecurityContext(vmIID irs.IID, nicIID irs.IID) (tierNetworkId string, sgSystemIDs []string, err error) {
+	vmInfo, vmErr := h.resolveVMInfo(vmIID)
+	if vmErr != nil {
+		return "", nil, fmt.Errorf("resolveSecurityContext: %w", vmErr)
 	}
 
 	if vmInfo.SubnetIID.SystemId == "" {
@@ -492,26 +511,18 @@ func (h *KTVpcPublicIPHandler) removeStaticNATIfAny(publicIPSystemId string) {
 	}
 }
 
-// resolveVMPrivateIP finds the first private IP of a VM via its ports.
+// resolveVMPrivateIP finds a VM's private IP via GetVM() (see resolveVMInfo -
+// the openstack-shaped `ports` API is deliberately not used here, it has
+// been observed to return persistent Internal Server Errors on KT Cloud VPC).
 func (h *KTVpcPublicIPHandler) resolveVMPrivateIP(vmIID irs.IID) (string, error) {
-	deviceID := vmIID.SystemId
-	if deviceID == "" {
-		deviceID = vmIID.NameId
-	}
-	allPages, err := ports.List(h.NetworkClient, ports.ListOpts{DeviceID: deviceID}).AllPages()
+	vmInfo, err := h.resolveVMInfo(vmIID)
 	if err != nil {
-		return "", fmt.Errorf("failed to list ports for VM [%s]: %w", deviceID, err)
+		return "", fmt.Errorf("resolveVMPrivateIP: %w", err)
 	}
-	portList, err := ports.ExtractPorts(allPages)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract ports for VM [%s]: %w", deviceID, err)
+	if vmInfo.PrivateIP == "" {
+		return "", fmt.Errorf("no private IP found for VM [%s]", vmIID.NameId)
 	}
-	for _, p := range portList {
-		if len(p.FixedIPs) > 0 && p.FixedIPs[0].IPAddress != "" {
-			return p.FixedIPs[0].IPAddress, nil
-		}
-	}
-	return "", fmt.Errorf("no private IP found for VM [%s]", deviceID)
+	return vmInfo.PrivateIP, nil
 }
 
 // RemoveDefaultPublicIP removes whatever PublicIP is currently bound to the

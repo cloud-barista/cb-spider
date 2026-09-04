@@ -17629,6 +17629,11 @@ const docTemplate = `{
         "spider.ClusterTokenStatus": {
             "type": "object",
             "properties": {
+                "expirationTimestamp": {
+                    "description": "ExpirationTimestamp is when the token stops being accepted, in RFC3339.\nIt is omitted when the CSP provides no expiry information, which the spec allows:\nclients then keep the credential until a 401 forces a refresh.",
+                    "type": "string",
+                    "example": "2026-09-02T05:15:00Z"
+                },
                 "token": {
                     "type": "string",
                     "example": "k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA..."

@@ -373,10 +373,20 @@ func (h *AwsPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) 
 		return false, err
 	}
 
+	// CB-Spider fills an unset StsToken with the literal string "Not set"
+	// (see KeyValueListGetValue in CloudDriverHandler_common.go), not "" - the
+	// same normalization AwsDriver.go already applies before building the v1
+	// session. Skipping it here would sign the request with the literal
+	// string "Not set" as the STS session token, which AWS rejects with
+	// AuthFailure even though ClientId/ClientSecret are valid.
+	stsToken := h.CredentialInfo.StsToken
+	if stsToken == "Not set" {
+		stsToken = ""
+	}
 	v2Client := ec2v2.New(ec2v2.Options{
 		Region: h.Region.Region,
 		Credentials: credentialsv2.NewStaticCredentialsProvider(
-			h.CredentialInfo.ClientId, h.CredentialInfo.ClientSecret, h.CredentialInfo.StsToken),
+			h.CredentialInfo.ClientId, h.CredentialInfo.ClientSecret, stsToken),
 	})
 	_, err = v2Client.ModifyNetworkInterfaceAttribute(context.TODO(), &ec2v2.ModifyNetworkInterfaceAttributeInput{
 		NetworkInterfaceId:       awsv2.String(primaryENIId),
