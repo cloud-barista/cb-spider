@@ -110,7 +110,30 @@ func AssignVMDefaultPublicIP(connectionName string, vmName string) (*cres.Public
 		return nil, err
 	}
 
+	waitUntilVMPublicIPVisible(connectionName, vmName)
+
 	return info, nil
+}
+
+// waitUntilVMPublicIPVisible polls GetVM until the VM's PublicIP is visible
+// or a short timeout elapses. Some CSPs (observed on NHN Cloud) report the
+// Associate call itself as successful before the association is visible
+// through a VM lookup - callers that immediately GetVM right after
+// AssignVMDefaultPublicIP returns would otherwise see an empty PublicIP
+// despite the assign having actually succeeded. Best-effort: a timeout is
+// silently ignored, since AssociatePublicIP already succeeded and the
+// caller has the authoritative PublicIPInfo regardless.
+func waitUntilVMPublicIPVisible(connectionName string, vmName string) {
+	waiter := NewWaiter(2, 30)
+	for {
+		vmInfo, err := GetVM(connectionName, VM, vmName)
+		if err == nil && vmInfo.PublicIP != "" {
+			return
+		}
+		if !waiter.Wait() {
+			return
+		}
+	}
 }
 
 // UnassignVMDefaultPublicIP disassociates and DELETES the PublicIP currently

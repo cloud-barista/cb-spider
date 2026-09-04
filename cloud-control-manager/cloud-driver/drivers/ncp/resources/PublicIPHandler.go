@@ -76,28 +76,45 @@ func (h *NcpVpcPublicIPHandler) CreatePublicIP(reqInfo irs.PublicIPInfo) (irs.Pu
 	created := resp.PublicIpInstanceList[0]
 	systemId := ncloud.StringValue(created.PublicIpInstanceNo)
 
-	// NCP is async: poll until the IP reaches a stable operation state before returning.
-	// Attempting DeletePublicIpInstance while the IP is still initializing returns error 1080101.
+	h.waitForPublicIPStable(systemId)
+
+	info := h.extractPublicIPInfo(created)
+	info.IId.NameId = reqInfo.IId.NameId
+	return info, nil
+}
+
+// waitForPublicIPStable polls until the given Public IP (a) leaves the async
+// INIT/CREAT state NCP puts it in right after creation or after being
+// auto-assigned at VM-creation time, AND (b) has no in-flight
+// PublicIpInstanceOperation ("Public IP instance operation", per the NCP SDK
+// field doc) - e.g. a just-completed
+// Associate/Disassociate is still being applied. Any operation against the
+// IP while either condition holds (Disassociate, Delete, ...) fails with NCP
+// error 1080101 ("This is not an authorized IP in operation") - the
+// "operation" in that message is this very field, not a caller-IP ACL.
+// Best-effort - a poll error or timeout is silently ignored and the caller
+// proceeds anyway, same as CreatePublicIP already did before this was
+// extracted into a shared helper.
+func (h *NcpVpcPublicIPHandler) waitForPublicIPStable(systemId string) {
 	for i := 0; i < 30; i++ {
 		pollResp, pollErr := h.VMClient.V2Api.GetPublicIpInstanceList(&vserver.GetPublicIpInstanceListRequest{
 			RegionCode:             ncloud.String(h.RegionInfo.Region),
 			PublicIpInstanceNoList: []*string{ncloud.String(systemId)},
 		})
 		if pollErr == nil && len(pollResp.PublicIpInstanceList) > 0 {
+			pip := pollResp.PublicIpInstanceList[0]
 			statusCode := ""
-			if pollResp.PublicIpInstanceList[0].PublicIpInstanceStatus != nil {
-				statusCode = ncloud.StringValue(pollResp.PublicIpInstanceList[0].PublicIpInstanceStatus.Code)
+			if pip.PublicIpInstanceStatus != nil {
+				statusCode = ncloud.StringValue(pip.PublicIpInstanceStatus.Code)
 			}
-			if statusCode != "" && statusCode != "INIT" && statusCode != "CREAT" {
-				break
+			statusStable := statusCode != "" && statusCode != "INIT" && statusCode != "CREAT"
+			opClear := pip.PublicIpInstanceOperation == nil || ncloud.StringValue(pip.PublicIpInstanceOperation.Code) == ""
+			if statusStable && opClear {
+				return
 			}
 		}
 		time.Sleep(2 * time.Second)
 	}
-
-	info := h.extractPublicIPInfo(created)
-	info.IId.NameId = reqInfo.IId.NameId
-	return info, nil
 }
 
 func (h *NcpVpcPublicIPHandler) ListPublicIP() ([]*irs.PublicIPInfo, error) {
@@ -307,17 +324,34 @@ func (h *NcpVpcPublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool,
 
 // RemoveDefaultPublicIP removes whatever Public IP Instance is currently
 // associated with the VM, discovered live via GetPublicIpInstanceList
-// filtered by ServerName (regardless of whether it was ever tracked as a
-// separate CB-Spider PublicIP resource) - then disassociates and deletes it
-// via the existing DisassociatePublicIP/DeletePublicIP methods. Works on a
-// running VM - no stop/restart required.
+// (regardless of whether it was ever tracked as a separate CB-Spider
+// PublicIP resource) - then disassociates and deletes it via the existing
+// DisassociatePublicIP/DeletePublicIP methods. Works on a running VM - no
+// stop/restart required.
+//
+// vmIID here is a driver-level IID rebuilt by getDriverIID() from the VM's
+// stored SystemId, so vmIID.NameId is NOT the VM's real server name (it is
+// derived from SystemId, see api-runtime/common-runtime/CommonManager.go).
+// Matching by ServerName would therefore filter on a bogus value, so the
+// association is resolved by ServerInstanceNo instead, same as
+// AssociatePublicIP/DisassociatePublicIP above.
 func (h *NcpVpcPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(h.RegionInfo.Zone, call.PUBLICIP, vmIID.NameId, "RemoveDefaultPublicIP()")
 	start := call.Start()
 
+	serverInstanceNo := vmIID.SystemId
+	if serverInstanceNo == "" {
+		serverInstanceNo = vmIID.NameId
+	}
+	if serverInstanceNo == "" {
+		err := fmt.Errorf("RemoveDefaultPublicIP: vmIID (SystemId or NameId) is required for NCP")
+		cblogger.Error(err)
+		return false, err
+	}
+
 	req := &vserver.GetPublicIpInstanceListRequest{
-		RegionCode: ncloud.String(h.RegionInfo.Region),
-		ServerName: ncloud.String(vmIID.NameId),
+		RegionCode:   ncloud.String(h.RegionInfo.Region),
+		IsAssociated: ncloud.Bool(true),
 	}
 	resp, err := h.VMClient.V2Api.GetPublicIpInstanceList(req)
 	if err != nil {
@@ -325,19 +359,41 @@ func (h *NcpVpcPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, erro
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
-	if len(resp.PublicIpInstanceList) == 0 {
+
+	var attached []*vserver.PublicIpInstance
+	for _, pip := range resp.PublicIpInstanceList {
+		if ncloud.StringValue(pip.ServerInstanceNo) == serverInstanceNo {
+			attached = append(attached, pip)
+		}
+	}
+	if len(attached) == 0 {
 		err := fmt.Errorf("no PublicIP found attached to VM %s", vmIID.NameId)
 		cblogger.Error(err)
 		return false, err
 	}
 
-	for _, pip := range resp.PublicIpInstanceList {
-		pipIID := irs.IID{SystemId: ncloud.StringValue(pip.PublicIpInstanceNo)}
+	for _, pip := range attached {
+		systemId := ncloud.StringValue(pip.PublicIpInstanceNo)
+		// A PublicIP auto-assigned at VM-creation time (AssociateWithPublicIp)
+		// is commonly still mid-async-setup (INIT/CREAT) by the time a caller
+		// can react to the VM going Running - see waitForPublicIPStable.
+		h.waitForPublicIPStable(systemId)
+
+		pipIID := irs.IID{SystemId: systemId}
 		if _, err := h.DisassociatePublicIP(pipIID); err != nil {
 			cblogger.Error(err)
 			LoggingError(hiscallInfo, err)
 			return false, err
 		}
+
+		// Disassociating triggers its own async state transition, so the IP
+		// can be back in a non-stable operation state by the time Delete
+		// runs - wait again rather than assuming the earlier wait still
+		// covers it (this is the exact case CreatePublicIP's comment above
+		// documents: "Attempting DeletePublicIpInstance while the IP is
+		// still initializing returns error 1080101").
+		h.waitForPublicIPStable(systemId)
+
 		if _, err := h.DeletePublicIP(pipIID); err != nil {
 			cblogger.Error(err)
 			LoggingError(hiscallInfo, err)
