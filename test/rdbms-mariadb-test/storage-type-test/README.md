@@ -1,6 +1,6 @@
 # CB-Spider RDBMS StorageType Test (MariaDB)
 
-MariaDB를 지원하는 각 CSP(AWS, Alibaba, OpenStack, NHN)의 StorageType별로 RDBMS 인스턴스를 생성·검증하는 병렬 테스트 스위트입니다. 각 CSP의 `rdbmsmetainfo` API에서 지원 StorageType 목록을 동적으로 조회한 뒤, 옵션별로 인스턴스를 병렬 생성하고 반환된 StorageType이 요청과 일치하는지 검증합니다.
+A parallel test suite that creates and validates an RDBMS instance for each StorageType supported by each MariaDB-capable CSP (AWS, Alibaba, OpenStack, NHN). It dynamically fetches the list of supported StorageTypes from each CSP's `rdbmsmetainfo` API, creates one instance per option in parallel, and verifies that the returned StorageType matches what was requested.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ cd ./bin; ./start.sh
 
 ### Pre-created Network Resources
 
-RDBMS 생성 전에 각 CSP에 VPC/Subnet(및 AWS의 Security Group)이 미리 생성되어 있어야 합니다.
+Each CSP must already have a VPC/Subnet (and, for AWS, a Security Group) created before an RDBMS instance can be created.
 
 ```bash
 cd ..
@@ -27,22 +27,22 @@ cd ..
 
 ## Test Flow
 
-각 CSP에 대해 다음 순서로 StorageType별 검증을 수행합니다:
+For each CSP, StorageType validation proceeds in this order:
 
-1. **FetchStorageTypeOptions** — `GET /spider/rdbmsmetainfo?DBEngine=mariadb&ConnectionName=...` — 지원하는 StorageType 목록을 동적으로 조회
-2. **CreateRDBMS** (StorageType별 병렬) — `POST /spider/rdbms` — 옵션별로 `cb-mariadb-st-<type>` 인스턴스 생성
-3. **Poll Available** — `GET /spider/rdbms/{Name}` — Available 상태가 될 때까지 폴링 (기본 30초 간격, 최대 3600초)
-4. **VerifyStorageType** — 반환된 StorageType이 요청과 일치하는지 확인 (`Result` 필드에 `PASS`/`FAIL` 기록)
-5. **(옵션) AutoDelete** — `AUTO_DELETE=true`이면 검증 직후 인스턴스 자동 삭제. 기본값(`false`)에서는 `delete-all-csp-storage-type-rdbms.sh`로 별도 정리
+1. **FetchStorageTypeOptions** — `GET /spider/rdbmsmetainfo?DBEngine=mariadb&ConnectionName=...` — dynamically retrieves the list of supported StorageTypes
+2. **CreateRDBMS** (in parallel, per StorageType) — `POST /spider/rdbms` — creates a `cb-mariadb-st-<type>` instance for each option
+3. **Poll Available** — `GET /spider/rdbms/{Name}` — polls until the instance becomes Available (every 30s by default, up to 3600s)
+4. **VerifyStorageType** — confirms the returned StorageType matches what was requested (recorded as `PASS`/`FAIL` in the `Result` field)
+5. **(Optional) AutoDelete** — if `AUTO_DELETE=true`, the instance is deleted immediately after verification. With the default (`false`), clean up separately with `delete-all-csp-storage-type-rdbms.sh`
 
-### StorageType 선택 가능 여부
+### StorageType Selection Support
 
-| CSP | SupportsStorageTypeSelection | 비고 |
+| CSP | SupportsStorageTypeSelection | Notes |
 |-----|------------------------------|------|
-| AWS | ✅ | gp2, gp3, io1, io2 |
-| Alibaba | ✅ | cloud_essd, cloud_essd2, cloud_essd3 |
-| OpenStack | ✅ | `__DEFAULT__`, `RBD` (MariaDB Trove datastore 구축 필요) |
-| NHN | ✅ | General HDD, General SSD |
+| AWS | Yes | gp2, gp3, io1, io2 |
+| Alibaba | Yes | cloud_essd, cloud_essd2, cloud_essd3 |
+| OpenStack | Yes | `__DEFAULT__`, `RBD` (requires a MariaDB Trove datastore to be configured) |
+| NHN | Yes | General HDD, General SSD |
 
 ## Configuration
 
@@ -59,8 +59,8 @@ export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
 ./run-all-csp-storage-type-tests.sh
 ```
 
-- MariaDB 지원 4개 CSP(AWS/Alibaba/OpenStack/NHN)에 대해 병렬로 StorageType별 검증 실행
-- 완료 후 통합 결과 테이블 및 PASS/FAIL/SKIP 집계 출력
+- Runs StorageType validation in parallel against the 4 CSPs that support MariaDB (AWS/Alibaba/OpenStack/NHN)
+- Prints a unified result table and PASS/FAIL/SKIP summary when complete
 
 **Example output:**
 ```
@@ -80,7 +80,7 @@ Total: 4  PASS: 3  FAIL: 1  SKIP: 0
 
 ### Individual CSP
 
-특정 CSP만 단독 실행:
+To run a single CSP on its own:
 
 ```bash
 ./aws-storage-type-test.sh
@@ -89,7 +89,7 @@ Total: 4  PASS: 3  FAIL: 1  SKIP: 0
 ./nhn-storage-type-test.sh
 ```
 
-단독 실행 시 결과/로그 디렉토리는 `RESULT_DIR` / `LOG_DIR` 환경변수로 지정하거나 기본값(`/tmp/st_results_<PID>`, `/tmp/st_logs_<PID>`)이 사용됩니다.
+For a standalone run, the result/log directories are controlled by the `RESULT_DIR` / `LOG_DIR` environment variables, defaulting to `/tmp/st_results_<PID>` and `/tmp/st_logs_<PID>`.
 
 ### Delete All Instances
 
@@ -97,15 +97,15 @@ Total: 4  PASS: 3  FAIL: 1  SKIP: 0
 ./delete-all-csp-storage-type-rdbms.sh
 ```
 
-- StorageTypeOptions를 다시 조회해 `cb-mariadb-st-<type>` 이름의 인스턴스를 유추한 뒤 전체 CSP 병렬 삭제
+- Re-fetches the StorageTypeOptions to derive each `cb-mariadb-st-<type>` instance name, then deletes them all in parallel across CSPs
 
 ## Script Structure
 
 ```
 storage-type-test/
-├── run-all-csp-storage-type-tests.sh    # Orchestrator: 전체 CSP 병렬 실행 (AWS/Alibaba/OpenStack/NHN)
-├── delete-all-csp-storage-type-rdbms.sh # Orchestrator: 전체 CSP 병렬 삭제
-├── common-storage-type-test.sh          # Common: Create → Poll Available → Get Info → Verify → (옵션) Delete
+├── run-all-csp-storage-type-tests.sh    # Orchestrator: runs all CSPs in parallel (AWS/Alibaba/OpenStack/NHN)
+├── delete-all-csp-storage-type-rdbms.sh # Orchestrator: deletes all CSPs in parallel
+├── common-storage-type-test.sh          # Common: Create -> Poll Available -> Get Info -> Verify -> (optional) Delete
 ├── aws-storage-type-test.sh
 ├── alibaba-storage-type-test.sh
 ├── openstack-storage-type-test.sh
@@ -120,8 +120,8 @@ storage-type-test/
 | `SPIDER_AUTH` | `admin:****` | Basic auth credentials |
 | `MAX_WAIT_SEC` | `3600` (create) / `1800` (delete) | Timeout per instance (seconds) |
 | `POLL_INTERVAL` | `30` (create) / `15` (delete) | Polling interval (seconds) |
-| `AUTO_DELETE` | `false` | `true`이면 검증 완료 직후 인스턴스 자동 삭제 |
-| `VERBOSE` | `0` | `1`로 설정 시 CSP별 전체 로그 덤프 출력 |
+| `AUTO_DELETE` | `false` | If `true`, the instance is deleted automatically right after verification |
+| `VERBOSE` | `0` | If set to `1`, dumps the full per-CSP log |
 
 ```bash
 # Example: verbose output
@@ -130,21 +130,21 @@ VERBOSE=1 ./run-all-csp-storage-type-tests.sh
 
 ## Result Format
 
-결과 파일(`result_<csp>_<storagetype>.txt`)은 파이프(|) 구분 7개 필드:
+The result file (`result_<csp>_<storagetype>.txt`) has 7 pipe(`|`)-separated fields:
 
 ```
 CSP|StorageType(Requested)|StorageType(Returned)|Result|DB_Status|Elapsed|Reason
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |------|------|
-| `CSP` | CSP 이름 (예: AWS) |
-| `StorageType(Requested)` | 요청한 StorageType 값 |
-| `StorageType(Returned)` | 생성 후 조회된 StorageType 값 (`N/A`는 생성 실패) |
+| `CSP` | CSP name (e.g. AWS) |
+| `StorageType(Requested)` | The StorageType value requested |
+| `StorageType(Returned)` | The StorageType value read back after creation (`N/A` if creation failed) |
 | `Result` | `PASS` / `FAIL` / `SKIP` |
-| `DB_Status` | 인스턴스 상태 (`Available`, `CREATE_ERROR`, `TIMEOUT` 등) |
-| `Elapsed` | 경과 시간 |
-| `Reason` | 특이사항 (예: OpenStack은 StorageType 미제공으로 Available만으로 PASS 처리) |
+| `DB_Status` | Instance status (`Available`, `CREATE_ERROR`, `TIMEOUT`, etc.) |
+| `Elapsed` | Elapsed time |
+| `Reason` | Notes (e.g. OpenStack doesn't expose StorageType post-creation, so it's marked PASS based on Available status alone) |
 
 ## API Reference
 
@@ -162,13 +162,13 @@ CSP|StorageType(Requested)|StorageType(Returned)|Result|DB_Status|Elapsed|Reason
 /tmp/st_test_<PID>/logs/log_<csp>.txt
 ```
 
-전체 삭제 실행 시:
+When running the full delete:
 ```
 /tmp/st_del_<PID>/results/result_<csp>_<storagetype>.txt
 /tmp/st_del_<PID>/logs/log_<csp>.txt
 ```
 
-실행 중 모니터링:
+To monitor a run in progress:
 
 ```bash
 tail -f /tmp/st_test_<PID>/logs/log_aws.txt
@@ -178,44 +178,44 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 
 ### AWS
 
-`StorageTypeOptions`는 metainfo API에서 동적으로 조회되며, 각 타입에 대해 아래 설정으로 인스턴스를 생성합니다.
+`StorageTypeOptions` is fetched dynamically from the metainfo API, and an instance is created for each type with the settings below.
 
-| 항목 | 값 |
+| Item | Value |
 |------|-----|
 | DBEngine / Version | `mariadb` / `10.6` |
 | DBSpec | `db.t3.medium` |
-| StorageSize | `100 GB` (io1/io2 포함 전 타입 동일) |
+| StorageSize | `100 GB` (same for every type, including io1/io2) |
 | Connection | `aws-config01` |
 | Region / Zone | `ap-southeast-2` / `ap-southeast-2a` |
-| SubnetNames | `subnet-01`, `subnet-02` (서로 다른 AZ, SubnetGroup 생성 필수) |
+| SubnetNames | `subnet-01`, `subnet-02` (different AZs; a SubnetGroup must exist) |
 | SecurityGroupNames | `sg-01` |
 
-**특이사항**
-- io1/io2: `Iops: "3000"` 필드 필수
+**Special notes**
+- io1/io2: requires the `Iops: "3000"` field
 
 ---
 
 ### Alibaba
 
-`StorageTypeOptions`와 `DBSpecOptions`를 모두 metainfo API에서 동적으로 조회하며, 지역/존에 유효한 스펙을 자동 선택합니다(하드코딩된 스펙은 StorageType과 호환되지 않을 수 있음).
+Both `StorageTypeOptions` and `DBSpecOptions` are fetched dynamically from the metainfo API, automatically selecting a spec valid for the target region/zone (a hardcoded spec may not be compatible with the requested StorageType).
 
-| 항목 | 값 |
+| Item | Value |
 |------|-----|
 | DBEngine / Version | `mariadb` / `10.6` |
-| DBSpec | metainfo `DBSpecOptions[0]` (조회 실패 시 `rds.mariadb.s4.large`로 폴백) |
-| StorageSize | 기본 `20 GB`, `cloud_essd2`는 `500 GB`, `cloud_essd3`는 `1500 GB` |
+| DBSpec | metainfo `DBSpecOptions[0]` (falls back to `rds.mariadb.s4.large` if the lookup fails) |
+| StorageSize | `20 GB` by default; `500 GB` for `cloud_essd2`; `1500 GB` for `cloud_essd3` |
 | Connection | `alibaba-beijing-config` |
 | Region / Zone | `cn-beijing` / `cn-beijing-f` |
 | SubnetNames | `subnet-01` |
 
-**특이사항**
-- cloud_essd2/cloud_essd3는 최소 StorageSize 요건이 있어 스크립트에서 자동으로 크기를 늘려 요청
+**Special notes**
+- `cloud_essd2`/`cloud_essd3` have a minimum StorageSize requirement, so the script automatically requests a larger size for them
 
 ---
 
 ### OpenStack
 
-| 항목 | 값 |
+| Item | Value |
 |------|-----|
 | DBEngine / Version | `mariadb` / `10.4` |
 | DBSpec | `m1.small` |
@@ -227,7 +227,7 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 
 ### NHN
 
-| 항목 | 값 |
+| Item | Value |
 |------|-----|
 | DBEngine / Version | `mariadb` / `MARIADB_V101118` |
 | DBSpec | `m2.c2m4` |
@@ -236,14 +236,14 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 | Region / Zone | `KR1` / `kr-pub-a` |
 | SubnetNames | `subnet-01` |
 
-`NHNAutoOpenDBSecurityGroup: true` — NHN Cloud RDS는 VPC Security Group과는 별개인 전용 "DB Security Group"이 있어야 외부 접속이 가능하므로, 시험 편의를 위해 이 옵션으로 전체 개방(`0.0.0.0/0`) DB Security Group을 자동 생성/삭제합니다. 운영 환경에서는 사용을 권장하지 않습니다.
+`NHNAutoOpenDBSecurityGroup: true` — NHN Cloud RDS requires a dedicated "DB Security Group", separate from the VPC Security Group, before external access is possible. For testing convenience this option auto-creates and auto-deletes a fully open (`0.0.0.0/0`) DB Security Group. This is not recommended for production use.
 
 
-## 시험 결과
+## Test Results
 
-시험 날짜: 2026-08-18
+Test Date: 2026-08-18
 
-전체 11건 PASS했습니다.
+All 11 cases passed.
 
 ```
 ================================================================================================================================

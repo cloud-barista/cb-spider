@@ -1,6 +1,6 @@
 # CB-Spider RDBMS API Test
 
-Automated test suite for CB-Spider RDBMS API — creates MySQL instances across 9 CSPs in parallel, waits until each becomes available, then collects and displays a unified result table.
+Automated test suite for CB-Spider's RDBMS API — creates MySQL instances across 9 CSPs in parallel, waits until each becomes available, then collects and displays a unified result table.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ cd ./bin; ./start.sh
 
 ### CSP Connection Configuration
 
-Before running tests, register connection names for each CSP in CB-Spider.
+Before running the tests, register a connection name for each CSP in CB-Spider.
 
 | CSP | Connection Name | Region | Zone |
 |-----|----------------|--------|------|
@@ -28,38 +28,39 @@ Before running tests, register connection names for each CSP in CB-Spider.
 
 ### Pre-created Network Resources
 
-RDBMS 생성 전에 각 CSP에 VPC와 서브넷이 미리 생성되어 있어야 합니다. AWS는 Security Group도 미리 생성되어 있어야 합니다.
+Each CSP needs a VPC and subnet created ahead of time before an RDBMS instance can be created. AWS also needs a security group created ahead of time.
 
-| CSP | VPC | Subnet | Security Group | 비고 |
+| CSP | VPC | Subnet | Security Group | Notes |
 |-----|-----|--------|-----------------|------|
-| AWS | `vpc-01` | `subnet-01`, `subnet-02` | `sg-01` | 서로 다른 AZ의 서브넷 2개 필수 (SubnetGroup 요건) |
-| Azure | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
-| GCP | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
+| AWS | `vpc-01` | `subnet-01`, `subnet-02` | `sg-01` | Requires 2 subnets in different AZs (SubnetGroup requirement) |
+| Azure | `vpc-01` | `subnet-01` | | Subnet not actually used |
+| GCP | `vpc-01` | `subnet-01` | | Subnet not actually used |
 | Alibaba | `vpc-01` | `subnet-01` | | |
 | Tencent | `vpc-01` | `subnet-01` | | |
-| IBM | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
-| OpenStack | `vpc-01` | `subnet-01` | | 서브넷 미사용 |
+| IBM | `vpc-01` | `subnet-01` | | Subnet not actually used |
+| OpenStack | `vpc-01` | `subnet-01` | | Subnet not actually used |
 | NCP | `vpc-01` | `subnet-01` | | |
 | NHN | `vpc-01` | `subnet-01` | | |
 
-아래 스크립트로 9개 CSP의 VPC/Subnet(및 AWS의 Security Group)을 한 번에 생성/삭제할 수 있습니다. 두 스크립트 모두 이미 존재하는 자원은 건너뛰므로(idempotent) 반복 실행해도 안전합니다.
+The scripts below create/delete the VPC/Subnet (and, for AWS, the security group) for all 9 CSPs in one shot. Both scripts are idempotent — they skip resources that already exist, so it's safe to run them repeatedly.
 
 ```bash
-# 전체 CSP 사전 자원 생성 (병렬)
+# Create pre-requisite resources for all CSPs (in parallel)
 ./run-all-csp-network-prepare.sh
 
-# 전체 CSP 사전 자원 삭제 (병렬)
-# RDBMS 인스턴스가 먼저 삭제된 이후에 실행해야 합니다 (VPC/SG가 사용 중이면 삭제 실패)
+# Delete pre-requisite resources for all CSPs (in parallel)
+# Run this only after the RDBMS instances have been deleted
+# (VPC/SG deletion fails while they're still in use)
 ./delete-all-csp-network.sh
 ```
 
-특정 CSP만 단독 실행하려면 `<csp>-network-prepare.sh`를 직접 실행합니다 (예: `./aws-network-prepare.sh`). AWS의 AZ는 `AWS_AZ1`/`AWS_AZ2` 환경변수로 override 가능합니다 (기본값: `ap-southeast-2a`/`ap-southeast-2b`).
+To run a single CSP on its own, invoke `<csp>-network-prepare.sh` directly (e.g. `./aws-network-prepare.sh`). AWS's AZs can be overridden with the `AWS_AZ1`/`AWS_AZ2` environment variables (default: `ap-southeast-2a`/`ap-southeast-2b`).
 
-내부적으로는 다음과 같이 CB-Spider REST API를 호출합니다:
+Under the hood, these scripts call the CB-Spider REST API like this:
 
 ```bash
-# VPC 생성 예시 (AWS)
-curl -u admin:***** -sX POST http://localhost:1024/spider/vpc \
+# Create VPC (AWS example)
+curl -u admin:**** -sX POST http://localhost:1024/spider/vpc \
   -H 'Content-Type: application/json' \
   -d '{
     "ConnectionName": "aws-config01",
@@ -73,8 +74,8 @@ curl -u admin:***** -sX POST http://localhost:1024/spider/vpc \
     }
   }' | jq .
 
-# Security Group 생성 예시 (AWS, MySQL 3306 인바운드 허용)
-curl -u admin:***** -sX POST http://localhost:1024/spider/securitygroup \
+# Create Security Group (AWS example, allows inbound MySQL 3306)
+curl -u admin:**** -sX POST http://localhost:1024/spider/securitygroup \
   -H 'Content-Type: application/json' \
   -d '{
     "ConnectionName": "aws-config01",
@@ -96,47 +97,47 @@ curl -u admin:***** -sX POST http://localhost:1024/spider/securitygroup \
 
 ## RDBMS Instance Configuration
 
-All CSPs create a MySQL instance named `cb-spider-mysql-test`.
+Every CSP creates a MySQL instance named `cb-spider-mysql-test`.
 
-StorageType은 지정하지 않으며, CSP 기본값으로 생성됩니다. 결과 테이블의 Storage 컬럼에 `크기|타입` 형태로 표시됩니다 (예: `100GB|gp2`).
+StorageType is not specified for this test, so each CSP falls back to its own default. The result table's Storage column shows this as `size|type` (e.g. `100GB|gp2`).
 
 | CSP | Engine Version | Instance Spec | Storage | Subnet Required |
 |-----|---------------|---------------|---------|-----------------|
-| AWS | 8.0 | db.t3.medium | 100GB | ✅ (2개, 다른 AZ) |
-| Azure | 8.0.21 | Standard_B1ms | 20GB | 미사용 |
-| GCP | 8.0 | db-custom-2-8192 | 20GB | 미사용 |
-| Alibaba | 8.0 | mysql.n4.large.1 | 20GB | ✅ |
-| Tencent | 8.0 | 8000 (MB) | 50GB | ✅ |
-| IBM | 8.4 | multitenant | 30GB | 미사용 |
-| OpenStack | 5.7.29 | m1.small | 20GB | 미사용 |
-| NCP | 8.0.36 | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | CSP 관리 | ✅ |
-| NHN | MYSQL_V8408 | m2.c2m4 | 20GB | ✅ |
+| AWS | 8.0 | db.t3.medium | 100GB | Yes (2, in different AZs) |
+| Azure | 8.0.21 | Standard_B1ms | 20GB | Not used |
+| GCP | 8.0 | db-custom-2-8192 | 20GB | Not used |
+| Alibaba | 8.0 | mysql.n4.large.1 | 20GB | Yes |
+| Tencent | 8.0 | 8000 (MB) | 50GB | Yes |
+| IBM | 8.4 | multitenant | 30GB | Not used |
+| OpenStack | 5.7.29 | m1.small | 20GB | Not used |
+| NCP | 8.0.36 | SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003 | Managed by CSP | Yes |
+| NHN | MYSQL_V8408 | m2.c2m4 | 20GB | Yes |
 
-> **NHN 참고**: NHN Cloud RDS는 VPC Security Group과는 별개인 전용 "DB Security Group"이 있어야 외부 접속이 가능합니다. `nhn-rdbms-test.sh`는 `"NHNAutoOpenDBSecurityGroup": true`를 설정해 전체 개방(`0.0.0.0/0`) DB Security Group을 자동 생성하고, 인스턴스 삭제 시 함께 자동 삭제되도록 합니다 — 시험 편의를 위한 옵션이며, 운영 환경에서는 NHN 콘솔/API로 특정 CIDR만 허용하는 DB Security Group을 직접 구성하는 것을 권장합니다.
+> **NHN note**: NHN Cloud RDS requires a dedicated "DB Security Group" — separate from the VPC security group — before external access is possible. `nhn-rdbms-test.sh` sets `"NHNAutoOpenDBSecurityGroup": true`, which auto-creates a fully open (`0.0.0.0/0`) DB Security Group and auto-deletes it along with the instance. This is purely a convenience for testing; in production, configure a DB Security Group that allows only specific CIDRs via the NHN console/API.
 
 ## Configuration
 
-테스트 실행 전에 CB-Spider 접속 정보를 환경변수로 설정하거나, `run-all-csp-rdbms-tests.sh` / `delete-all-csp-rdbms.sh` 파일 내부의 기본값을 직접 수정합니다.
+Before running the tests, set CB-Spider's connection details as environment variables, or edit the defaults directly inside `run-all-csp-rdbms-tests.sh` / `delete-all-csp-rdbms.sh`.
 
-**방법 1) 환경변수 설정**
+**Option 1) Environment variables**
 ```bash
 export SPIDER_URL=http://localhost:1024   # CB-Spider REST API URL
-export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
+export SPIDER_AUTH=admin:****             # Basic auth (admin:<password>)
 ```
 
-**방법 2) 스크립트 파일 직접 수정** (`run-all-csp-rdbms-tests.sh`, `delete-all-csp-rdbms.sh`)
+**Option 2) Edit the script defaults directly** (`run-all-csp-rdbms-tests.sh`, `delete-all-csp-rdbms.sh`)
 ```bash
 export SPIDER_URL="${SPIDER_URL:-http://localhost:1024}"
-export SPIDER_AUTH="${SPIDER_AUTH:-admin:*****}"   # <-- 비밀번호 변경
+export SPIDER_AUTH="${SPIDER_AUTH:-admin:****}"   # <-- change the password here
 ```
 
-> `SPIDER_AUTH`의 비밀번호는 CB-Spider 기동 시 설정한 값으로 변경하세요.
+> Change the password portion of `SPIDER_AUTH` to whatever was set when CB-Spider started up.
 
 ## How to Run Tests
 
 ### 0. Prepare Network Prerequisites (VPC/Subnet, AWS Security Group)
 
-RDBMS 생성 테스트를 실행하기 전에 먼저 실행합니다 (1회만 실행하면 됨, idempotent):
+Run this before the RDBMS creation tests (only needs to be run once — it's idempotent):
 
 ```bash
 ./run-all-csp-network-prepare.sh
@@ -148,9 +149,9 @@ RDBMS 생성 테스트를 실행하기 전에 먼저 실행합니다 (1회만 �
 ./run-all-csp-rdbms-tests.sh
 ```
 
-- 9개 CSP에 동시 RDBMS 생성 (백그라운드 병렬 실행)
-- 각 CSP별 Available 상태까지 대기 (최대 60분)
-- 완료 후 통합 결과 테이블 출력
+- Creates an RDBMS instance on all 9 CSPs concurrently (background parallel execution)
+- Waits for each CSP's instance to reach Available (up to 60 minutes)
+- Prints a unified result table when done
 
 **Example output:**
 ```
@@ -168,8 +169,8 @@ GCP          | Available   | mysql    | 8.0          | db-custom-2-8192         
 ./delete-all-csp-rdbms.sh
 ```
 
-- 9개 CSP의 RDBMS 인스턴스 동시 삭제
-- 인스턴스 완전 삭제 확인 후 결과 테이블 출력
+- Deletes the RDBMS instance on all 9 CSPs concurrently
+- Prints a result table after confirming full deletion
 
 **Example output:**
 ```
@@ -183,7 +184,7 @@ GCP          | DELETED        | ok                   | 2m9s
 
 ### Run Individual CSP Test
 
-특정 CSP만 단독 실행:
+To run a single CSP on its own:
 
 ```bash
 # Prepare network prerequisites
@@ -209,16 +210,40 @@ GCP          | DELETED        | ok                   | 2m9s
 ./nhn-rdbms-test.sh
 ```
 
-단독 실행 시에는 `RESULT_DIR` 환경변수를 지정하거나 기본값(`/tmp/rdbms_results`, network prepare/cleanup은 `/tmp/rdbms_network_results`)이 사용됩니다.
+When run individually, results are written to the `RESULT_DIR` you specify, or to the defaults (`/tmp/rdbms_results` for creation, `/tmp/rdbms_network_results` for network prepare/cleanup).
+
+### Full Suite: All Steps in Sequence
+
+```bash
+./all_test.sh
+```
+
+`all_test.sh` runs the complete lifecycle end to end, in order:
+
+1. Network Prepare — create VPC/Subnet/SG for all CSPs
+2. StorageType Test — validate StorageType options per CSP (`storage-type-test/`)
+3. Delete StorageType RDBMS instances created by step 2
+4. RDBMS Create — create the instance on all 9 CSPs
+5. Database Test — validate Database CRUD inside each instance (`database-test/`)
+6. Tag Test — validate Tag CRUD for SupportsTag=true CSPs (`tag-test/`)
+7. RDBMS Delete — delete the instance on all 9 CSPs
+8. Network Cleanup — delete VPC/Subnet/SG for all CSPs
+
+Each step runs as a separate script; a per-step PASS/FAIL summary is printed at the end. By default, a failed step doesn't stop the run — set `STOP_ON_FAIL=1` to abort on the first failure instead.
+
+```bash
+STOP_ON_FAIL=1 ./all_test.sh
+```
 
 ## Script Structure
 
 ```
 .
-├── run-all-csp-network-prepare.sh  # Orchestrator: 전체 VPC/Subnet/SG 사전 생성 (병렬)
-├── delete-all-csp-network.sh       # Orchestrator: 전체 VPC/Subnet/SG 사전 자원 삭제 (병렬)
-├── common-network-prepare.sh       # Common: VPC/Subnet 생성 → (옵션) SG 생성
-├── common-network-cleanup.sh       # Common: (옵션) SG 삭제 → VPC/Subnet 삭제
+├── all_test.sh                     # Orchestrator: full lifecycle, all 8 steps in sequence
+├── run-all-csp-network-prepare.sh  # Orchestrator: create VPC/Subnet/SG for all CSPs (parallel)
+├── delete-all-csp-network.sh       # Orchestrator: delete VPC/Subnet/SG for all CSPs (parallel)
+├── common-network-prepare.sh       # Common: create VPC/Subnet -> (optional) create SG
+├── common-network-cleanup.sh       # Common: (optional) delete SG -> delete VPC/Subnet
 ├── aws-network-prepare.sh
 ├── azure-network-prepare.sh
 ├── gcp-network-prepare.sh
@@ -228,10 +253,10 @@ GCP          | DELETED        | ok                   | 2m9s
 ├── openstack-network-prepare.sh
 ├── ncp-network-prepare.sh
 ├── nhn-network-prepare.sh
-├── run-all-csp-rdbms-tests.sh   # Orchestrator: 전체 생성 테스트 (병렬)
-├── delete-all-csp-rdbms.sh      # Orchestrator: 전체 삭제 (병렬)
-├── common-rdbms-test.sh         # Common: Create → Poll Available → Get Info
-├── common-rdbms-delete.sh       # Common: Verify → Delete → Poll Removed
+├── run-all-csp-rdbms-tests.sh   # Orchestrator: create on all CSPs (parallel)
+├── delete-all-csp-rdbms.sh      # Orchestrator: delete on all CSPs (parallel)
+├── common-rdbms-test.sh         # Common: Create -> Poll Available -> Get Info
+├── common-rdbms-delete.sh       # Common: Verify -> Delete -> Poll Removed
 ├── aws-rdbms-test.sh
 ├── azure-rdbms-test.sh
 ├── gcp-rdbms-test.sh
@@ -240,7 +265,10 @@ GCP          | DELETED        | ok                   | 2m9s
 ├── ibm-rdbms-test.sh
 ├── openstack-rdbms-test.sh
 ├── ncp-rdbms-test.sh
-└── nhn-rdbms-test.sh
+├── nhn-rdbms-test.sh
+├── database-test/               # Database CRUD test suite (see database-test/README.md)
+├── storage-type-test/           # StorageType validation test suite (see storage-type-test/README.md)
+└── tag-test/                    # Tag CRUD test suite (see tag-test/README.md)
 ```
 
 ## Environment Variables
@@ -248,11 +276,12 @@ GCP          | DELETED        | ok                   | 2m9s
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SPIDER_URL` | `http://localhost:1024` | CB-Spider REST API URL |
-| `SPIDER_AUTH` | `admin:*****` | Basic auth credentials |
+| `SPIDER_AUTH` | `admin:****` | Basic auth credentials |
 | `MAX_WAIT_SEC` | `3600` (create) / `1800` (delete) | Timeout per CSP (seconds) |
 | `POLL_INTERVAL` | `30` (create) / `15` (delete) | Polling interval (seconds) |
-| `VERBOSE` | `0` | Set to `1` for per-CSP full log dump |
+| `VERBOSE` | `0` | Set to `1` for a per-CSP full log dump |
 | `AWS_AZ1` / `AWS_AZ2` | `ap-southeast-2a` / `ap-southeast-2b` | AZs used for AWS `subnet-01`/`subnet-02` in `aws-network-prepare.sh` |
+| `STOP_ON_FAIL` | `0` | (`all_test.sh` only) Set to `1` to abort the full suite on the first failed step |
 
 ```bash
 # Example: custom Spider URL
@@ -264,29 +293,41 @@ VERBOSE=1 ./run-all-csp-rdbms-tests.sh
 
 ## Logs & Results
 
-각 실행마다 PID 기반 임시 디렉토리에 로그와 결과 파일이 저장됩니다.
+Each run writes logs and result files to a PID-scoped temporary directory.
 
 ```
 /tmp/rdbms_results_<PID>/result_<csp>.txt   # pipe-separated result line
 /tmp/rdbms_logs_<PID>/log_<csp>.txt         # per-CSP full output
 ```
 
-실행 중 모니터링:
+To monitor a run in progress:
 
 ```bash
 tail -f /tmp/rdbms_logs_<PID>/log_aws.txt
 ```
 
+## Related Test Suites
+
+These sibling test suites assume the RDBMS instances created above already exist, and each covers a different subset of the 9 CSPs (only the CSPs where the underlying capability applies):
+
+| Suite | Directory | CSPs Covered | What It Validates |
+|-------|-----------|--------------|--------------------|
+| Database Management | `database-test/` | All 9 (AWS, Azure, GCP, Alibaba, Tencent, IBM, OpenStack, NCP, NHN) | Database CRUD (Create/List/Delete) inside an instance |
+| StorageType | `storage-type-test/` | All 9 (Azure, IBM, NCP auto-SKIP; the other 6 run) | Per-StorageType instance creation and verification |
+| Tag Management | `tag-test/` | 6 with `SupportsTag=true` (AWS, Azure, GCP, Alibaba, Tencent, IBM) | Tag CRUD (Add/List/Get/Remove) on an RDBMS resource |
+
+See each subdirectory's README for full details.
+
 ## CSP-Specific Notes
 
 | CSP | Note |
 |-----|------|
-| AWS | SubnetGroup 생성을 위해 **다른 AZ의 서브넷 2개 이상** 필요. Security Group `sg-01` 사전 생성 필요 |
-| Tencent | `DBSpec`은 메모리 크기(MB) 지정 (예: `8000` = 8GB) |
-| IBM | StorageType 지정 불가 (SupportsStorageTypeSelection=false). |
-| NCP | StorageSize/StorageType 지정 불가 (CSP 자동 관리). G3(KVM) generation만 지원. Public 도메인은 생성 후 콘솔에서 별도 신청 필요 |
+| AWS | SubnetGroup creation requires **2 or more subnets in different AZs**. The `sg-01` security group must be pre-created |
+| Tencent | `DBSpec` specifies memory size in MB (e.g. `8000` = 8GB) |
+| IBM | StorageType cannot be specified (SupportsStorageTypeSelection=false) |
+| NCP | StorageSize/StorageType cannot be specified (managed automatically by the CSP). Only the G3 (KVM) generation is supported. A public domain must be requested separately via the console after creation |
 
-## 시험 결과
+## Test Results
 
 ### 2026-08-03
 
