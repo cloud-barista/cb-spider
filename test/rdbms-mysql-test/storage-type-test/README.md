@@ -1,6 +1,6 @@
 # CB-Spider RDBMS StorageType Test
 
-각 CSP의 StorageType별로 RDBMS 인스턴스를 생성·검증하는 병렬 테스트 스위트입니다. 각 CSP의 `rdbmsmetainfo` API에서 지원 StorageType 목록을 동적으로 조회한 뒤, 옵션별로 인스턴스를 병렬 생성하고 반환된 StorageType이 요청과 일치하는지 검증합니다.
+Parallel test suite that creates and verifies RDBMS instances for each CSP's supported StorageType values. For each CSP it dynamically queries the supported StorageType list from the `rdbmsmetainfo` API, creates one instance per option in parallel, and verifies that the returned StorageType matches what was requested.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ cd ./bin; ./start.sh
 
 ### Pre-created Network Resources
 
-RDBMS 생성 전에 각 CSP에 VPC/Subnet(및 AWS의 Security Group)이 미리 생성되어 있어야 합니다.
+Each CSP needs a VPC/Subnet (and, for AWS, a security group) created ahead of time before an RDBMS instance can be created.
 
 ```bash
 cd ..
@@ -27,35 +27,35 @@ cd ..
 
 ## Test Flow
 
-각 CSP에 대해 다음 순서로 StorageType별 검증을 수행합니다:
+For each CSP, StorageType validation runs in this order:
 
-1. **FetchStorageTypeOptions** — `GET /spider/rdbmsmetainfo?DBEngine=mysql&ConnectionName=...` — 지원하는 StorageType 목록을 동적으로 조회
-2. **CreateRDBMS** (StorageType별 병렬) — `POST /spider/rdbms` — 옵션별로 `cb-mysql-st-<type>` 인스턴스 생성
-3. **Poll Available** — `GET /spider/rdbms/{Name}` — Available 상태가 될 때까지 폴링 (기본 30초 간격, 최대 3600초)
-4. **VerifyStorageType** — 반환된 StorageType이 요청과 일치하는지 확인 (`Result` 필드에 `PASS`/`FAIL` 기록)
-5. **(옵션) AutoDelete** — `AUTO_DELETE=true`이면 검증 직후 인스턴스 자동 삭제. 기본값(`false`)에서는 `delete-all-csp-storage-type-rdbms.sh`로 별도 정리
+1. **FetchStorageTypeOptions** — `GET /spider/rdbmsmetainfo?DBEngine=mysql&ConnectionName=...` — dynamically fetches the list of supported StorageTypes
+2. **CreateRDBMS** (one per StorageType, in parallel) — `POST /spider/rdbms` — creates a `cb-mysql-st-<type>` instance for each option
+3. **Poll Available** — `GET /spider/rdbms/{Name}` — polls until the instance becomes Available (every 30s by default, up to 3600s)
+4. **VerifyStorageType** — confirms the returned StorageType matches what was requested (recorded as `PASS`/`FAIL` in the `Result` field)
+5. **(Optional) AutoDelete** — if `AUTO_DELETE=true`, the instance is deleted immediately after verification. With the default (`false`), clean up separately with `delete-all-csp-storage-type-rdbms.sh`
 
-Azure/IBM/NCP는 `SupportsStorageTypeSelection=false`로 StorageType 지정이 불가능하여 스크립트 실행 시 즉시 SKIP 처리됩니다.
+Azure/IBM/NCP have `SupportsStorageTypeSelection=false` — StorageType cannot be specified for them, so their scripts SKIP immediately on execution.
 
-### StorageType 선택 가능 여부
+### StorageType Selectability
 
-| CSP | SupportsStorageTypeSelection | 비고 |
+| CSP | SupportsStorageTypeSelection | Notes |
 |-----|------------------------------|------|
-| AWS | ✅ | gp2, gp3, io1, io2 |
-| GCP | ✅ | 머신 시리즈에 따라 자동 결정 (직접 선택 아님) |
-| Alibaba | ✅ | cloud_auto, cloud_essd, cloud_essd2, cloud_essd3, local_ssd |
-| Tencent | ✅ | local_ssd, CLOUD_HSSD, CLOUD_SSD, CLOUD_PREMIUM |
-| OpenStack | ✅ | `__DEFAULT__`, `RBD` |
-| NHN | ✅ | General HDD, General SSD |
-| Azure | ❌ | SKIP |
-| IBM | ❌ | SKIP |
-| NCP | ❌ | SKIP |
+| AWS | Yes | gp2, gp3, io1, io2 |
+| GCP | Yes | Determined automatically by machine series (not a direct choice) |
+| Alibaba | Yes | cloud_auto, cloud_essd, cloud_essd2, cloud_essd3, local_ssd |
+| Tencent | Yes | local_ssd, CLOUD_HSSD, CLOUD_SSD, CLOUD_PREMIUM |
+| OpenStack | Yes | `__DEFAULT__`, `RBD` |
+| NHN | Yes | General HDD, General SSD |
+| Azure | No | SKIP |
+| IBM | No | SKIP |
+| NCP | No | SKIP |
 
 ## Configuration
 
 ```bash
 export SPIDER_URL=http://localhost:1024   # CB-Spider REST API URL
-export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
+export SPIDER_AUTH=admin:****             # Basic auth (admin:<password>)
 ```
 
 ## How to Run Tests
@@ -66,8 +66,8 @@ export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
 ./run-all-csp-storage-type-tests.sh
 ```
 
-- 9개 CSP에 대해 병렬로 StorageType별 검증 실행 (Azure/IBM/NCP는 자동 SKIP)
-- 완료 후 통합 결과 테이블 및 PASS/FAIL/SKIP 집계 출력
+- Runs StorageType validation on all 9 CSPs in parallel (Azure/IBM/NCP SKIP automatically)
+- Prints a unified result table and a PASS/FAIL/SKIP tally when done
 
 **Example output:**
 ```
@@ -87,21 +87,21 @@ Total: 22  PASS: 19  FAIL: 0  SKIP: 3
 
 ### Individual CSP
 
-특정 CSP만 단독 실행:
+To run a single CSP on its own:
 
 ```bash
 ./aws-storage-type-test.sh
-./azure-storage-type-test.sh          # SKIP (StorageType 선택 불가)
+./azure-storage-type-test.sh          # SKIP (StorageType selection not supported)
 ./gcp-storage-type-test.sh
 ./alibaba-storage-type-test.sh
 ./tencent-storage-type-test.sh
-./ibm-storage-type-test.sh            # SKIP (StorageType 선택 불가)
+./ibm-storage-type-test.sh            # SKIP (StorageType selection not supported)
 ./openstack-storage-type-test.sh
-./ncp-storage-type-test.sh            # SKIP (StorageType 선택 불가)
+./ncp-storage-type-test.sh            # SKIP (StorageType selection not supported)
 ./nhn-storage-type-test.sh
 ```
 
-단독 실행 시 결과/로그 디렉토리는 `RESULT_DIR` / `LOG_DIR` 환경변수로 지정하거나 기본값(`/tmp/st_results_<PID>`, `/tmp/st_logs_<PID>`)이 사용됩니다.
+When run individually, results and logs go to the directories you specify via `RESULT_DIR` / `LOG_DIR`, or to the defaults (`/tmp/st_results_<PID>`, `/tmp/st_logs_<PID>`).
 
 ### Delete All Instances
 
@@ -109,24 +109,24 @@ Total: 22  PASS: 19  FAIL: 0  SKIP: 3
 ./delete-all-csp-storage-type-rdbms.sh
 ```
 
-- StorageTypeOptions를 다시 조회해 `cb-mysql-st-<type>` 이름의 인스턴스를 유추한 뒤 전체 CSP 병렬 삭제
+- Re-queries StorageTypeOptions to infer the `cb-mysql-st-<type>` instance names, then deletes them across all CSPs in parallel
 
 ## Script Structure
 
 ```
 storage-type-test/
-├── run-all-csp-storage-type-tests.sh    # Orchestrator: 전체 CSP 병렬 실행
-├── delete-all-csp-storage-type-rdbms.sh # Orchestrator: 전체 CSP 병렬 삭제
-├── common-storage-type-test.sh          # Common: Create → Poll Available → Get Info → Verify → (옵션) Delete
+├── run-all-csp-storage-type-tests.sh    # Orchestrator: full parallel run across CSPs
+├── delete-all-csp-storage-type-rdbms.sh # Orchestrator: full parallel delete across CSPs
+├── common-storage-type-test.sh          # Common: Create -> Poll Available -> Get Info -> Verify -> (optional) Delete
 ├── aws-storage-type-test.sh
 ├── gcp-storage-type-test.sh
 ├── alibaba-storage-type-test.sh
 ├── tencent-storage-type-test.sh
 ├── nhn-storage-type-test.sh
 ├── openstack-storage-type-test.sh
-├── azure-storage-type-test.sh           # SKIP (StorageType 선택 불가)
-├── ibm-storage-type-test.sh             # SKIP (StorageType 선택 불가)
-└── ncp-storage-type-test.sh             # SKIP (StorageType 선택 불가)
+├── azure-storage-type-test.sh           # SKIP (StorageType selection not supported)
+├── ibm-storage-type-test.sh             # SKIP (StorageType selection not supported)
+└── ncp-storage-type-test.sh             # SKIP (StorageType selection not supported)
 ```
 
 ## Environment Variables
@@ -137,8 +137,8 @@ storage-type-test/
 | `SPIDER_AUTH` | `admin:****` | Basic auth credentials |
 | `MAX_WAIT_SEC` | `3600` (create) / `1800` (delete) | Timeout per instance (seconds) |
 | `POLL_INTERVAL` | `30` (create) / `15` (delete) | Polling interval (seconds) |
-| `AUTO_DELETE` | `false` | `true`이면 검증 완료 직후 인스턴스 자동 삭제 |
-| `VERBOSE` | `0` | `1`로 설정 시 CSP별 전체 로그 덤프 출력 |
+| `AUTO_DELETE` | `false` | If `true`, delete the instance immediately after verification completes |
+| `VERBOSE` | `0` | Set to `1` for a per-CSP full log dump |
 
 ```bash
 # Example: verbose output
@@ -147,21 +147,21 @@ VERBOSE=1 ./run-all-csp-storage-type-tests.sh
 
 ## Result Format
 
-결과 파일(`result_<csp>_<storagetype>.txt`)은 파이프(|) 구분 7개 필드:
+Each result file (`result_<csp>_<storagetype>.txt`) has 7 pipe-separated fields:
 
 ```
 CSP|StorageType(Requested)|StorageType(Returned)|Result|DB_Status|Elapsed|Reason
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |------|------|
-| `CSP` | CSP 이름 (예: AWS) |
-| `StorageType(Requested)` | 요청한 StorageType 값 |
-| `StorageType(Returned)` | 생성 후 조회된 StorageType 값 (`N/A`는 생성 실패) |
+| `CSP` | CSP name (e.g. AWS) |
+| `StorageType(Requested)` | The StorageType value that was requested |
+| `StorageType(Returned)` | The StorageType read back after creation (`N/A` means creation failed) |
 | `Result` | `PASS` / `FAIL` / `SKIP` |
-| `DB_Status` | 인스턴스 상태 (`Available`, `CREATE_ERROR`, `TIMEOUT`, `NOT_APPLICABLE` 등) |
-| `Elapsed` | 경과 시간 |
-| `Reason` | 특이사항 (예: SupportsStorageTypeSelection=false, cloud_auto 자동 선택 등) |
+| `DB_Status` | Instance status (`Available`, `CREATE_ERROR`, `TIMEOUT`, `NOT_APPLICABLE`, etc.) |
+| `Elapsed` | Elapsed time |
+| `Reason` | Notes (e.g. SupportsStorageTypeSelection=false, cloud_auto auto-selection, etc.) |
 
 ## API Reference
 
@@ -179,13 +179,13 @@ CSP|StorageType(Requested)|StorageType(Returned)|Result|DB_Status|Elapsed|Reason
 /tmp/st_test_<PID>/logs/log_<csp>.txt
 ```
 
-전체 삭제 실행 시:
+When running the full delete script:
 ```
 /tmp/st_del_<PID>/results/result_<csp>_<storagetype>.txt
 /tmp/st_del_<PID>/logs/log_<csp>.txt
 ```
 
-실행 중 모니터링:
+To monitor a run in progress:
 
 ```bash
 tail -f /tmp/st_test_<PID>/logs/log_aws.txt
@@ -199,24 +199,24 @@ tail -f /tmp/st_test_<PID>/logs/log_aws.txt
 |-------------|---------------|-------------|------|
 | gp2 | db.t3.medium | 100 GB | - |
 | gp3 | db.t3.medium | 100 GB | - |
-| io1 | db.t3.medium | 100 GB | **3000 (필수)** |
-| io2 | db.t3.medium | 100 GB | **3000 (필수)** |
+| io1 | db.t3.medium | 100 GB | **3000 (required)** |
+| io2 | db.t3.medium | 100 GB | **3000 (required)** |
 
-- StorageTypeOptions: metainfo API에서 동적으로 조회
+- StorageTypeOptions: fetched dynamically from the metainfo API
 - Connection: `aws-config01`
 - Region: `ap-southeast-2` / Zone: `ap-southeast-2a`
-- SubnetNames: `subnet-01`, `subnet-02` (서로 다른 AZ, SubnetGroup 생성 필수)
+- SubnetNames: `subnet-01`, `subnet-02` (different AZs, required for SubnetGroup creation)
 - SecurityGroupNames: `sg-01`
 
-**특이사항**
-- io1/io2: `Iops` 필드 필수(Iops:AWS io1/io2 전용)
-- StorageSize: io1/io2는 최소 100 GB
+**Special notes**
+- io1/io2: the `Iops` field is required (Iops is AWS io1/io2-only)
+- StorageSize: io1/io2 require a minimum of 100 GB
 
 ---
 
 ### GCP
 
-GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 직접 지정.
+GCP's StorageType is fixed by machine series, so 5 combinations are explicitly specified.
 
 | StorageType | DBSpec | StorageSize | Edition | Machine Series |
 |-------------|---------------|-------------|---------|---------------|
@@ -230,33 +230,33 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - Region: `us-central1` / Zone: `us-central1-a`
 - VPCName: `vpc-01`
 
-**특이사항**
-- 머신 시리즈 ↔ StorageType 불일치 시 Spider 드라이버에서 에러 반환 (e.g. N2에 HYPERDISK_BALANCED 요청시 에러)
-- N2/C4A 머신 타입은 Edition=ENTERPRISE_PLUS 자동 설정 (드라이버 내부 처리)
-- N2(`db-perf-optimized-N-*`), C4A(`db-c4a-highmem-*`), N4(`db-custom-N4-*`): StorageType은 API에 전달하지 않음 (머신 시리즈에 의해 자동 결정)
-- GCP metainfo StorageTypeOptions에 HYPERDISK_BALANCED가 포함되나, 직접 지정이 아닌 머신 시리즈 선택으로 결정됨
-- HYPERDISK_BALANCED 최소 StorageSize: 20 GB
+**Special notes**
+- A mismatch between machine series and StorageType causes the Spider driver to return an error (e.g. requesting HYPERDISK_BALANCED on an N2 machine)
+- N2/C4A machine types automatically get Edition=ENTERPRISE_PLUS set (handled internally by the driver)
+- For N2 (`db-perf-optimized-N-*`), C4A (`db-c4a-highmem-*`), and N4 (`db-custom-N4-*`): StorageType is not passed to the API — it's determined automatically by the machine series
+- GCP's metainfo StorageTypeOptions includes HYPERDISK_BALANCED, but it's selected via machine series rather than direct specification
+- HYPERDISK_BALANCED requires a minimum StorageSize of 20 GB
 
 ---
 
 ### Alibaba
 
-| StorageType | DBSpec | StorageSize | 비고 |
+| StorageType | DBSpec | StorageSize | Notes |
 |-------------|---------------|-------------|------|
 | cloud_auto | mysql.n4.large.1 | 20 GB | |
 | cloud_essd | mysql.n4.large.1 | 20 GB | ESSD PL1 |
-| cloud_essd2 | mysql.n2.small.2c | **500 GB** | ESSD PL2, 최소 500 GB |
-| cloud_essd3 | mysql.n2.small.2c | **1500 GB** | ESSD PL3, 최소 1500 GB |
-| local_ssd | rds.mysql.t1.small | 20 GB | Premium Local SSD, rds.mysql.* 계열 전용 |
+| cloud_essd2 | mysql.n2.small.2c | **500 GB** | ESSD PL2, minimum 500 GB |
+| cloud_essd3 | mysql.n2.small.2c | **1500 GB** | ESSD PL3, minimum 1500 GB |
+| local_ssd | rds.mysql.t1.small | 20 GB | Premium Local SSD, only available on the rds.mysql.* family |
 
-- StorageTypeOptions: metainfo API에서 동적으로 조회
+- StorageTypeOptions: fetched dynamically from the metainfo API
 - Connection: `alibaba-beijing-config`
 - Region: `cn-beijing` / Zone: `cn-beijing-f`
 - SubnetNames: `subnet-01`
 
-**특이사항**
-- cloud_essd2/3는 mysql.n4.* 계열과 호환되지 않음 → mysql.n2.small.2c 사용
-- local_ssd는 rds.mysql.* 계열 전용 (mysql.n4.* 사용 시 InvalidInstanceLevel.DiskType 에러)
+**Special notes**
+- cloud_essd2/3 are incompatible with the mysql.n4.* family — mysql.n2.small.2c is used instead
+- local_ssd is only available on the rds.mysql.* family (using mysql.n4.* causes an InvalidInstanceLevel.DiskType error)
 
 ---
 
@@ -269,14 +269,14 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 | CLOUD_SSD | 8000 (MB) | 50 GB |
 | CLOUD_PREMIUM | 8000 (MB) | 50 GB |
 
-- StorageTypeOptions: metainfo API에서 동적으로 조회
+- StorageTypeOptions: fetched dynamically from the metainfo API
 - Connection: `tencent-beijing3-config`
 - Region: `ap-beijing` / Zone: `ap-beijing-3`
 - SubnetNames: `subnet-01`
-- DBSpec: 메모리 크기 MB 단위 지정 (8000 = 8 GB)
+- DBSpec: specifies memory size in MB (8000 = 8 GB)
 
-**특이사항**
-- 동시 주문 거부 발생 가능 (OperationDenied.OtherOderInProcess) → 드라이버 자동 재시도 처리
+**Special notes**
+- Concurrent order submission can be rejected (OperationDenied.OtherOderInProcess) — the driver retries automatically
 
 ---
 
@@ -286,8 +286,8 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - Connection: `ibm-us-east-1-config`
 - Region: `us-east` / Zone: `us-east-1`
 - DBEngineVersion: `8.4`
-- IBM Cloud Databases는 스토리지 타입 선택 기능 부재
-- 테스트 스크립트 실행 시 즉시 SKIP 처리
+- IBM Cloud Databases has no storage type selection feature
+- The test script SKIPs immediately on execution
 
 ---
 
@@ -301,6 +301,7 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - Connection: `openstack-config01`
 - Region: `RegionOne` / Zone: `nova`
 - DBEngineVersion: `5.7.29`
+- StorageTypeOptions are fetched dynamically from Cinder's volume type list, so the actual values available depend on how the target OpenStack deployment is configured
 
 ---
 
@@ -311,11 +312,11 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 | General HDD | m2.c2m4 | 20 GB |
 | General SSD | m2.c2m4 | 20 GB |
 
-- StorageTypeOptions: NHN Cloud RDS API에서 동적으로 조회
+- StorageTypeOptions: fetched dynamically from the NHN Cloud RDS API
 - Connection: `nhn-korea-pangyo1-config`
 - Region: `KR1` / Zone: `kr-pub-a`
 - SubnetNames: `subnet-01`
-- `NHNAutoOpenDBSecurityGroup: true` — NHN Cloud RDS는 VPC Security Group과는 별개인 전용 "DB Security Group"이 있어야 외부 접속이 가능하므로, 시험 편의를 위해 이 옵션으로 전체 개방(`0.0.0.0/0`) DB Security Group을 자동 생성/삭제합니다. 운영 환경에서는 사용을 권장하지 않습니다.
+- `NHNAutoOpenDBSecurityGroup: true` — NHN Cloud RDS requires a dedicated "DB Security Group" separate from the VPC security group before external access is possible, so this option auto-creates/deletes a fully open (`0.0.0.0/0`) DB Security Group for testing convenience. Not recommended for production use.
 
 ---
 
@@ -324,8 +325,8 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - SupportsStorageTypeSelection=false
 - Connection: `azure-koreacentral-config`
 - Region: `koreacentral` / Zone: `1`
-- Azure MySQL Flexible Server의 storageSku는 read-only, Azure가 자동 설정
-- 테스트 스크립트 실행 시 즉시 SKIP 처리
+- Azure MySQL Flexible Server's storageSku is read-only and set automatically by Azure
+- The test script SKIPs immediately on execution
 
 ---
 
@@ -334,10 +335,10 @@ GCP는 머신 시리즈에 따라 StorageType이 고정되어 5개 케이스를 
 - SupportsStorageTypeSelection=false
 - Connection: `ncp-korea1-config`
 - Region: `KR` / Zone: `KR-1`
-- NCP MySQL G3은 SSD 자동 적용, DataStorageTypeCode 지정 불가
-- 테스트 스크립트 실행 시 즉시 SKIP 처리
+- NCP MySQL G3 applies SSD automatically; DataStorageTypeCode cannot be specified
+- The test script SKIPs immediately on execution
 
-## 시험 결과
+## Test Results
 
 ### 2026-08-03
 

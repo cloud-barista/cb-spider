@@ -1,6 +1,6 @@
 # CB-Spider RDBMS Database Management Test (MariaDB)
 
-RDBMS 인스턴스 내부의 Database CRUD API를 검증하는 테스트 스위트입니다. MariaDB를 지원하는 4개 CSP(AWS, Alibaba, OpenStack, NHN)에 대해 병렬로 실행하며, RDBMS 인스턴스 안에서 데이터베이스를 생성/조회/삭제하는 전체 흐름을 검증합니다.
+A test suite that validates the Database CRUD API inside an RDBMS instance. It runs in parallel against the 4 CSPs that support MariaDB (AWS, Alibaba, OpenStack, NHN), verifying the full flow of creating, listing, and deleting a database inside an RDBMS instance.
 
 ## Prerequisites
 
@@ -10,13 +10,13 @@ RDBMS 인스턴스 내부의 Database CRUD API를 검증하는 테스트 스위�
 cd ./bin; ./start.sh
 ```
 
-### RDBMS 인스턴스 사전 생성
+### RDBMS Instance Must Already Exist
 
-이 시험은 RDBMS 인스턴스가 이미 생성되어 있다고 가정합니다. 먼저 상위 디렉토리의 네트워크 사전 준비 및 create 시험을 실행하세요.
+This test assumes an RDBMS instance has already been created. First run the network prerequisite prepare and the create test from the parent directory.
 
 ```bash
 cd ..
-./run-all-csp-network-prepare.sh   # VPC/Subnet/SG 사전 생성 (최초 1회)
+./run-all-csp-network-prepare.sh   # Create VPC/Subnet/SG prerequisites (once)
 ./run-all-csp-rdbms-tests.sh
 ```
 
@@ -28,24 +28,24 @@ cd ..
 
 ## Test Flow
 
-각 CSP에 대해 다음 순서로 Database CRUD를 검증합니다:
+For each CSP, Database CRUD is validated in this order:
 
-1. **CreateDatabase** — `POST /spider/rdbms/{Name}/databases` — `spidertestdb` 데이터베이스 생성
-2. **ListDatabases** — `GET /spider/rdbms/{Name}/databases` — 데이터베이스 목록 조회 성공 확인
-3. **FoundInList** — 목록에서 `spidertestdb` 존재 확인
-4. **DeleteDatabase** — `DELETE /spider/rdbms/{Name}/databases/spidertestdb` — 데이터베이스 삭제
-5. **VerifyDeleted** — `GET /spider/rdbms/{Name}/databases` — 삭제 후 목록에서 제거 확인
+1. **CreateDatabase** — `POST /spider/rdbms/{Name}/databases` — creates the `spidertestdb` database
+2. **ListDatabases** — `GET /spider/rdbms/{Name}/databases` — confirms the database list can be retrieved
+3. **FoundInList** — confirms `spidertestdb` is present in the list
+4. **DeleteDatabase** — `DELETE /spider/rdbms/{Name}/databases/spidertestdb` — deletes the database
+5. **VerifyDeleted** — `GET /spider/rdbms/{Name}/databases` — confirms it is gone from the list after deletion
 
-### 구현 방식
+### Implementation
 
-CB-Spider는 다음 두 가지 방식으로 Database 관리를 지원합니다:
+CB-Spider supports database management through two mechanisms:
 
-| 방식 | 조건 | 설명 |
+| Mechanism | Condition | Description |
 |------|------|------|
-| **CSP 네이티브 API** | 드라이버가 `rdbmsDatabaseManager` 인터페이스 구현 | 각 CSP의 데이터베이스 관리 API 직접 호출 |
-| **SQL 직접 실행** | 드라이버 미구현 시 자동 폴백 | `MasterUserPassword`로 접속하여 SQL 실행 (`CREATE/DROP DATABASE`) |
+| **CSP native API** | The driver implements the `rdbmsDatabaseManager` interface | Calls the CSP's own database management API directly |
+| **Direct SQL execution** | Automatic fallback when the driver doesn't implement it | Connects using `MasterUserPassword` and runs SQL (`CREATE/DROP DATABASE`) |
 
-`MasterUserPassword`는 SQL 폴백 경로에서 필요하므로 항상 포함합니다.
+`MasterUserPassword` is required for the SQL fallback path, so it is always included in the request.
 
 ## Configuration
 
@@ -54,7 +54,7 @@ export SPIDER_URL=http://localhost:1024   # CB-Spider REST API URL
 export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
 ```
 
-테스트 DB 이름을 변경하려면:
+To change the test database name:
 
 ```bash
 export DB_NAME=mydb ./aws-database-test.sh
@@ -68,8 +68,8 @@ export DB_NAME=mydb ./aws-database-test.sh
 ./run-all-csp-database-tests.sh
 ```
 
-- MariaDB 지원 4개 CSP(AWS/Alibaba/OpenStack/NHN)에 대해 병렬로 Database CRUD 검증 실행
-- 완료 후 통합 결과 테이블 및 PASS/FAIL 집계 출력
+- Runs Database CRUD validation in parallel against the 4 CSPs that support MariaDB (AWS/Alibaba/OpenStack/NHN)
+- Prints a unified result table and PASS/FAIL summary when complete
 
 **Example output:**
 ```
@@ -89,7 +89,7 @@ Total: 4 PASS, 0 FAIL
 
 ### Individual CSP
 
-특정 CSP만 단독 실행:
+To run a single CSP on its own:
 
 ```bash
 ./aws-database-test.sh
@@ -98,14 +98,14 @@ Total: 4 PASS, 0 FAIL
 ./nhn-database-test.sh
 ```
 
-단독 실행 시 결과 파일은 `RESULT_DIR` 환경변수로 지정하거나 기본값(`/tmp/rdbms_mgmt_results`)이 사용됩니다.
+For a standalone run, the result file location is controlled by the `RESULT_DIR` environment variable, defaulting to `/tmp/rdbms_mgmt_results`.
 
 ## Script Structure
 
 ```
 database-test/
-├── run-all-csp-database-tests.sh   # Orchestrator: 전체 병렬 실행, PASS/FAIL 집계
-├── common-database-test.sh         # Common: CreateDB → ListDB → DeleteDB → VerifyDeleted
+├── run-all-csp-database-tests.sh   # Orchestrator: runs all CSPs in parallel, aggregates PASS/FAIL
+├── common-database-test.sh         # Common: CreateDB -> ListDB -> DeleteDB -> VerifyDeleted
 ├── aws-database-test.sh
 ├── alibaba-database-test.sh
 ├── openstack-database-test.sh
@@ -118,9 +118,9 @@ database-test/
 |----------|---------|-------------|
 | `SPIDER_URL` | `http://localhost:1024` | CB-Spider REST API URL |
 | `SPIDER_AUTH` | `admin:*****` | Basic auth credentials |
-| `DB_NAME` | `spidertestdb` | 생성/삭제할 테스트 데이터베이스 이름 |
+| `DB_NAME` | `spidertestdb` | Name of the test database to create/delete |
 | `RESULT_DIR` | `/tmp/rdbms_mgmt_results` | Result file output directory |
-| `VERBOSE` | `0` | `1`로 설정 시 per-CSP 전체 로그 덤프 출력 |
+| `VERBOSE` | `0` | If set to `1`, dumps the full per-CSP log |
 
 ```bash
 # Example: verbose output
@@ -129,21 +129,21 @@ VERBOSE=1 ./run-all-csp-database-tests.sh
 
 ## Result Format
 
-결과 파일(`result_<csp>.txt`)은 파이프(|) 구분 7개 필드:
+The result file (`result_<csp>.txt`) has 7 pipe(`|`)-separated fields:
 
 ```
 CSP|CreateDB|ListDB|FoundInList|DeleteDB|VerifyDeleted|Elapsed
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |------|------|
-| `CSP` | CSP 이름 (예: AWS) |
-| `CreateDB` | 데이터베이스 생성 결과 (`PASS` / `FAIL`) |
-| `ListDB` | 데이터베이스 목록 조회 결과 |
-| `FoundInList` | 생성된 DB가 목록에 존재 (`FOUND` / `NOT_FOUND`) |
-| `DeleteDB` | 데이터베이스 삭제 결과 |
-| `VerifyDeleted` | 삭제 후 목록에서 제거 확인 결과 |
-| `Elapsed` | 경과 시간 |
+| `CSP` | CSP name (e.g. AWS) |
+| `CreateDB` | Database creation result (`PASS` / `FAIL`) |
+| `ListDB` | Database list retrieval result |
+| `FoundInList` | Whether the created database was found in the list (`FOUND` / `NOT_FOUND`) |
+| `DeleteDB` | Database deletion result |
+| `VerifyDeleted` | Whether the database was confirmed gone from the list after deletion |
+| `Elapsed` | Elapsed time |
 
 ## API Reference
 
@@ -153,7 +153,7 @@ CSP|CreateDB|ListDB|FoundInList|DeleteDB|VerifyDeleted|Elapsed
 | ListDatabases | `GET` | `/spider/rdbms/{Name}/databases` |
 | DeleteDatabase | `DELETE` | `/spider/rdbms/{Name}/databases/{DBName}` |
 
-모든 요청의 body:
+Request body for all calls:
 ```json
 {
   "ConnectionName": "<connection-name>",
@@ -161,7 +161,7 @@ CSP|CreateDB|ListDB|FoundInList|DeleteDB|VerifyDeleted|Elapsed
   "MasterUserPassword": "<password>"
 }
 ```
-(`DatabaseName`은 CreateDatabase 전용, `MasterUserPassword`는 SQL 폴백 경로에 필요)
+(`DatabaseName` is only used for CreateDatabase; `MasterUserPassword` is needed for the SQL fallback path)
 
 ## Logs & Results
 
@@ -170,7 +170,7 @@ CSP|CreateDB|ListDB|FoundInList|DeleteDB|VerifyDeleted|Elapsed
 /tmp/rdbms_mgmt_logs_<PID>/log_<csp>.txt
 ```
 
-실행 중 모니터링:
+To monitor a run in progress:
 
 ```bash
 tail -f /tmp/rdbms_mgmt_logs_<PID>/log_aws.txt
@@ -180,13 +180,13 @@ tail -f /tmp/rdbms_mgmt_logs_<PID>/log_aws.txt
 
 | CSP | Note |
 |-----|------|
-| OpenStack | 상위 create 시험(Step 4)이 실패하면 인스턴스가 없어 본 시험도 FAIL로 이어짐 |
+| OpenStack | If the create test in the parent suite (Step 4) fails, no instance exists, so this test fails as well |
 
-## 시험 결과
+## Test Results
 
-시험 날짜: 2026-08-18
+Test Date: 2026-08-18
 
-4개 CSP 전부 PASS했습니다.
+All 4 CSPs passed.
 
 ```
 =======================================================================================================

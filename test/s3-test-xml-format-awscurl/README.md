@@ -40,6 +40,7 @@ Register connection names for each CSP before running tests.
 |-----|----------------|
 | AWS | `aws-config01` |
 | GCP | `gcp-iowa-config` |
+| Azure | `azure-northeu-config` |
 | Alibaba | `alibaba-tokyo-config` |
 | Tencent | `tencent-tokyo-config` |
 | IBM | `ibm-us-south-1-config` |
@@ -59,7 +60,7 @@ cd /path/to/cb-spider
 
 ## CSP Test Coverage
 
-### Full Test Suite (30 tests)
+### Full Test Suite (32 tests)
 
 Used for: **AWS, GCP, Alibaba, Tencent, IBM, KT**
 
@@ -74,11 +75,16 @@ Used for: **AWS, GCP, Alibaba, Tencent, IBM, KT**
 
 ### Partial Test Suites
 
-**OpenStack** (`common-s3-api-test-except-multipart-versioning.sh`) — 20 tests  
+**OpenStack** (`common-s3-api-test-except-multipart-versioning.sh`) — 22 tests  
 - Skipped: Multipart Upload (6) + Versioning (4)
 
-**NCP, NHN** (`common-s3-api-test-except-versioning-cors.sh`) — 22 tests  
+**NCP, NHN** (`common-s3-api-test-except-versioning-cors.sh`) — 24 tests  
 - Skipped: Versioning (4) + CORS (4)
+
+**Azure** (`common-s3-api-test-except-versioning-cors.sh` with `SKIP_MULTIPART=true`) — 18 tests  
+- Skipped: Multipart Upload (6) + Versioning (4) + CORS (4)
+- Azure Blob Storage's S3-compatible layer does not support Versioning, CORS, Multipart Upload, or Delete Marker
+- Also sets `PRESIGNED_UPLOAD_EXTRA_HEADER="x-ms-blob-type: BlockBlob"`, required by Azure for PreSigned uploads
 
 ---
 
@@ -104,13 +110,14 @@ chmod +x run-all-csp-tests.sh
 ./run-all-csp-tests.sh
 ```
 
-Runs all 9 CSPs and prints a consolidated pass/fail summary table.
+Runs all 10 CSPs and prints a consolidated pass/fail summary table.
 
 ### Run a single CSP
 
 ```bash
 ./aws-test.sh
 ./gcp-test.sh
+./azure-test.sh
 ./alibaba-test.sh
 ./tencent-test.sh
 ./ibm-test.sh
@@ -132,11 +139,12 @@ CONNECTION_NAME="my-custom-config" ./common-s3-full-api-test.sh
 
 | Script | Purpose |
 |---|---|
-| `common-s3-full-api-test.sh` | Full 30-test suite |
-| `common-s3-api-test-except-multipart-versioning.sh` | 20-test suite (no Multipart / Versioning) |
-| `common-s3-api-test-except-versioning-cors.sh` | 22-test suite (no Versioning / CORS) |
+| `common-s3-full-api-test.sh` | Full 32-test suite |
+| `common-s3-api-test-except-multipart-versioning.sh` | 22-test suite (no Multipart / Versioning) |
+| `common-s3-api-test-except-versioning-cors.sh` | 24-test suite (no Versioning / CORS); supports `SKIP_MULTIPART=true` for an 18-test suite (also no Multipart) |
 | `aws-test.sh` | AWS wrapper → full suite |
 | `gcp-test.sh` | GCP wrapper → full suite |
+| `azure-test.sh` | Azure wrapper → no Multipart/Versioning/CORS (`SKIP_MULTIPART=true`) |
 | `alibaba-test.sh` | Alibaba wrapper → full suite |
 | `tencent-test.sh` | Tencent wrapper → full suite |
 | `ibm-test.sh` | IBM wrapper → full suite |
