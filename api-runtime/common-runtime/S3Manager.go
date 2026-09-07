@@ -612,6 +612,15 @@ func GetS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error) {
 	return &bucketInfo, nil
 }
 
+// GetS3BucketSystemId returns the CSP-side bucket name stored for the connection; falls back to bucketName.
+func GetS3BucketSystemId(connectionName, bucketName string) string {
+	var iidInfo S3BucketIIDInfo
+	if err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName); err != nil || iidInfo.SystemId == "" {
+		return bucketName
+	}
+	return iidInfo.SystemId
+}
+
 func GetS3BucketRegionInfo(connectionName, bucketName string) (string, error) {
 	cblog.Info("call GetS3BucketRegionInfo()")
 	var iidInfo S3BucketIIDInfo
