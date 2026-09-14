@@ -57,7 +57,23 @@ func (handler *OracleVMHandler) StartVM(req irs.VMReqInfo) (irs.VMInfo, error) {
 	}
 	metadata := map[string]string{"ssh_authorized_keys": keyInfo.PublicKey, "user_data": userData}
 	vmTags := freeformTagsWith(req.TagList, map[string]string{oracleVMKeyPairNameTag: req.KeyPairIID.NameId, oracleVMUserIDTag: defaultVMUserID})
-	details := core.LaunchInstanceDetails{CompartmentId: common.String(handler.CompartmentID), AvailabilityDomain: common.String(handler.Region.Zone), DisplayName: common.String(req.IId.NameId), Shape: common.String(req.VMSpecName), SourceDetails: core.InstanceSourceViaImageDetails{ImageId: common.String(imageID)}, CreateVnicDetails: &core.CreateVnicDetails{SubnetId: common.String(req.SubnetIID.SystemId), AssignPublicIp: common.Bool(true), DisplayName: common.String(req.IId.NameId), HostnameLabel: common.String(dnsLabel(req.IId.NameId)), NsgIds: nsgIDs, FreeformTags: vmTags}, Metadata: metadata, FreeformTags: vmTags}
+	details := core.LaunchInstanceDetails{
+		CompartmentId:      common.String(handler.CompartmentID),
+		AvailabilityDomain: common.String(handler.Region.Zone),
+		DisplayName:        common.String(req.IId.NameId),
+		Shape:              common.String(req.VMSpecName),
+		SourceDetails:      core.InstanceSourceViaImageDetails{ImageId: common.String(imageID)},
+		CreateVnicDetails: &core.CreateVnicDetails{
+			SubnetId:       common.String(req.SubnetIID.SystemId),
+			AssignPublicIp: common.Bool(req.AssignPublicIP == nil || *req.AssignPublicIP),
+			DisplayName:    common.String(req.IId.NameId),
+			HostnameLabel:  common.String(dnsLabel(req.IId.NameId)),
+			NsgIds:         nsgIDs,
+			FreeformTags:   vmTags,
+		},
+		Metadata:     metadata,
+		FreeformTags: vmTags,
+	}
 	shapeConfig, err := handler.launchShapeConfig(shape)
 	if err != nil {
 		return irs.VMInfo{}, err
