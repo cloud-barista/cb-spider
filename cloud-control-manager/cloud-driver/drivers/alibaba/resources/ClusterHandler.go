@@ -1412,9 +1412,8 @@ func getNodepoolsFromNodeGroupList(nodeGroupInfoList []irs.NodeGroupInfo, runtim
 				ImageId:            tea.String(imageId),
 				//DesiredSize:        tea.Int64(desiredSize),
 			},
-			Management: &cs2015.NodepoolManagement{
-				Enable: tea.Bool(true),
-			},
+			// Management is left unset on purpose: enable=true implies auto_repair=true,
+			// which ACK rejects unless the ack-node-problem-detector addon is installed.
 		}
 
 		// CAUTION: if DesiredSize is set when AutoScaling is enabled, Alibaba reject the request
@@ -1623,9 +1622,8 @@ func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, a
 			SecurityGroupId: tea.String(securityGroupId),
 			//DesiredSize:        tea.Int64(desiredSize),
 		},
-		Management: &cs2015.CreateClusterNodePoolRequestManagement{
-			Enable: tea.Bool(true),
-		},
+		// Management is left unset on purpose: enable=true implies auto_repair=true,
+		// which ACK rejects unless the ack-node-problem-detector addon is installed.
 	}
 
 	// CAUTION: if DesiredSize is set when AutoScaling is enabled, Alibaba reject the request
