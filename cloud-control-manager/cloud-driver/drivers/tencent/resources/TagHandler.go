@@ -252,6 +252,15 @@ func (t *TencentTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.K
 		cblogger.Error(msg)
 		return irs.KeyValue{}, fmt.Errorf("%s", msg)
 	}
+	// TKE copies a cluster's tags to every node pool created under it, and the node
+	// pool's tags are attached to each CVM the autoscaling group launches. The tag
+	// API accepts an empty value, but that CVM call later fails with "tag value
+	// contains illegal characters", so the node group silently stays at 0 nodes.
+	if resType == irs.CLUSTER && tag.Value == "" {
+		msg := "tag value must not be empty for a cluster: an empty value is accepted by the tag API but makes node creation fail"
+		cblogger.Error(msg)
+		return irs.KeyValue{}, fmt.Errorf("%s", msg)
+	}
 
 	hiscallInfo := GetCallLogScheme(t.Region, call.TAG, resIID.SystemId, "AddTag()")
 	start := call.Start()
