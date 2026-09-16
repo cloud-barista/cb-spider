@@ -127,6 +127,25 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 	}
 	cblogger.Debugf("VSwiches in VPC(%s): %v", vpcId, vswitchIds)
 
+	// Ensure internet NAT Gateway exists in VPC for worker node outbound connectivity.
+	hasNat, err := isExistInternetNatGatewayInVpc(ach.VpcClient, regionId, vpcId)
+	if err != nil {
+		err = fmt.Errorf("Failed to check NAT Gateway in VPC(%s): %v", vpcId, err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyClusterInfo, err
+	}
+	if !hasNat {
+		cblogger.Infof("No Internet NAT Gateway found in VPC(%s). Creating NAT Gateway with EIP.", vpcId)
+		err = createNatGatewayWithEip(ach.VpcClient, regionId, vpcId, vswitchIds[0])
+		if err != nil {
+			err = fmt.Errorf("Failed to create NAT Gateway for VPC(%s): %v", vpcId, err)
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return emptyClusterInfo, err
+		}
+	}
+
 	cidrList, err := ach.getAvailableCidrList()
 	if err != nil {
 		err = fmt.Errorf("Failed to Create Cluster: %v", err)
@@ -373,6 +392,17 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 			cblogger.Error(err)
 			LoggingError(hiscallInfo, err)
 			return false, err
+		}
+
+		if len(ngwsRetained) == 0 {
+			allNgws, descErr := aliDescribeInternetNatGatewaysInVpc(ach.VpcClient, regionId, vpcId)
+			if descErr == nil {
+				for _, ngw := range allNgws {
+					if strings.Contains(tea.StringValue(ngw.Description), "cb-spider-k8s-"+vpcId) {
+						ngwsRetained = append(ngwsRetained, ngw)
+					}
+				}
+			}
 		}
 
 		for _, ngw := range ngwsRetained {
@@ -1987,6 +2017,7 @@ func cleanNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, natGatewayId st
 	}
 
 	for _, eipAddr := range eipAddrs {
+		_ = waitUntilEipAllocationIsStatus(vpcClient, regionId, tea.StringValue(eipAddr.AllocationId), eipStatusAvailable)
 		err = aliReleaseEipAddress(vpcClient, regionId, tea.StringValue(eipAddr.AllocationId))
 		if err != nil {
 			err = fmt.Errorf("failed to release eip address(ID=%s, IP=%s), it should be manually unassociated: %v", tea.StringValue(eipAddr.AllocationId), tea.StringValue(eipAddr.IpAddress), err)
@@ -2151,48 +2182,32 @@ func (ach *AlibabaClusterHandler) isAvailableInstanceType(regionId, zoneId, inst
 	return isAvailable, nil
 }
 
-/*
-func waitUntilNodepoolIsState(csClient *cs2015.Client, clusterId, nodepoolId, state string) error {
-	apiCallCount := 0
-	maxAPICallCount := 20
-
-	var waitingErr error
-	for {
-		nodepool, err := aliDescribeClusterNodePoolDetail(csClient, clusterId, nodepoolId)
-		if err != nil {
-			maxAPICallCount = maxAPICallCount / 2
-		}
-		if nodepool.Status != nil && strings.EqualFold(tea.StringValue(nodepool.Status.State), state) {
-			return nil
-		}
-		apiCallCount++
-		if apiCallCount >= maxAPICallCount {
-			waitingErr = fmt.Errorf("failed to get nodepool: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
-			break
-		}
-		time.Sleep(5 * time.Second)
+func aliDescribeInternetNatGatewaysInVpc(vpcClient *vpc2016.Client, regionId, vpcId string) ([]*vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway, error) {
+	req := &vpc2016.DescribeNatGatewaysRequest{
+		RegionId:    tea.String(regionId),
+		VpcId:       tea.String(vpcId),
+		NetworkType: tea.String("internet"),
 	}
-
-	return waitingErr
+	resp, err := vpcClient.DescribeNatGateways(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Body == nil || resp.Body.NatGateways == nil {
+		return make([]*vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway, 0), nil
+	}
+	return resp.Body.NatGateways.NatGateway, nil
 }
 
-// Check whether Internet NAT Gateway is avaiable or not
-func isExistInternetNatGatewayInVpc(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (bool, error) {
-	natGatewayList, err := aliDescribeNatGateways(vpcClient, regionId, vpcId, vSwitchId, "internet")
+func isExistInternetNatGatewayInVpc(vpcClient *vpc2016.Client, regionId, vpcId string) (bool, error) {
+	ngws, err := aliDescribeInternetNatGatewaysInVpc(vpcClient, regionId, vpcId)
 	if err != nil {
 		return false, err
 	}
-
-	if len(natGatewayList) > 0 {
-		return true, nil
-	}
-
-	return false, nil
+	return len(ngws) > 0, nil
 }
 
 func aliAllocateEipAddress(vpcClient *vpc2016.Client, regionId, vpcId string) (*string, *string, error) {
-	description := delimiterVpcId + vpcId
-
+	description := "cb-spider-k8s-" + vpcId
 	allocateEipAddressRequest := &vpc2016.AllocateEipAddressRequest{
 		RegionId:    tea.String(regionId),
 		Description: tea.String(description),
@@ -2201,58 +2216,11 @@ func aliAllocateEipAddress(vpcClient *vpc2016.Client, regionId, vpcId string) (*
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return allocateEipAddressResponse.Body.EipAddress, allocateEipAddressResponse.Body.AllocationId, nil
 }
 
-func aliDescribeEipAddressWithIdAndNat(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId string) (eipAddress *vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, err error) {
-	describeEipAddressesRequest := &vpc2016.DescribeEipAddressesRequest{
-		RegionId:               tea.String(regionId),
-		AllocationId:           tea.String(eipId),
-		AssociatedInstanceType: tea.String("Nat"),
-		AssociatedInstanceId:   tea.String(natGatewayId),
-	}
-	//cblogger.Debug(describeEipAddressesRequest)
-	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
-	if err != nil {
-		return nil, err
-	}
-	//cblogger.Debug(describeEipAddressesResponse.Body)
-
-	eipCount := len(describeEipAddressesResponse.Body.EipAddresses.EipAddress)
-	if eipCount == 1 {
-		eipAddress = describeEipAddressesResponse.Body.EipAddresses.EipAddress[0]
-		err = nil
-	} else if eipCount == 0 {
-		eipAddress = nil
-		err = fmt.Errorf("no eip address(ID=%s)", eipId)
-	} else {
-		eipAddress = nil
-		err = fmt.Errorf("more than one eip address(ID=%s)", eipId)
-	}
-
-	return eipAddress, err
-}
-
-func aliDescribeEipAddressesWithNat(vpcClient *vpc2016.Client, regionId, natGatewayId string) ([]*vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, error) {
-	describeEipAddressesRequest := &vpc2016.DescribeEipAddressesRequest{
-		RegionId:               tea.String(regionId),
-		AssociatedInstanceType: tea.String("Nat"),
-		AssociatedInstanceId:   tea.String(natGatewayId),
-	}
-	//cblogger.Debug(describeEipAddressesRequest)
-	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
-	if err != nil {
-		return make([]*vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, 0), err
-	}
-	//cblogger.Debug(describeEipAddressesResponse.Body)
-
-	return describeEipAddressesResponse.Body.EipAddresses.EipAddress, nil
-}
-
 func aliCreateNatGateway(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (*string, []*string, error) {
-	description := delimiterVpcId + vpcId
-
+	description := "cb-spider-k8s-" + vpcId
 	createNatGatewayRequest := &vpc2016.CreateNatGatewayRequest{
 		RegionId:    tea.String(regionId),
 		VpcId:       tea.String(vpcId),
@@ -2261,14 +2229,17 @@ func aliCreateNatGateway(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId s
 		NetworkType: tea.String("internet"),
 		Description: tea.String(description),
 		EipBindMode: tea.String("NAT"),
+		Tag: []*vpc2016.CreateNatGatewayRequestTag{
+			{
+				Key:   tea.String(tagKeyCbSpiderPmksCluster),
+				Value: tea.String(tagValueOwned),
+			},
+		},
 	}
-	//cblogger.Debug(createNatGatewayRequest)
 	createNatGatewayResponse, err := vpcClient.CreateNatGateway(createNatGatewayRequest)
 	if err != nil {
 		return nil, make([]*string, 0), err
 	}
-	//cblogger.Debug(createNatGatewayResponse.Body)
-
 	return createNatGatewayResponse.Body.NatGatewayId, createNatGatewayResponse.Body.SnatTableIds.SnatTableId, nil
 }
 
@@ -2277,78 +2248,32 @@ func aliGetNatGatewayAttribute(vpcClient *vpc2016.Client, regionId, natGatewayId
 		RegionId:     tea.String(regionId),
 		NatGatewayId: tea.String(natGatewayId),
 	}
-	//cblogger.Debug(getNatGatewayAttributeRequest)
 	getNatGatewayAttributeResponse, err := vpcClient.GetNatGatewayAttribute(getNatGatewayAttributeRequest)
 	if err != nil {
 		return nil, err
 	}
-	//cblogger.Debug(getNatGatewayAttributeResponse.Body)
-
 	return getNatGatewayAttributeResponse.Body, nil
 }
 
 func waitUntilNatGatewayIsAvailable(vpcClient *vpc2016.Client, regionId, natGatewayId string) error {
 	apiCallCount := 0
-	maxAPICallCount := 20
-
+	maxAPICallCount := 30
 	var waitingErr error
 	for {
 		ngw, err := aliGetNatGatewayAttribute(vpcClient, regionId, natGatewayId)
 		if err != nil {
 			maxAPICallCount = maxAPICallCount / 2
 		}
-		if ngw != nil && strings.EqualFold(*ngw.Status, "Available") {
+		if ngw != nil && strings.EqualFold(tea.StringValue(ngw.Status), "Available") {
 			return nil
 		}
 		apiCallCount++
 		if apiCallCount >= maxAPICallCount {
-			waitingErr = fmt.Errorf("failed to get NAT Gateway: The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
-			break
-		}
-		time.Sleep(10 * time.Second)
-	}
-
-	return waitingErr
-}
-
-func aliCreateSnatEntryForVpc(vpcClient *vpc2016.Client, regionId, snatTableId, snatIp, srcCidr string) error {
-	createSnatEntryRequest := &vpc2016.CreateSnatEntryRequest{
-		RegionId:    tea.String(regionId),
-		SnatIp:      tea.String(snatIp),
-		SnatTableId: tea.String(snatTableId),
-		SourceCIDR:  tea.String(srcCidr),
-	}
-	//cblogger.Debug(createSnatEntryRequest)
-	_, err := vpcClient.CreateSnatEntry(createSnatEntryRequest)
-	if err != nil {
-		return err
-	}
-	//cblogger.Debug(createSnatEntryResponse.Body)
-
-	return nil
-}
-
-func waitUntilEipIsStatus(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId, status string) error {
-	apiCallCount := 0
-	maxAPICallCount := 20
-
-	var waitingErr error
-	for {
-		eipAddress, err := aliDescribeEipAddressWithIdAndNat(vpcClient, regionId, eipId, natGatewayId)
-		if err != nil {
-			maxAPICallCount = maxAPICallCount / 2
-		}
-		if eipAddress != nil && strings.EqualFold(*eipAddress.Status, status) {
-			return nil
-		}
-		apiCallCount++
-		if apiCallCount >= maxAPICallCount {
-			waitingErr = fmt.Errorf("failed to get eip address: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			waitingErr = fmt.Errorf("failed to get NAT Gateway: exceeded verification requests while waiting for availability")
 			break
 		}
 		time.Sleep(5 * time.Second)
 	}
-
 	return waitingErr
 }
 
@@ -2360,250 +2285,139 @@ func aliAssociateEipAddressToNatGateway(vpcClient *vpc2016.Client, regionId, eip
 		InstanceType: tea.String("Nat"),
 		VpcId:        tea.String(vpcId),
 	}
-	//cblogger.Debug(associateEipAddressRequest)
 	_, err := vpcClient.AssociateEipAddress(associateEipAddressRequest)
-	if err != nil {
-		return err
-	}
-	//cblogger.Debug(associateEipAddressResponse.Body)
-
-	return nil
+	return err
 }
 
-func createNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (waitErr error) {
-	var err error
-
-	vpcAttribute, vpcErr := aliDescribeVpcAttribute(vpcClient, regionId, vpcId)
-	if vpcErr != nil {
-		vpcErr = fmt.Errorf("failed to get VPC Attribute: %v", vpcErr)
-		return vpcErr
+func aliDescribeEipAddressWithIdAndNat(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId string) (*vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, error) {
+	describeEipAddressesRequest := &vpc2016.DescribeEipAddressesRequest{
+		RegionId:               tea.String(regionId),
+		AllocationId:           tea.String(eipId),
+		AssociatedInstanceType: tea.String("Nat"),
+		AssociatedInstanceId:   tea.String(natGatewayId),
 	}
-
-	cblogger.Debug("Request to allocate EIP")
-	eipAddress, eipId, allocateErr := aliAllocateEipAddress(vpcClient, regionId, vpcId)
-	if allocateErr != nil {
-		cblogger.Debug("Failed to allocate EIP: ", allocateErr)
-		allocateErr = fmt.Errorf("failed to allocate an EIP: %v", allocateErr)
-		return allocateErr
+	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
+	if err != nil {
+		return nil, err
 	}
-	cblogger.Debug("Successfully allocated EIP: IP=", *eipAddress)
-
-	cblogger.Debug("Request to create NAT Gateway")
-	natGatewayId, snatTableIds, createNatGatewayErr := aliCreateNatGateway(vpcClient, regionId, vpcId, vSwitchId)
-	if createNatGatewayErr != nil || len(snatTableIds) == 0 {
-		cblogger.Debug("Failed to create NAT Gateway: ", createNatGatewayErr)
-		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
-		if err != nil {
-			createNatGatewayErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, createNatGatewayErr)
-		}
-
-		createNatGatewayErr = fmt.Errorf("failed to create NAT Gateway: %v", createNatGatewayErr)
-		return createNatGatewayErr
+	if describeEipAddressesResponse.Body == nil || describeEipAddressesResponse.Body.EipAddresses == nil {
+		return nil, fmt.Errorf("no eip response for id %s", eipId)
 	}
-	cblogger.Debug("Successfully created NAT Gateway: ID=", *natGatewayId)
-
-	cblogger.Debug("Wait until NAT Gateway is Available: ID=", *natGatewayId)
-	waitErr = waitUntilNatGatewayIsAvailable(vpcClient, regionId, *natGatewayId)
-	if waitErr != nil {
-		cblogger.Debug("Failed to wait until NAT Gateway is Available: ID=", *natGatewayId, ": ", waitErr)
-
-		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
-		if err != nil {
-			waitErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, waitErr)
-		}
-
-		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
-		if err != nil {
-			waitErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, waitErr)
-		}
-
-		waitErr = fmt.Errorf("failed to wait until NAT Gateway is available: %v", waitErr)
-		return waitErr
+	eipCount := len(describeEipAddressesResponse.Body.EipAddresses.EipAddress)
+	if eipCount == 1 {
+		return describeEipAddressesResponse.Body.EipAddresses.EipAddress[0], nil
+	} else if eipCount == 0 {
+		return nil, fmt.Errorf("no eip address(ID=%s)", eipId)
 	}
-
-	cblogger.Debug("Request to associate EIP to NAT Gateway: IP=", *eipAddress, " NAT Gateway ID=", *natGatewayId)
-	associateErr := aliAssociateEipAddressToNatGateway(vpcClient, regionId, *eipId, *natGatewayId, vpcId)
-	if associateErr != nil {
-		cblogger.Debug("Failed to associate EIP to NAT Gateway: IP=", *eipAddress, " NAT Gateway ID=", *natGatewayId, ": ", associateErr)
-
-		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
-		if err != nil {
-			associateErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, associateErr)
-		}
-
-		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
-		if err != nil {
-			associateErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, associateErr)
-		}
-
-		associateErr = fmt.Errorf("failed to associate EIP(ID=%s): %v", natGatewayId, associateErr)
-		return associateErr
-	}
-	cblogger.Debug("Successfully associated EIP to NAT Gateway: IP=", *eipAddress, " NAT Gateway ID=", *natGatewayId)
-
-	cblogger.Debug("Wait until EIP is InUse: IP=", *eipAddress)
-	waitErr = waitUntilEipIsStatus(vpcClient, regionId, *eipId, *natGatewayId, "InUse")
-	if waitErr != nil {
-		cblogger.Debug("Failed to wait until EIP is InUse: IP=", *eipAddress, ": ", waitErr)
-
-		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
-		if err != nil {
-			waitErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, waitErr)
-		}
-
-		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
-		if err != nil {
-			waitErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, waitErr)
-		}
-
-		waitErr = fmt.Errorf("failed to wait until NAT Gateway is available: %v", waitErr)
-		return waitErr
-	}
-
-	cblogger.Debug("Request to create SNAT Entry in NAT Gateway for VPC: NAT Gateway ID=", *natGatewayId, ", VPC ID=", vpcId)
-	createSnatEntryErr := aliCreateSnatEntryForVpc(vpcClient, regionId, *snatTableIds[0], *eipAddress, *vpcAttribute.CidrBlock)
-	if createSnatEntryErr != nil {
-		cblogger.Debug("Failed to create SNAT Entry in NAT Gateway for VPC: NAT Gateway ID=", *natGatewayId, ", VPC ID=", vpcId, ": ", createSnatEntryErr)
-
-		err = aliDeleteNatGateway(vpcClient, regionId, *natGatewayId)
-		if err != nil {
-			createSnatEntryErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s), it should be manually deleted: %v: %v", natGatewayId, err, createSnatEntryErr)
-		}
-
-		err = aliReleaseEipAddress(vpcClient, regionId, *eipId)
-		if err != nil {
-			createSnatEntryErr = fmt.Errorf("failed to release EIP(ID=%s), it should be manually released: %v: %v", eipId, err, createSnatEntryErr)
-		}
-
-		createSnatEntryErr = fmt.Errorf("failed to create a SNAT etnry: %v", createSnatEntryErr)
-		return createSnatEntryErr
-	}
-	cblogger.Debug("Successfully created SNAT Entry in NAT Gateway: ID=", *natGatewayId)
-
-	return nil
+	return nil, fmt.Errorf("more than one eip address(ID=%s)", eipId)
 }
 
-func deleteNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (resultErr error) {
-	natGatewayList, err := aliDescribeNatGateways(vpcClient, regionId, vpcId, vSwitchId, "internet")
-	if err != nil {
-		resultErr = fmt.Errorf("failed to get NAT Gateways: %v", err)
-		return resultErr
-	}
-
-	var ngwForCluster *vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway = nil
-	for _, ngw := range natGatewayList {
-		ngwVpcId := ""
-		re := regexp.MustCompile(`\S*` + delimiterVpcId + `\S*`)
-		found := re.FindString(*ngw.Description)
-		if found != "" {
-			split := strings.Split(found, delimiterVpcId)
-			ngwVpcId = split[1]
-			if strings.EqualFold(ngwVpcId, vpcId) {
-				ngwForCluster = ngw
-				break
-			}
-		}
-	}
-
-	if ngwForCluster == nil {
-		resultErr = fmt.Errorf("no NAT Gateway in %s%s", delimiterVpcId, vpcId)
-		return resultErr
-	}
-
-	cblogger.Debug("Request to delete NAT Gateway: ID=", *ngwForCluster.NatGatewayId)
-	err = aliDeleteNatGateway(vpcClient, regionId, *ngwForCluster.NatGatewayId)
-	if err != nil {
-		cblogger.Debug("Failed to delete NAT Gateway: ID=", *ngwForCluster.NatGatewayId, ": ", err)
-		resultErr = fmt.Errorf("failed to delete NAT Gateway(ID=%s): %v", *ngwForCluster.NatGatewayId, err)
-	}
-	cblogger.Debug("Successfully deleted NAT Gateway: ID=", *ngwForCluster.NatGatewayId)
-
-	resultErr = nil
-	eipAddressList, err := aliDescribeEipAddressesWithNat(vpcClient, regionId, *ngwForCluster.NatGatewayId)
-	if err != nil {
-		if resultErr != nil {
-			resultErr = fmt.Errorf("%v - no EIP with NAT Gateway(ID=%s): %v", resultErr, *ngwForCluster.NatGatewayId, err)
-		} else {
-			resultErr = fmt.Errorf("no EIP with NAT Gateway(ID=%s): %v", *ngwForCluster.NatGatewayId, err)
-		}
-	} else {
-		for _, eipAddr := range eipAddressList {
-			eipVpcId := ""
-			re := regexp.MustCompile(`\S*` + delimiterVpcId + `\S*`)
-			found := re.FindString(*eipAddr.Description)
-			if found != "" {
-				split := strings.Split(found, delimiterVpcId)
-				eipVpcId = split[1]
-				if strings.EqualFold(eipVpcId, vpcId) {
-					cblogger.Debug("Wait until EIP is Available: IP=", eipAddr.IpAddress)
-					waitUntilEipIsStatus(vpcClient, regionId, *eipAddr.AllocationId, "", "Available")
-
-					cblogger.Debug("Request to release EIP: IP=", eipAddr.IpAddress)
-					err = aliReleaseEipAddress(vpcClient, regionId, *eipAddr.AllocationId)
-					if err != nil {
-						cblogger.Debug("Failed to release EIP: IP=", eipAddr.IpAddress, ": ", err)
-					}
-				}
-			}
-		}
-	}
-
-	return resultErr
-}
-
-func waitUntilClusterSecurityGroupIdIsExist(csClient *cs2015.Client, clusterId string) error {
+func waitUntilEipIsStatus(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId, status string) error {
 	apiCallCount := 0
-	maxAPICallCount := 20
-
+	maxAPICallCount := 30
 	var waitingErr error
 	for {
-		cluster, err := aliDescribeClusterDetail(csClient, clusterId)
+		eipAddress, err := aliDescribeEipAddressWithIdAndNat(vpcClient, regionId, eipId, natGatewayId)
 		if err != nil {
 			maxAPICallCount = maxAPICallCount / 2
 		}
-		if !strings.EqualFold(tea.StringValue(cluster.SecurityGroupId), "") {
+		if eipAddress != nil && strings.EqualFold(tea.StringValue(eipAddress.Status), status) {
 			return nil
 		}
 		apiCallCount++
 		if apiCallCount >= maxAPICallCount {
-			waitingErr = fmt.Errorf("failed to get cluster's security group id: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			waitingErr = fmt.Errorf("failed to get eip address: exceeded verification requests while waiting for %s status", status)
 			break
 		}
-		time.Sleep(5 * time.Second)
-		cblogger.Info("Wait until cluster's security group id is exist")
+		time.Sleep(3 * time.Second)
 	}
-
 	return waitingErr
 }
-*/
-/*
-	//
-	// Check whether if a nat gateway is created with the cluster or not
-	//
-	cblogger.Debug(fmt.Sprintf("Check if NAT Gateway is Automatically Created."))
 
-	tagKey := tagKeyAckAliyunCom
-	tagValue := tea.StringValue(clusterId)
-	ngwsWithTag, err := getInternetNatGatewaysWithTagInVpc(ach.VpcClient, regionId, vpcId, tagKey, tagValue)
-	if err != nil {
-		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
-		cblogger.Error(createErr)
-		LoggingError(hiscallInfo, err)
-		return emptyClusterInfo, createErr
-	}
-	if len(ngwsWithTag) > 0 {
-		cblogger.Debug(fmt.Sprintf("NAT Gateway(%s) is Automatically Created.", tea.StringValue(ngwsWithTag[0].NatGatewayId)))
-		err = aliTagNatGateway(ach.VpcClient, regionId, tea.StringValue(ngwsWithTag[0].NatGatewayId), tagKeyCbSpiderPmksNatGateway, tagValueOwned)
-		if err != nil {
-			createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
-			cblogger.Error(createErr)
-			LoggingError(hiscallInfo, createErr)
-			return emptyClusterInfo, createErr
+func waitUntilEipAllocationIsStatus(vpcClient *vpc2016.Client, regionId, allocationId, status string) error {
+	for i := 0; i < 30; i++ {
+		req := &vpc2016.DescribeEipAddressesRequest{
+			RegionId:     tea.String(regionId),
+			AllocationId: tea.String(allocationId),
 		}
-	} else {
-		cblogger.Debug(fmt.Sprintf("No Created NAT Gateway."))
+		resp, err := vpcClient.DescribeEipAddresses(req)
+		if err == nil && resp.Body != nil && resp.Body.EipAddresses != nil && len(resp.Body.EipAddresses.EipAddress) > 0 {
+			if strings.EqualFold(tea.StringValue(resp.Body.EipAddresses.EipAddress[0].Status), status) {
+				return nil
+			}
+		}
+		time.Sleep(2 * time.Second)
 	}
-*/
+	return fmt.Errorf("timeout waiting for EIP(%s) to become %s", allocationId, status)
+}
+
+func aliCreateSnatEntryForVpc(vpcClient *vpc2016.Client, regionId, snatTableId, snatIp, srcCidr string) error {
+	createSnatEntryRequest := &vpc2016.CreateSnatEntryRequest{
+		RegionId:    tea.String(regionId),
+		SnatIp:      tea.String(snatIp),
+		SnatTableId: tea.String(snatTableId),
+		SourceCIDR:  tea.String(srcCidr),
+	}
+	_, err := vpcClient.CreateSnatEntry(createSnatEntryRequest)
+	return err
+}
+
+func createNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) error {
+	vpcAttribute, vpcErr := aliDescribeVpcAttribute(vpcClient, regionId, vpcId)
+	if vpcErr != nil {
+		return fmt.Errorf("failed to get VPC attribute: %v", vpcErr)
+	}
+
+	cblogger.Infof("Allocating EIP for NAT Gateway in VPC(%s)", vpcId)
+	eipAddress, eipId, allocateErr := aliAllocateEipAddress(vpcClient, regionId, vpcId)
+	if allocateErr != nil {
+		return fmt.Errorf("failed to allocate EIP: %v", allocateErr)
+	}
+	cblogger.Infof("Allocated EIP(%s, %s)", tea.StringValue(eipAddress), tea.StringValue(eipId))
+
+	cblogger.Infof("Creating NAT Gateway in VPC(%s), VSwitch(%s)", vpcId, vSwitchId)
+	natGatewayId, snatTableIds, createNatGatewayErr := aliCreateNatGateway(vpcClient, regionId, vpcId, vSwitchId)
+	if createNatGatewayErr != nil || len(snatTableIds) == 0 {
+		_ = aliReleaseEipAddress(vpcClient, regionId, tea.StringValue(eipId))
+		return fmt.Errorf("failed to create NAT Gateway: %v", createNatGatewayErr)
+	}
+	cblogger.Infof("Created NAT Gateway(%s), waiting for Available", tea.StringValue(natGatewayId))
+
+	err := waitUntilNatGatewayIsAvailable(vpcClient, regionId, tea.StringValue(natGatewayId))
+	if err != nil {
+		_ = aliDeleteNatGateway(vpcClient, regionId, tea.StringValue(natGatewayId))
+		_ = aliReleaseEipAddress(vpcClient, regionId, tea.StringValue(eipId))
+		return fmt.Errorf("failed waiting for NAT Gateway availability: %v", err)
+	}
+
+	cblogger.Infof("Associating EIP(%s) to NAT Gateway(%s)", tea.StringValue(eipAddress), tea.StringValue(natGatewayId))
+	err = aliAssociateEipAddressToNatGateway(vpcClient, regionId, tea.StringValue(eipId), tea.StringValue(natGatewayId), vpcId)
+	if err != nil {
+		_ = aliDeleteNatGateway(vpcClient, regionId, tea.StringValue(natGatewayId))
+		_ = aliReleaseEipAddress(vpcClient, regionId, tea.StringValue(eipId))
+		return fmt.Errorf("failed associating EIP to NAT Gateway: %v", err)
+	}
+
+	err = waitUntilEipIsStatus(vpcClient, regionId, tea.StringValue(eipId), tea.StringValue(natGatewayId), "InUse")
+	if err != nil {
+		_ = aliDeleteNatGateway(vpcClient, regionId, tea.StringValue(natGatewayId))
+		_ = aliReleaseEipAddress(vpcClient, regionId, tea.StringValue(eipId))
+		return fmt.Errorf("failed waiting for EIP InUse: %v", err)
+	}
+
+	cblogger.Infof("Creating SNAT entry for CIDR(%s) via EIP(%s)", tea.StringValue(vpcAttribute.CidrBlock), tea.StringValue(eipAddress))
+	err = aliCreateSnatEntryForVpc(vpcClient, regionId, tea.StringValue(snatTableIds[0]), tea.StringValue(eipAddress), tea.StringValue(vpcAttribute.CidrBlock))
+	if err != nil {
+		_ = aliDeleteNatGateway(vpcClient, regionId, tea.StringValue(natGatewayId))
+		_ = aliReleaseEipAddress(vpcClient, regionId, tea.StringValue(eipId))
+		return fmt.Errorf("failed creating SNAT entry: %v", err)
+	}
+
+	// Tag the NAT Gateway with cb-spider owned tag for automated deletion
+	_ = aliTagNatGateway(vpcClient, regionId, tea.StringValue(natGatewayId), tagKeyCbSpiderPmksCluster, tagValueOwned)
+	cblogger.Infof("NAT Gateway(%s) with EIP(%s) ready for VPC(%s)", tea.StringValue(natGatewayId), tea.StringValue(eipAddress), vpcId)
+	return nil
+}
 
 func (alibabaClusterHandler *AlibabaClusterHandler) ListIID() ([]*irs.IID, error) {
 	var iidList []*irs.IID
