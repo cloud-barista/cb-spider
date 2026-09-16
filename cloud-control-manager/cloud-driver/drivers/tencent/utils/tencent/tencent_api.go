@@ -196,7 +196,6 @@ func SetNodeGroupAutoScaling(secret_id string, secret_key string, region_id stri
 
 	request := tke.NewModifyClusterNodePoolRequest()
 
-	request.EnableAutoscale = common.BoolPtr(false)
 	request.ClusterId = common.StringPtr(cluster_id)
 	request.NodePoolId = common.StringPtr(nodepool_id)
 	request.EnableAutoscale = common.BoolPtr(enable)
