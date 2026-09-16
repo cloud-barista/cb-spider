@@ -978,6 +978,13 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	// certain characters (e.g. '#') broke RunInstances.
 	var tags []*tke.Tag
 	for _, inputTag := range clusterInfo.TagList {
+		// Same propagation path as the '#' case above: an empty tag value is accepted
+		// by TKE but makes the Auto Scaling scale-out call to RunInstances fail with
+		// "tag value contains illegal characters", so the node group stays at 0 nodes.
+		if inputTag.Value == "" {
+			cblogger.Warnf("skip tag %q: an empty tag value would break node creation on scale-out", inputTag.Key)
+			continue
+		}
 		tags = append(tags, &tke.Tag{
 			Key:   common.StringPtr(inputTag.Key),
 			Value: common.StringPtr(inputTag.Value),
