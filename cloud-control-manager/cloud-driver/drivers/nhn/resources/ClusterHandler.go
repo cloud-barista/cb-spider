@@ -429,8 +429,8 @@ func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion
 	//
 	clusterInfo, err := nch.getClusterInfo(cluster.UUID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
-		return emptyClusterInfo, err
+		upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return emptyClusterInfo, upgradeErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -475,10 +475,8 @@ func (nch *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReq
 	//
 	err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo)
 	if err != nil {
-		err = fmt.Errorf("Failed to Add Node Group: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return emptyNodeGroupInfo, err
+		addErr = fmt.Errorf("Failed to Add Node Group: %v", err)
+		return emptyNodeGroupInfo, addErr
 	}
 
 	//
@@ -486,14 +484,15 @@ func (nch *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReq
 	//
 	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
-		return emptyNodeGroupInfo, err
+		addErr = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		return emptyNodeGroupInfo, addErr
 	}
+	clusterId = cluster.UUID
 
 	nodeGroupId, err = nch.createNodeGroup(cluster.UUID, &nodeGroupReqInfo)
 	if err != nil {
-		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
-		return emptyNodeGroupInfo, err
+		addErr = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		return emptyNodeGroupInfo, addErr
 	}
 	cblogger.Debug("To Create a NodeGroup is In Progress")
 
@@ -522,24 +521,32 @@ func (nch *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, n
 	}()
 
 	cblogger.Debug("NHN Cloud Driver: called SetNodeGroupAutoScaling()")
-	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 	start := call.Start()
 
 	cblogger.Info("Set NodeGroup AutoScaling")
+
+	var setErr error
+	defer func() {
+		if setErr != nil {
+			cblogger.Error(setErr)
+			LoggingError(hiscallInfo, setErr)
+		}
+	}()
 
 	//
 	// Set NodeGroup AutoScaling
 	//
 	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
-		return false, err
+		setErr = fmt.Errorf("Failed to Set NodeGroup AutoScaling: %v", err)
+		return false, setErr
 	}
 
 	nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, cluster.UUID, nodeGroupIID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
-		return false, err
+		setErr = fmt.Errorf("Failed to Set NodeGroup AutoScaling: %v", err)
+		return false, setErr
 	}
 
 	clusterId := cluster.UUID
@@ -548,10 +555,8 @@ func (nch *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, n
 
 	_, err = nhnSetNodeGroupAutoscaleEnable(nch.ClusterClient, clusterId, nodeGroupId, enable)
 	if err != nil {
-		err := fmt.Errorf("Failed to Set NodeGroup AutoScaling: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return false, err
+		setErr = fmt.Errorf("Failed to Set NodeGroup AutoScaling: %v", err)
+		return false, setErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -571,20 +576,26 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 
 	cblogger.Debug("NHN Cloud Driver: called ChangeNodeGroupScaling()")
 	emptyNodeGroupInfo := irs.NodeGroupInfo{}
-	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 	start := call.Start()
 
 	cblogger.Info("Change NodeGroup Scaling")
+
+	var changeErr error
+	defer func() {
+		if changeErr != nil {
+			cblogger.Error(changeErr)
+			LoggingError(hiscallInfo, changeErr)
+		}
+	}()
 
 	//
 	// Validation
 	//
 	err := validateAtChangeNodeGroupScaling(minNodeSize, maxNodeSize)
 	if err != nil {
-		err = fmt.Errorf("Failed to Change Node Group Scaling: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return emptyNodeGroupInfo, err
+		changeErr = fmt.Errorf("Failed to Change Node Group Scaling: %v", err)
+		return emptyNodeGroupInfo, changeErr
 	}
 
 	//
@@ -592,14 +603,14 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 	//
 	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
-		return emptyNodeGroupInfo, err
+		changeErr = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		return emptyNodeGroupInfo, changeErr
 	}
 
 	nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, cluster.UUID, nodeGroupIID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
-		return emptyNodeGroupInfo, err
+		changeErr = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		return emptyNodeGroupInfo, changeErr
 	}
 
 	nodeGroupId := nodeGroup.UUID
@@ -633,10 +644,8 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 	// Set NodeGroup's Autoscale
 	_, err = nhnSetNodeGroupAutoscale(nch.ClusterClient, cluster.UUID, nodeGroupId, enable, minNodeCount, maxNodeCount)
 	if err != nil {
-		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return emptyNodeGroupInfo, err
+		changeErr = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		return emptyNodeGroupInfo, changeErr
 	}
 
 	//
@@ -644,10 +653,8 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 	//
 	nodeGroupInfo, err := nch.getNodeGroupInfo(cluster.UUID, nodeGroupId, cluster.KeyPair)
 	if err != nil {
-		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return emptyNodeGroupInfo, err
+		changeErr = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		return emptyNodeGroupInfo, changeErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -684,25 +691,25 @@ func (nch *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroup
 	//
 	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
-		return false, err
+		removeErr = fmt.Errorf("Failed to Remove NodeGroup: %v", err)
+		return false, removeErr
 	}
 
 	nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, cluster.UUID, nodeGroupIID)
 	if err != nil {
-		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
-		return false, err
+		removeErr = fmt.Errorf("Failed to Remove NodeGroup: %v", err)
+		return false, removeErr
 	}
 
 	err = nch.deleteNodeGroup(cluster.UUID, nodeGroup.UUID)
 	if err != nil {
-		err := fmt.Errorf("Failed to Remove NodeGroup: %v", err)
-		return false, err
+		removeErr = fmt.Errorf("Failed to Remove NodeGroup: %v", err)
+		return false, removeErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Infof("Removing NodeGroup(name=%s, id=%s) to Cluster(%s)", nodeGroup.Name, nodeGroup.UUID, cluster.Name)
+	cblogger.Infof("Removing NodeGroup(name=%s, id=%s) from Cluster(%s)", nodeGroup.Name, nodeGroup.UUID, cluster.Name)
 
 	return true, nil
 }
@@ -2294,7 +2301,7 @@ func (nch *NhnCloudClusterHandler) ListIID() ([]*irs.IID, error) {
 		}
 	}()
 
-	cblogger.Debug("NHN Cloud Driver: called ListCluster()")
+	cblogger.Debug("NHN Cloud Driver: called ListIID()")
 	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListIID()") // HisCall logging
 
 	start := call.Start()
