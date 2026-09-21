@@ -252,7 +252,6 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 				}
 
 				allProtocolTypeCode := []string{"tcp", "udp", "icmp"}
-				allCIDR := "0.0.0.0/0"
 
 				for _, curProtocolType := range allProtocolTypeCode {
 					var createRuleOpts rules.CreateOpts
@@ -262,7 +261,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 							EtherType:      rules.EtherType4,
 							SecGroupID:     nhnSG.ID,
 							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
-							RemoteIPPrefix: allCIDR,                             //Caution!!
+							RemoteIPPrefix: curRule.CIDR,
 						}
 					} else {
 						var fromPort int
@@ -279,7 +278,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 							PortRangeMin:   fromPort,
 							PortRangeMax:   toPort,
 							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
-							RemoteIPPrefix: allCIDR,                             //Caution!!
+							RemoteIPPrefix: curRule.CIDR,
 						}
 					}
 
@@ -415,7 +414,6 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 				}
 
 				allProtocolTypeCode := []string{"tcp", "udp", "icmp"}
-				allCIDR := "0.0.0.0/0"
 
 				for _, curProtocolType := range allProtocolTypeCode {
 					var ruleInfo irs.SecurityRuleInfo
@@ -425,7 +423,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 							IPProtocol: curProtocolType,
 							FromPort:   "-1",
 							ToPort:     "-1",
-							CIDR:       allCIDR,
+							CIDR:       curRule.CIDR,
 						}
 					} else {
 						ruleInfo = irs.SecurityRuleInfo{
@@ -433,7 +431,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 							IPProtocol: curProtocolType,
 							FromPort:   "1",
 							ToPort:     "65535",
-							CIDR:       allCIDR,
+							CIDR:       curRule.CIDR,
 						}
 					}
 
