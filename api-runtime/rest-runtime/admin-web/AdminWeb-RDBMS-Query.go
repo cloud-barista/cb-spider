@@ -16,6 +16,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	neturl "net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -123,9 +124,11 @@ func openDBConnection(info *cres.RDBMSInfo, password, dbNameOverride string) (*s
 		mysqlConfig.DBName = dbName
 		mysqlConfig.ParseTime = true
 		mysqlConfig.Timeout = 30 * time.Second
-		if mysqlHostRequiresTLS(host) {
-			mysqlConfig.TLSConfig = "skip-verify"
-		}
+		// Use TLS whenever the server offers it, but don't require it: some CSPs enforce
+		// require_secure_transport=ON (rejecting a plain connection outright), others don't
+		// enforce it at all. "preferred" handles both without special-casing any CSP's
+		// endpoint domain (see RDBMSManager.go's openRDBMSSQLConn for the same fix).
+		mysqlConfig.TLSConfig = "preferred"
 		dsn = mysqlConfig.FormatDSN()
 
 	case engine == "postgresql" || engine == "postgres":
@@ -159,11 +162,6 @@ func openDBConnection(info *cres.RDBMSInfo, password, dbNameOverride string) (*s
 	}
 
 	return db, driverName, nil
-}
-
-func mysqlHostRequiresTLS(host string) bool {
-	lowerHost := strings.ToLower(host)
-	return strings.Contains(lowerHost, ".azure.") || strings.Contains(lowerHost, ".databases.appdomain.cloud")
 }
 
 // --- Request/Response structures ---
@@ -204,6 +202,48 @@ type deleteRowRequest struct {
 }
 
 // --- Handlers ---
+
+// RDBMSSecureTransportStatus proxies to the core Spider API's GET /rdbms/{Name}/secure-transport,
+// which reports whether the RDBMS instance enforces encrypted (TLS/SSL) client connections via
+// standard SQL against the engine itself. This handler does no SQL work of its own — the core API
+// (cmrt.GetRDBMSSecureTransportStatus) is the single implementation; this only bridges AdminWeb's
+// session-cookie auth to the core API's Basic Auth, the same way trySpiderDatabaseCreateAPI does.
+func RDBMSSecureTransportStatus(c echo.Context) error {
+	rdbmsName := c.Param("Name")
+
+	var req rdbmsQueryRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+	if req.ConnectionName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	}
+
+	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/secure-transport" +
+		"?ConnectionName=" + neturl.QueryEscape(req.ConnectionName) + "&MasterUserPassword=" + neturl.QueryEscape(req.Password)
+
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	setBasicAuthIfConfigured(request)
+
+	// Generous timeout: the core endpoint's CA certificate probe retries once on its own
+	// (see fetchRDBMSServerCertChain), on top of the SQL check that precedes it — this must
+	// comfortably outlast that worst case, or callers see a loopback timeout instead of the
+	// graceful CACertificateError the core endpoint would otherwise return.
+	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(request)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	defer resp.Body.Close()
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to decode core API response: " + err.Error()})
+	}
+	return c.JSON(resp.StatusCode, payload)
+}
 
 // RDBMSTestConnection tests connectivity to an RDBMS instance.
 func RDBMSTestConnection(c echo.Context) error {

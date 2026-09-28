@@ -8373,6 +8373,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/rdbms/{Name}/secure-transport": {
+            "get": {
+                "description": "Report whether an RDBMS instance enforces encrypted (TLS/SSL) client connections, whether TLS is actually available, and its CA certificate. \u003cbr\u003e Determined uniformly across every CSP via standard SQL and protocol handshakes against the engine itself, not each CSP's own (inconsistently available) management API: \u003cbr\u003e MySQL/MariaDB: ` + "`" + `SHOW VARIABLES LIKE 'require_secure_transport'` + "`" + `. \u003cbr\u003e PostgreSQL: ` + "`" + `pg_hba_file_rules` + "`" + `. \u003cbr\u003e TLS availability and the server's certificate are captured live from the connection/handshake itself — see the response fields below.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Get RDBMS Secure Transport Status",
+                "operationId": "get-rdbms-secure-transport",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS instance",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The master user password, used to connect and run the SQL check",
+                        "name": "MasterUserPassword",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Secure transport status",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSSecureTransportInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/rdbmsengine": {
             "get": {
                 "description": "Retrieve the list of RDBMS engines (e.g., mysql, mariadb, postgresql) that the CSP supports for a specific connection, derived from the connection's driver capability information (GET /driver/capability).",
@@ -13942,6 +14001,93 @@ const docTemplate = `{
                 },
                 "totalSpace": {
                     "type": "string"
+                }
+            }
+        },
+        "spider.RDBMSCACertInfo": {
+            "type": "object",
+            "properties": {
+                "IsSelfSigned": {
+                    "description": "IsSelfSigned is true only when this certificate's signature cryptographically verifies\nagainst its own public key (i.e. it's an actual root CA), not merely Subject == Issuer.\nfalse means it's an intermediate CA — still usable as ssl-ca/sslrootcert (the server will\nkeep presenting it in the chain), but it isn't the ultimate trust anchor.",
+                    "type": "boolean"
+                },
+                "Issuer": {
+                    "type": "string"
+                },
+                "NotAfter": {
+                    "description": "RFC3339",
+                    "type": "string"
+                },
+                "PEM": {
+                    "description": "PEM is the certificate in PEM format — usable directly as a client's ssl-ca / sslrootcert file.\nCaveat: this is the TOP-MOST certificate the server presented during the handshake, which is\noften an intermediate CA rather than the ultimate self-signed root (well-behaved servers don't\nsend the root — clients are expected to already trust it independently). In practice this is\nwhat most \"grab the CA off the server\" workflows use, but a CSP-published root, when one is\ndocumented, is more authoritative.",
+                    "type": "string"
+                },
+                "Subject": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.RDBMSPgHbaRule": {
+            "type": "object",
+            "properties": {
+                "Address": {
+                    "type": "string"
+                },
+                "AuthMethod": {
+                    "type": "string"
+                },
+                "Database": {
+                    "type": "string"
+                },
+                "Type": {
+                    "type": "string"
+                },
+                "UserName": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.RDBMSSecureTransportInfo": {
+            "type": "object",
+            "properties": {
+                "CACertificate": {
+                    "description": "CACertificate is captured via a separate, live TLS handshake against the endpoint (not\nsourced from any CSP API/doc — see RDBMSCACertInfo). nil when TLSInUse=false, or when the\nprobe itself failed; this is best-effort and never fails the overall request.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RDBMSCACertInfo"
+                        }
+                    ]
+                },
+                "CACertificateError": {
+                    "description": "CACertificateError explains why CACertificate is absent despite TLSInUse=true (e.g. a\ntransient network/handshake timeout on this separate probe connection) — set only in that\ncase, so callers don't have to dig through server logs to tell \"not attempted\" from \"failed\".",
+                    "type": "string"
+                },
+                "Enforced": {
+                    "description": "PostgreSQL: best-effort verdict derived from pg_hba_file_rules — true only if every\nmatching TCP rule requires SSL (no plain \"host\" rule accepts a non-rejected connection).",
+                    "type": "boolean"
+                },
+                "Engine": {
+                    "description": "\"mysql\", \"mariadb\", or \"postgres\"",
+                    "type": "string"
+                },
+                "RequireSecureTransport": {
+                    "description": "MySQL/MariaDB: raw value of the require_secure_transport system variable (\"ON\" or \"OFF\").",
+                    "type": "string"
+                },
+                "Rules": {
+                    "description": "PostgreSQL: the raw pg_hba_file_rules rows the verdict above was derived from, for transparency.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.RDBMSPgHbaRule"
+                    }
+                },
+                "TLSCipher": {
+                    "description": "TLSCipher: negotiated cipher suite name when TLSInUse=true, e.g. \"ECDHE-RSA-AES128-GCM-SHA256\"\n(TLS 1.2) or \"TLS_AES_256_GCM_SHA384\" (TLS 1.3); empty when TLSInUse=false.",
+                    "type": "string"
+                },
+                "TLSInUse": {
+                    "description": "TLSInUse is empirical, not config-derived: this diagnostic connection itself was opened\nwith tls=preferred (TLS attempted first, plaintext only as fallback), so TLSInUse=false\nmeans the server doesn't offer TLS at all — independent of RequireSecureTransport/Enforced,\nwhich only say whether TLS is mandatory, not whether it's available.",
+                    "type": "boolean"
                 }
             }
         },

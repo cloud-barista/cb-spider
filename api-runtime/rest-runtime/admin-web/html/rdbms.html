@@ -766,6 +766,9 @@
     .db-connect-status.error {
         color: #721c24;
     }
+    .db-connect-status.warn {
+        color: #856404;
+    }
     #db-table-panel, #db-row-panel {
         margin-top: 10px;
     }
@@ -1203,6 +1206,8 @@
                 <button id="dbConnectBtn" onclick="connectToDB()">Connect</button>
                 <button onclick="disconnectDB()">Disconnect</button>
                 <span id="dbConnectStatus" class="db-connect-status"></span>
+                <span id="dbSecureTransportStatus" class="db-connect-status"></span>
+                <a href="#" id="dbSecureTransportDetailsLink" style="display:none; margin-left:8px; font-size:11px;" onclick="showSecureTransportOverlay(); return false;">Details</a>
             </div>
 
             <!-- Database List Panel -->
@@ -1338,6 +1343,15 @@
                     <button type="button" onclick="hideInsertRowOverlay()" style="margin-left: 10px;">Cancel</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Overlay: Secure Transport Details -->
+    <div id="secureTransportOverlay" class="overlay">
+        <div class="overlay-content" style="width: 640px;">
+            <button type="button" class="overlay-close-btn" onclick="hideSecureTransportOverlay()">X</button>
+            <h2>Secure Transport Details</h2>
+            <div id="stDetailBody" style="font-size: 12px; line-height: 1.7;"></div>
         </div>
     </div>
 
@@ -3151,6 +3165,7 @@
     let currentDBName = null;
     let currentTable = null;
     let currentTableColumns = [];
+    let currentSecureTransportData = null;
 
     // CSPs that manage databases via CSP-native API (DB create/list/drop uses CSP API, not SQL)
     // SQL password is still needed for table/row operations on all CSPs.
@@ -3295,6 +3310,10 @@
         document.getElementById('dbPassword').value = '';
         document.getElementById('dbConnectStatus').textContent = '';
         document.getElementById('dbConnectStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportStatus').textContent = '';
+        document.getElementById('dbSecureTransportStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportDetailsLink').style.display = 'none';
+        currentSecureTransportData = null;
         document.getElementById('db-database-panel').style.display = 'none';
         document.getElementById('db-table-panel').style.display = 'none';
         document.getElementById('db-row-panel').style.display = 'none';
@@ -3365,7 +3384,11 @@
             document.getElementById('db-database-panel').style.display = 'block';
             document.getElementById('db-table-panel').style.display = 'none';
             document.getElementById('db-row-panel').style.display = 'none';
-            loadDatabases();
+            // Sequenced, not concurrent: firing both at once means two near-simultaneous SQL
+            // connections to the same RDBMS instance (loadDatabases uses SQL fallback on CSPs
+            // like AWS), which has been observed to cause the secure-transport check's separate
+            // CA-certificate probe connection to time out under that contention.
+            loadDatabases().finally(() => checkSecureTransport(connConfig, password));
         })
         .catch(error => {
             hideLoading();
@@ -3374,12 +3397,153 @@
         });
     }
 
+    // checkSecureTransport queries whether the DB engine enforces encrypted (TLS/SSL)
+    // client connections, via standard SQL against the engine itself (CSP-agnostic):
+    //   MySQL/MariaDB: SHOW VARIABLES LIKE 'require_secure_transport'
+    //   PostgreSQL:    pg_hba_file_rules
+    function checkSecureTransport(connConfig, password) {
+        const el = document.getElementById('dbSecureTransportStatus');
+        const detailsLink = document.getElementById('dbSecureTransportDetailsLink');
+        el.textContent = 'Checking TLS enforcement...';
+        el.className = 'db-connect-status';
+        detailsLink.style.display = 'none';
+        currentSecureTransportData = null;
+
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/security/secure-transport`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, Password: password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) { // echo.HTTPError body shape: {"message": "..."}
+                el.textContent = 'TLS check failed: ' + data.message;
+                el.className = 'db-connect-status error';
+                return;
+            }
+
+            currentSecureTransportData = data;
+
+            // Inline badge shows ON/OFF only — click "Details" for TLS cipher, CA certificate,
+            // pg_hba rules, etc. Branch on which field the response carries (MySQL/MariaDB vs
+            // PostgreSQL), not on the exact Engine string — DBEngine varies by CSP ("mysql",
+            // "mariadb", "postgresql", "postgres", ...).
+            if (data.RequireSecureTransport !== undefined) {
+                const on = data.RequireSecureTransport === 'ON';
+                el.textContent = `[${data.Engine}] ` + (on ? '🔒 ON' : '⚠️ OFF');
+                el.className = 'db-connect-status ' + (on ? 'connected' : 'warn');
+                detailsLink.style.display = 'inline';
+            } else if (data.Enforced !== undefined) {
+                el.textContent = `[${data.Engine}] ` + (data.Enforced ? '🔒 ON' : '⚠️ OFF');
+                el.className = 'db-connect-status ' + (data.Enforced ? 'connected' : 'warn');
+                detailsLink.style.display = 'inline';
+            } else {
+                el.textContent = '';
+            }
+        })
+        .catch(error => {
+            el.textContent = 'TLS check failed: ' + error.message;
+            el.className = 'db-connect-status error';
+        });
+    }
+
+    // showSecureTransportOverlay renders the full secure-transport check result (TLS cipher,
+    // CA certificate with a copy button, pg_hba rules) from the data already fetched by
+    // checkSecureTransport — no extra request needed.
+    function showSecureTransportOverlay() {
+        const data = currentSecureTransportData;
+        if (!data) return;
+
+        const rows = [];
+        rows.push(`<div><b>Engine:</b> ${escapeHtml(data.Engine || '')}</div>`);
+
+        if (data.RequireSecureTransport !== undefined) {
+            rows.push(`<div><b>require_secure_transport:</b> ${escapeHtml(data.RequireSecureTransport)}</div>`);
+        }
+        if (data.Enforced !== undefined) {
+            rows.push(`<div><b>pg_hba enforced (SSL-only):</b> ${data.Enforced ? 'Yes' : 'No'}</div>`);
+        }
+
+        const tlsLine = data.TLSInUse
+            ? `Yes (cipher: ${escapeHtml(data.TLSCipher || 'unknown')})`
+            : 'No (server does not offer TLS at all)';
+        rows.push(`<div><b>TLS in use (this check):</b> ${tlsLine}</div>`);
+
+        if (data.Rules && data.Rules.length > 0) {
+            let table = '<table style="width:100%; border-collapse:collapse; margin-top:4px;" border="1" cellpadding="4">' +
+                '<thead><tr><th>Type</th><th>Database</th><th>User</th><th>Address</th><th>Auth Method</th></tr></thead><tbody>';
+            data.Rules.forEach(r => {
+                table += `<tr><td>${escapeHtml(r.Type)}</td><td>${escapeHtml(r.Database)}</td>` +
+                    `<td>${escapeHtml(r.UserName)}</td><td>${escapeHtml(r.Address || '')}</td><td>${escapeHtml(r.AuthMethod)}</td></tr>`;
+            });
+            table += '</tbody></table>';
+            rows.push(`<div style="margin-top:8px;"><b>pg_hba_file_rules:</b>${table}</div>`);
+        }
+
+        if (data.CACertificate) {
+            const c = data.CACertificate;
+            const rootBadge = c.IsSelfSigned ? '✅ root CA' : '⚠️ intermediate CA (not the ultimate root)';
+            rows.push(`
+                <div style="margin-top:10px; border-top:1px solid #ddd; padding-top:8px;">
+                    <b>CA Certificate</b> — ${rootBadge}<br>
+                    Subject: ${escapeHtml(c.Subject)}<br>
+                    Issuer: ${escapeHtml(c.Issuer)}<br>
+                    Not After: ${escapeHtml(c.NotAfter)}
+                    <div style="margin-top:6px;">
+                        <button type="button" onclick="copyCACertPEM()">📋 Copy PEM</button>
+                        <span id="stCopyStatus" style="margin-left:6px; font-size:11px; color:#388e3c;"></span>
+                    </div>
+                    <textarea id="stCACertPEM" readonly rows="8" style="width:100%; font-family:monospace; font-size:11px; margin-top:6px;">${escapeHtml(c.PEM)}</textarea>
+                    <div style="font-size:11px; color:#888; margin-top:2px;">
+                        Top-of-chain certificate as presented by the server. Use as ssl-ca / sslrootcert in your SQL client.
+                    </div>
+                </div>`);
+        } else if (data.CACertificateError) {
+            rows.push(`<div style="margin-top:10px; color:#856404;">⚠️ CA certificate probe failed: ${escapeHtml(data.CACertificateError)}</div>`);
+        }
+
+        document.getElementById('stDetailBody').innerHTML = rows.join('\n');
+        document.getElementById('secureTransportOverlay').style.display = 'flex';
+    }
+
+    function hideSecureTransportOverlay() {
+        document.getElementById('secureTransportOverlay').style.display = 'none';
+    }
+
+    function copyCACertPEM() {
+        const pem = document.getElementById('stCACertPEM').value;
+        const status = document.getElementById('stCopyStatus');
+        const showCopied = () => { status.textContent = '✓ Copied'; setTimeout(() => { status.textContent = ''; }, 2000); };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(pem).then(showCopied).catch(() => fallbackCopyPEM(pem, showCopied));
+        } else {
+            fallbackCopyPEM(pem, showCopied);
+        }
+    }
+
+    function fallbackCopyPEM(pem, onSuccess) {
+        const ta = document.getElementById('stCACertPEM');
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy');
+            onSuccess();
+        } catch (e) {
+            document.getElementById('stCopyStatus').textContent = 'Copy failed — select manually';
+        }
+    }
+
     function disconnectDB() {
         currentDBPassword = null;
         currentDBName = null;
         currentTable = null;
         document.getElementById('dbConnectStatus').textContent = 'Disconnected';
         document.getElementById('dbConnectStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportStatus').textContent = '';
+        document.getElementById('dbSecureTransportStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportDetailsLink').style.display = 'none';
+        currentSecureTransportData = null;
         document.getElementById('db-database-panel').style.display = 'none';
         document.getElementById('db-table-panel').style.display = 'none';
         document.getElementById('db-row-panel').style.display = 'none';
@@ -3394,7 +3558,7 @@
             `<span style="font-weight: bold;">Databases</span>`;
 
         showLoading();
-        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases`, {
+        return fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: '' })
