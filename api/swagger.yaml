@@ -68,6 +68,91 @@ definitions:
       totalSpace:
         type: string
     type: object
+  spider.RDBMSCACertInfo:
+    properties:
+      IsSelfSigned:
+        description: |-
+          IsSelfSigned is true only when this certificate's signature cryptographically verifies
+          against its own public key (i.e. it's an actual root CA), not merely Subject == Issuer.
+          false means it's an intermediate CA — still usable as ssl-ca/sslrootcert (the server will
+          keep presenting it in the chain), but it isn't the ultimate trust anchor.
+        type: boolean
+      Issuer:
+        type: string
+      NotAfter:
+        description: RFC3339
+        type: string
+      PEM:
+        description: |-
+          PEM is the certificate in PEM format — usable directly as a client's ssl-ca / sslrootcert file.
+          Caveat: this is the TOP-MOST certificate the server presented during the handshake, which is
+          often an intermediate CA rather than the ultimate self-signed root (well-behaved servers don't
+          send the root — clients are expected to already trust it independently). In practice this is
+          what most "grab the CA off the server" workflows use, but a CSP-published root, when one is
+          documented, is more authoritative.
+        type: string
+      Subject:
+        type: string
+    type: object
+  spider.RDBMSPgHbaRule:
+    properties:
+      Address:
+        type: string
+      AuthMethod:
+        type: string
+      Database:
+        type: string
+      Type:
+        type: string
+      UserName:
+        type: string
+    type: object
+  spider.RDBMSSecureTransportInfo:
+    properties:
+      CACertificate:
+        allOf:
+        - $ref: '#/definitions/spider.RDBMSCACertInfo'
+        description: |-
+          CACertificate is captured via a separate, live TLS handshake against the endpoint (not
+          sourced from any CSP API/doc — see RDBMSCACertInfo). nil when TLSInUse=false, or when the
+          probe itself failed; this is best-effort and never fails the overall request.
+      CACertificateError:
+        description: |-
+          CACertificateError explains why CACertificate is absent despite TLSInUse=true (e.g. a
+          transient network/handshake timeout on this separate probe connection) — set only in that
+          case, so callers don't have to dig through server logs to tell "not attempted" from "failed".
+        type: string
+      Enforced:
+        description: |-
+          PostgreSQL: best-effort verdict derived from pg_hba_file_rules — true only if every
+          matching TCP rule requires SSL (no plain "host" rule accepts a non-rejected connection).
+        type: boolean
+      Engine:
+        description: '"mysql", "mariadb", or "postgres"'
+        type: string
+      RequireSecureTransport:
+        description: 'MySQL/MariaDB: raw value of the require_secure_transport system
+          variable ("ON" or "OFF").'
+        type: string
+      Rules:
+        description: 'PostgreSQL: the raw pg_hba_file_rules rows the verdict above
+          was derived from, for transparency.'
+        items:
+          $ref: '#/definitions/spider.RDBMSPgHbaRule'
+        type: array
+      TLSCipher:
+        description: |-
+          TLSCipher: negotiated cipher suite name when TLSInUse=true, e.g. "ECDHE-RSA-AES128-GCM-SHA256"
+          (TLS 1.2) or "TLS_AES_256_GCM_SHA384" (TLS 1.3); empty when TLSInUse=false.
+        type: string
+      TLSInUse:
+        description: |-
+          TLSInUse is empirical, not config-derived: this diagnostic connection itself was opened
+          with tls=preferred (TLS attempted first, plaintext only as fallback), so TLSInUse=false
+          means the server doesn't offer TLS at all — independent of RequireSecureTransport/Enforced,
+          which only say whether TLS is mandatory, not whether it's available.
+        type: boolean
+    type: object
   spider.RemainedErrorInfo:
     properties:
       ErrorMsg:
@@ -10539,6 +10624,53 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Delete Database in RDBMS
+      tags:
+      - '[RDBMS Management]'
+  /rdbms/{Name}/secure-transport:
+    get:
+      consumes:
+      - application/json
+      description: 'Report whether an RDBMS instance enforces encrypted (TLS/SSL)
+        client connections, whether TLS is actually available, and its CA certificate.
+        <br> Determined uniformly across every CSP via standard SQL and protocol handshakes
+        against the engine itself, not each CSP''s own (inconsistently available)
+        management API: <br> MySQL/MariaDB: `SHOW VARIABLES LIKE ''require_secure_transport''`.
+        <br> PostgreSQL: `pg_hba_file_rules`. <br> TLS availability and the server''s
+        certificate are captured live from the connection/handshake itself — see the
+        response fields below.'
+      operationId: get-rdbms-secure-transport
+      parameters:
+      - description: The name of the RDBMS instance
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The master user password, used to connect and run the SQL check
+        in: query
+        name: MasterUserPassword
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Secure transport status
+          schema:
+            $ref: '#/definitions/spider.RDBMSSecureTransportInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS Secure Transport Status
       tags:
       - '[RDBMS Management]'
   /rdbmsengine:

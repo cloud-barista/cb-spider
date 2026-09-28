@@ -700,3 +700,45 @@ func DeleteRDBMSDatabase(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &SimpleMsg{Message: "deleted"})
 }
+
+//================ RDBMS Secure Transport Status
+
+// getRDBMSSecureTransport godoc
+// @ID get-rdbms-secure-transport
+// @Summary Get RDBMS Secure Transport Status
+// @Description Report whether an RDBMS instance enforces encrypted (TLS/SSL) client connections, whether TLS is actually available, and its CA certificate. <br> Determined uniformly across every CSP via standard SQL and protocol handshakes against the engine itself, not each CSP's own (inconsistently available) management API: <br> MySQL/MariaDB: `SHOW VARIABLES LIKE 'require_secure_transport'`. <br> PostgreSQL: `pg_hba_file_rules`. <br> TLS availability and the server's certificate are captured live from the connection/handshake itself — see the response fields below.
+// @Tags [RDBMS Management]
+// @Accept  json
+// @Produce  json
+// @Param Name path string true "The name of the RDBMS instance"
+// @Param ConnectionName query string true "The name of the Connection"
+// @Param MasterUserPassword query string true "The master user password, used to connect and run the SQL check"
+// @Success 200 {object} cmrt.RDBMSSecureTransportInfo "Secure transport status"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /rdbms/{Name}/secure-transport [get]
+func GetRDBMSSecureTransport(c echo.Context) error {
+	cblog.Info("call GetRDBMSSecureTransport()")
+
+	var req RDBMSDatabaseRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+	if req.MasterUserPassword == "" {
+		req.MasterUserPassword = c.QueryParam("MasterUserPassword")
+	}
+	if req.ConnectionName == "" || req.MasterUserPassword == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and MasterUserPassword are required")
+	}
+
+	result, err := cmrt.GetRDBMSSecureTransportStatus(req.ConnectionName, c.Param("Name"), req.MasterUserPassword)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}

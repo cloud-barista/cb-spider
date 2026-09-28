@@ -573,6 +573,8 @@ func getRoutes() []route {
 		{"GET", "/rdbms/:Name/databases", ListRDBMSDatabases},
 		{"DELETE", "/rdbms/:Name/databases/:DBName", DeleteRDBMSDatabase},
 
+		{"GET", "/rdbms/:Name/secure-transport", GetRDBMSSecureTransport},
+
 		//-- for meta info
 		{"GET", "/rdbmsmetainfo", GetRDBMSMetaInfo},
 
@@ -750,6 +752,7 @@ func getRoutes() []route {
 
 			//-- RDBMS SQL Proxy (for AdminWeb DB management)
 			{"POST", "/adminweb/rdbms/:Name/sql/connect", aw.RDBMSTestConnection},
+			{"POST", "/adminweb/rdbms/:Name/sql/security/secure-transport", aw.RDBMSSecureTransportStatus},
 			{"POST", "/adminweb/rdbms/:Name/sql/databases", aw.RDBMSListDatabases},
 			{"POST", "/adminweb/rdbms/:Name/sql/databases/create", aw.RDBMSCreateDatabase},
 			{"POST", "/adminweb/rdbms/:Name/sql/databases/:DBName/drop", aw.RDBMSDropDatabase},
