@@ -35,9 +35,18 @@ func (MyImageHandler *GCPMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 
 	myImageName := snapshotReqInfo.IId.NameId
 
+	var labels map[string]string
+	if len(snapshotReqInfo.TagList) > 0 {
+		labels = make(map[string]string)
+		for _, t := range snapshotReqInfo.TagList {
+			labels[t.Key] = t.Value
+		}
+	}
+
 	machineImage := &compute.MachineImage{
 		SourceInstance: "projects/" + projectID + "/zones/" + zone + "/instances/" + snapshotReqInfo.SourceVM.SystemId,
 		Name:           myImageName,
+		Labels:         labels,
 	}
 
 	op, err := MyImageHandler.Client.MachineImages.Insert(projectID, machineImage).Do()
@@ -154,6 +163,10 @@ func (MyImageHandler *GCPMyImageHandler) convertMyImageInfo(myImageResp *compute
 	myImageInfo.Status = myImageStatus
 
 	myImageInfo.CreatedTime, _ = time.Parse(time.RFC3339, myImageResp.CreationTimestamp)
+
+	for k, v := range myImageResp.Labels {
+		myImageInfo.TagList = append(myImageInfo.TagList, irs.KeyValue{Key: k, Value: v})
+	}
 
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	myImageInfo.KeyValueList = irs.StructToKeyValueList(myImageResp)

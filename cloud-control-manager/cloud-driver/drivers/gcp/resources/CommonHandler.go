@@ -380,6 +380,53 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 	return nil
 }
 
+// GetBootDiskName returns the name of the boot disk attached to the VM, or "" if not found.
+func GetBootDiskName(vm *compute.Instance) string {
+	for _, disk := range vm.Disks {
+		if disk.Boot && disk.Source != "" {
+			return disk.Source[strings.LastIndex(disk.Source, "/")+1:]
+		}
+	}
+	return ""
+}
+
+// UpdateBootDiskLabels applies updateFn to the labels of the VM's boot disk and saves them
+// if updateFn returns true.
+// GCP does not propagate instance labels to disks, so the boot disk labels must be managed explicitly.
+func UpdateBootDiskLabels(client *compute.Service, projectID string, zone string, vm *compute.Instance, updateFn func(labels map[string]string) bool) error {
+	diskName := GetBootDiskName(vm)
+	if diskName == "" {
+		return fmt.Errorf("boot disk of VM [%s] not found", vm.Name)
+	}
+
+	disk, err := client.Disks.Get(projectID, zone, diskName).Do()
+	if err != nil {
+		return err
+	}
+
+	labels := disk.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	if !updateFn(labels) {
+		return nil
+	}
+
+	req := &compute.ZoneSetLabelsRequest{
+		LabelFingerprint: disk.LabelFingerprint,
+		Labels:           labels,
+	}
+	op, err := client.Disks.SetLabels(projectID, zone, diskName, req).Do()
+	if err != nil {
+		return err
+	}
+	if op.Error != nil {
+		return fmt.Errorf("operation failed: %v", op.Error.Errors)
+	}
+
+	return nil
+}
+
 // Common Get function
 func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, diskName string) (*compute.Disk, error) {
 	projectID := credential.ProjectID

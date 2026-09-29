@@ -35,7 +35,7 @@ type GCPTagHandler struct {
 
 var (
 	supportRSType = map[irs.RSType]interface{}{
-		irs.VM: nil, irs.DISK: nil, irs.CLUSTER: nil, irs.RDBMS: nil,
+		irs.VM: nil, irs.DISK: nil, irs.MYIMAGE: nil, irs.CLUSTER: nil, irs.RDBMS: nil,
 	}
 )
 
@@ -62,6 +62,10 @@ func (t *GCPTagHandler) getDisk(resIID irs.IID) (*compute.Disk, error) {
 	}
 
 	return disk, nil
+}
+
+func (t *GCPTagHandler) getMachineImage(resIID irs.IID) (*compute.MachineImage, error) {
+	return t.ComputeClient.MachineImages.Get(t.Credential.ProjectID, resIID.SystemId).Do()
 }
 
 func (t *GCPTagHandler) getCluster(resIID irs.IID) (*container.Cluster, error) {
@@ -151,6 +155,34 @@ func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyVa
 		}
 
 		op, err := t.ComputeClient.Disks.SetLabels(projectId, zone, resIID.SystemId, req).Do()
+
+		if err != nil {
+			return errRes, err
+		}
+
+		if op.Error != nil {
+			return errRes, fmt.Errorf("operation failed: %v", op.Error.Errors)
+		}
+
+		return tag, nil
+	case irs.MYIMAGE:
+		machineImage, err := t.getMachineImage(resIID)
+		if err != nil {
+			return errRes, err
+		}
+
+		existLabels := machineImage.Labels
+		if existLabels == nil {
+			existLabels = make(map[string]string)
+		}
+		existLabels[tag.Key] = tag.Value
+
+		req := &compute.GlobalSetLabelsRequest{
+			LabelFingerprint: machineImage.LabelFingerprint,
+			Labels:           existLabels,
+		}
+
+		op, err := t.ComputeClient.MachineImages.SetLabels(projectId, resIID.SystemId, req).Do()
 
 		if err != nil {
 			return errRes, err
@@ -304,6 +336,20 @@ func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]irs.KeyVa
 			res = append(res, kv)
 		}
 		return res, nil
+	case irs.MYIMAGE:
+		machineImage, err := t.ComputeClient.MachineImages.Get(projectID, resIID.SystemId).Do()
+		if err != nil {
+			return res, err
+		}
+
+		for k, v := range machineImage.Labels {
+			kv := irs.KeyValue{
+				Key:   k,
+				Value: v,
+			}
+			res = append(res, kv)
+		}
+		return res, nil
 	case irs.CLUSTER:
 		parent := getParentClusterAtContainer(projectID, zone, resIID.SystemId)
 		cluster, err := t.ContainerClient.Projects.Locations.Clusters.Get(parent).Do()
@@ -424,6 +470,38 @@ func (t *GCPTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string
 		}
 
 		return true, nil
+	case irs.MYIMAGE:
+		machineImage, err := t.getMachineImage(resIID)
+		if err != nil {
+			return false, err
+		}
+
+		existLabels := machineImage.Labels
+		if existLabels == nil {
+			return false, errors.New("key does not exist")
+		}
+
+		if _, ok := existLabels[key]; ok {
+			delete(existLabels, key)
+		} else {
+			return false, errors.New("key does not exist")
+		}
+		req := &compute.GlobalSetLabelsRequest{
+			LabelFingerprint: machineImage.LabelFingerprint,
+			Labels:           existLabels,
+		}
+
+		op, err := t.ComputeClient.MachineImages.SetLabels(projectId, resIID.SystemId, req).Do()
+
+		if err != nil {
+			return false, err
+		}
+
+		if op.Error != nil {
+			return false, fmt.Errorf("operation failed: %v", op.Error.Errors)
+		}
+
+		return true, nil
 	case irs.CLUSTER:
 		cluster, err := t.getCluster(resIID)
 		if err != nil {
@@ -519,6 +597,18 @@ func (t *GCPTagHandler) getDisks() ([]*compute.Disk, error) {
 	return disks, nil
 }
 
+func (t *GCPTagHandler) getMachineImages() ([]*compute.MachineImage, error) {
+	var machineImages []*compute.MachineImage
+	err := t.ComputeClient.MachineImages.List(t.Credential.ProjectID).Pages(t.Ctx, func(page *compute.MachineImageList) error {
+		machineImages = append(machineImages, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return machineImages, nil
+}
+
 func (t *GCPTagHandler) getClusters() ([]*container.Cluster, error) {
 	parent := getParentAtContainer(t.Credential.ProjectID, t.Region.Zone)
 	clusters, err := t.ContainerClient.Projects.Locations.Clusters.List(parent).Do()
@@ -567,6 +657,22 @@ func (t *GCPTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagI
 			return res, err
 		}
 		res = append(res, res2...)
+		resMyImage, err := getResult(
+			keyword,
+			irs.MYIMAGE,
+			t.getMachineImages,
+			func(item *compute.MachineImage) string {
+				return item.Name
+			},
+			func(item *compute.MachineImage) map[string]string {
+				return item.Labels
+			},
+		)
+
+		if err != nil {
+			return res, err
+		}
+		res = append(res, resMyImage...)
 		res3, err := getResult(
 			keyword,
 			irs.CLUSTER,
@@ -637,6 +743,22 @@ func (t *GCPTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagI
 			if err != nil {
 				return res, err
 			}
+		case irs.MYIMAGE:
+			res, err = getResult(
+				keyword,
+				resType,
+				t.getMachineImages,
+				func(item *compute.MachineImage) string {
+					return item.Name
+				},
+				func(item *compute.MachineImage) map[string]string {
+					return item.Labels
+				},
+			)
+
+			if err != nil {
+				return res, err
+			}
 		case irs.CLUSTER:
 			res, err = getResult(
 				keyword,
@@ -678,7 +800,7 @@ func (t *GCPTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagI
 	return res, nil
 }
 
-func getResult[T *compute.Instance | *compute.Disk | *container.Cluster | *sqladmin.DatabaseInstance](
+func getResult[T *compute.Instance | *compute.Disk | *compute.MachineImage | *container.Cluster | *sqladmin.DatabaseInstance](
 	keyword string,
 	resType irs.RSType,
 	resultFn func() ([]T, error),

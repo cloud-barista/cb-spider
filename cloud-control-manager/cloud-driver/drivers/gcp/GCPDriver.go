@@ -71,8 +71,8 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.ClusterHandler = true
 
 	drvCapabilityInfo.TagHandler = true
-	// ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.MYIMAGE
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.CLUSTER, ires.RDBMS}
+	// ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.MYIMAGE, ires.CLUSTER, ires.RDBMS}
 
 	drvCapabilityInfo.QuotaInfoHandler = true
 
