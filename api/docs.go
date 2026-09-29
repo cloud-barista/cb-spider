@@ -8216,8 +8216,8 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The master user password (required by SQL-based drivers such as AWS and IBM)",
-                        "name": "MasterUserPassword",
-                        "in": "query"
+                        "name": "X-Master-User-Password",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8405,8 +8405,8 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The master user password, used to connect and run the SQL check",
-                        "name": "MasterUserPassword",
-                        "in": "query",
+                        "name": "X-Master-User-Password",
+                        "in": "header",
                         "required": true
                     }
                 ],

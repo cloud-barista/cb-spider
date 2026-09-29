@@ -128,7 +128,7 @@ func run() int {
 	logf("GetRDBMS: fetching endpoint")
 	var info rdbmsInfo
 	infoURL := fmt.Sprintf("%s/spider/rdbms/%s?ConnectionName=%s", *spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName))
-	if err := httpGetJSON(infoURL, *spiderAuth, &info); err != nil {
+	if err := httpGetJSON(infoURL, *spiderAuth, nil, &info); err != nil {
 		return abort("GetRDBMS", err.Error())
 	}
 	if info.Endpoint == "" {
@@ -144,9 +144,9 @@ func run() int {
 	// ── Get Secure Transport Status + CA Certificate ───────────────────────────
 	logf("GetRDBMSSecureTransport: checking require_secure_transport and capturing CA cert")
 	var st secureTransportInfo
-	stURL := fmt.Sprintf("%s/spider/rdbms/%s/secure-transport?ConnectionName=%s&MasterUserPassword=%s",
-		*spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName), url.QueryEscape(*password))
-	if err := httpGetJSON(stURL, *spiderAuth, &st); err != nil {
+	stURL := fmt.Sprintf("%s/spider/rdbms/%s/secure-transport?ConnectionName=%s",
+		*spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName))
+	if err := httpGetJSON(stURL, *spiderAuth, map[string]string{"X-Master-User-Password": *password}, &st); err != nil {
 		return abort("GetRDBMSSecureTransport", err.Error())
 	}
 	if st.Message != "" {
@@ -389,13 +389,16 @@ func humanWant(want scenarioResult) string {
 	return "FAIL"
 }
 
-func httpGetJSON(rawURL, basicAuth string, out interface{}) error {
+func httpGetJSON(rawURL, basicAuth string, headers map[string]string, out interface{}) error {
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
 	}
 	if user, pass, ok := strings.Cut(basicAuth, ":"); ok {
 		req.SetBasicAuth(user, pass)
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)

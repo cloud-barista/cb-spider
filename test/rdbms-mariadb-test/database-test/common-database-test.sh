@@ -86,12 +86,8 @@ echo "[${CSP_NAME}] CreateDatabase: ${r_create}"
 echo "[${CSP_NAME}] ListDatabases: verifying '${DB_NAME}' is present"
 
 list_resp=$(curl -u "${SPIDER_AUTH}" -sX GET \
-  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"ConnectionName\": \"${CONNECTION_NAME}\",
-    \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"
-  }" 2>&1)
+  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases?ConnectionName=${CONNECTION_NAME}" \
+  -H "X-Master-User-Password: ${MASTER_USER_PASSWORD}" 2>&1)
 
 list_err=$(echo "${list_resp}" | jq -r '.message // empty' 2>/dev/null)
 if [[ -n "${list_err}" ]]; then
@@ -130,12 +126,8 @@ echo "[${CSP_NAME}] DeleteDatabase: ${r_delete}"
 echo "[${CSP_NAME}] ListDatabases: verifying '${DB_NAME}' is removed"
 
 verify_resp=$(curl -u "${SPIDER_AUTH}" -sX GET \
-  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"ConnectionName\": \"${CONNECTION_NAME}\",
-    \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"
-  }" 2>&1)
+  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases?ConnectionName=${CONNECTION_NAME}" \
+  -H "X-Master-User-Password: ${MASTER_USER_PASSWORD}" 2>&1)
 
 verify_err=$(echo "${verify_resp}" | jq -r '.message // empty' 2>/dev/null)
 if [[ -n "${verify_err}" ]]; then

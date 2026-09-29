@@ -626,7 +626,7 @@ func CreateRDBMSDatabase(c echo.Context) error {
 // @Produce  json
 // @Param Name path string true "The name of the RDBMS instance"
 // @Param ConnectionName query string true "The name of the Connection"
-// @Param MasterUserPassword query string false "The master user password (required by SQL-based drivers such as AWS and IBM)"
+// @Param X-Master-User-Password header string false "The master user password (required by SQL-based drivers such as AWS and IBM)"
 // @Success 200 {object} restruntime.RDBMSDatabaseListResponse "List of databases"
 // @Failure 400 {object} SimpleMsg "Bad Request"
 // @Failure 501 {object} SimpleMsg "Not Supported by driver"
@@ -644,7 +644,7 @@ func ListRDBMSDatabases(c echo.Context) error {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 	if req.MasterUserPassword == "" {
-		req.MasterUserPassword = c.QueryParam("MasterUserPassword")
+		req.MasterUserPassword = c.Request().Header.Get("X-Master-User-Password")
 	}
 	if req.ConnectionName == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName is required")
@@ -712,7 +712,7 @@ func DeleteRDBMSDatabase(c echo.Context) error {
 // @Produce  json
 // @Param Name path string true "The name of the RDBMS instance"
 // @Param ConnectionName query string true "The name of the Connection"
-// @Param MasterUserPassword query string true "The master user password, used to connect and run the SQL check"
+// @Param X-Master-User-Password header string true "The master user password, used to connect and run the SQL check"
 // @Success 200 {object} cmrt.RDBMSSecureTransportInfo "Secure transport status"
 // @Failure 400 {object} SimpleMsg "Bad Request"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -729,7 +729,7 @@ func GetRDBMSSecureTransport(c echo.Context) error {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 	if req.MasterUserPassword == "" {
-		req.MasterUserPassword = c.QueryParam("MasterUserPassword")
+		req.MasterUserPassword = c.Request().Header.Get("X-Master-User-Password")
 	}
 	if req.ConnectionName == "" || req.MasterUserPassword == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and MasterUserPassword are required")

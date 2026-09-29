@@ -153,7 +153,7 @@ CSP|CreateDB|ListDB|FoundInList|DeleteDB|VerifyDeleted|Elapsed
 | ListDatabases | `GET` | `/spider/rdbms/{Name}/databases` |
 | DeleteDatabase | `DELETE` | `/spider/rdbms/{Name}/databases/{DBName}` |
 
-Request body for all calls:
+CreateDatabase and DeleteDatabase take a request body:
 ```json
 {
   "ConnectionName": "<connection-name>",
@@ -162,6 +162,13 @@ Request body for all calls:
 }
 ```
 (`DatabaseName` is only used for CreateDatabase; `MasterUserPassword` is needed for the SQL fallback path)
+
+ListDatabases is a `GET` request, so it takes no body: `ConnectionName` is a query parameter and `MasterUserPassword` is sent via the `X-Master-User-Password` header (never as a query parameter, to avoid it being logged in plaintext by proxies/web servers/APM tools):
+```bash
+curl -u "$SPIDER_AUTH" -X GET \
+  "$SPIDER_URL/spider/rdbms/{Name}/databases?ConnectionName=<connection-name>" \
+  -H "X-Master-User-Password: <password>"
+```
 
 ## Logs & Results
 

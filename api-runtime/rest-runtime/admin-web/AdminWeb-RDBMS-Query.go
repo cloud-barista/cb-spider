@@ -220,12 +220,13 @@ func RDBMSSecureTransportStatus(c echo.Context) error {
 	}
 
 	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/secure-transport" +
-		"?ConnectionName=" + neturl.QueryEscape(req.ConnectionName) + "&MasterUserPassword=" + neturl.QueryEscape(req.Password)
+		"?ConnectionName=" + neturl.QueryEscape(req.ConnectionName)
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	request.Header.Set("X-Master-User-Password", req.Password)
 	setBasicAuthIfConfigured(request)
 
 	// Generous timeout: the core endpoint's CA certificate probe retries once on its own
@@ -623,10 +624,10 @@ func RDBMSListDatabases(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName is required"})
 	}
 
-	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases"
-	body, _ := json.Marshal(map[string]string{"ConnectionName": req.ConnectionName, "MasterUserPassword": req.Password})
-	httpReq, _ := http.NewRequest("GET", url, strings.NewReader(string(body)))
-	httpReq.Header.Set("Content-Type", "application/json")
+	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases" +
+		"?ConnectionName=" + neturl.QueryEscape(req.ConnectionName)
+	httpReq, _ := http.NewRequest("GET", url, nil)
+	httpReq.Header.Set("X-Master-User-Password", req.Password)
 	setBasicAuthIfConfigured(httpReq)
 
 	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(httpReq)
