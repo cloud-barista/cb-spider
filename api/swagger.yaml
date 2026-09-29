@@ -10516,8 +10516,8 @@ paths:
         type: string
       - description: The master user password (required by SQL-based drivers such
           as AWS and IBM)
-        in: query
-        name: MasterUserPassword
+        in: header
+        name: X-Master-User-Password
         type: string
       produces:
       - application/json
@@ -10651,8 +10651,8 @@ paths:
         required: true
         type: string
       - description: The master user password, used to connect and run the SQL check
-        in: query
-        name: MasterUserPassword
+        in: header
+        name: X-Master-User-Password
         required: true
         type: string
       produces:
