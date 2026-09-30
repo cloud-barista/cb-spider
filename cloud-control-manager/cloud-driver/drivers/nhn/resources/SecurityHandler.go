@@ -335,15 +335,9 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 					RemoteIPPrefix: curRule.CIDR,
 				}
 			} else {
-				var fromPort int
-				var toPort int
-				if (curRule.FromPort == "-1") || (curRule.ToPort == "-1") {
-					fromPort = 1
-					toPort = 65535
-				} else {
-					fromPort, _ = strconv.Atoi(curRule.FromPort)
-					toPort, _ = strconv.Atoi(curRule.ToPort)
-				}
+				fromPortStr, toPortStr := normalizeRulePortRange(curRule.IPProtocol, curRule.FromPort, curRule.ToPort)
+				fromPort, _ := strconv.Atoi(fromPortStr)
+				toPort, _ := strconv.Atoi(toPortStr)
 
 				createRuleOpts = rules.CreateOpts{
 					Direction:      rules.RuleDirection(direction),
@@ -482,8 +476,13 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 				return false, errors.New("To Specify 'All Traffic Allow Rule', Specify '-1' as FromPort/ToPort!!")
 			}
 		} else {
+			// NHN stores '-1' as the whole 1-65535 range when the rule is created, so
+			// the same normalization has to be applied before looking the rule up.
+			lookupRule := curRule
+			lookupRule.FromPort, lookupRule.ToPort = normalizeRulePortRange(curRule.IPProtocol, curRule.FromPort, curRule.ToPort)
+
 			// Get the Rule ID from the S/G
-			ruleId, err := securityHandler.getRuleIdFromRuleInfo(nhnSG.ID, curRule)
+			ruleId, err := securityHandler.getRuleIdFromRuleInfo(nhnSG.ID, lookupRule)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s], [%v]", nhnSG.ID, err)
 				cblogger.Error(newErr.Error())
@@ -618,6 +617,19 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 
 	secInfo.KeyValueList = irs.StructToKeyValueList(nhnSG)
 	return secInfo, nil
+}
+
+// CB-Spider expresses the whole port range as '-1', while NHN stores it as 1-65535.
+// ICMP keeps '-1' since it has no port range at all.
+func normalizeRulePortRange(ipProtocol string, fromPort string, toPort string) (string, string) {
+	if strings.EqualFold(ipProtocol, "icmp") {
+		return "-1", "-1"
+	}
+
+	if fromPort == "-1" || toPort == "-1" {
+		return "1", "65535"
+	}
+	return fromPort, toPort
 }
 
 // NHN(Neutron) requires the ethertype to match the address family of the CIDR.
