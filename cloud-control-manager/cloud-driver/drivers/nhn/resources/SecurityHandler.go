@@ -15,6 +15,7 @@ import (
 	// "errors"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -251,6 +252,14 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 					return irs.SecurityInfo{}, errors.New("Invalid Rule Direction!!")
 				}
 
+				etherType, err := getEtherTypeFromCIDR(curRule.CIDR)
+				if err != nil {
+					newErr := fmt.Errorf("Failed to Get the EtherType of the requested rule : [%v]", err)
+					cblogger.Error(newErr.Error())
+					LoggingError(callLogInfo, newErr)
+					return irs.SecurityInfo{}, newErr
+				}
+
 				allProtocolTypeCode := []string{"tcp", "udp", "icmp"}
 
 				for _, curProtocolType := range allProtocolTypeCode {
@@ -258,7 +267,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 					if strings.EqualFold(curProtocolType, "icmp") { // Without fromPort / toPort
 						createRuleOpts = rules.CreateOpts{
 							Direction:      rules.RuleDirection(direction),
-							EtherType:      rules.EtherType4,
+							EtherType:      etherType,
 							SecGroupID:     nhnSG.ID,
 							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
 							RemoteIPPrefix: curRule.CIDR,
@@ -273,7 +282,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 
 						createRuleOpts = rules.CreateOpts{
 							Direction:      rules.RuleDirection(direction),
-							EtherType:      rules.EtherType4,
+							EtherType:      etherType,
 							SecGroupID:     nhnSG.ID,
 							PortRangeMin:   fromPort,
 							PortRangeMax:   toPort,
@@ -283,7 +292,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 					}
 
 					start := call.Start()
-					_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
+					_, err = rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 					if err != nil {
 						newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
 						cblogger.Error(newErr.Error())
@@ -307,12 +316,20 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 				return irs.SecurityInfo{}, errors.New("Invalid Rule Direction!!")
 			}
 
+			etherType, err := getEtherTypeFromCIDR(curRule.CIDR)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the EtherType of the requested rule : [%v]", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.SecurityInfo{}, newErr
+			}
+
 			var createRuleOpts rules.CreateOpts
 
 			if strings.EqualFold(curRule.IPProtocol, "icmp") {
 				createRuleOpts = rules.CreateOpts{
 					Direction:      rules.RuleDirection(direction),
-					EtherType:      rules.EtherType4,
+					EtherType:      etherType,
 					SecGroupID:     nhnSG.ID,
 					Protocol:       rules.RuleProtocol(strings.ToLower(curRule.IPProtocol)),
 					RemoteIPPrefix: curRule.CIDR,
@@ -330,7 +347,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 
 				createRuleOpts = rules.CreateOpts{
 					Direction:      rules.RuleDirection(direction),
-					EtherType:      rules.EtherType4,
+					EtherType:      etherType,
 					SecGroupID:     nhnSG.ID,
 					PortRangeMin:   fromPort,
 					PortRangeMax:   toPort,
@@ -340,7 +357,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 			}
 
 			start := call.Start()
-			_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
+			_, err = rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
 				cblogger.Error(newErr.Error())
@@ -601,6 +618,19 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 
 	secInfo.KeyValueList = irs.StructToKeyValueList(nhnSG)
 	return secInfo, nil
+}
+
+// NHN(Neutron) requires the ethertype to match the address family of the CIDR.
+func getEtherTypeFromCIDR(cidr string) (rules.RuleEtherType, error) {
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", fmt.Errorf("Invalid CIDR : [%s] : [%v]", cidr, err)
+	}
+
+	if ip.To4() != nil {
+		return rules.EtherType4, nil
+	}
+	return rules.EtherType6, nil
 }
 
 func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(systemId string, givenRule irs.SecurityRuleInfo) (string, error) {
