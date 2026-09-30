@@ -1021,6 +1021,15 @@ type RDBMSPgHbaRule struct {
 	AuthMethod string `json:"AuthMethod"`
 }
 
+// RDBMS SSL modes recommended via RDBMSSecureTransportInfo.RecommendedSSLMode, named after the
+// standard MySQL ssl-mode values (PostgreSQL clients should map VERIFY_CA/VERIFY_IDENTITY to
+// their own sslmode=verify-ca/verify-full).
+const (
+	RDBMSSSLModeDisabled       = "DISABLED"
+	RDBMSSSLModeVerifyCA       = "VERIFY_CA"
+	RDBMSSSLModeVerifyIdentity = "VERIFY_IDENTITY"
+)
+
 // RDBMSSecureTransportInfo reports whether an RDBMS instance enforces encrypted (TLS/SSL)
 // client connections, determined via standard SQL against the engine itself (CSP-agnostic).
 type RDBMSSecureTransportInfo struct {
@@ -1052,6 +1061,22 @@ type RDBMSSecureTransportInfo struct {
 	// transient network/handshake timeout on this separate probe connection) — set only in that
 	// case, so callers don't have to dig through server logs to tell "not attempted" from "failed".
 	CACertificateError string `json:"CACertificateError,omitempty"`
+
+	// RecommendedSSLMode is the strongest of RDBMSSSLModeDisabled/VerifyCA/VerifyIdentity a
+	// client can actually use against this instance, derived empirically rather than from CSP
+	// metadata (no CSP exposes this directly):
+	//   - DISABLED: TLSInUse=false — the server offers no TLS at all (e.g. Alibaba/Tencent/NCP
+	//     with TLS turned off).
+	//   - VERIFY_CA: TLSInUse=true, but the server's certificate has no Subject Alternative Name
+	//     at all, so hostname verification (VERIFY_IDENTITY) will always fail regardless of
+	//     client config — e.g. MySQL's own auto-generated certs on OpenStack Trove/NHN Cloud
+	//     (see test/rdbms-mysql-test/tls-test/README.md's Known Caveats). Chain-only
+	//     verification against CACertificate above still works.
+	//   - VERIFY_IDENTITY: TLSInUse=true and the certificate carries a usable SAN (e.g. AWS,
+	//     Azure, GCP, IBM) — the strongest mode is safe to use.
+	// Empty when TLSInUse=true but the certificate probe itself failed (see CACertificateError):
+	// there's then no basis to tell VERIFY_CA and VERIFY_IDENTITY apart.
+	RecommendedSSLMode string `json:"RecommendedSSLMode,omitempty"`
 }
 
 // GetRDBMSSecureTransportStatus connects to the RDBMS instance with standard SQL and reports
@@ -1176,7 +1201,9 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 	// isn't competing with an already-open connection to the same instance — a second concurrent
 	// connection attempt right after the first is a plausible source of the transient handshake
 	// timeouts this probe can hit in practice.
-	if result.TLSInUse {
+	if !result.TLSInUse {
+		result.RecommendedSSLMode = RDBMSSSLModeDisabled
+	} else {
 		db.Close()
 		host, port := splitRDBMSEndpoint(info.Endpoint)
 		if port == "" {
@@ -1186,11 +1213,16 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 				port = "5432"
 			}
 		}
-		if cert, err := fetchRDBMSCACertificate(string(info.DBEngine), host, port); err != nil {
+		if cert, hasSAN, err := fetchRDBMSCACertificate(string(info.DBEngine), host, port); err != nil {
 			cblog.Warnf("GetRDBMSSecureTransportStatus: CA certificate probe failed for %s: %v", rdbmsName, err)
 			result.CACertificateError = err.Error()
 		} else {
 			result.CACertificate = cert
+			if hasSAN {
+				result.RecommendedSSLMode = RDBMSSSLModeVerifyIdentity
+			} else {
+				result.RecommendedSSLMode = RDBMSSSLModeVerifyCA
+			}
 		}
 	}
 

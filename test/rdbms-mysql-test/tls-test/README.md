@@ -210,6 +210,12 @@ CSP|RequireSecureTransport|TLSAvailable|S1|S2|S3|S4|Elapsed
 | GetRDBMSSecureTransport (ON/OFF + TLS 지원 여부 + CA 인증서) | `GET` | `/spider/rdbms/{Name}/secure-transport?ConnectionName=<name>&MasterUserPassword=<password>` |
 
 - `GetRDBMSSecureTransport`: 표준 SQL(`SHOW VARIABLES LIKE 'require_secure_transport'`)로 엔진에 직접 접속 + 별도 라이브 TLS 핸드셰이크로 CA 인증서 확보 — `api-runtime/common-runtime/RDBMSManager.go`, `api-runtime/common-runtime/RDBMSTLSProbe.go` 참고
+- 응답의 `RecommendedSSLMode` 필드는 같은 라이브 핸드셰이크에서 서버(leaf) 인증서의 SAN 유무까지 확인해 클라이언트가 실제로 쓸 수 있는 가장 강한 `ssl-mode`를 알려줌:
+  - `TLSInUse=false` → `"DISABLED"` (예: TLS 꺼진 Alibaba/Tencent/NCP)
+  - `TLSInUse=true`이지만 인증서에 SAN이 아예 없음 → `"VERIFY_CA"` (OpenStack Trove/NHN — 위 Known Caveats 참고, `S4`는 실패하지만 `S3`는 성공하는 바로 그 케이스)
+  - `TLSInUse=true`이고 SAN 있음 → `"VERIFY_IDENTITY"` (AWS/Azure/GCP/IBM)
+  - CA 인증서 캡처 자체가 실패하면(`CACertificateError` 참고) 빈 문자열 — SAN 유무를 판단할 근거가 없기 때문
+  - `tlsprobe`는 이 값을 실제 `S3`/`S4` 결과와 대조해 불일치 시 `WARNING` 로그를 남김 (`tlsprobe/main.go` 참고)
 
 ## 로그 & 결과
 

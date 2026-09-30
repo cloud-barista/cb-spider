@@ -3432,13 +3432,16 @@
                 const on = data.RequireSecureTransport === 'ON';
                 el.textContent = `[${data.Engine}] ` + (on ? '🔒 ON' : '⚠️ OFF');
                 el.className = 'db-connect-status ' + (on ? 'connected' : 'warn');
+                el.title = data.RecommendedSSLMode ? `Recommended SSL Mode: ${data.RecommendedSSLMode}` : '';
                 detailsLink.style.display = 'inline';
             } else if (data.Enforced !== undefined) {
                 el.textContent = `[${data.Engine}] ` + (data.Enforced ? '🔒 ON' : '⚠️ OFF');
                 el.className = 'db-connect-status ' + (data.Enforced ? 'connected' : 'warn');
+                el.title = data.RecommendedSSLMode ? `Recommended SSL Mode: ${data.RecommendedSSLMode}` : '';
                 detailsLink.style.display = 'inline';
             } else {
                 el.textContent = '';
+                el.title = '';
             }
         })
         .catch(error => {
@@ -3468,6 +3471,14 @@
             ? `Yes (cipher: ${escapeHtml(data.TLSCipher || 'unknown')})`
             : 'No (server does not offer TLS at all)';
         rows.push(`<div><b>TLS in use (this check):</b> ${tlsLine}</div>`);
+
+        if (data.RecommendedSSLMode) {
+            const modeColor = { DISABLED: '#888', VERIFY_CA: '#856404', VERIFY_IDENTITY: '#388e3c' }[data.RecommendedSSLMode] || '#333';
+            rows.push(`<div><b>Recommended SSL Mode:</b> <span style="color:${modeColor}; font-weight:bold;">${escapeHtml(data.RecommendedSSLMode)}</span></div>`);
+            if (data.RecommendedSSLMode === 'VERIFY_CA') {
+                rows.push(`<div style="font-size:11px; color:#888;">Server certificate has no Subject Alternative Name — hostname verification (ssl-mode=VERIFY_IDENTITY) will fail regardless of client config. Use ssl-mode=VERIFY_CA (chain trust only) with the CA certificate below.</div>`);
+            }
+        }
 
         if (data.Rules && data.Rules.length > 0) {
             let table = '<table style="width:100%; border-collapse:collapse; margin-top:4px;" border="1" cellpadding="4">' +

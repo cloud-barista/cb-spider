@@ -14070,6 +14070,10 @@ const docTemplate = `{
                     "description": "\"mysql\", \"mariadb\", or \"postgres\"",
                     "type": "string"
                 },
+                "RecommendedSSLMode": {
+                    "description": "RecommendedSSLMode is the strongest of RDBMSSSLModeDisabled/VerifyCA/VerifyIdentity a\nclient can actually use against this instance, derived empirically rather than from CSP\nmetadata (no CSP exposes this directly):\n  - DISABLED: TLSInUse=false — the server offers no TLS at all (e.g. Alibaba/Tencent/NCP\n    with TLS turned off).\n  - VERIFY_CA: TLSInUse=true, but the server's certificate has no Subject Alternative Name\n    at all, so hostname verification (VERIFY_IDENTITY) will always fail regardless of\n    client config — e.g. MySQL's own auto-generated certs on OpenStack Trove/NHN Cloud\n    (see test/rdbms-mysql-test/tls-test/README.md's Known Caveats). Chain-only\n    verification against CACertificate above still works.\n  - VERIFY_IDENTITY: TLSInUse=true and the certificate carries a usable SAN (e.g. AWS,\n    Azure, GCP, IBM) — the strongest mode is safe to use.\nEmpty when TLSInUse=true but the certificate probe itself failed (see CACertificateError):\nthere's then no basis to tell VERIFY_CA and VERIFY_IDENTITY apart.",
+                    "type": "string"
+                },
                 "RequireSecureTransport": {
                     "description": "MySQL/MariaDB: raw value of the require_secure_transport system variable (\"ON\" or \"OFF\").",
                     "type": "string"
