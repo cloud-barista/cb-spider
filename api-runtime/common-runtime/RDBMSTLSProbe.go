@@ -47,22 +47,28 @@ type RDBMSCACertInfo struct {
 }
 
 // fetchRDBMSCACertificate captures the server's top-of-chain certificate via a live TLS
-// handshake and converts it into RDBMSCACertInfo. Returns (nil, err) if the probe fails for any
-// reason (server offers no TLS, network unreachable, unsupported engine, ...) — callers should
-// treat this as best-effort and not fail the overall request on error.
-func fetchRDBMSCACertificate(engine, host, port string) (*RDBMSCACertInfo, error) {
+// handshake and converts it into RDBMSCACertInfo, alongside whether the leaf (server)
+// certificate carries any Subject Alternative Name. SAN presence is what determines whether a
+// client can actually use ssl-mode=VERIFY_IDENTITY (hostname + chain check) or must fall back to
+// ssl-mode=VERIFY_CA (chain check only) — see RDBMSSecureTransportInfo.RecommendedSSLMode.
+// Returns (nil, false, err) if the probe fails for any reason (server offers no TLS, network
+// unreachable, unsupported engine, ...) — callers should treat this as best-effort and not fail
+// the overall request on error.
+func fetchRDBMSCACertificate(engine, host, port string) (info *RDBMSCACertInfo, hasSAN bool, err error) {
 	certs, err := fetchRDBMSServerCertChain(engine, host, port)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	leaf := certs[0]
 	top := certs[len(certs)-1]
+	hasSAN = len(leaf.DNSNames) > 0 || len(leaf.IPAddresses) > 0
 	return &RDBMSCACertInfo{
 		PEM:          string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: top.Raw})),
 		Subject:      top.Subject.String(),
 		Issuer:       top.Issuer.String(),
 		NotAfter:     top.NotAfter.Format(time.RFC3339),
 		IsSelfSigned: top.CheckSignatureFrom(top) == nil,
-	}, nil
+	}, hasSAN, nil
 }
 
 // fetchRDBMSServerCertChain opens a bare TCP connection to host:port and performs just enough of

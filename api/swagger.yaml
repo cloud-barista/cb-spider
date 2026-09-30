@@ -130,6 +130,23 @@ definitions:
       Engine:
         description: '"mysql", "mariadb", or "postgres"'
         type: string
+      RecommendedSSLMode:
+        description: |-
+          RecommendedSSLMode is the strongest of RDBMSSSLModeDisabled/VerifyCA/VerifyIdentity a
+          client can actually use against this instance, derived empirically rather than from CSP
+          metadata (no CSP exposes this directly):
+            - DISABLED: TLSInUse=false — the server offers no TLS at all (e.g. Alibaba/Tencent/NCP
+              with TLS turned off).
+            - VERIFY_CA: TLSInUse=true, but the server's certificate has no Subject Alternative Name
+              at all, so hostname verification (VERIFY_IDENTITY) will always fail regardless of
+              client config — e.g. MySQL's own auto-generated certs on OpenStack Trove/NHN Cloud
+              (see test/rdbms-mysql-test/tls-test/README.md's Known Caveats). Chain-only
+              verification against CACertificate above still works.
+            - VERIFY_IDENTITY: TLSInUse=true and the certificate carries a usable SAN (e.g. AWS,
+              Azure, GCP, IBM) — the strongest mode is safe to use.
+          Empty when TLSInUse=true but the certificate probe itself failed (see CACertificateError):
+          there's then no basis to tell VERIFY_CA and VERIFY_IDENTITY apart.
+        type: string
       RequireSecureTransport:
         description: 'MySQL/MariaDB: raw value of the require_secure_transport system
           variable ("ON" or "OFF").'

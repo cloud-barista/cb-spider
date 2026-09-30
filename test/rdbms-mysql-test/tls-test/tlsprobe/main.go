@@ -60,6 +60,7 @@ type secureTransportInfo struct {
 	TLSInUse               bool        `json:"TLSInUse"`
 	CACertificate          *caCertInfo `json:"CACertificate"`
 	CACertificateError     string      `json:"CACertificateError"`
+	RecommendedSSLMode     string      `json:"RecommendedSSLMode"`
 	Message                string      `json:"message"`
 }
 
@@ -160,7 +161,7 @@ func run() int {
 	if st.TLSInUse {
 		tlsAvailable = "ON"
 	}
-	logf("require_secure_transport=%s, TLS available on this instance=%s", st.RequireSecureTransport, tlsAvailable)
+	logf("require_secure_transport=%s, TLS available on this instance=%s, RecommendedSSLMode=%s", st.RequireSecureTransport, tlsAvailable, orDefault(st.RecommendedSSLMode, "(empty)"))
 	if !st.TLSInUse {
 		logf("Server does not offer TLS at all -- S1 (plaintext) will still be tested below (that's the only mode this instance can use), but S2/S3/S4 (which require TLS) will be N/A.")
 	}
@@ -309,6 +310,29 @@ func run() int {
 	} else {
 		logf("Scenario 4: N/A (server offers no TLS at all)")
 		s4 = notApplic
+	}
+
+	// ── Cross-check RecommendedSSLMode against what actually worked ────────────
+	// This isn't graded into overall PASS/FAIL (RecommendedSSLMode is a convenience the API
+	// derives from the same probe this tool re-does independently for S3/S4) -- just a
+	// consistency warning in case CB-Spider's SAN detection and this tool's ever disagree.
+	switch {
+	case !st.TLSInUse:
+		if st.RecommendedSSLMode != "DISABLED" {
+			logf("WARNING: RecommendedSSLMode=%q but TLSInUse=false -- expected \"DISABLED\"", st.RecommendedSSLMode)
+		}
+	case !haveCA:
+		if st.RecommendedSSLMode != "" {
+			logf("WARNING: RecommendedSSLMode=%q but no CA certificate was captured -- expected empty", st.RecommendedSSLMode)
+		}
+	case s4 == pass:
+		if st.RecommendedSSLMode != "VERIFY_IDENTITY" {
+			logf("WARNING: RecommendedSSLMode=%q but S4 (hostname verification) succeeded -- expected \"VERIFY_IDENTITY\"", st.RecommendedSSLMode)
+		}
+	case s3 == pass:
+		if st.RecommendedSSLMode != "VERIFY_CA" {
+			logf("WARNING: RecommendedSSLMode=%q but only S3 (chain-only verification) succeeded, not S4 -- expected \"VERIFY_CA\"", st.RecommendedSSLMode)
+		}
 	}
 
 	// ── Write Result ────────────────────────────────────────────────────────────
