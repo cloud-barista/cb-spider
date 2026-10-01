@@ -611,7 +611,7 @@ const docTemplate = `{
                     "200": {
                         "description": "List of all RDBMS information within the specified connection, including RDBMS in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
-                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                            "$ref": "#/definitions/spider.RDBMSAllInfoListResponse"
                         }
                     },
                     "400": {
@@ -8011,7 +8011,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Relational Database (RDBMS) with the specified configuration.",
+                "description": "Create a new Relational Database (RDBMS) with the specified configuration. \u003cbr\u003e The response never echoes back MasterUserName/MasterUserPassword -- you already supplied them in this request, so keep them yourself, e.g. alongside your SSH private key.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8038,7 +8038,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Details of the created RDBMS",
                         "schema": {
-                            "$ref": "#/definitions/spider.RDBMSInfo"
+                            "$ref": "#/definitions/spider.RDBMSInfoResponse"
                         }
                     },
                     "400": {
@@ -8096,7 +8096,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Details of the RDBMS",
                         "schema": {
-                            "$ref": "#/definitions/spider.RDBMSInfo"
+                            "$ref": "#/definitions/spider.RDBMSInfoResponse"
                         }
                     },
                     "400": {
@@ -8212,6 +8212,12 @@ const docTemplate = `{
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The master user name (required by SQL-based drivers such as AWS and IBM)",
+                        "name": "X-Master-User-Name",
+                        "in": "header"
                     },
                     {
                         "type": "string",
@@ -8400,6 +8406,13 @@ const docTemplate = `{
                         "description": "The name of the Connection",
                         "name": "ConnectionName",
                         "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The master user name, used to connect and run the SQL check",
+                        "name": "X-Master-User-Name",
+                        "in": "header",
                         "required": true
                     },
                     {
@@ -9626,7 +9639,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Details of the registered RDBMS",
                         "schema": {
-                            "$ref": "#/definitions/spider.RDBMSInfo"
+                            "$ref": "#/definitions/spider.RDBMSInfoResponse"
                         }
                     },
                     "400": {
@@ -15962,159 +15975,6 @@ const docTemplate = `{
                 "DataSourceStatic"
             ]
         },
-        "spider.RDBMSInfo": {
-            "description": "Relational Database (RDBMS) Information",
-            "type": "object",
-            "required": [
-                "DBEngine",
-                "DBEngineVersion",
-                "DBSpec",
-                "IId",
-                "MasterUserName",
-                "Status",
-                "StorageSize",
-                "VpcIID"
-            ],
-            "properties": {
-                "BackupRetentionDays": {
-                    "description": "Backup",
-                    "type": "integer",
-                    "example": 7
-                },
-                "BackupTime": {
-                    "description": "Preferred backup time (read-only, CSP-managed. Not configurable at creation via Spider.)",
-                    "type": "string",
-                    "example": "03:00"
-                },
-                "CreatedTime": {
-                    "type": "string"
-                },
-                "DBEngine": {
-                    "description": "DB Engine",
-                    "type": "string",
-                    "example": "mysql"
-                },
-                "DBEngineVersion": {
-                    "description": "e.g., \"8.0\", \"10.6\", \"15\"",
-                    "type": "string",
-                    "example": "8.0"
-                },
-                "DBInstanceType": {
-                    "description": "Primary | ReadReplica (for response)",
-                    "type": "string",
-                    "example": "Primary"
-                },
-                "DBSpec": {
-                    "description": "Instance Spec",
-                    "type": "string",
-                    "example": "db.t3.medium"
-                },
-                "DeletionProtection": {
-                    "description": "Protection",
-                    "type": "boolean",
-                    "default": false
-                },
-                "Encryption": {
-                    "description": "Encryption - read-only, CSP-managed. Not configurable at creation via Spider.",
-                    "type": "boolean",
-                    "default": false
-                },
-                "Endpoint": {
-                    "description": "Connection endpoint (for response)",
-                    "type": "string"
-                },
-                "HighAvailability": {
-                    "description": "High Availability",
-                    "type": "boolean",
-                    "default": false
-                },
-                "IId": {
-                    "description": "{NameId, SystemId}",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.IID"
-                        }
-                    ]
-                },
-                "Iops": {
-                    "description": "Iops: Provisioned IOPS for the storage volume.\nAWS: required for io1/io2 (100–64000).\nOther CSPs: not used.",
-                    "type": "string",
-                    "example": "3000"
-                },
-                "KeyValueList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.KeyValue"
-                    }
-                },
-                "MasterUserName": {
-                    "description": "Authentication",
-                    "type": "string",
-                    "example": "admin"
-                },
-                "MasterUserPassword": {
-                    "description": "Master user password (for Create request only)",
-                    "type": "string"
-                },
-                "NHNAutoOpenDBSecurityGroup": {
-                    "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with\nPublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN\nCloud RDS DB Security Group, attaches it at creation, and deletes it\nautomatically when the instance is deleted. Ignored by every other CSP.\nSecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at\nall: NHN Cloud RDS DB Security Groups are a resource type separate from\nthe VPC/Neutron security group CB-Spider manages, so when this flag is\nfalse (the default), you must create one yourself via the NHN Cloud\nconsole or API and attach it to the instance for external SQL access.",
-                    "type": "boolean",
-                    "default": false
-                },
-                "PublicAccess": {
-                    "description": "Access",
-                    "type": "boolean",
-                    "default": false
-                },
-                "SecurityGroupIIDs": {
-                    "description": "Associated Security Groups",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
-                    }
-                },
-                "Status": {
-                    "description": "Status (for response)",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.RDBMSStatus"
-                        }
-                    ],
-                    "example": "Available"
-                },
-                "StorageSize": {
-                    "description": "in GB",
-                    "type": "string",
-                    "example": "100"
-                },
-                "StorageType": {
-                    "description": "Storage\nStorageType: storage volume type for the RDBMS instance.\ne.g., \"gp2\", \"io1\", \"SSD\", \"cloud_essd\"\nOpenStack: configurable at creation time, but Trove API does not return this field in responses (always \"NA\").",
-                    "type": "string",
-                    "example": "gp2"
-                },
-                "SubnetIIDs": {
-                    "description": "Network",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
-                    }
-                },
-                "TagList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.KeyValue"
-                    }
-                },
-                "VpcIID": {
-                    "description": "Owner VPC IID",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.IID"
-                        }
-                    ]
-                }
-            }
-        },
         "spider.RDBMSMetaInfo": {
             "description": "RDBMS Meta Information for CSP-specific capabilities",
             "type": "object",
@@ -19366,6 +19226,42 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.RDBMSAllInfoListResponse": {
+            "type": "object",
+            "properties": {
+                "AllListInfo": {
+                    "type": "object",
+                    "properties": {
+                        "MappedInfoList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.RDBMSInfoResponse"
+                            }
+                        },
+                        "OnlyCSPInfoList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.RDBMSInfoResponse"
+                            }
+                        },
+                        "OnlySpiderList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        }
+                    }
+                },
+                "ResourceType": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RSType"
+                        }
+                    ],
+                    "example": "rdbms"
+                }
+            }
+        },
         "spider.RDBMSCreateRequest": {
             "type": "object",
             "required": [
@@ -19514,8 +19410,12 @@ const docTemplate = `{
                     "type": "string",
                     "example": "mydb"
                 },
+                "MasterUserName": {
+                    "description": "MasterUserName/MasterUserPassword: required when the driver uses the SQL fallback (e.g. AWS,\nIBM). CB-Spider no longer tracks these after creation (see RDBMSManager.go's\nredactRDBMSMasterCredentials -- it cannot reliably confirm the actual master account for\nseveral CSPs), so the caller must supply both, the same credentials set at instance creation.",
+                    "type": "string",
+                    "example": "myadmin"
+                },
                 "MasterUserPassword": {
-                    "description": "required when driver uses SQL (e.g. AWS, IBM)",
                     "type": "string",
                     "example": "P@ssw0rd"
                 }
@@ -19535,6 +19435,111 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.RDBMSInfoResponse": {
+            "type": "object",
+            "properties": {
+                "BackupRetentionDays": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "BackupTime": {
+                    "type": "string",
+                    "example": "03:00"
+                },
+                "CreatedTime": {
+                    "type": "string"
+                },
+                "DBEngine": {
+                    "type": "string",
+                    "example": "mysql"
+                },
+                "DBEngineVersion": {
+                    "type": "string",
+                    "example": "8.0"
+                },
+                "DBInstanceType": {
+                    "type": "string",
+                    "example": "Primary"
+                },
+                "DBSpec": {
+                    "type": "string",
+                    "example": "db.t3.medium"
+                },
+                "DeletionProtection": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "Encryption": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "Endpoint": {
+                    "type": "string"
+                },
+                "HighAvailability": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.IID"
+                },
+                "Iops": {
+                    "type": "string",
+                    "example": "3000"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "NHNAutoOpenDBSecurityGroup": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "PublicAccess": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "SecurityGroupIIDs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "Status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RDBMSStatus"
+                        }
+                    ],
+                    "example": "Available"
+                },
+                "StorageSize": {
+                    "type": "string",
+                    "example": "100"
+                },
+                "StorageType": {
+                    "type": "string",
+                    "example": "gp2"
+                },
+                "SubnetIIDs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "VpcIID": {
+                    "$ref": "#/definitions/spider.IID"
+                }
+            }
+        },
         "spider.RDBMSListResponse": {
             "type": "object",
             "required": [
@@ -19544,7 +19549,7 @@ const docTemplate = `{
                 "rdbms": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/spider.RDBMSInfo"
+                        "$ref": "#/definitions/spider.RDBMSInfoResponse"
                     }
                 }
             }

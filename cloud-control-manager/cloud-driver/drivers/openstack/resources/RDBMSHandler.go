@@ -496,7 +496,6 @@ func (handler *OpenStackRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 			if err != nil {
 				return false, err
 			}
-			info.MasterUserName = handler.queryMasterUserName(inst.ID)
 			rdbmsList = append(rdbmsList, &info)
 		}
 		return true, nil
@@ -548,7 +547,6 @@ func (handler *OpenStackRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSInfo{}, err
 	}
-	rdbmsInfo.MasterUserName = handler.queryMasterUserName(instanceID)
 	return rdbmsInfo, nil
 }
 
@@ -876,8 +874,6 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 
 		Endpoint: endpoint,
 
-		MasterUserName: "NA", // populated by caller via queryMasterUserName()
-
 		HighAvailability: false, // Trove HA is deployment-specific
 
 		BackupRetentionDays: 0,
@@ -895,32 +891,6 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 			{Key: "VolumeUsed", Value: fmt.Sprintf("%.2f", inst.Volume.Used)},
 		},
 	}, nil
-}
-
-// queryMasterUserName queries the Trove users API for the given instance and
-// returns the first non-root user name found, or "root" if none exist.
-func (handler *OpenStackRDBMSHandler) queryMasterUserName(instanceID string) string {
-	var found string
-	err := users.List(handler.DBClient, instanceID).EachPage(context.TODO(), func(_ context.Context, page pagination.Page) (bool, error) {
-		userList, err := users.ExtractUsers(page)
-		if err != nil {
-			return false, err
-		}
-		for _, u := range userList {
-			if strings.ToLower(u.Name) != "root" {
-				found = u.Name
-				return false, nil // stop iteration
-			}
-		}
-		return true, nil
-	})
-	if err != nil {
-		cblogger.Warnf("queryMasterUserName for instance %s: %v", instanceID, err)
-	}
-	if found == "" {
-		return "root"
-	}
-	return found
 }
 
 // convertTroveStatusToRDBMSStatus maps Trove status strings to RDBMSStatus.

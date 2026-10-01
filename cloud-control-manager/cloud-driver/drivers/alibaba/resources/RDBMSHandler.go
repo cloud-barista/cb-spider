@@ -791,19 +791,6 @@ func (handler *AlibabaRDBMSHandler) getDBInstanceAttribute(dbInstanceId string) 
 		}
 	}
 
-	// Retrieve master username via DescribeAccounts
-	acctReq := rds.CreateDescribeAccountsRequest()
-	acctReq.DBInstanceId = dbInstanceId
-	acctResp, acctErr := handler.Client.DescribeAccounts(acctReq)
-	if acctErr == nil && acctResp != nil {
-		for _, acct := range acctResp.Accounts.DBInstanceAccount {
-			if acct.AccountName != "" {
-				rdbmsInfo.MasterUserName = acct.AccountName
-				break
-			}
-		}
-	}
-
 	// Retrieve backup policy via DescribeBackupPolicy
 	backupReq := rds.CreateDescribeBackupPolicyRequest()
 	backupReq.DBInstanceId = dbInstanceId
@@ -835,7 +822,6 @@ func (handler *AlibabaRDBMSHandler) convertAttributeToRDBMSInfo(attr *rds.DBInst
 	rdbmsInfo.StorageType = attr.DBInstanceStorageType
 	rdbmsInfo.StorageSize = strconv.Itoa(attr.DBInstanceStorage)
 	rdbmsInfo.Endpoint = attr.ConnectionString
-	rdbmsInfo.MasterUserName = "" // Retrieved via DescribeAccounts in getDBInstanceAttribute
 
 	// VPC
 	rdbmsInfo.VpcIID = irs.IID{SystemId: attr.VpcId}
@@ -901,7 +887,6 @@ func (handler *AlibabaRDBMSHandler) convertListItemToRDBMSInfo(db *rds.DBInstanc
 	rdbmsInfo.DBSpec = db.DBInstanceClass
 	rdbmsInfo.StorageType = db.DBInstanceStorageType
 	rdbmsInfo.Endpoint = db.ConnectionString
-	rdbmsInfo.MasterUserName = "NA"
 	rdbmsInfo.StorageSize = "NA"
 	rdbmsInfo.BackupTime = "NA"
 
