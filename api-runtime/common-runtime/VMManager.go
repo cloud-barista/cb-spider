@@ -1057,11 +1057,7 @@ func checkImageType(reqInfo *cres.VMReqInfo) error {
 		reqInfo.ImageType = cres.PublicImage
 	}
 	if reqInfo.ImageType == cres.MyImage {
-		// checking to change ther Root-Disk
-		if (reqInfo.RootDiskType != "" && reqInfo.RootDiskType != "default") ||
-			(reqInfo.RootDiskSize != "" && reqInfo.RootDiskSize != "default") {
-			return errors.New("MyImage can not configure the Root-Disk!!")
-		}
+		// Note: CSP drivers support custom RootDiskType and RootDiskSize for MyImage.
 		// checking to add Data-Disks
 		if reqInfo.DataDiskIIDs == nil && len(reqInfo.DataDiskIIDs) > 0 {
 			return errors.New("MyImage can not have a Data-Disk!!")

@@ -226,18 +226,35 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		var dataVolumeAttachments []vpcv1.VolumeAttachmentPrototype
 		var bootVolumeAttachment vpcv1.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext
 		for _, snapshot := range associatedSnapshots {
-			sourceVolume, _, getSourceVolumeErr := vmHandler.VpcService.GetVolumeWithContext(vmHandler.Ctx, &vpcv1.GetVolumeOptions{ID: snapshot.SourceVolume.ID})
-			if getSourceVolumeErr != nil {
-				return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Get Source Volume. err = %s", getSourceVolumeErr.Error()))
+			devIndex := "0"
+			parts := strings.Split(*snapshot.Name, DEV)
+			if len(parts) > 1 {
+				devIndex = parts[1]
 			}
+			volumeName := fmt.Sprintf("%s%s%s", vmReqInfo.IId.NameId, DEV, devIndex)
 
-			volumeName := fmt.Sprintf("%s%s%s", vmReqInfo.IId.NameId, DEV, strings.Split(*snapshot.Name, DEV)[1])
-			if *snapshot.Bootable {
+			isBootable := snapshot.Bootable != nil && *snapshot.Bootable
+			if isBootable {
+				profileName := "general-purpose"
+				if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
+					profileName = strings.ToLower(vmReqInfo.RootDiskType)
+				}
+
+				capacity := snapshot.MinimumCapacity
+				if vmReqInfo.RootDiskSize != "" && strings.ToLower(vmReqInfo.RootDiskSize) != "default" {
+					if size, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64); err == nil && size > 0 {
+						if snapshot.MinimumCapacity != nil && size < *snapshot.MinimumCapacity {
+							size = *snapshot.MinimumCapacity
+						}
+						capacity = core.Int64Ptr(size)
+					}
+				}
+
 				bootVolumeAttachment = vpcv1.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext{
 					Volume: &vpcv1.VolumePrototypeInstanceBySourceSnapshotContext{
 						Name:           core.StringPtr(volumeName),
-						Profile:        &vpcv1.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
-						Capacity:       sourceVolume.Capacity,
+						Profile:        &vpcv1.VolumeProfileIdentityByName{Name: core.StringPtr(profileName)},
+						Capacity:       capacity,
 						SourceSnapshot: &vpcv1.SnapshotIdentityByID{ID: snapshot.ID},
 					},
 				}
@@ -245,8 +262,8 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				model := vpcv1.VolumeAttachmentPrototype{
 					Volume: &vpcv1.VolumeAttachmentPrototypeVolume{
 						Name:           core.StringPtr(volumeName),
-						Profile:        &vpcv1.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
-						Capacity:       sourceVolume.Capacity,
+						Profile:        &vpcv1.VolumeProfileIdentityByName{Name: core.StringPtr("general-purpose")},
+						Capacity:       snapshot.MinimumCapacity,
 						SourceSnapshot: &vpcv1.SnapshotIdentityByID{ID: snapshot.ID},
 					},
 				}
