@@ -272,10 +272,14 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 				start := call.Start()
 				_, err = rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 				if err != nil {
-					newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
-					cblogger.Error(newErr.Error())
-					LoggingError(callLogInfo, newErr)
-					return irs.SecurityInfo{}, newErr
+					if strings.Contains(strings.ToLower(err.Error()), "already exists") {
+						cblogger.Infof("Rule already exists in S/G [%s], skipping: [%v]", nhnSG.ID, err)
+					} else {
+						newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
+						cblogger.Error(newErr.Error())
+						LoggingError(callLogInfo, newErr)
+						return irs.SecurityInfo{}, newErr
+					}
 				}
 				LoggingInfo(callLogInfo, start)
 				cblogger.Infof("Succeeded in Adding New [%s], [ALL] Rule!!", curRule.Direction)
@@ -330,14 +334,16 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 			start := call.Start()
 			_, err = rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return irs.SecurityInfo{}, newErr
+				if strings.Contains(strings.ToLower(err.Error()), "already exists") {
+					cblogger.Infof("Rule already exists in S/G [%s], skipping: [%v]", nhnSG.ID, err)
+				} else {
+					newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
+					cblogger.Error(newErr.Error())
+					LoggingError(callLogInfo, newErr)
+					return irs.SecurityInfo{}, newErr
+				}
 			}
 			LoggingInfo(callLogInfo, start)
-			// Note : OpenStack Bug : Sometimes this function makes an error (After adding a rule successfully ) like : "Security group rule already exists. Rule id is ~~~~~~~."
-			// Ref) https://bugzilla.redhat.com/show_bug.cgi?id=1786675
 			cblogger.Infof("Succeeded in Adding New [%s], [%s] Rule!!", curRule.Direction, rules.RuleProtocol(strings.ToLower(curRule.IPProtocol)))
 		}
 	}
@@ -540,9 +546,13 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 		var sgRuleList []irs.SecurityRuleInfo
 		for _, nhnRule := range nhnRuleList {
 			// NHN adds its own default egress rules, which carry neither a protocol
-			// nor a remote IP prefix, to every S/G. They are not shown on the console.
+			// nor a remote IP prefix, to every S/G. Expose IPv4 default egress rule as 0.0.0.0/0.
 			if strings.EqualFold(nhnRule.Protocol, "") && strings.EqualFold(nhnRule.RemoteIPPrefix, "") {
-				continue
+				if strings.EqualFold(nhnRule.Direction, string(rules.DirEgress)) && strings.EqualFold(nhnRule.EtherType, string(rules.EtherType4)) {
+					nhnRule.RemoteIPPrefix = "0.0.0.0/0"
+				} else {
+					continue
+				}
 			}
 
 			var direction string
@@ -687,7 +697,12 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(systemId s
 
 			ipProtocol, fromPort, toPort := convertNhnRuleToCBRule(nhnRule)
 
-			if strings.EqualFold(givenRule.Direction, direction) && strings.EqualFold(givenRule.IPProtocol, ipProtocol) && strings.EqualFold(givenRule.FromPort, fromPort) && strings.EqualFold(givenRule.ToPort, toPort) && strings.EqualFold(givenRule.CIDR, nhnRule.RemoteIPPrefix) {
+			nhnCIDR := nhnRule.RemoteIPPrefix
+			if nhnCIDR == "" && strings.EqualFold(nhnRule.Direction, string(rules.DirEgress)) && strings.EqualFold(nhnRule.EtherType, string(rules.EtherType4)) {
+				nhnCIDR = "0.0.0.0/0"
+			}
+
+			if strings.EqualFold(givenRule.Direction, direction) && strings.EqualFold(givenRule.IPProtocol, ipProtocol) && strings.EqualFold(givenRule.FromPort, fromPort) && strings.EqualFold(givenRule.ToPort, toPort) && strings.EqualFold(givenRule.CIDR, nhnCIDR) {
 				ruleId = nhnRule.ID
 				break
 			}
