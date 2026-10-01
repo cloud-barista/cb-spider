@@ -41,7 +41,7 @@
   - 이 경우 `S2`/`S3`/`S4`는 `N/A` (테스트할 대상 없음 — 아래 `TLSAvailable` 필드 참고)
 - `S3`을 별도로 두는 이유: `S4`(`VERIFY_IDENTITY`)는 체인 신뢰 + 호스트명 일치를 모두 요구하지만, `S3`(`VERIFY_CA`)는 체인 신뢰만 요구 — 인증서에 SAN/CN이 없거나 접속 호스트명과 안 맞는 경우에도(`S4`가 실패하는 바로 그 경우, 예: OpenStack/NHN) `S3`는 여전히 성공함. 신뢰할 수 없는 CA로 서명된 인증서는 `S3`도 여전히 거부하므로 `S2`(`skip-verify`, 검증을 통째로 생략)보다 실질적으로 더 안전한 대안
 - CB-Spider는 사전 정보 확인용으로만 사용 (CB-Spider 자체 REST API):
-  1. 인스턴스의 실제 `Endpoint`와 `MasterUserName` (`GET /spider/rdbms/{Name}`)
+  1. 인스턴스의 실제 `Endpoint` (`GET /spider/rdbms/{Name}`) — CSP별 `.sh` 래퍼가 생성 시 사용한 사용자명을 `MASTER_USER_NAME`으로 직접 전달
   2. `require_secure_transport` ON/OFF, TLS 지원 여부(`TLSInUse` → `TLSAvailable` 컬럼), 라이브 캡처한 서버 CA 인증서 (`GET /spider/rdbms/{Name}/secure-transport`)
 - CA 인증서는 그대로 `x509.CertPool`로 파싱되어 `S3`/`S4`에서 사용 — 클라이언트 툴의 특이한 동작과 무관하게, CB-Spider가 반환하는 인증서가 실제로 사용 가능한지를 검증하는 엔드투엔드 검증이기도 함
 
@@ -206,8 +206,8 @@ CSP|RequireSecureTransport|TLSAvailable|S1|S2|S3|S4|Elapsed
 
 | 동작 | 메서드 | 경로 |
 |-----------|--------|------|
-| GetRDBMS (엔드포인트, 마스터 사용자) | `GET` | `/spider/rdbms/{Name}?ConnectionName=<name>` |
-| GetRDBMSSecureTransport (ON/OFF + TLS 지원 여부 + CA 인증서) | `GET` | `/spider/rdbms/{Name}/secure-transport?ConnectionName=<name>&MasterUserPassword=<password>` |
+| GetRDBMS (엔드포인트) | `GET` | `/spider/rdbms/{Name}?ConnectionName=<name>` |
+| GetRDBMSSecureTransport (ON/OFF + TLS 지원 여부 + CA 인증서) | `GET` | `/spider/rdbms/{Name}/secure-transport?ConnectionName=<name>` (`X-Master-User-Name`/`X-Master-User-Password` 헤더 필요) |
 
 - `GetRDBMSSecureTransport`: 표준 SQL(`SHOW VARIABLES LIKE 'require_secure_transport'`)로 엔진에 직접 접속 + 별도 라이브 TLS 핸드셰이크로 CA 인증서 확보 — `api-runtime/common-runtime/RDBMSManager.go`, `api-runtime/common-runtime/RDBMSTLSProbe.go` 참고
 - 응답의 `RecommendedSSLMode` 필드는 같은 라이브 핸드셰이크에서 서버(leaf) 인증서의 SAN 유무까지 확인해 클라이언트가 실제로 쓸 수 있는 가장 강한 `ssl-mode`를 알려줌:

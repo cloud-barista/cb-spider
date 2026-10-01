@@ -13,12 +13,17 @@
 //
 // Usage:
 //
-//	go run . -connection aws-config01 -rdbms cb-spider-mysql-test -password 'Password123!' -csp-name AWS
+//	go run . -connection aws-config01 -rdbms cb-spider-mysql-test -username myadmin -password 'Password123!' -csp-name AWS
 //
 // Or build once and reuse the binary:
 //
 //	go build -o tlsprobe .
-//	./tlsprobe -connection aws-config01 -rdbms cb-spider-mysql-test -password 'Password123!' -csp-name AWS
+//	./tlsprobe -connection aws-config01 -rdbms cb-spider-mysql-test -username myadmin -password 'Password123!' -csp-name AWS
+//
+// -username must be the MasterUserName given at instance creation: CB-Spider's
+// GET /spider/rdbms/{Name} no longer returns it (see RDBMSManager.go's
+// redactRDBMSMasterCredentials), since CB-Spider cannot reliably confirm the actual
+// master account for several CSPs after creation.
 package main
 
 import (
@@ -42,9 +47,8 @@ import (
 )
 
 type rdbmsInfo struct {
-	Endpoint       string `json:"Endpoint"`
-	MasterUserName string `json:"MasterUserName"`
-	Message        string `json:"message"`
+	Endpoint string `json:"Endpoint"`
+	Message  string `json:"message"`
 }
 
 type caCertInfo struct {
@@ -84,6 +88,7 @@ func run() int {
 	spiderAuth := flag.String("spider-auth", envOr("SPIDER_AUTH", "admin:****"), "Basic auth as user:pass")
 	connectionName := flag.String("connection", "", "Spider connection config name (required)")
 	rdbmsName := flag.String("rdbms", "", "RDBMS instance name (required)")
+	username := flag.String("username", "", "MasterUserName set when the instance was created (required) -- CB-Spider's GET /spider/rdbms/{Name} no longer returns it, see RDBMSManager.go's redactRDBMSMasterCredentials")
 	password := flag.String("password", "", "MasterUserPassword (required)")
 	cspName := flag.String("csp-name", "", "Display name for log lines (default: -connection value)")
 	timeout := flag.Duration("timeout", 10*time.Second, "Per-attempt connection timeout")
@@ -91,8 +96,8 @@ func run() int {
 	resultFile := flag.String("result-file", "", "Optional path to write a pipe-separated result line")
 	flag.Parse()
 
-	if *connectionName == "" || *rdbmsName == "" || *password == "" {
-		fmt.Fprintln(os.Stderr, "usage: tlsprobe -connection <name> -rdbms <name> -password <password> [flags]")
+	if *connectionName == "" || *rdbmsName == "" || *username == "" || *password == "" {
+		fmt.Fprintln(os.Stderr, "usage: tlsprobe -connection <name> -rdbms <name> -username <username> -password <password> [flags]")
 		flag.PrintDefaults()
 		return 2
 	}
@@ -125,7 +130,7 @@ func run() int {
 		return 1
 	}
 
-	// ── Get RDBMS Info (Endpoint, MasterUserName) ──────────────────────────────
+	// ── Get RDBMS Info (Endpoint) ────────────────────────────────────────────
 	logf("GetRDBMS: fetching endpoint")
 	var info rdbmsInfo
 	infoURL := fmt.Sprintf("%s/spider/rdbms/%s?ConnectionName=%s", *spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName))
@@ -135,19 +140,16 @@ func run() int {
 	if info.Endpoint == "" {
 		return abort("GetRDBMS", fmt.Sprintf("empty Endpoint in response (message: %q)", info.Message))
 	}
-	if info.MasterUserName == "" {
-		return abort("GetRDBMS", fmt.Sprintf("empty MasterUserName in response (message: %q)", info.Message))
-	}
 
 	host, port := splitHostPort(info.Endpoint)
-	logf("Endpoint: %s:%s (user: %s)", host, port, info.MasterUserName)
+	logf("Endpoint: %s:%s (user: %s)", host, port, *username)
 
 	// ── Get Secure Transport Status + CA Certificate ───────────────────────────
 	logf("GetRDBMSSecureTransport: checking require_secure_transport and capturing CA cert")
 	var st secureTransportInfo
 	stURL := fmt.Sprintf("%s/spider/rdbms/%s/secure-transport?ConnectionName=%s",
 		*spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName))
-	if err := httpGetJSON(stURL, *spiderAuth, map[string]string{"X-Master-User-Password": *password}, &st); err != nil {
+	if err := httpGetJSON(stURL, *spiderAuth, map[string]string{"X-Master-User-Name": *username, "X-Master-User-Password": *password}, &st); err != nil {
 		return abort("GetRDBMSSecureTransport", err.Error())
 	}
 	if st.Message != "" {
@@ -206,7 +208,7 @@ func run() int {
 
 	attempt := func(label string, tlsCfg *tls.Config) (bool, error) {
 		cfg := mysql.NewConfig()
-		cfg.User = info.MasterUserName
+		cfg.User = *username
 		cfg.Passwd = *password
 		cfg.Net = "tcp"
 		cfg.Addr = net.JoinHostPort(host, port)

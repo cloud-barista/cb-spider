@@ -4,6 +4,7 @@
 export CSP_NAME="AZURE"
 export CONNECTION_NAME="azure-koreacentral-config"
 export RDBMS_NAME="cb-spider-mysql-test"
+export MASTER_USER_NAME="myadmin"
 export MASTER_USER_PASSWORD="Password123!"
 export RESULT_FILE="${RESULT_DIR:-/tmp/rdbms_tls_results}/result_azure.txt"
 

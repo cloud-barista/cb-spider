@@ -60,17 +60,6 @@ type nhnRDSEndpoint struct {
 	Port    int    `json:"port"`
 }
 
-type nhnRDSDBUser struct {
-	DBUserId     string `json:"dbUserId"`
-	DBUserName   string `json:"dbUserName"`
-	DBUserStatus string `json:"dbUserStatus"`
-}
-
-type nhnRDSDBUserListResponse struct {
-	Header  nhnRDSResponseHeader `json:"header"`
-	DBUsers []nhnRDSDBUser       `json:"dbUsers"`
-}
-
 type nhnRDSNetworkEndpoint struct {
 	Domain       string `json:"domain"`
 	IPAddress    string `json:"ipAddress"`
@@ -97,7 +86,6 @@ type nhnRDSStorageInfoResponse struct {
 
 // nhnRDSEnrichmentData holds data from supplementary NHN RDS APIs.
 type nhnRDSEnrichmentData struct {
-	MasterUserName  string
 	PublicEndpoint  string
 	StorageType     string
 	StorageSize     int
@@ -838,6 +826,12 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 	result := convertNhnRDSInstanceToRDBMSInfo(getResp.nhnRDSDBInstance, rdbmsReqInfo.VpcIID.NameId, enrichment)
 	// NHN appends a random suffix to the DB name; restore the user's requested name
 	result.IId.NameId = rdbmsReqInfo.IId.NameId
+	// convertNhnRDSInstanceToRDBMSInfo no longer resolves MasterUserName (GetRDBMS/
+	// ListRDBMS never trusted NHN's reported value and the REST layer strips it from
+	// their responses anyway); CreateRDBMS's response still echoes back the name the
+	// caller requested, which CB-Spider does trust since it was just used to create
+	// the instance.
+	result.MasterUserName = rdbmsReqInfo.MasterUserName
 	// Set engine based on DBVersion prefix for MariaDB
 	if strings.HasPrefix(strings.ToUpper(rdbmsReqInfo.DBEngineVersion), "MARIADB_") {
 		result.DBEngine = "mariadb"
@@ -1364,20 +1358,6 @@ func (handler *NhnCloudRDBMSHandler) fetchRDBMSEnrichmentWithEndpoint(ctx contex
 	var data nhnRDSEnrichmentData
 	data.DBFlavorName = handler.resolveRDSFlavorNameWithEndpoint(ctx, endpointFn, flavorId)
 
-	var usersResp nhnRDSDBUserListResponse
-	if err := handler.getRDSWithEndpoint(ctx, endpointFn, "/v3.0/db-instances/"+dbInstanceId+"/db-users", &usersResp); err != nil {
-		return data, fmt.Errorf("failed to list DB users for NHN Cloud RDS instance '%s': %w", dbInstanceId, err)
-	}
-	if err := checkRDSResponseHeader(usersResp.Header); err != nil {
-		return data, fmt.Errorf("db-users response error for instance '%s': %w", dbInstanceId, err)
-	}
-	for _, u := range usersResp.DBUsers {
-		if u.DBUserStatus == "STABLE" {
-			data.MasterUserName = u.DBUserName
-			break
-		}
-	}
-
 	var netResp nhnRDSNetworkInfoResponse
 	if err := handler.getRDSWithEndpoint(ctx, endpointFn, "/v3.0/db-instances/"+dbInstanceId+"/network-info", &netResp); err != nil {
 		return data, fmt.Errorf("failed to get network info for NHN Cloud RDS instance '%s': %w", dbInstanceId, err)
@@ -1500,11 +1480,6 @@ func convertNhnRDSInstanceToRDBMSInfo(inst nhnRDSDBInstance, ownerVPCName string
 		endpoint = fmt.Sprintf("%s:%d", endpoint, port)
 	}
 
-	master := e.MasterUserName
-	if master == "" {
-		master = "NA"
-	}
-
 	storageType := e.StorageType
 	if storageType == "" {
 		storageType = inst.Storage.StorageType
@@ -1575,8 +1550,6 @@ func convertNhnRDSInstanceToRDBMSInfo(inst nhnRDSDBInstance, ownerVPCName string
 
 		Endpoint: endpoint,
 
-		MasterUserName: master,
-
 		HighAvailability: inst.UseHighAvailability,
 
 		BackupRetentionDays: backupPeriod,
@@ -1618,27 +1591,12 @@ func convertNhnRDSStatusToRDBMSStatus(status string) irs.RDBMSStatus {
 
 // fetchRDBMSEnrichment calls supplementary APIs to get fields not present in the
 // main GET /v3.0/db-instances/{id} response:
-//   - GET /v3.0/db-instances/{id}/db-users       → MasterUserName (first STABLE user)
 //   - GET /v3.0/db-instances/{id}/network-info   → PublicEndpoint (EXTERNAL) + SubnetId
 //   - GET /v3.0/db-instances/{id}/storage-info   → StorageType + StorageSize
 //   - GET /v3.0/db-flavors                       → DBFlavorName (UUID → name)
 func (handler *NhnCloudRDBMSHandler) fetchRDBMSEnrichment(ctx context.Context, dbInstanceId string, flavorId string) (nhnRDSEnrichmentData, error) {
 	var data nhnRDSEnrichmentData
 	data.DBFlavorName = handler.resolveRDSFlavorName(ctx, flavorId)
-
-	var usersResp nhnRDSDBUserListResponse
-	if err := handler.getRDS(ctx, "/v3.0/db-instances/"+dbInstanceId+"/db-users", &usersResp); err != nil {
-		return data, fmt.Errorf("failed to list DB users for NHN Cloud RDS instance '%s': %w", dbInstanceId, err)
-	}
-	if err := checkRDSResponseHeader(usersResp.Header); err != nil {
-		return data, fmt.Errorf("db-users response error for instance '%s': %w", dbInstanceId, err)
-	}
-	for _, u := range usersResp.DBUsers {
-		if u.DBUserStatus == "STABLE" {
-			data.MasterUserName = u.DBUserName
-			break
-		}
-	}
 
 	var netResp nhnRDSNetworkInfoResponse
 	if err := handler.getRDS(ctx, "/v3.0/db-instances/"+dbInstanceId+"/network-info", &netResp); err != nil {

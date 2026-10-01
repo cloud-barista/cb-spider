@@ -1265,6 +1265,11 @@ func fetchResourceInfoList(handler interface{}, rsType cres.RSType) ([]interface
 		return convertToInterfaceSlice(infoList), err
 	case cres.RDBMS:
 		infoList, err := handler.(cres.RDBMSHandler).ListRDBMS()
+		// This bypasses RDBMSManager.go's own ListRDBMS/GetRDBMS (used by ListAllRDBMSInfo
+		// instead), so the same master-credential redaction has to be repeated here.
+		for _, info := range infoList {
+			redactRDBMSMasterCredentials(info)
+		}
 		return convertToInterfaceSlice(infoList), err
 	default:
 		return nil, fmt.Errorf("%s is not a supported resource type", rsType)

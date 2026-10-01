@@ -1516,136 +1516,6 @@ definitions:
     x-enum-varnames:
     - DataSourceAPI
     - DataSourceStatic
-  spider.RDBMSInfo:
-    description: Relational Database (RDBMS) Information
-    properties:
-      BackupRetentionDays:
-        description: Backup
-        example: 7
-        type: integer
-      BackupTime:
-        description: Preferred backup time (read-only, CSP-managed. Not configurable
-          at creation via Spider.)
-        example: "03:00"
-        type: string
-      CreatedTime:
-        type: string
-      DBEngine:
-        description: DB Engine
-        example: mysql
-        type: string
-      DBEngineVersion:
-        description: e.g., "8.0", "10.6", "15"
-        example: "8.0"
-        type: string
-      DBInstanceType:
-        description: Primary | ReadReplica (for response)
-        example: Primary
-        type: string
-      DBSpec:
-        description: Instance Spec
-        example: db.t3.medium
-        type: string
-      DeletionProtection:
-        default: false
-        description: Protection
-        type: boolean
-      Encryption:
-        default: false
-        description: Encryption - read-only, CSP-managed. Not configurable at creation
-          via Spider.
-        type: boolean
-      Endpoint:
-        description: Connection endpoint (for response)
-        type: string
-      HighAvailability:
-        default: false
-        description: High Availability
-        type: boolean
-      IId:
-        allOf:
-        - $ref: '#/definitions/spider.IID'
-        description: '{NameId, SystemId}'
-      Iops:
-        description: |-
-          Iops: Provisioned IOPS for the storage volume.
-          AWS: required for io1/io2 (100–64000).
-          Other CSPs: not used.
-        example: "3000"
-        type: string
-      KeyValueList:
-        items:
-          $ref: '#/definitions/spider.KeyValue'
-        type: array
-      MasterUserName:
-        description: Authentication
-        example: admin
-        type: string
-      MasterUserPassword:
-        description: Master user password (for Create request only)
-        type: string
-      NHNAutoOpenDBSecurityGroup:
-        default: false
-        description: |-
-          NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with
-          PublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN
-          Cloud RDS DB Security Group, attaches it at creation, and deletes it
-          automatically when the instance is deleted. Ignored by every other CSP.
-          SecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at
-          all: NHN Cloud RDS DB Security Groups are a resource type separate from
-          the VPC/Neutron security group CB-Spider manages, so when this flag is
-          false (the default), you must create one yourself via the NHN Cloud
-          console or API and attach it to the instance for external SQL access.
-        type: boolean
-      PublicAccess:
-        default: false
-        description: Access
-        type: boolean
-      SecurityGroupIIDs:
-        description: Associated Security Groups
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
-      Status:
-        allOf:
-        - $ref: '#/definitions/spider.RDBMSStatus'
-        description: Status (for response)
-        example: Available
-      StorageSize:
-        description: in GB
-        example: "100"
-        type: string
-      StorageType:
-        description: |-
-          Storage
-          StorageType: storage volume type for the RDBMS instance.
-          e.g., "gp2", "io1", "SSD", "cloud_essd"
-          OpenStack: configurable at creation time, but Trove API does not return this field in responses (always "NA").
-        example: gp2
-        type: string
-      SubnetIIDs:
-        description: Network
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
-      TagList:
-        items:
-          $ref: '#/definitions/spider.KeyValue'
-        type: array
-      VpcIID:
-        allOf:
-        - $ref: '#/definitions/spider.IID'
-        description: Owner VPC IID
-    required:
-    - DBEngine
-    - DBEngineVersion
-    - DBSpec
-    - IId
-    - MasterUserName
-    - Status
-    - StorageSize
-    - VpcIID
-    type: object
   spider.RDBMSMetaInfo:
     description: RDBMS Meta Information for CSP-specific capabilities
     properties:
@@ -3981,6 +3851,28 @@ definitions:
     required:
     - ServiceTypes
     type: object
+  spider.RDBMSAllInfoListResponse:
+    properties:
+      AllListInfo:
+        properties:
+          MappedInfoList:
+            items:
+              $ref: '#/definitions/spider.RDBMSInfoResponse'
+            type: array
+          OnlyCSPInfoList:
+            items:
+              $ref: '#/definitions/spider.RDBMSInfoResponse'
+            type: array
+          OnlySpiderList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+        type: object
+      ResourceType:
+        allOf:
+        - $ref: '#/definitions/spider.RSType'
+        example: rdbms
+    type: object
   spider.RDBMSCreateRequest:
     properties:
       ConnectionName:
@@ -4101,8 +3993,15 @@ definitions:
         description: required only for create/delete
         example: mydb
         type: string
+      MasterUserName:
+        description: |-
+          MasterUserName/MasterUserPassword: required when the driver uses the SQL fallback (e.g. AWS,
+          IBM). CB-Spider no longer tracks these after creation (see RDBMSManager.go's
+          redactRDBMSMasterCredentials -- it cannot reliably confirm the actual master account for
+          several CSPs), so the caller must supply both, the same credentials set at instance creation.
+        example: myadmin
+        type: string
       MasterUserPassword:
-        description: required when driver uses SQL (e.g. AWS, IBM)
         example: P@ssw0rd
         type: string
     required:
@@ -4117,11 +4016,84 @@ definitions:
     required:
     - rdbmsengine
     type: object
+  spider.RDBMSInfoResponse:
+    properties:
+      BackupRetentionDays:
+        example: 7
+        type: integer
+      BackupTime:
+        example: "03:00"
+        type: string
+      CreatedTime:
+        type: string
+      DBEngine:
+        example: mysql
+        type: string
+      DBEngineVersion:
+        example: "8.0"
+        type: string
+      DBInstanceType:
+        example: Primary
+        type: string
+      DBSpec:
+        example: db.t3.medium
+        type: string
+      DeletionProtection:
+        default: false
+        type: boolean
+      Encryption:
+        default: false
+        type: boolean
+      Endpoint:
+        type: string
+      HighAvailability:
+        default: false
+        type: boolean
+      IId:
+        $ref: '#/definitions/spider.IID'
+      Iops:
+        example: "3000"
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      NHNAutoOpenDBSecurityGroup:
+        default: false
+        type: boolean
+      PublicAccess:
+        default: false
+        type: boolean
+      SecurityGroupIIDs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.RDBMSStatus'
+        example: Available
+      StorageSize:
+        example: "100"
+        type: string
+      StorageType:
+        example: gp2
+        type: string
+      SubnetIIDs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      VpcIID:
+        $ref: '#/definitions/spider.IID'
+    type: object
   spider.RDBMSListResponse:
     properties:
       rdbms:
         items:
-          $ref: '#/definitions/spider.RDBMSInfo'
+          $ref: '#/definitions/spider.RDBMSInfoResponse'
         type: array
     required:
     - rdbms
@@ -5308,7 +5280,7 @@ paths:
           description: List of all RDBMS information within the specified connection,
             including RDBMS in CB-Spider only, CSP only, and mapped between both.
           schema:
-            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+            $ref: '#/definitions/spider.RDBMSAllInfoListResponse'
         "400":
           description: Bad Request, possibly due to invalid query parameter
           schema:
@@ -10399,6 +10371,9 @@ paths:
       consumes:
       - application/json
       description: Create a new Relational Database (RDBMS) with the specified configuration.
+        <br> The response never echoes back MasterUserName/MasterUserPassword -- you
+        already supplied them in this request, so keep them yourself, e.g. alongside
+        your SSH private key.
       operationId: create-rdbms
       parameters:
       - description: Request body for creating an RDBMS
@@ -10413,7 +10388,7 @@ paths:
         "200":
           description: Details of the created RDBMS
           schema:
-            $ref: '#/definitions/spider.RDBMSInfo'
+            $ref: '#/definitions/spider.RDBMSInfoResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
@@ -10497,7 +10472,7 @@ paths:
         "200":
           description: Details of the RDBMS
           schema:
-            $ref: '#/definitions/spider.RDBMSInfo'
+            $ref: '#/definitions/spider.RDBMSInfoResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
@@ -10530,6 +10505,11 @@ paths:
         in: query
         name: ConnectionName
         required: true
+        type: string
+      - description: The master user name (required by SQL-based drivers such as AWS
+          and IBM)
+        in: header
+        name: X-Master-User-Name
         type: string
       - description: The master user password (required by SQL-based drivers such
           as AWS and IBM)
@@ -10665,6 +10645,11 @@ paths:
       - description: The name of the Connection
         in: query
         name: ConnectionName
+        required: true
+        type: string
+      - description: The master user name, used to connect and run the SQL check
+        in: header
+        name: X-Master-User-Name
         required: true
         type: string
       - description: The master user password, used to connect and run the SQL check
@@ -11505,7 +11490,7 @@ paths:
         "200":
           description: Details of the registered RDBMS
           schema:
-            $ref: '#/definitions/spider.RDBMSInfo'
+            $ref: '#/definitions/spider.RDBMSInfoResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields

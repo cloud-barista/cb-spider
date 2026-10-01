@@ -888,9 +888,6 @@ func (handler *TencentRDBMSHandler) convertToRDBMSInfo(inst *cdb.InstanceInfo) i
 		rdbmsInfo.HighAvailability = (*inst.ProtectMode > 0)
 	}
 
-	// Master username
-	rdbmsInfo.MasterUserName = tencentDefaultAdminUser // Tencent CDB always uses "root"
-
 	// Created time
 	if inst.CreateTime != nil {
 		t, err := time.Parse("2006-01-02 15:04:05", *inst.CreateTime)

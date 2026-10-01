@@ -880,7 +880,6 @@ func (handler *IbmRDBMSHandler) convertResourceInstanceToRDBMSInfo(inst *resourc
 
 	// IBM Cloud Databases are always encrypted at rest
 	rdbmsInfo.Encryption = true
-	rdbmsInfo.MasterUserName = ibmDefaultAdminUser // IBM default
 	rdbmsInfo.StorageSize = "NA"
 	rdbmsInfo.StorageType = "NA"
 	rdbmsInfo.DBSpec = "NA"
@@ -917,9 +916,6 @@ func (handler *IbmRDBMSHandler) enrichRDBMSInfoFromCloudDB(info *irs.RDBMSInfo, 
 	if deployment != nil && deployment.Deployment != nil {
 		if deployment.Deployment.Version != nil {
 			info.DBEngineVersion = *deployment.Deployment.Version
-		}
-		if deployment.Deployment.AdminUsernames != nil && deployment.Deployment.AdminUsernames["database"] != "" {
-			info.MasterUserName = deployment.Deployment.AdminUsernames["database"]
 		}
 		if deployment.Deployment.EnablePublicEndpoints != nil {
 			info.PublicAccess = *deployment.Deployment.EnablePublicEndpoints
@@ -958,11 +954,10 @@ func (handler *IbmRDBMSHandler) enrichRDBMSInfoFromCloudDB(info *irs.RDBMSInfo, 
 	if info.PublicAccess {
 		endpointType = clouddatabasesv5.GetConnectionOptionsEndpointTypePublicConst
 	}
-	connectionUser := info.MasterUserName
-	if connectionUser == "" || connectionUser == "NA" {
-		connectionUser = ibmDefaultAdminUser
-	}
-	connection, _, err := handler.CloudDBService.GetConnectionWithContext(handler.getContext(), handler.CloudDBService.NewGetConnectionOptions(deploymentID, "database", connectionUser, endpointType))
+	// IBM Cloud Databases does not support a custom master user; the database admin
+	// user is always "admin" (enforced in CreateRDBMS), so look up the connection
+	// for that fixed user directly.
+	connection, _, err := handler.CloudDBService.GetConnectionWithContext(handler.getContext(), handler.CloudDBService.NewGetConnectionOptions(deploymentID, "database", ibmDefaultAdminUser, endpointType))
 	if err != nil {
 		return fmt.Errorf("failed to get IBM Cloud Databases %s connection for %s: %w", endpointType, info.IId.NameId, err)
 	}

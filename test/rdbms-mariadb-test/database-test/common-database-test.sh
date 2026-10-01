@@ -8,6 +8,11 @@
 #   CSP_NAME              - Display name (e.g., AWS)
 #   CONNECTION_NAME       - Spider connection config name
 #   RDBMS_NAME            - RDBMS instance name
+#   MASTER_USER_NAME      - MasterUserName used when creating the RDBMS instance (CB-Spider's
+#                           GET /spider/rdbms/{Name} no longer returns it -- see
+#                           api-runtime/common-runtime/RDBMSManager.go's redactRDBMSMasterCredentials;
+#                           only needed by the SQL fallback path, e.g. AWS/IBM -- ignored by CSPs
+#                           with CSP-native database management)
 #   MASTER_USER_PASSWORD  - MasterUserPassword used when creating the RDBMS instance
 #   RESULT_FILE           - Path to write pipe-separated result line
 #
@@ -15,6 +20,8 @@
 #   SPIDER_URL      - Spider REST API URL (default: http://localhost:1024)
 #   SPIDER_AUTH     - Basic auth credentials (default: admin:****)
 #   DB_NAME         - Test database name to create (default: spidertestdb)
+#   MAX_RETRIES     - Retry attempts per API call on transient failure (default: 3)
+#   RETRY_DELAY     - Seconds to wait between retries (default: 3)
 #
 # Result file format (7 fields):
 #   CSP|CreateDB|ListDB|FoundInList|DeleteDB|VerifyDeleted|Elapsed
@@ -26,6 +33,31 @@ format_elapsed() {
     else
         echo "$((sec / 60))m$((sec % 60))s"
     fi
+}
+
+MAX_RETRIES="${MAX_RETRIES:-3}"
+RETRY_DELAY="${RETRY_DELAY:-3}"
+
+# run_with_retry retries a curl-based API call up to MAX_RETRIES times when it fails for
+# transient reasons (e.g. a CSP-side proxy briefly returning "Service Unavailable" right after
+# a DDL operation -- observed in practice on IBM under parallel multi-CSP load, not tied to any
+# particular step). $1 is a label for logging, $2 is the name of a function that performs one
+# attempt: it must set the global `attempt_resp` to the raw response body and return 0 if the
+# attempt should be treated as successful, 1 if it should be retried.
+run_with_retry() {
+    local label="$1"
+    local attempt_fn="$2"
+    local n
+    for ((n = 1; n <= MAX_RETRIES; n++)); do
+        if "${attempt_fn}"; then
+            return 0
+        fi
+        if [[ ${n} -lt ${MAX_RETRIES} ]]; then
+            echo "[${CSP_NAME}] ${label}: attempt ${n}/${MAX_RETRIES} failed, retrying in ${RETRY_DELAY}s..."
+            sleep "${RETRY_DELAY}"
+        fi
+    done
+    return 1
 }
 
 SPIDER_URL="${SPIDER_URL:-http://localhost:1024}"
@@ -59,25 +91,29 @@ echo "[${CSP_NAME}] [${timestamp}] Starting database management test (RDBMS='${R
 curl -u "${SPIDER_AUTH}" -sX DELETE \
   "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases/${DB_NAME}" \
   -H 'Content-Type: application/json' \
-  -d "{\"ConnectionName\": \"${CONNECTION_NAME}\", \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"}" \
+  -d "{\"ConnectionName\": \"${CONNECTION_NAME}\", \"MasterUserName\": \"${MASTER_USER_NAME}\", \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"}" \
   > /dev/null 2>&1
 
 # ── CreateDatabase ────────────────────────────────────────────────────────────
 echo "[${CSP_NAME}] CreateDatabase: '${DB_NAME}'"
 
-create_resp=$(curl -u "${SPIDER_AUTH}" -sX POST \
-  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"ConnectionName\": \"${CONNECTION_NAME}\",
-    \"DatabaseName\": \"${DB_NAME}\",
-    \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"
-  }" 2>&1)
+attempt_create_database() {
+    attempt_resp=$(curl -u "${SPIDER_AUTH}" -sX POST \
+      "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases" \
+      -H 'Content-Type: application/json' \
+      -d "{
+        \"ConnectionName\": \"${CONNECTION_NAME}\",
+        \"DatabaseName\": \"${DB_NAME}\",
+        \"MasterUserName\": \"${MASTER_USER_NAME}\",
+        \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"
+      }" 2>&1)
+    [[ "$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)" == "created" ]]
+}
 
-create_msg=$(echo "${create_resp}" | jq -r '.message // empty' 2>/dev/null)
-if [[ "${create_msg}" == "created" ]]; then
+if run_with_retry "CreateDatabase" attempt_create_database; then
     r_create="PASS"
 else
+    create_msg=$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)
     abort "CreateDatabase" "${create_msg:-unexpected response}"
 fi
 echo "[${CSP_NAME}] CreateDatabase: ${r_create}"
@@ -85,13 +121,19 @@ echo "[${CSP_NAME}] CreateDatabase: ${r_create}"
 # ── ListDatabases ─────────────────────────────────────────────────────────────
 echo "[${CSP_NAME}] ListDatabases: verifying '${DB_NAME}' is present"
 
-list_resp=$(curl -u "${SPIDER_AUTH}" -sX GET \
-  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases?ConnectionName=${CONNECTION_NAME}" \
-  -H "X-Master-User-Password: ${MASTER_USER_PASSWORD}" 2>&1)
+attempt_list_databases() {
+    attempt_resp=$(curl -u "${SPIDER_AUTH}" -sX GET \
+      "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases?ConnectionName=${CONNECTION_NAME}" \
+      -H "X-Master-User-Name: ${MASTER_USER_NAME}" \
+      -H "X-Master-User-Password: ${MASTER_USER_PASSWORD}" 2>&1)
+    [[ -z "$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)" ]]
+}
 
-list_err=$(echo "${list_resp}" | jq -r '.message // empty' 2>/dev/null)
-if [[ -n "${list_err}" ]]; then
-    abort "ListDatabases" "${list_err}"
+if run_with_retry "ListDatabases" attempt_list_databases; then
+    list_resp="${attempt_resp}"
+else
+    list_err=$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)
+    abort "ListDatabases" "${list_err:-unexpected response}"
 fi
 
 db_count=$(echo "${list_resp}" | jq -r '.Databases | length // 0' 2>/dev/null)
@@ -106,18 +148,22 @@ echo "[${CSP_NAME}] ListDatabases: ${r_list} (${db_count} DB(s)), FoundInList: $
 # ── DeleteDatabase ────────────────────────────────────────────────────────────
 echo "[${CSP_NAME}] DeleteDatabase: '${DB_NAME}'"
 
-delete_resp=$(curl -u "${SPIDER_AUTH}" -sX DELETE \
-  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases/${DB_NAME}" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"ConnectionName\": \"${CONNECTION_NAME}\",
-    \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"
-  }" 2>&1)
+attempt_delete_database() {
+    attempt_resp=$(curl -u "${SPIDER_AUTH}" -sX DELETE \
+      "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases/${DB_NAME}" \
+      -H 'Content-Type: application/json' \
+      -d "{
+        \"ConnectionName\": \"${CONNECTION_NAME}\",
+        \"MasterUserName\": \"${MASTER_USER_NAME}\",
+        \"MasterUserPassword\": \"${MASTER_USER_PASSWORD}\"
+      }" 2>&1)
+    [[ "$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)" == "deleted" ]]
+}
 
-delete_msg=$(echo "${delete_resp}" | jq -r '.message // empty' 2>/dev/null)
-if [[ "${delete_msg}" == "deleted" ]]; then
+if run_with_retry "DeleteDatabase" attempt_delete_database; then
     r_delete="PASS"
 else
+    delete_msg=$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)
     abort "DeleteDatabase" "${delete_msg:-unexpected response}"
 fi
 echo "[${CSP_NAME}] DeleteDatabase: ${r_delete}"
@@ -125,13 +171,19 @@ echo "[${CSP_NAME}] DeleteDatabase: ${r_delete}"
 # ── ListDatabases (verify deleted) ───────────────────────────────────────────
 echo "[${CSP_NAME}] ListDatabases: verifying '${DB_NAME}' is removed"
 
-verify_resp=$(curl -u "${SPIDER_AUTH}" -sX GET \
-  "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases?ConnectionName=${CONNECTION_NAME}" \
-  -H "X-Master-User-Password: ${MASTER_USER_PASSWORD}" 2>&1)
+attempt_verify_databases() {
+    attempt_resp=$(curl -u "${SPIDER_AUTH}" -sX GET \
+      "${SPIDER_URL}/spider/rdbms/${RDBMS_NAME}/databases?ConnectionName=${CONNECTION_NAME}" \
+      -H "X-Master-User-Name: ${MASTER_USER_NAME}" \
+      -H "X-Master-User-Password: ${MASTER_USER_PASSWORD}" 2>&1)
+    [[ -z "$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)" ]]
+}
 
-verify_err=$(echo "${verify_resp}" | jq -r '.message // empty' 2>/dev/null)
-if [[ -n "${verify_err}" ]]; then
-    abort "ListDatabases(verify)" "${verify_err}"
+if run_with_retry "ListDatabases(verify)" attempt_verify_databases; then
+    verify_resp="${attempt_resp}"
+else
+    verify_err=$(echo "${attempt_resp}" | jq -r '.message // empty' 2>/dev/null)
+    abort "ListDatabases(verify)" "${verify_err:-unexpected response}"
 fi
 
 if ! echo "${verify_resp}" | jq -e --arg name "${DB_NAME}" '.Databases[]? | select(. == $name)' > /dev/null 2>&1; then

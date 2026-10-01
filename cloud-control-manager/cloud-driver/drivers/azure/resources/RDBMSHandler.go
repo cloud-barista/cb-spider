@@ -744,11 +744,6 @@ func (handler *AzureRDBMSHandler) convertToRDBMSInfo(server *armmysqlfs.Server) 
 			rdbmsInfo.Endpoint = *server.Properties.FullyQualifiedDomainName + ":3306"
 		}
 
-		// Admin user
-		if server.Properties.AdministratorLogin != nil {
-			rdbmsInfo.MasterUserName = *server.Properties.AdministratorLogin
-		}
-
 		// Status
 		if server.Properties.State != nil {
 			rdbmsInfo.Status = convertFlexibleServerStatus(string(*server.Properties.State))

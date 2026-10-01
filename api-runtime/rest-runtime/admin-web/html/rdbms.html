@@ -1131,7 +1131,7 @@
                     <table class="inner-table">
                         <tr>
                             <th>User</th>
-                            <td>{{$rdbms.MasterUserName}}</td>
+                            <td>{{if $rdbms.MasterUserName}}{{$rdbms.MasterUserName}}{{else}}<span style="color:#999;" title="CB-Spider no longer reports the master user name after creation (it cannot reliably confirm it for every CSP) -- keep the username/password you set when creating this instance.">not shown</span>{{end}}</td>
                         </tr>
                     </table>
                 </td>
@@ -1200,6 +1200,8 @@
 
             <!-- Connection Section -->
             <div class="db-connect-section">
+                <label id="dbUserNameLabel">User:</label>
+                <input type="text" id="dbUserName" placeholder="Master user name" style="width: 140px;">
                 <label id="dbPasswordLabel">Password:</label>
                 <input type="password" id="dbPassword" placeholder="Master user password" style="width: 200px;">
                 <span id="dbPasswordNotRequired" style="display:none; font-size:11px; color:#888; margin-left:6px;">DB management uses CSP API; needed for table operations</span>
@@ -3161,6 +3163,7 @@
 
     // ==================== DB Detail Panel ====================
     let currentRDBMS = null;
+    let currentDBUserName = null;
     let currentDBPassword = null;
     let currentDBName = null;
     let currentTable = null;
@@ -3279,6 +3282,7 @@
 
     function showDBPanel(rdbmsName) {
         currentRDBMS = rdbmsName;
+        currentDBUserName = null;
         currentDBPassword = null;
         currentDBName = null;
         currentTable = null;
@@ -3307,6 +3311,7 @@
             '<span style="background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 4px;">🗄️ ' + rdbmsName + '</span>';
 
         // Reset state
+        document.getElementById('dbUserName').value = '';
         document.getElementById('dbPassword').value = '';
         document.getElementById('dbConnectStatus').textContent = '';
         document.getElementById('dbConnectStatus').className = 'db-connect-status';
@@ -3324,15 +3329,16 @@
             notRequired.style.display = isNativeDBProvider() ? 'inline' : 'none';
         }
 
-        // Scroll to panel, then focus password input
+        // Scroll to panel, then focus user name input
         panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(function() { document.getElementById('dbPassword').focus(); }, 100);
+        setTimeout(function() { document.getElementById('dbUserName').focus(); }, 100);
     }
 
     function hideDBPanel() {
         document.getElementById('db-panel').style.display = 'none';
         document.querySelectorAll('tr.selected-rdbms').forEach(el => el.classList.remove('selected-rdbms'));
         currentRDBMS = null;
+        currentDBUserName = null;
         currentDBPassword = null;
         currentTable = null;
     }
@@ -3345,8 +3351,13 @@
 
         const connConfig = document.getElementById('connConfig').value;
         const statusEl = document.getElementById('dbConnectStatus');
+        const username = document.getElementById('dbUserName').value.trim();
         const password = document.getElementById('dbPassword').value;
 
+        if (!username) {
+            alert('Please enter the master user name (the one set when this RDBMS was created).');
+            return;
+        }
         if (!password) {
             alert('Please enter the database password.');
             return;
@@ -3365,7 +3376,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/connect`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: password, DatabaseName: '' })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: username, Password: password, DatabaseName: '' })
         })
         .then(response => response.json())
         .then(data => {
@@ -3375,6 +3386,7 @@
                 statusEl.className = 'db-connect-status error';
                 return;
             }
+            currentDBUserName = username;
             currentDBPassword = password;
             currentDBName = null;
             statusEl.textContent = '✓ Connected — Select a database below';
@@ -3388,7 +3400,7 @@
             // connections to the same RDBMS instance (loadDatabases uses SQL fallback on CSPs
             // like AWS), which has been observed to cause the secure-transport check's separate
             // CA-certificate probe connection to time out under that contention.
-            loadDatabases().finally(() => checkSecureTransport(connConfig, password));
+            loadDatabases().finally(() => checkSecureTransport(connConfig, username, password));
         })
         .catch(error => {
             hideLoading();
@@ -3401,7 +3413,7 @@
     // client connections, via standard SQL against the engine itself (CSP-agnostic):
     //   MySQL/MariaDB: SHOW VARIABLES LIKE 'require_secure_transport'
     //   PostgreSQL:    pg_hba_file_rules
-    function checkSecureTransport(connConfig, password) {
+    function checkSecureTransport(connConfig, username, password) {
         const el = document.getElementById('dbSecureTransportStatus');
         const detailsLink = document.getElementById('dbSecureTransportDetailsLink');
         el.textContent = 'Checking TLS enforcement...';
@@ -3412,7 +3424,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/security/secure-transport`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: password })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: username, Password: password })
         })
         .then(response => response.json())
         .then(data => {
@@ -3546,6 +3558,7 @@
     }
 
     function disconnectDB() {
+        currentDBUserName = null;
         currentDBPassword = null;
         currentDBName = null;
         currentTable = null;
@@ -3572,7 +3585,7 @@
         return fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: '' })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: '' })
         })
         .then(response => response.json())
         .then(data => {
@@ -3656,7 +3669,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: dbName })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: dbName })
         })
         .then(response => response.json())
         .then(data => {
@@ -3685,7 +3698,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases/${encodeURIComponent(dbName)}/drop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword })
         })
         .then(response => response.json())
         .then(data => {
@@ -4131,7 +4144,7 @@
     // Helper to build common request body with connection info
     function dbRequestBody(extra = {}) {
         const connConfig = document.getElementById('connConfig').value;
-        return Object.assign({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: currentDBName || '' }, extra);
+        return Object.assign({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: currentDBName || '' }, extra);
     }
 
     // --- Loading Spinner ---
@@ -4156,17 +4169,19 @@
         }
     });
 
-    // --- Enter key on password triggers Connect ---
+    // --- Enter key on user name/password triggers Connect ---
     document.addEventListener('DOMContentLoaded', function() {
-        var pwField = document.getElementById('dbPassword');
-        if (pwField) {
-            pwField.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !pwField.disabled) {
-                    e.preventDefault();
-                    connectToDB();
-                }
-            });
-        }
+        ['dbUserName', 'dbPassword'].forEach(function(id) {
+            var field = document.getElementById(id);
+            if (field) {
+                field.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !field.disabled) {
+                        e.preventDefault();
+                        connectToDB();
+                    }
+                });
+            }
+        });
     });
 
 </script>

@@ -50,6 +50,16 @@ func init() {
 	infostore.Close(db)
 }
 
+// redactRDBMSMasterCredentials clears MasterUserName/MasterUserPassword on a response about to be
+// returned from RegisterRDBMS/ListRDBMS/GetRDBMS (only a successful CreateRDBMS response still
+// carries these). Drivers no longer populate either field outside of CreateRDBMS, so this is a
+// safety net, not a live correction — it keeps this function the one place that guarantees no
+// credential ever leaves CB-Spider via Get/List/Register, even if a future driver regresses.
+func redactRDBMSMasterCredentials(info *cres.RDBMSInfo) {
+	info.MasterUserName = ""
+	info.MasterUserPassword = ""
+}
+
 //================ RDBMS Handler
 
 // GetRDBMSOwnerVPC returns the owner VPC of a given RDBMS CSP ID
@@ -333,6 +343,10 @@ func RegisterRDBMS(connectionName string, vpcUserID string, userIID cres.IID) (*
 		return nil, err
 	}
 	getInfo.VpcIID = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+	// RegisterRDBMS only attaches an existing CSP DB engine; it is not a CB-Spider deployment,
+	// so the master credentials are redacted like any other Get/List response.
+	redactRDBMSMasterCredentials(&getInfo)
 
 	return &getInfo, nil
 }
@@ -709,6 +723,8 @@ func ListRDBMS(connectionName string, rsType string) ([]*cres.RDBMSInfo, error) 
 		// set SecurityGroupIIDs UserIID
 		setRDBMSSGUserIID(connectionName, vpcIIDInfo, &info)
 
+		redactRDBMSMasterCredentials(&info)
+
 		infoList2 = append(infoList2, &info)
 	}
 
@@ -817,6 +833,8 @@ func GetRDBMS(connectionName string, rsType string, nameID string) (*cres.RDBMSI
 	setRDBMSSubnetUserIID(connectionName, vpcIIDInfo, &info)
 	// set SecurityGroupIIDs UserIID
 	setRDBMSSGUserIID(connectionName, vpcIIDInfo, &info)
+
+	redactRDBMSMasterCredentials(&info)
 
 	return &info, nil
 }
@@ -945,10 +963,13 @@ func CountRDBMSByConnection(connectionName string) (int64, error) {
 // the rdbmsDatabaseManager interface.
 var ErrRDBMSDatabaseMgrNotSupported = fmt.Errorf("driver does not support CSP-native database management")
 
-// openRDBMSSQLConn opens a direct SQL connection to the RDBMS instance using endpoint/port/user from info
-// and the supplied masterUserPassword. Returns the *sql.DB and the driver name ("mysql"/"postgres").
-func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB, string, error) {
-	if masterUserPassword == "" {
+// openRDBMSSQLConn opens a direct SQL connection to the RDBMS instance using endpoint/port from info
+// and the caller-supplied masterUserName/masterUserPassword. The master username is never read off
+// info/the CSP driver: CB-Spider cannot reliably identify the actual master account for several CSPs
+// (see redactRDBMSMasterCredentials), so callers must supply the credentials they set at deploy time,
+// same as the password. Returns the *sql.DB and the driver name ("mysql"/"postgres").
+func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserName, masterUserPassword string) (*sql.DB, string, error) {
+	if masterUserName == "" || masterUserPassword == "" {
 		return nil, "", ErrRDBMSDatabaseMgrNotSupported
 	}
 	if info.Endpoint == "" {
@@ -957,7 +978,7 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 
 	engine := strings.ToLower(string(info.DBEngine))
 	host, port := splitRDBMSEndpoint(info.Endpoint)
-	user := info.MasterUserName
+	user := masterUserName
 
 	var driverName, dsn string
 	switch {
@@ -1086,7 +1107,7 @@ type RDBMSSecureTransportInfo struct {
 //
 // This works uniformly across every CSP because it queries the engine itself rather than
 // each CSP's own (inconsistently available) management API.
-func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword string) (*RDBMSSecureTransportInfo, error) {
+func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserName, masterUserPassword string) (*RDBMSSecureTransportInfo, error) {
 	cblog.Info("call GetRDBMSSecureTransportStatus()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1120,7 +1141,7 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 		return nil, err
 	}
 
-	db, driverName, err := openRDBMSSQLConn(&info, masterUserPassword)
+	db, driverName, err := openRDBMSSQLConn(&info, masterUserName, masterUserPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -1230,8 +1251,8 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 }
 
 // createDatabaseSQL creates a database via direct SQL (CREATE DATABASE).
-func createDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) error {
-	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+func createDatabaseSQL(info *cres.RDBMSInfo, masterUserName, masterUserPassword, dbName string) error {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
 	if err != nil {
 		return err
 	}
@@ -1250,8 +1271,8 @@ func createDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) 
 }
 
 // listDatabasesSQL lists databases via direct SQL.
-func listDatabasesSQL(info *cres.RDBMSInfo, masterUserPassword string) ([]string, error) {
-	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+func listDatabasesSQL(info *cres.RDBMSInfo, masterUserName, masterUserPassword string) ([]string, error) {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -1282,8 +1303,8 @@ func listDatabasesSQL(info *cres.RDBMSInfo, masterUserPassword string) ([]string
 }
 
 // deleteDatabaseSQL drops a database via direct SQL (DROP DATABASE).
-func deleteDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) error {
-	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+func deleteDatabaseSQL(info *cres.RDBMSInfo, masterUserName, masterUserPassword, dbName string) error {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
 	if err != nil {
 		return err
 	}
@@ -1322,8 +1343,8 @@ func getRDBMSSystemId(connectionName, rdbmsName string) (string, string, error) 
 
 // CreateRDBMSDatabase creates a database in the named RDBMS instance.
 // If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
-// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
-func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword string) error {
+// Otherwise, if masterUserName/masterUserPassword are provided, a direct SQL connection is attempted.
+func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserName, masterUserPassword string) error {
 	cblog.Info("call CreateRDBMSDatabase()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1366,13 +1387,13 @@ func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword s
 	}
 
 	// SQL fallback (for drivers without CSP-native DB management API, e.g. AWS, IBM)
-	return createDatabaseSQL(&info, masterUserPassword, dbName)
+	return createDatabaseSQL(&info, masterUserName, masterUserPassword, dbName)
 }
 
 // ListRDBMSDatabases lists databases in the named RDBMS instance.
 // If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
-// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
-func ListRDBMSDatabases(connectionName, rdbmsName, masterUserPassword string) ([]string, error) {
+// Otherwise, if masterUserName/masterUserPassword are provided, a direct SQL connection is attempted.
+func ListRDBMSDatabases(connectionName, rdbmsName, masterUserName, masterUserPassword string) ([]string, error) {
 	cblog.Info("call ListRDBMSDatabases()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1411,13 +1432,13 @@ func ListRDBMSDatabases(connectionName, rdbmsName, masterUserPassword string) ([
 	}
 
 	// SQL fallback
-	return listDatabasesSQL(&info, masterUserPassword)
+	return listDatabasesSQL(&info, masterUserName, masterUserPassword)
 }
 
 // DeleteRDBMSDatabase drops a database from the named RDBMS instance.
 // If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
-// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
-func DeleteRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword string) error {
+// Otherwise, if masterUserName/masterUserPassword are provided, a direct SQL connection is attempted.
+func DeleteRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserName, masterUserPassword string) error {
 	cblog.Info("call DeleteRDBMSDatabase()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1460,5 +1481,5 @@ func DeleteRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword s
 	}
 
 	// SQL fallback
-	return deleteDatabaseSQL(&info, masterUserPassword, dbName)
+	return deleteDatabaseSQL(&info, masterUserName, masterUserPassword, dbName)
 }

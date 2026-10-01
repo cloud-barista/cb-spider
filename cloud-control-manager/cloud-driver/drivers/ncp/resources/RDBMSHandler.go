@@ -968,30 +968,6 @@ func (handler *NcpVpcRDBMSHandler) addPublicACGInboundRule(vpcNo, acgNo, port st
 	return err
 }
 
-// getMysqlMasterUserName fetches the DB user list for a MySQL instance and returns
-// the first user with DDL authority (the master/owner user created at instance creation).
-// Returns "" on any error so callers can fall back to their own stored value.
-func (handler *NcpVpcRDBMSHandler) getMysqlMasterUserName(instanceNo string) string {
-	pageNo := int32(0)
-	pageSize := int32(100)
-	resp, err := handler.MysqlClient.V2Api.GetCloudMysqlUserList(&vmysql.GetCloudMysqlUserListRequest{
-		RegionCode:           &handler.RegionInfo.Region,
-		CloudMysqlInstanceNo: &instanceNo,
-		PageNo:               &pageNo,
-		PageSize:             &pageSize,
-	})
-	if err != nil || resp == nil {
-		cblogger.Infof("NCP MySQL: could not fetch user list for instance %s: %v", instanceNo, err)
-		return ""
-	}
-	for _, u := range resp.CloudMysqlUserList {
-		if u.Authority != nil && strings.ToUpper(*u.Authority) == "DDL" {
-			return derefStr(u.UserName)
-		}
-	}
-	return ""
-}
-
 // getPostgresqlMasterUserName fetches the DB user list for a PostgreSQL instance and
 // returns the first non-replication-role user (the master user created at instance creation).
 // Returns "" on any error so callers can fall back to their own stored value.
@@ -1032,7 +1008,6 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 		BackupRetentionDays: int(derefInt32(inst.BackupFileRetentionPeriod)),
 		BackupTime:          derefStr(inst.BackupTime),
 
-		MasterUserName:     handler.getMysqlMasterUserName(derefStr(inst.CloudMysqlInstanceNo)),
 		DeletionProtection: false,
 		PublicAccess:       false,
 
@@ -1165,7 +1140,6 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 		BackupRetentionDays: int(derefInt32(inst.BackupFileRetentionPeriod)),
 		BackupTime:          derefStr(inst.BackupTime),
 
-		MasterUserName:     handler.getPostgresqlMasterUserName(derefStr(inst.CloudPostgresqlInstanceNo)),
 		DeletionProtection: false, // PostgreSQL does not support deletion protection
 		PublicAccess:       false,
 

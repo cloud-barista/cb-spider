@@ -43,16 +43,20 @@ CB-Spider supports database management through two mechanisms:
 | Mechanism | Condition | Description |
 |------|------|------|
 | **CSP native API** | The driver implements the `rdbmsDatabaseManager` interface | Calls the CSP's own database management API directly |
-| **Direct SQL execution** | Automatic fallback when the driver doesn't implement it | Connects using `MasterUserPassword` and runs SQL (`CREATE/DROP DATABASE`) |
+| **Direct SQL execution** | Automatic fallback when the driver doesn't implement it | Connects using `MasterUserName`/`MasterUserPassword` and runs SQL (`CREATE/DROP DATABASE`) |
 
-`MasterUserPassword` is required for the SQL fallback path, so it is always included in the request.
+`MasterUserName`/`MasterUserPassword` are required for the SQL fallback path, so both are always included in the request. CB-Spider does not track these itself after an instance is created -- no RDBMS endpoint returns them any more, not even `POST /spider/rdbms` (Create), since that would just be echoing back a value the caller already supplied (see `api-runtime/rest-runtime/RDBMSRest.go`'s `RDBMSInfoResponse`) -- so the caller must supply both here, the same credentials set when the instance was created.
 
 ## Configuration
 
 ```bash
 export SPIDER_URL=http://localhost:1024   # CB-Spider REST API URL
 export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
+export MAX_RETRIES=3                      # Retry attempts per API call on transient failure (default: 3)
+export RETRY_DELAY=3                      # Seconds to wait between retries (default: 3)
 ```
+
+Each of the four API calls (CreateDatabase, ListDatabases, DeleteDatabase, the verify ListDatabases) is retried on failure before the test aborts — some CSPs' proxies have been observed to briefly return a transient error (e.g. IBM returning "Service Unavailable" for a moment right after a DDL operation) when multiple CSPs run in parallel.
 
 To change the test database name:
 
@@ -158,15 +162,17 @@ CreateDatabase and DeleteDatabase take a request body:
 {
   "ConnectionName": "<connection-name>",
   "DatabaseName": "<db-name>",
+  "MasterUserName": "<username>",
   "MasterUserPassword": "<password>"
 }
 ```
-(`DatabaseName` is only used for CreateDatabase; `MasterUserPassword` is needed for the SQL fallback path)
+(`DatabaseName` is only used for CreateDatabase; `MasterUserName`/`MasterUserPassword` are needed for the SQL fallback path)
 
-ListDatabases is a `GET` request, so it takes no body: `ConnectionName` is a query parameter and `MasterUserPassword` is sent via the `X-Master-User-Password` header (never as a query parameter, to avoid it being logged in plaintext by proxies/web servers/APM tools):
+ListDatabases is a `GET` request, so it takes no body: `ConnectionName` is a query parameter, and `MasterUserName`/`MasterUserPassword` are sent via the `X-Master-User-Name`/`X-Master-User-Password` headers (never as query parameters, to avoid them being logged in plaintext by proxies/web servers/APM tools):
 ```bash
 curl -u "$SPIDER_AUTH" -X GET \
   "$SPIDER_URL/spider/rdbms/{Name}/databases?ConnectionName=<connection-name>" \
+  -H "X-Master-User-Name: <username>" \
   -H "X-Master-User-Password: <password>"
 ```
 

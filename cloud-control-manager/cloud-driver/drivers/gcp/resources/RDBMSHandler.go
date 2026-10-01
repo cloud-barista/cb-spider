@@ -750,22 +750,6 @@ func (handler *GCPRDBMSHandler) convertToRDBMSInfo(instance *sqladmin.DatabaseIn
 		}
 	}
 
-	// Authentication - retrieve master user from Users API
-	rdbmsInfo.MasterUserName = "" // default empty
-	projectId := handler.getProjectId()
-	userListResp, userErr := handler.Client.Users.List(projectId, instance.Name).Do()
-	if userErr == nil && userListResp != nil {
-		for _, u := range userListResp.Items {
-			// Skip built-in system accounts
-			if u.Name != "" && u.Name != "root" && u.Name != "postgres" &&
-				u.Name != "cloudsqlsuperuser" && u.Name != "cloudsqladmin" &&
-				u.Name != "cloudsqlreplica" {
-				rdbmsInfo.MasterUserName = u.Name
-				break
-			}
-		}
-	}
-
 	// Endpoint with port
 	if len(instance.IpAddresses) > 0 {
 		for _, ip := range instance.IpAddresses {
