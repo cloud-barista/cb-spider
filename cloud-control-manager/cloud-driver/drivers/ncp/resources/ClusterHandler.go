@@ -37,15 +37,22 @@ type NcpVpcClusterHandler struct {
 }
 
 const (
-	// XEN is the default value for NCP VPC
-	ClusterTypeXen = "SVR.VNKS.STAND.C002.M008.NET.SSD.B050.G002"
+	// NKS clusters are created on KVM only. XEN offers a single K8s version (1.34) and every
+	// newer version is KVM-only, so the driver no longer carries a XEN path.
+	// See docs/ncp-nks-kvm-only-design.md.
+	hypervisorCodeKvm = "KVM"
 
-	hypervisorCodeXen     = "XEN"
-	hypervisorCodeKvm     = "KVM"
-	hypervisorCodeDefault = hypervisorCodeXen
+	// The only cluster type NKS offers for KVM (control plane for up to 250 worker nodes).
+	clusterTypeKvm = "SVR.VNKS.STAND.C004.M016.G003"
 
-	defaultServerImageNamePrefixForXen = "ubuntu-20"
-	defaultServerImageNamePrefixForKvm = "ubuntu-22.04-nks"
+	// Worker image used when a node group requests "" or "default". Matched by exact name:
+	// a substring match would also hit GPU images such as "ubuntu-22.04-nks-gpu".
+	defaultNodeImageName = "ubuntu-22.04-nksw"
+
+	// KVM node pool storageSize bounds in GB (NKS createCluster / nodePool API).
+	nodeStorageSizeMinGB     = 100
+	nodeStorageSizeMaxGB     = 2000
+	nodeStorageSizeDefaultGB = 100
 
 	searchColumnRoleName = "roleName"
 
@@ -196,7 +203,7 @@ func (nvch *NcpVpcClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 }
 
 func (nvch *NcpVpcClusterHandler) getSupportedK8sVersions() ([]string, error) {
-	versions, err := ncpOptionVersionGet(nvch.ClusterClient, nvch.Ctx, hypervisorCodeXen)
+	versions, err := ncpOptionVersionGet(nvch.ClusterClient, nvch.Ctx, hypervisorCodeKvm)
 	if err != nil {
 		return make([]string, 0), err
 	}
@@ -224,11 +231,12 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 	}
 
 	// 2. NCP 특화 옵션(KeyValueList) 파싱 및 기본값 처리
-	clusterType := ClusterTypeXen
 	publicNetwork := true // 기본값
 	for _, kv := range clusterReqInfo.KeyValueList {
-		if kv.Key == "ClusterType" && kv.Value != "" {
-			clusterType = kv.Value
+		// KVM has a single cluster type, so there is nothing to override. Reject other values
+		// (e.g., the former XEN type) instead of ignoring them, so callers see the change.
+		if kv.Key == "ClusterType" && kv.Value != "" && kv.Value != clusterTypeKvm {
+			return "", fmt.Errorf("unsupported ClusterType(%s): NKS clusters are created on KVM only (%s)", kv.Value, clusterTypeKvm)
 		}
 		if kv.Key == "PublicNetwork" && kv.Value != "" {
 			publicNetwork = (kv.Value == "true")
@@ -328,45 +336,19 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 			return "", fmt.Errorf("required node group parameter missing")
 		}
 
-		// 이미지 코드 추출
-		imageName := ng.ImageIID.NameId
-		var softwareCode string
-		var err error
-		if imageName == "" || strings.EqualFold(imageName, "default") {
-			var defaultServerImageNamePrefix string
-			if hypervisorCodeDefault == hypervisorCodeXen {
-				defaultServerImageNamePrefix = defaultServerImageNamePrefixForXen
-			} else {
-				defaultServerImageNamePrefix = defaultServerImageNamePrefixForKvm
-			}
-			softwareCode, err = nvch.getServerImageByNamePrefix(defaultServerImageNamePrefix)
-			if err != nil {
-				return "", fmt.Errorf("failed to get default server image: %v", err)
-			}
-		} else {
-			softwareCode, err = nvch.getServerImageByNamePrefix(imageName)
-			if err != nil {
-				serverList, err2 := nvch.getAvailableServerImageList()
-				if err2 != nil {
-					return "", fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err2)
-				}
-				return "", fmt.Errorf("failed to create a cluster(%s): %v (available server images: %s)", clusterName, err, strings.Join(serverList, ", "))
-			}
-		}
-
-		// Get NKS-specific ProductCode
-		productCode, err := nvch.getNKSProductCode(ng.VMSpecName, softwareCode)
+		params, err := nvch.resolveNodePoolParams(ng)
 		if err != nil {
-			return "", fmt.Errorf("failed to get NKS ProductCode for VMSpec %s: %v", ng.VMSpecName, err)
+			return "", fmt.Errorf("failed to create a cluster(%s): node group(%s): %w", clusterName, ng.IId.NameId, err)
 		}
 
+		// KVM node pools take serverSpecCode and storageSize; productCode is XEN-only.
 		nodePool := &vnks.NodePoolDto{
 			Name:           ncloud.String(ng.IId.NameId),
 			NodeCount:      ncloud.Int32(int32(ng.DesiredNodeSize)),
-			SoftwareCode:   ncloud.String(softwareCode),
-			ServerSpecCode: ncloud.String(ng.VMSpecName),
-			ProductCode:    ncloud.String(productCode),
-			// 필요시 SubnetNo, Labels, Taints, StorageSize 등 추가
+			SoftwareCode:   ncloud.String(params.softwareCode),
+			ServerSpecCode: ncloud.String(params.serverSpecCode),
+			StorageSize:    ncloud.Int32(params.storageSize),
+			// 필요시 SubnetNo, Labels, Taints 등 추가
 		}
 		nodePools = append(nodePools, nodePool)
 	}
@@ -407,7 +389,8 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 	}
 	clusterInputBody := &vnks.ClusterInputBody{
 		Name:              ncloud.String(clusterName),
-		ClusterType:       ncloud.String(clusterType),
+		ClusterType:       ncloud.String(clusterTypeKvm),
+		HypervisorCode:    ncloud.String(hypervisorCodeKvm), // NCP defaults to XEN when omitted
 		K8sVersion:        ncloud.String(clusterReqInfo.Version),
 		LoginKeyName:      ncloud.String(clusterReqInfo.NodeGroupList[0].KeyPairIID.NameId),
 		RegionCode:        ncloud.String(nvch.RegionInfo.Region),
@@ -637,6 +620,13 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 	}
 	if targetCluster.K8sVersion != nil {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "K8sVersion", Value: ncloud.StringValue(targetCluster.K8sVersion)})
+	}
+	// Lets callers (and AddNodeGroup) tell existing XEN clusters apart from KVM ones.
+	if targetCluster.HypervisorCode != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "HypervisorCode", Value: ncloud.StringValue(targetCluster.HypervisorCode)})
+	}
+	if targetCluster.ClusterType != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "ClusterType", Value: ncloud.StringValue(targetCluster.ClusterType)})
 	}
 	if targetCluster.AcgName != nil {
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "AcgName", Value: ncloud.StringValue(targetCluster.AcgName)})
@@ -1161,6 +1151,12 @@ func (nvch *NcpVpcClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 		return irs.NodeGroupInfo{}, addErr
 	}
 
+	if err := checkKvmCluster(clusterInfo.KeyValueList); err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return irs.NodeGroupInfo{}, err
+	}
+
 	// Use first subnet from cluster if no subnet specified
 	var subnetNo int32
 	if len(clusterInfo.Network.SubnetIIDs) > 0 {
@@ -1180,78 +1176,28 @@ func (nvch *NcpVpcClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 		return irs.NodeGroupInfo{}, addErr
 	}
 
-	// Build NodePoolCreationBody
+	params, err := nvch.resolveNodePoolParams(nodeGroupReqInfo)
+	if err != nil {
+		addErr := fmt.Errorf("failed to add node group(%s): %w", nodeGroupReqInfo.IId.NameId, err)
+		cblogger.Error(addErr)
+		LoggingError(hiscallInfo, addErr)
+		return irs.NodeGroupInfo{}, addErr
+	}
+
+	// KVM node pools take serverSpecCode and storageSize; productCode is XEN-only.
 	nodePoolBody := &vnks.NodePoolCreationBody{
-		Name:      ncloud.String(nodeGroupReqInfo.IId.NameId),
-		NodeCount: ncloud.Int32(int32(nodeGroupReqInfo.DesiredNodeSize)),
-		SubnetNo:  ncloud.Int32(subnetNo),
+		Name:           ncloud.String(nodeGroupReqInfo.IId.NameId),
+		NodeCount:      ncloud.Int32(int32(nodeGroupReqInfo.DesiredNodeSize)),
+		SubnetNo:       ncloud.Int32(subnetNo),
+		SoftwareCode:   ncloud.String(params.softwareCode),
+		ServerSpecCode: ncloud.String(params.serverSpecCode),
+		StorageSize:    ncloud.Int32(params.storageSize),
 	}
+	cblogger.Debugf("Resolved NKS node pool for VMSpec %s: SoftwareCode=%s, StorageSize=%dGB",
+		params.serverSpecCode, params.softwareCode, params.storageSize)
 
-	// Set StorageSize (required: 50~2000 GB)
-	// Use RootDiskSize if provided, otherwise default to 100GB
-	storageSize := int32(100) // default 100GB
-	if nodeGroupReqInfo.RootDiskSize != "" && nodeGroupReqInfo.RootDiskSize != "0" {
-		if parsedSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 32); err == nil {
-			if parsedSize >= 50 && parsedSize <= 2000 {
-				storageSize = int32(parsedSize)
-			} else {
-				cblogger.Warnf("RootDiskSize %d out of range (50~2000), using default 100GB", parsedSize)
-			}
-		}
-	}
-	nodePoolBody.StorageSize = ncloud.Int32(storageSize)
-
-	// Set ServerSpecCode and ProductCode if VMSpecName is provided
-	if nodeGroupReqInfo.VMSpecName != "" {
-		nodePoolBody.ServerSpecCode = ncloud.String(nodeGroupReqInfo.VMSpecName)
-
-		// Get SoftwareCode (image code) for NKS ProductCode lookup
-		imageName := nodeGroupReqInfo.ImageIID.NameId
-		var softwareCode string
-		var err error
-		if imageName == "" || strings.EqualFold(imageName, "default") {
-			var defaultServerImageNamePrefix string
-			if hypervisorCodeDefault == hypervisorCodeXen {
-				defaultServerImageNamePrefix = defaultServerImageNamePrefixForXen
-			} else {
-				defaultServerImageNamePrefix = defaultServerImageNamePrefixForKvm
-			}
-			softwareCode, err = nvch.getServerImageByNamePrefix(defaultServerImageNamePrefix)
-			if err != nil {
-				addErr := fmt.Errorf("failed to get default server image: %w", err)
-				cblogger.Error(addErr)
-				LoggingError(hiscallInfo, addErr)
-				return irs.NodeGroupInfo{}, addErr
-			}
-		} else {
-			softwareCode, err = nvch.getServerImageByNamePrefix(imageName)
-			if err != nil {
-				addErr := fmt.Errorf("failed to get server image: %w", err)
-				cblogger.Error(addErr)
-				LoggingError(hiscallInfo, addErr)
-				return irs.NodeGroupInfo{}, addErr
-			}
-		}
-
-		// Get NKS-specific ProductCode
-		productCode, err := nvch.getNKSProductCode(nodeGroupReqInfo.VMSpecName, softwareCode)
-		if err != nil {
-			addErr := fmt.Errorf("failed to get NKS ProductCode for VMSpec %s: %w", nodeGroupReqInfo.VMSpecName, err)
-			cblogger.Error(addErr)
-			LoggingError(hiscallInfo, addErr)
-			return irs.NodeGroupInfo{}, addErr
-		}
-		nodePoolBody.ProductCode = ncloud.String(productCode)
-		nodePoolBody.SoftwareCode = ncloud.String(softwareCode)
-		cblogger.Debugf("Resolved NKS ProductCode for VMSpec %s: %s (SoftwareCode: %s)", nodeGroupReqInfo.VMSpecName, productCode, softwareCode)
-	}
-
-	// Override ProductCode/SoftwareCode if explicitly provided in KeyValueList
+	// Override SoftwareCode if explicitly provided in KeyValueList
 	for _, kv := range nodeGroupReqInfo.KeyValueList {
-		if kv.Key == "ProductCode" {
-			nodePoolBody.ProductCode = ncloud.String(kv.Value)
-			cblogger.Debugf("ProductCode overridden from KeyValueList: %s", kv.Value)
-		}
 		if kv.Key == "SoftwareCode" {
 			nodePoolBody.SoftwareCode = ncloud.String(kv.Value)
 		}
@@ -1839,51 +1785,124 @@ func (nvch *NcpVpcClusterHandler) convertNodeGroup(nodeGroupOutput *vnks.Describ
 }
 */
 
-func (nvch *NcpVpcClusterHandler) isValidServerImageName(imageName string) (bool, error) {
-	optionsRes, err := ncpOptionServerImageGet(nvch.ClusterClient, nvch.Ctx, hypervisorCodeDefault)
-	if err != nil {
-		return false, err
-	}
-
-	for _, optionRes := range optionsRes {
-		label := ncloud.StringValue(optionRes.Label)
-		if strings.EqualFold(strings.ToLower(label), strings.ToLower(imageName)) {
-			return true, nil
-		}
-	}
-
-	return false, fmt.Errorf("no server image with name prefix(%s)", imageName)
+// nodePoolParams holds the per-node-pool values NKS needs on KVM.
+type nodePoolParams struct {
+	softwareCode   string // node image
+	serverSpecCode string // e.g. "s4-g3"
+	storageSize    int32  // GB
 }
 
-func (nvch *NcpVpcClusterHandler) getServerImageByNamePrefix(imageNamePrefix string) (string, error) {
-	optionsRes, err := ncpOptionServerImageGet(nvch.ClusterClient, nvch.Ctx, hypervisorCodeDefault)
+// resolveNodePoolParams validates a node group request against the KVM options NKS offers in
+// this zone, and resolves the node image and storage size. Cluster creation and node group
+// addition share it so both build the same node pool.
+func (nvch *NcpVpcClusterHandler) resolveNodePoolParams(ng irs.NodeGroupInfo) (nodePoolParams, error) {
+	if ng.VMSpecName == "" {
+		return nodePoolParams{}, fmt.Errorf("vm spec name is required")
+	}
+
+	storageSize, err := parseStorageSize(ng.RootDiskSize)
 	if err != nil {
-		return "", err
+		return nodePoolParams{}, err
 	}
 
-	for _, optionRes := range optionsRes {
-		label := ncloud.StringValue(optionRes.Label)
-		if strings.Contains(strings.ToLower(label), strings.ToLower(imageNamePrefix)) {
-			return ncloud.StringValue(optionRes.Value), nil
-		}
+	imageOptions, err := ncpOptionServerImageGet(nvch.ClusterClient, nvch.Ctx, hypervisorCodeKvm)
+	if err != nil {
+		return nodePoolParams{}, fmt.Errorf("failed to get NKS server image options: %w", err)
+	}
+	imageName := ng.ImageIID.NameId
+	if imageName == "" || strings.EqualFold(imageName, "default") {
+		imageName = defaultNodeImageName
+	}
+	softwareCode, err := findNodeImage(imageOptions, imageName)
+	if err != nil {
+		return nodePoolParams{}, err
 	}
 
-	return "", fmt.Errorf("no server image with name prefix(%s)", imageNamePrefix)
+	specOptions, err := ncpOptionServerProductCodeGet(nvch.ClusterClient, nvch.Ctx, hypervisorCodeKvm, softwareCode, nvch.RegionInfo.Zone, "")
+	if err != nil {
+		return nodePoolParams{}, fmt.Errorf("failed to get NKS server spec options: %w", err)
+	}
+	specCode, err := findNodeSpec(specOptions, ng.VMSpecName, nvch.RegionInfo.Zone)
+	if err != nil {
+		return nodePoolParams{}, err
+	}
+
+	return nodePoolParams{softwareCode: softwareCode, serverSpecCode: specCode, storageSize: storageSize}, nil
 }
 
-func (nvch *NcpVpcClusterHandler) getAvailableServerImageList() ([]string, error) {
-	var serverImageList []string
-	optionsRes, err := ncpOptionServerImageGet(nvch.ClusterClient, nvch.Ctx, hypervisorCodeDefault)
+// findNodeImage returns the software code of the NKS node image whose name equals imageName.
+// It matches the whole name: a substring match would also hit GPU variants
+// (e.g., "ubuntu-22.04-nks" is contained in "ubuntu-22.04-nks-gpu").
+func findNodeImage(options vnks.OptionsRes, imageName string) (string, error) {
+	available := make([]string, 0, len(options))
+	for _, option := range options {
+		label := ncloud.StringValue(option.Label)
+		if strings.EqualFold(label, imageName) {
+			return ncloud.StringValue(option.Value), nil
+		}
+		available = append(available, label)
+	}
+	return "", fmt.Errorf("no NKS node image named %q (available images: %s)", imageName, strings.Join(available, ", "))
+}
+
+// findNodeSpec checks that specCode is a server spec NKS offers for KVM node pools and returns
+// it as NCP spells it. The option's Value is the spec code on KVM (e.g., "s4-g3"); the SDK's
+// ServerProduct has no serverSpecCode field, so Detail cannot be used for the comparison.
+// The spec is matched by name, never by CPU/memory, because Intel and AMD specs of the same
+// size (e.g., "s4-g3" and "s4-g3a") both exist.
+func findNodeSpec(options vnks.OptionsResForServerProduct, specCode, zone string) (string, error) {
+	available := make([]string, 0, len(options))
+	for _, option := range options {
+		value := ncloud.StringValue(option.Value)
+		if strings.EqualFold(value, specCode) {
+			return value, nil
+		}
+		available = append(available, value)
+	}
+	return "", fmt.Errorf("server spec %q is not available for NKS KVM node pools in zone %s (available specs: %s)",
+		specCode, zone, strings.Join(available, ", "))
+}
+
+// parseStorageSize converts a node group's RootDiskSize into the NKS KVM storageSize in GB.
+// An empty, "0", or "default" value selects the NKS default. Anything else must be an integer
+// within the NKS bounds; it is rejected rather than replaced so the caller never gets a disk
+// of a different size than requested.
+func parseStorageSize(rootDiskSize string) (int32, error) {
+	value := strings.TrimSpace(rootDiskSize)
+	if value == "" || value == "0" || strings.EqualFold(value, "default") {
+		return nodeStorageSizeDefaultGB, nil
+	}
+	size, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
-		return []string{}, err
+		return 0, fmt.Errorf("invalid RootDiskSize %q: must be an integer in GB", rootDiskSize)
 	}
-
-	for _, optionRes := range optionsRes {
-		nameAndId := fmt.Sprintf("%s[Code=%s]", ncloud.StringValue(optionRes.Label), ncloud.StringValue(optionRes.Value))
-		serverImageList = append(serverImageList, nameAndId)
+	if size < nodeStorageSizeMinGB || size > nodeStorageSizeMaxGB {
+		return 0, fmt.Errorf("RootDiskSize %dGB is out of range: NKS KVM node disks must be %d-%dGB",
+			size, nodeStorageSizeMinGB, nodeStorageSizeMaxGB)
 	}
+	return int32(size), nil
+}
 
-	return serverImageList, nil
+// checkKvmCluster refuses a cluster whose HypervisorCode (from GetCluster's KeyValueList) is not
+// KVM. Node pools are built in the KVM request format only, so an existing XEN cluster is refused
+// up front rather than letting NCP reject a mismatched request. An empty value is allowed so that
+// a missing field alone does not block a KVM cluster.
+func checkKvmCluster(clusterKeyValues []irs.KeyValue) error {
+	hv := findKeyValue(clusterKeyValues, "HypervisorCode")
+	if hv != "" && !strings.EqualFold(hv, hypervisorCodeKvm) {
+		return fmt.Errorf("adding a node group to a %s cluster is not supported: NKS node groups are created on KVM only", hv)
+	}
+	return nil
+}
+
+// findKeyValue returns the value of the first entry with the given key, or "" if absent.
+func findKeyValue(list []irs.KeyValue, key string) string {
+	for _, kv := range list {
+		if kv.Key == key {
+			return kv.Value
+		}
+	}
+	return ""
 }
 
 /*
@@ -2156,30 +2175,6 @@ func int32List(s []int32) []*int32 {
 	return vs
 }
 
-func ncpClustersPost(acCluster *vnks.APIClient, ctx context.Context, clusterName, clusterType, k8sVersion, loginKeyName, regionCode, zoneCode string, vpcNo int32, subnetNoList []int32, lbPrivateSubnetNo, lbPublicSubnetNo int32) (string, error) {
-	publicNetwork := true
-	clusterInputBody := &vnks.ClusterInputBody{
-		Name:              ncloud.String(clusterName),
-		ClusterType:       ncloud.String(clusterType),
-		K8sVersion:        ncloud.String(k8sVersion),
-		LoginKeyName:      ncloud.String(loginKeyName),
-		RegionCode:        ncloud.String(regionCode),
-		ZoneCode:          ncloud.String(zoneCode),
-		PublicNetwork:     ncloud.Bool(publicNetwork),
-		VpcNo:             ncloud.Int32(vpcNo),
-		SubnetNoList:      int32List(subnetNoList),
-		LbPrivateSubnetNo: ncloud.Int32(lbPrivateSubnetNo),
-		LbPublicSubnetNo:  ncloud.Int32(lbPublicSubnetNo),
-	}
-
-	createClusterRes, err := acCluster.V2Api.ClustersPost(ctx, clusterInputBody)
-	if err != nil {
-		return "", err
-	}
-
-	return ncloud.StringValue(createClusterRes.Uuid), nil
-}
-
 func ncpOptionVersionGet(acCluster *vnks.APIClient, ctx context.Context, hypervisorCode string) (vnks.OptionsRes, error) {
 	emptyOptionsRes := make(vnks.OptionsRes, 0)
 	queryParam := map[string]interface{}{
@@ -2365,97 +2360,6 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 	}
 
 	return nil
-}
-
-// getNKSProductCode retrieves the NCP NKS-specific ProductCode for a given VMSpec and SoftwareCode
-// NKS requires a different ProductCode format than regular VM creation.
-// This function queries the NCP API to get the list of available ProductCodes for NKS clusters.
-func (nvch *NcpVpcClusterHandler) getNKSProductCode(specName string, softwareCode string) (string, error) {
-	if specName == "" {
-		return "", fmt.Errorf("invalid specName: empty string")
-	}
-	if softwareCode == "" {
-		return "", fmt.Errorf("invalid softwareCode: empty string")
-	}
-
-	// Get VMSpec details (CPU, Memory)
-	specReq := vserver.GetServerSpecListRequest{
-		RegionCode:         &nvch.RegionInfo.Region,
-		ZoneCode:           &nvch.RegionInfo.Zone,
-		ServerSpecCodeList: []*string{ncloud.String(specName)},
-	}
-
-	specResult, err := nvch.VMClient.V2Api.GetServerSpecList(&specReq)
-	if err != nil {
-		return "", fmt.Errorf("failed to get VMSpec from NCP: %w", err)
-	}
-
-	if len(specResult.ServerSpecList) < 1 {
-		return "", fmt.Errorf("VMSpec %s does not exist", specName)
-	}
-
-	vmSpec := specResult.ServerSpecList[0]
-	if vmSpec.CpuCount == nil || vmSpec.MemorySize == nil {
-		return "", fmt.Errorf("VMSpec %s has no CPU or Memory info", specName)
-	}
-
-	cpuCount := *vmSpec.CpuCount
-	memorySize := int32(*vmSpec.MemorySize / (1024 * 1024 * 1024)) // Convert bytes to GB (int32)
-
-	// Query NCP API for available ProductCodes for NKS
-	optionsRes, err := ncpOptionServerProductCodeGet(
-		nvch.ClusterClient,
-		nvch.Ctx,
-		hypervisorCodeDefault,
-		softwareCode,
-		nvch.RegionInfo.Zone,
-		"", // zoneNo can be empty
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to get NKS ProductCode options: %w", err)
-	}
-
-	// Find matching ProductCode based on CPU and Memory
-	for _, option := range optionsRes {
-		// Check if Detail field has the ServerProduct info
-		if option.Detail != nil {
-			detail := option.Detail
-			if detail.CpuCount != nil && detail.MemorySizeGb != nil {
-				optionCpu := *detail.CpuCount
-				optionMemory := *detail.MemorySizeGb
-
-				// Match based on CPU and Memory
-				if optionCpu == cpuCount && optionMemory == memorySize {
-					// Use Value field which contains the ProductCode
-					if option.Value != nil && *option.Value != "" {
-						cblogger.Debugf("Matched NKS ProductCode for VMSpec %s (CPU:%d, Mem:%dGB): %s",
-							specName, cpuCount, memorySize, *option.Value)
-						return *option.Value, nil
-					}
-				}
-			}
-		}
-	}
-
-	// If no exact match found, return error with available options
-	availableOptions := make([]string, 0)
-	for _, option := range optionsRes {
-		if option.Value != nil && *option.Value != "" && option.Detail != nil {
-			detail := option.Detail
-			cpu := "?"
-			mem := "?"
-			if detail.CpuCount != nil {
-				cpu = fmt.Sprintf("%d", *detail.CpuCount)
-			}
-			if detail.MemorySizeGb != nil {
-				mem = fmt.Sprintf("%d", *detail.MemorySizeGb)
-			}
-			availableOptions = append(availableOptions, fmt.Sprintf("%s (CPU:%s, Mem:%sGB)", *option.Value, cpu, mem))
-		}
-	}
-
-	return "", fmt.Errorf("no matching NKS ProductCode found for VMSpec %s (CPU:%d, Mem:%dGB). Available options: %s",
-		specName, cpuCount, memorySize, strings.Join(availableOptions, ", "))
 }
 
 func validateAtChangeNodeGroupScaling(minNodeSize int, maxNodeSize int) error {
