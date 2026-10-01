@@ -15,6 +15,7 @@ import (
 	// "errors"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -251,49 +252,33 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 					return irs.SecurityInfo{}, errors.New("Invalid Rule Direction!!")
 				}
 
-				allProtocolTypeCode := []string{"tcp", "udp", "icmp"}
-				allCIDR := "0.0.0.0/0"
-
-				for _, curProtocolType := range allProtocolTypeCode {
-					var createRuleOpts rules.CreateOpts
-					if strings.EqualFold(curProtocolType, "icmp") { // Without fromPort / toPort
-						createRuleOpts = rules.CreateOpts{
-							Direction:      rules.RuleDirection(direction),
-							EtherType:      rules.EtherType4,
-							SecGroupID:     nhnSG.ID,
-							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
-							RemoteIPPrefix: allCIDR,                             //Caution!!
-						}
-					} else {
-						var fromPort int
-						var toPort int
-						if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") { // Check again
-							fromPort = 1
-							toPort = 65535
-						}
-
-						createRuleOpts = rules.CreateOpts{
-							Direction:      rules.RuleDirection(direction),
-							EtherType:      rules.EtherType4,
-							SecGroupID:     nhnSG.ID,
-							PortRangeMin:   fromPort,
-							PortRangeMax:   toPort,
-							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
-							RemoteIPPrefix: allCIDR,                             //Caution!!
-						}
-					}
-
-					start := call.Start()
-					_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
-					if err != nil {
-						newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
-						cblogger.Error(newErr.Error())
-						LoggingError(callLogInfo, newErr)
-						return irs.SecurityInfo{}, newErr
-					}
-					LoggingInfo(callLogInfo, start)
-					cblogger.Infof("Succeeded in Adding New [%s], [%s] Rule!!", curRule.Direction, curProtocolType)
+				etherType, err := getEtherTypeFromCIDR(curRule.CIDR)
+				if err != nil {
+					newErr := fmt.Errorf("Failed to Get the EtherType of the requested rule : [%v]", err)
+					cblogger.Error(newErr.Error())
+					LoggingError(callLogInfo, newErr)
+					return irs.SecurityInfo{}, newErr
 				}
+
+				// NHN(Neutron) allows every protocol when 'protocol' is omitted, and rejects
+				// a port range that comes without a protocol. So neither of them is set here.
+				createRuleOpts := rules.CreateOpts{
+					Direction:      rules.RuleDirection(direction),
+					EtherType:      etherType,
+					SecGroupID:     nhnSG.ID,
+					RemoteIPPrefix: curRule.CIDR,
+				}
+
+				start := call.Start()
+				_, err = rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
+				if err != nil {
+					newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
+					cblogger.Error(newErr.Error())
+					LoggingError(callLogInfo, newErr)
+					return irs.SecurityInfo{}, newErr
+				}
+				LoggingInfo(callLogInfo, start)
+				cblogger.Infof("Succeeded in Adding New [%s], [ALL] Rule!!", curRule.Direction)
 			} else {
 				return irs.SecurityInfo{}, errors.New("To Specify 'All Traffic Allow Rule', Specify '-1' as FromPort/ToPort!!")
 			}
@@ -308,30 +293,32 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 				return irs.SecurityInfo{}, errors.New("Invalid Rule Direction!!")
 			}
 
+			etherType, err := getEtherTypeFromCIDR(curRule.CIDR)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the EtherType of the requested rule : [%v]", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.SecurityInfo{}, newErr
+			}
+
 			var createRuleOpts rules.CreateOpts
 
 			if strings.EqualFold(curRule.IPProtocol, "icmp") {
 				createRuleOpts = rules.CreateOpts{
 					Direction:      rules.RuleDirection(direction),
-					EtherType:      rules.EtherType4,
+					EtherType:      etherType,
 					SecGroupID:     nhnSG.ID,
 					Protocol:       rules.RuleProtocol(strings.ToLower(curRule.IPProtocol)),
 					RemoteIPPrefix: curRule.CIDR,
 				}
 			} else {
-				var fromPort int
-				var toPort int
-				if (curRule.FromPort == "-1") || (curRule.ToPort == "-1") {
-					fromPort = 1
-					toPort = 65535
-				} else {
-					fromPort, _ = strconv.Atoi(curRule.FromPort)
-					toPort, _ = strconv.Atoi(curRule.ToPort)
-				}
+				fromPortStr, toPortStr := normalizeRulePortRange(curRule.IPProtocol, curRule.FromPort, curRule.ToPort)
+				fromPort, _ := strconv.Atoi(fromPortStr)
+				toPort, _ := strconv.Atoi(toPortStr)
 
 				createRuleOpts = rules.CreateOpts{
 					Direction:      rules.RuleDirection(direction),
-					EtherType:      rules.EtherType4,
+					EtherType:      etherType,
 					SecGroupID:     nhnSG.ID,
 					PortRangeMin:   fromPort,
 					PortRangeMax:   toPort,
@@ -341,7 +328,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 			}
 
 			start := call.Start()
-			_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
+			_, err = rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
 				cblogger.Error(newErr.Error())
@@ -414,39 +401,18 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 					return false, errors.New("Invalid Rule Direction!!")
 				}
 
-				allProtocolTypeCode := []string{"tcp", "udp", "icmp"}
-				allCIDR := "0.0.0.0/0"
+				// The current code creates a single rule without a protocol, while the
+				// previous code created one rule per tcp/udp/icmp. Both have to be removable.
+				ruleIds, err := securityHandler.getAllProtocolRuleIds(nhnSG.ID, direction, curRule.CIDR)
+				if err != nil {
+					newErr := fmt.Errorf("Failed to Find the 'All Traffic Open Rule' of the S/G : [%s] : [%v]", nhnSG.ID, err)
+					cblogger.Error(newErr.Error())
+					LoggingError(callLogInfo, newErr)
+					return false, newErr
+				}
 
-				for _, curProtocolType := range allProtocolTypeCode {
-					var ruleInfo irs.SecurityRuleInfo
-					if strings.EqualFold(curProtocolType, "icmp") {
-						ruleInfo = irs.SecurityRuleInfo{
-							Direction:  direction,
-							IPProtocol: curProtocolType,
-							FromPort:   "-1",
-							ToPort:     "-1",
-							CIDR:       allCIDR,
-						}
-					} else {
-						ruleInfo = irs.SecurityRuleInfo{
-							Direction:  direction,
-							IPProtocol: curProtocolType,
-							FromPort:   "1",
-							ToPort:     "65535",
-							CIDR:       allCIDR,
-						}
-					}
-
-					// Get the Rule ID from the S/G
-					ruleId, err := securityHandler.getRuleIdFromRuleInfo(nhnSG.ID, ruleInfo)
-					if err != nil {
-						newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s] : [%v]", nhnSG.ID, err)
-						cblogger.Error(newErr.Error())
-						LoggingError(callLogInfo, newErr)
-						return false, newErr
-					}
-
-					cblogger.Infof("The RuleID of Current Rule : ", ruleId)
+				for _, ruleId := range ruleIds {
+					cblogger.Infof("The RuleID of Current Rule : [%s]", ruleId)
 
 					// Delete the Rule
 					start := call.Start()
@@ -458,17 +424,20 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 						LoggingError(callLogInfo, newErr)
 						return false, newErr
 					}
-					LoggingInfo(callLogInfo, start)
-					// spew.Dump(delResult)
 
-					cblogger.Infof("Succeeded in Removing the [%s], [%s] Rule!!", direction, curProtocolType)
+					cblogger.Infof("Succeeded in Removing the [%s], [ALL] Rule!!", direction)
 				}
 			} else {
 				return false, errors.New("To Specify 'All Traffic Allow Rule', Specify '-1' as FromPort/ToPort!!")
 			}
 		} else {
+			// NHN stores '-1' as the whole 1-65535 range when the rule is created, so
+			// the same normalization has to be applied before looking the rule up.
+			lookupRule := curRule
+			lookupRule.FromPort, lookupRule.ToPort = normalizeRulePortRange(curRule.IPProtocol, curRule.FromPort, curRule.ToPort)
+
 			// Get the Rule ID from the S/G
-			ruleId, err := securityHandler.getRuleIdFromRuleInfo(nhnSG.ID, curRule)
+			ruleId, err := securityHandler.getRuleIdFromRuleInfo(nhnSG.ID, lookupRule)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s], [%v]", nhnSG.ID, err)
 				cblogger.Error(newErr.Error())
@@ -570,32 +539,30 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 		// Set Security Rule info. list
 		var sgRuleList []irs.SecurityRuleInfo
 		for _, nhnRule := range nhnRuleList {
-			if !strings.EqualFold(nhnRule.Protocol, "") { // Since on NHN Cloud Console ...
-				var direction string
-				if strings.EqualFold(nhnRule.Direction, string(rules.DirIngress)) {
-					direction = "inbound"
-				} else if strings.EqualFold(nhnRule.Direction, string(rules.DirEgress)) {
-					direction = "outbound"
-				} else {
-					return nil, errors.New("Invalid Rule Direction!!")
-				}
-
-				ruleInfo := irs.SecurityRuleInfo{
-					Direction:  direction,
-					IPProtocol: strings.ToLower(nhnRule.Protocol),
-					CIDR:       nhnRule.RemoteIPPrefix,
-				}
-
-				if strings.EqualFold(nhnRule.Protocol, "icmp") {
-					ruleInfo.FromPort = "-1"
-					ruleInfo.ToPort = "-1"
-				} else {
-					ruleInfo.FromPort = strconv.Itoa(nhnRule.PortRangeMin)
-					ruleInfo.ToPort = strconv.Itoa(nhnRule.PortRangeMax)
-				}
-
-				sgRuleList = append(sgRuleList, ruleInfo)
+			// NHN adds its own default egress rules, which carry neither a protocol
+			// nor a remote IP prefix, to every S/G. They are not shown on the console.
+			if strings.EqualFold(nhnRule.Protocol, "") && strings.EqualFold(nhnRule.RemoteIPPrefix, "") {
+				continue
 			}
+
+			var direction string
+			if strings.EqualFold(nhnRule.Direction, string(rules.DirIngress)) {
+				direction = "inbound"
+			} else if strings.EqualFold(nhnRule.Direction, string(rules.DirEgress)) {
+				direction = "outbound"
+			} else {
+				return nil, errors.New("Invalid Rule Direction!!")
+			}
+
+			ipProtocol, fromPort, toPort := convertNhnRuleToCBRule(nhnRule)
+
+			sgRuleList = append(sgRuleList, irs.SecurityRuleInfo{
+				Direction:  direction,
+				IPProtocol: ipProtocol,
+				FromPort:   fromPort,
+				ToPort:     toPort,
+				CIDR:       nhnRule.RemoteIPPrefix,
+			})
 		}
 
 		secInfo.SecurityRules = &sgRuleList
@@ -603,6 +570,82 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 
 	secInfo.KeyValueList = irs.StructToKeyValueList(nhnSG)
 	return secInfo, nil
+}
+
+// NHN(Neutron) requires the ethertype to match the address family of the CIDR.
+func getEtherTypeFromCIDR(cidr string) (rules.RuleEtherType, error) {
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", fmt.Errorf("Invalid CIDR : [%s] : [%v]", cidr, err)
+	}
+
+	if ip.To4() != nil {
+		return rules.EtherType4, nil
+	}
+	return rules.EtherType6, nil
+}
+
+// CB-Spider expresses the whole port range as '-1', while NHN stores it as 1-65535.
+// ICMP keeps '-1' since it has no port range at all.
+func normalizeRulePortRange(ipProtocol string, fromPort string, toPort string) (string, string) {
+	if strings.EqualFold(ipProtocol, "icmp") {
+		return "-1", "-1"
+	}
+
+	if fromPort == "-1" || toPort == "-1" {
+		return "1", "65535"
+	}
+	return fromPort, toPort
+}
+
+// Converts an NHN rule into the CB-Spider protocol/port representation.
+// NHN leaves the protocol empty for a rule that allows every protocol.
+func convertNhnRuleToCBRule(nhnRule rules.SecGroupRule) (string, string, string) {
+	if strings.EqualFold(nhnRule.Protocol, "") {
+		return "ALL", "-1", "-1"
+	}
+
+	if strings.EqualFold(nhnRule.Protocol, "icmp") {
+		return strings.ToLower(nhnRule.Protocol), "-1", "-1" // Caution : Not strconv.Itoa(0)
+	}
+	return strings.ToLower(nhnRule.Protocol), strconv.Itoa(nhnRule.PortRangeMin), strconv.Itoa(nhnRule.PortRangeMax)
+}
+
+// Returns the rule IDs that make up an 'All Traffic Open Rule'. The rule created
+// by the current code has no protocol, so it is looked up first. When it is not
+// found, the tcp/udp/icmp set created by the previous code is looked up instead.
+func (securityHandler *NhnCloudSecurityHandler) getAllProtocolRuleIds(systemId string, direction string, cidr string) ([]string, error) {
+	ruleId, err := securityHandler.getRuleIdFromRuleInfo(systemId, irs.SecurityRuleInfo{
+		Direction:  direction,
+		IPProtocol: "ALL",
+		FromPort:   "-1",
+		ToPort:     "-1",
+		CIDR:       cidr,
+	})
+	if err == nil && !strings.EqualFold(ruleId, "") {
+		return []string{ruleId}, nil
+	}
+
+	var legacyRuleIds []string
+	for _, curProtocolType := range []string{"tcp", "udp", "icmp"} {
+		fromPort, toPort := normalizeRulePortRange(curProtocolType, "-1", "-1")
+		legacyRuleId, legacyErr := securityHandler.getRuleIdFromRuleInfo(systemId, irs.SecurityRuleInfo{
+			Direction:  direction,
+			IPProtocol: curProtocolType,
+			FromPort:   fromPort,
+			ToPort:     toPort,
+			CIDR:       cidr,
+		})
+		if legacyErr != nil || strings.EqualFold(legacyRuleId, "") {
+			continue
+		}
+		legacyRuleIds = append(legacyRuleIds, legacyRuleId)
+	}
+
+	if len(legacyRuleIds) < 1 {
+		return nil, errors.New("Failed to Find any RuleID of the 'All Traffic Open Rule'!!")
+	}
+	return legacyRuleIds, nil
 }
 
 func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(systemId string, givenRule irs.SecurityRuleInfo) (string, error) {
@@ -633,30 +676,20 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(systemId s
 	} else {
 		// Set Security Rule info. list
 		for _, nhnRule := range nhnRuleList {
-			if !strings.EqualFold(nhnRule.Protocol, "") { // Since on NHN Cloud Console ...
-				var direction string
-				if strings.EqualFold(nhnRule.Direction, string(rules.DirIngress)) {
-					direction = "inbound"
-				} else if strings.EqualFold(nhnRule.Direction, string(rules.DirEgress)) {
-					direction = "outbound"
-				} else {
-					return "", errors.New("Invalid Rule Direction!!")
-				}
+			var direction string
+			if strings.EqualFold(nhnRule.Direction, string(rules.DirIngress)) {
+				direction = "inbound"
+			} else if strings.EqualFold(nhnRule.Direction, string(rules.DirEgress)) {
+				direction = "outbound"
+			} else {
+				return "", errors.New("Invalid Rule Direction!!")
+			}
 
-				var fromPort string
-				var toPort string
-				if strings.EqualFold(nhnRule.Protocol, "icmp") {
-					fromPort = "-1" // Caution : Not strconv.Itoa(0)
-					toPort = "-1"   // Caution : Not strconv.Itoa(0)
-				} else {
-					fromPort = strconv.Itoa(nhnRule.PortRangeMin)
-					toPort = strconv.Itoa(nhnRule.PortRangeMax)
-				}
+			ipProtocol, fromPort, toPort := convertNhnRuleToCBRule(nhnRule)
 
-				if strings.EqualFold(givenRule.Direction, direction) && strings.EqualFold(givenRule.IPProtocol, nhnRule.Protocol) && strings.EqualFold(givenRule.FromPort, fromPort) && strings.EqualFold(givenRule.ToPort, toPort) && strings.EqualFold(givenRule.CIDR, nhnRule.RemoteIPPrefix) {
-					ruleId = nhnRule.ID
-					break
-				}
+			if strings.EqualFold(givenRule.Direction, direction) && strings.EqualFold(givenRule.IPProtocol, ipProtocol) && strings.EqualFold(givenRule.FromPort, fromPort) && strings.EqualFold(givenRule.ToPort, toPort) && strings.EqualFold(givenRule.CIDR, nhnRule.RemoteIPPrefix) {
+				ruleId = nhnRule.ID
+				break
 			}
 		}
 	}
