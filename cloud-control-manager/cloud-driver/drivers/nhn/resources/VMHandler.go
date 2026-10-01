@@ -368,6 +368,11 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		}
 
 		// Volume Size must be more than 20GB and less than 1000GB (for Linux OS)
+		if nhnImage, getErr := comimages.Get(vmHandler.VMClient, vmReqInfo.ImageIID.SystemId).Extract(); getErr == nil {
+			if nhnImage.MinDisk > reqDiskSizeInt {
+				reqDiskSizeInt = nhnImage.MinDisk
+			}
+		}
 	}
 
 	start := call.Start()
