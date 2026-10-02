@@ -46,7 +46,7 @@ spider:
   username: "admin"
   password: ""
   
-  # Directory for Spider meta_db volume mount
+  # Directory for Spider meta_db volume mount (used only when metadb_url is empty)
   meta_db_dir: "${HOME}/cb-spider/meta_db"
   # MC_INSIGHT_API_TOKEN for Spider
   mc_insight_api_token: "c72df1af9b1f0c29"
@@ -58,7 +58,26 @@ spider:
   startup_wait_sec: 60
   # Timeout for the overall test run covering all CSPs (minutes)
   run_timeout_min: 120
-  
+
+  # PostgreSQL meta store URL for Spider.
+  # When set, Spider uses PostgreSQL instead of the local file-based meta_db.
+  # The meta_db_dir volume mount is skipped automatically.
+  # Requires postgres.enabled=true (or an external PostgreSQL instance).
+  metadb_url: "postgresql://postgres:password123@host.docker.internal:5432/cb_spider"
+
+# ── PostgreSQL Container ────────────────────────────────────────────────────
+# SpiderWatch can manage a PostgreSQL container for Spider's meta store.
+# Set enabled: true to have SpiderWatch start/stop postgres automatically
+# alongside the Spider container.
+postgres:
+  enabled: true
+  image: "postgres:16"
+  host_port: 5432
+  user: "postgres"
+  password: "password123"
+  db: "cb_spider"
+  # Host directory for persistent PostgreSQL data storage.
+  data_dir: "./postgres_data"
 
 scheduler:
   # Cron expression for test schedule (default: 01:00 daily)
