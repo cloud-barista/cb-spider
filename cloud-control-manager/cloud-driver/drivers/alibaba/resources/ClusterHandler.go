@@ -716,9 +716,24 @@ func (ach *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nod
 	//
 	clusterId := clusterIID.SystemId
 	ngId := nodeGroupIID.SystemId
-	autoScalingEnable := true
 
-	// CAUTION: desiredNodeSize cannot be applied in alibaba with auto scaling mode
+	// Keep the node pool's current autoscaling mode instead of forcing it on.
+	// ACK applies desiredNodeSize only while autoscaling is disabled.
+	nodepool, err := aliDescribeClusterNodePoolDetail(ach.CsClient, clusterId, ngId)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+	if nodepool.AutoScaling == nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: nodepool(%s) has no autoscaling information", ngId)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+	autoScalingEnable := tea.BoolValue(nodepool.AutoScaling.Enable)
+
 	_, err = aliModifyClusterNodePoolScalingSize(ach.CsClient, clusterId, ngId, autoScalingEnable, int64(maxNodeSize), int64(minNodeSize), int64(desiredNodeSize))
 	if err != nil {
 		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
@@ -1809,8 +1824,10 @@ func aliModifyClusterNodePoolScalingSize(csClient *cs2015.Client, clusterId, nod
 	}
 
 	// CAUTION: if DesiredSize is set when AutoScaling is enabled, Alibaba reject the request
-	if autoScalingEnable == false {
-		modifyClusterNodePoolRequest.ScalingGroup.DesiredSize = tea.Int64(desiredSize)
+	if !autoScalingEnable {
+		modifyClusterNodePoolRequest.ScalingGroup = &cs2015.ModifyClusterNodePoolRequestScalingGroup{
+			DesiredSize: tea.Int64(desiredSize),
+		}
 	}
 	//cblogger.Debug(modifyClusterNodePoolRequest)
 
