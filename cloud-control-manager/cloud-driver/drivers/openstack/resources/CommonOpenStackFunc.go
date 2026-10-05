@@ -93,7 +93,14 @@ func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (strin
 	return "", nil
 }
 
+// flavorCache caches flavors by endpoint|name (flavor definitions are immutable).
+var flavorCache sync.Map
+
 func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (flavors.Flavor, error) {
+	cacheKey := client.Endpoint + "|" + flavorName
+	if v, ok := flavorCache.Load(cacheKey); ok {
+		return v.(flavors.Flavor), nil
+	}
 	pages, err := flavors.ListDetail(client, nil).AllPages(context.TODO())
 	if err != nil {
 		return flavors.Flavor{}, err
@@ -101,6 +108,7 @@ func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (flav
 	flavorList, err := flavors.ExtractFlavors(pages)
 	for _, flavor := range flavorList {
 		if flavor.Name == flavorName {
+			flavorCache.Store(cacheKey, flavor)
 			return flavor, nil
 		}
 	}
@@ -160,7 +168,7 @@ func GetSubnetByID(networkClient *gophercloud.ServiceClient, subnetId string) (*
 }
 
 func GetPortByDeviceID(networkClient *gophercloud.ServiceClient, deviceID string) (*ports.Port, error) {
-	pages, err := ports.List(networkClient, ports.ListOpts{}).AllPages(context.TODO())
+	pages, err := ports.List(networkClient, ports.ListOpts{DeviceID: deviceID}).AllPages(context.TODO())
 	if err != nil {
 		return nil, err
 	}

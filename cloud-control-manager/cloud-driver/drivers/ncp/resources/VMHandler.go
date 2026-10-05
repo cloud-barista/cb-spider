@@ -83,21 +83,6 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		securityGroupIds = append(securityGroupIds, ncloud.String(sgID.SystemId))
 	}
 
-	// Check whether the VM name exists
-	// Search by instanceName converted to lowercase
-	vmId, getErr := vmHandler.getVmIdByName(instanceName)
-	if getErr != nil {
-		newErr := fmt.Errorf("Failed to Get VmId with the Name : [%s], [%v]", instanceName, getErr)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-	if vmId != "" {
-		newErr := fmt.Errorf("The VM Name [%s] is already In Use.", instanceName)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
 	var publicImageId string
 	var publicImageSpecId string
 	var myImageId string
@@ -109,37 +94,10 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 
 	// In case of Public Image
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
-		imageHandler := NcpVpcImageHandler{
-			RegionInfo: vmHandler.RegionInfo,
-			VMClient:   vmHandler.VMClient,
-		}
+		publicImageId = vmReqInfo.ImageIID.SystemId
+		publicImageSpecId = vmReqInfo.VMSpecName
 
-		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID.SystemId)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if !isPublicImage {
-			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		} else {
-			publicImageId = vmReqInfo.ImageIID.SystemId
-			publicImageSpecId = vmReqInfo.VMSpecName
-
-			cblogger.Infof("publicImageId : [%s]", publicImageId)
-			cblogger.Infof("publicImageSpecId : [%s]", publicImageSpecId)
-		}
-
-		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is MS Windows Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-		if isPublicWindowsImage {
+		if vmReqInfo.WindowsType {
 			var createErr error
 			initScriptNo, createErr = vmHandler.createWinInitScript(vmReqInfo.VMUserPasswd)
 			if createErr != nil {
@@ -150,7 +108,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			}
 		} else {
 			var createErr error
-			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId)
+			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId, true)
 			if createErr != nil {
 				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
 				cblogger.Error(newErr.Error())
@@ -207,37 +165,14 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		}
 
 	} else { // In case of My Image
-		imageHandler := NcpVpcImageHandler{
-			RegionInfo: vmHandler.RegionInfo,
-			VMClient:   vmHandler.VMClient,
-		}
-		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID.SystemId)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if isPublicImage {
-			newErr := fmt.Errorf("'MyImage' type is selected, but Specified image is Not a MyImage!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		} else {
-			myImageId = vmReqInfo.ImageIID.SystemId
-			myImageSpecId = vmReqInfo.VMSpecName
-		}
+		myImageId = vmReqInfo.ImageIID.SystemId
+		myImageSpecId = vmReqInfo.VMSpecName
 
 		myImageHandler := NcpVpcMyImageHandler{
 			RegionInfo: vmHandler.RegionInfo,
 			VMClient:   vmHandler.VMClient,
 		}
-		isMyWindowsImage, err := myImageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether My Image is MS Windows Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-		if isMyWindowsImage {
+		if vmReqInfo.WindowsType {
 			var createErr error
 			initScriptNo, createErr = vmHandler.createWinInitScript(vmReqInfo.VMUserPasswd)
 			if createErr != nil {
@@ -248,7 +183,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			}
 		} else {
 			var createErr error
-			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId)
+			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId, false)
 			if createErr != nil {
 				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
 				cblogger.Error(newErr.Error())
@@ -1113,12 +1048,17 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 					vmInfo.PrivateIP = allPrivateIPs[0]
 				}
 			}
-			for _, acgNo := range acgNos {
-				sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: acgNo})
-				if err != nil {
-					cblogger.Debug(fmt.Errorf("Failed to Get the S/G info : [%v]", err).Error())
+			if len(acgNos) > 0 { // one list call for all ACGs
+				acgNames := map[string]string{}
+				sgReq := vserver.GetAccessControlGroupListRequest{RegionCode: ncloud.String(vmHandler.RegionInfo.Region), AccessControlGroupNoList: ncloud.StringList(acgNos)}
+				if sgResp, err := securityHandler.VMClient.V2Api.GetAccessControlGroupList(&sgReq); err == nil {
+					for _, acg := range sgResp.AccessControlGroupList {
+						acgNames[ncloud.StringValue(acg.AccessControlGroupNo)] = ncloud.StringValue(acg.AccessControlGroupName)
+					}
 				}
-				vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{NameId: sgInfo.IId.NameId, SystemId: acgNo})
+				for _, acgNo := range acgNos {
+					vmInfo.SecurityGroupIIds = append(vmInfo.SecurityGroupIIds, irs.IID{NameId: acgNames[acgNo], SystemId: acgNo})
+				}
 			}
 		}
 	}
@@ -1139,30 +1079,27 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		}
 	}
 
-	_, diskTypeFromBS, storageSize, deviceName, err := vmHandler.getVmRootDiskInfo(NcpInstance.ServerInstanceNo)
+	// Root disk and data disks from a single block storage list call
+	storageReq := vserver.GetBlockStorageInstanceListRequest{RegionCode: ncloud.String(vmHandler.RegionInfo.Region), ServerInstanceNo: NcpInstance.ServerInstanceNo}
+	storageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get BlockStorage Info : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}
-	if diskTypeFromBS != nil && !strings.EqualFold(*diskTypeFromBS, "") {
-		vmInfo.RootDiskType = *diskTypeFromBS
-	}
-	if !strings.EqualFold(*storageSize, "") {
-		vmInfo.RootDiskSize = *storageSize
-	}
-	if !strings.EqualFold(*deviceName, "") {
-		vmInfo.RootDeviceName = *deviceName
-	}
-
-	dataDiskList, err := vmHandler.getVmDataDiskList(NcpInstance.ServerInstanceNo)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Data Disk List : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-	if len(dataDiskList) > 0 {
-		vmInfo.DataDiskIIDs = dataDiskList
+	for _, disk := range storageResult.BlockStorageInstanceList {
+		if strings.EqualFold(ncloud.StringValue(disk.BlockStorageType.Code), "BASIC") {
+			vmInfo.RootDiskSize = strconv.FormatFloat(float64(ncloud.Int64Value(disk.BlockStorageSize))/(1024*1024*1024), 'f', 0, 64)
+			vmInfo.RootDeviceName = ncloud.StringValue(disk.DeviceName)
+			vmInfo.RootDiskType = "HDD"
+			if disk.BlockStorageDiskDetailType != nil {
+				if codeName := ncloud.StringValue(disk.BlockStorageDiskDetailType.CodeName); strings.EqualFold(codeName, "SSD") || strings.EqualFold(codeName, "CB1") || strings.EqualFold(codeName, "CB2") {
+					vmInfo.RootDiskType = "SSD"
+				}
+			}
+		} else {
+			vmInfo.DataDiskIIDs = append(vmInfo.DataDiskIIDs, irs.IID{NameId: ncloud.StringValue(disk.BlockStorageName), SystemId: ncloud.StringValue(disk.BlockStorageInstanceNo)})
+		}
 	}
 
 	// Note : NCP VPC PlatformType : LNX32, LNX64, WND32, WND64, UBD64, UBS64
@@ -1205,7 +1142,7 @@ func (vmHandler *NcpVpcVMHandler) probePublicImageTypeQuiet(imageNo string) (boo
 	return strings.EqualFold(ncloud.StringValue(image.ServerImageType.Code), "NCP"), true, nil
 }
 
-func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPairId string) (*string, error) {
+func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPairId string, isPublicImage bool) (*string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called createLinuxInitScript()!!")
 
 	var originImagePlatform string
@@ -1213,12 +1150,6 @@ func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPai
 	imageHandler := NcpVpcImageHandler{
 		RegionInfo: vmHandler.RegionInfo,
 		VMClient:   vmHandler.VMClient,
-	}
-	isPublicImage, err := imageHandler.isPublicImage(imageIID.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
 	}
 	if isPublicImage {
 		ncpImage, err := imageHandler.getNcpVpcImage(imageIID.SystemId)

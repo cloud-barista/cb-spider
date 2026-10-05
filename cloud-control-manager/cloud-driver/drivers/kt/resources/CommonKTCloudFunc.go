@@ -12,14 +12,14 @@
 package resources
 
 import (
-	"os"
+	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
-	"net"
-	"encoding/json"
-	"github.com/sirupsen/logrus"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/secgroups"
@@ -27,9 +27,9 @@ import (
 	// "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/networks"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/ports"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/subnets"
-	
-	cblog 	 "github.com/cloud-barista/cb-log"
-	call 	 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+
+	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 var once sync.Once
@@ -66,16 +66,23 @@ func getCallLogScheme(zone string, resourceType call.RES_TYPE, resourceName stri
 	}
 }
 
-func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, errMsg error) (error) {
-	newErr := fmt.Errorf(givenErrString + "[%s]", errMsg)
+func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, errMsg error) error {
+	newErr := fmt.Errorf(givenErrString+"[%s]", errMsg)
 	cblogger.Error(newErr.Error())
 	loggingError(callLogInfo, newErr)
 	return newErr
 }
 
+// flavorIDCache caches flavor name -> ID per endpoint (flavor IDs are immutable).
+var flavorIDCache sync.Map
+
 func getFlavorIdWithName(client *ktvpcsdk.ServiceClient, flavorName string) (string, error) {
 	cblogger.Info("KT Cloud VPC Driver: called GetFlavorIdWithName()")
 
+	cacheKey := client.Endpoint + "|" + flavorName
+	if v, ok := flavorIDCache.Load(cacheKey); ok {
+		return v.(string), nil
+	}
 	allPages, err := flavors.ListDetail(client, nil).AllPages()
 	if err != nil {
 		return "", err
@@ -86,6 +93,7 @@ func getFlavorIdWithName(client *ktvpcsdk.ServiceClient, flavorName string) (str
 	}
 	for _, flavor := range flavorList {
 		if flavor.Name == flavorName {
+			flavorIDCache.Store(cacheKey, flavor.ID)
 			return flavor.ID, nil
 		}
 	}
@@ -144,7 +152,7 @@ func getSubnetWithId(networkClient *ktvpcsdk.ServiceClient, subnetId string) (*s
 
 func getPortWithDeviceId(networkClient *ktvpcsdk.ServiceClient, deviceID string) (*ports.Port, error) {
 	cblogger.Info("KT Cloud VPC Driver: called GetPortWithDeviceId()")
-	
+
 	allPages, err := ports.List(networkClient, ports.ListOpts{}).AllPages()
 	if err != nil {
 		return nil, err
@@ -175,10 +183,10 @@ func checkFolderAndCreate(folderPath string) error {
 }
 
 func reverse(s string) (result string) {
-	for _,v := range s {
+	for _, v := range s {
 		result = string(v) + result
 	}
-	return 
+	return
 }
 
 // Convert Cloud Object to JSON String type
@@ -204,31 +212,31 @@ func convertTimeToKTC(givenTime time.Time) (time.Time, error) {
 }
 
 func ipToCidr32(ipStr string) (string, error) {
-    ip := net.ParseIP(ipStr)
-    if ip == nil {
-        return "", fmt.Errorf("Invalid IP address!!")
-    }
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return "", fmt.Errorf("Invalid IP address!!")
+	}
 
-    // Assuming IPv4 and /24 subnet
-    mask := net.CIDRMask(32, 32) // for ~/32 subnet
+	// Assuming IPv4 and /24 subnet
+	mask := net.CIDRMask(32, 32) // for ~/32 subnet
 	network := ip.Mask(mask)
-    return fmt.Sprintf("%s/32", network), nil
+	return fmt.Sprintf("%s/32", network), nil
 }
 
 func ipToCidr24(ipStr string) (string, error) {
-    ip := net.ParseIP(ipStr)
-    if ip == nil {
-        return "", fmt.Errorf("Invalid IP address!!")
-    }
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return "", fmt.Errorf("Invalid IP address!!")
+	}
 
-    // Assuming IPv4 and /24 subnet
+	// Assuming IPv4 and /24 subnet
 	mask := net.CIDRMask(24, 32) // for ~/24 subnet
-    network := ip.Mask(mask)
+	network := ip.Mask(mask)
 	return fmt.Sprintf("%s/24", network), nil
 }
 
 func getSeoulCurrentTime() string {
 	loc, _ := time.LoadLocation("Asia/Seoul")
-	currentTime := time.Now().In(loc)	
+	currentTime := time.Now().In(loc)
 	return currentTime.Format("2006-01-02 15:04:05")
 }

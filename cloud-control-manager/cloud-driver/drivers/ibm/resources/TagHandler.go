@@ -466,7 +466,11 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 		LoggingError(hiscallInfo, err)
 		return []irs.KeyValue{}, err
 	}
+	return tagHandler.listTagByCRN(crn, hiscallInfo, start)
+}
 
+// listTagByCRN lists tags for a resource whose CRN is already known (saves the resource lookup in getCRN).
+func (tagHandler *IbmTagHandler) listTagByCRN(crn string, hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) ([]irs.KeyValue, error) {
 	query := strings.ReplaceAll(crn, ":", "\\:")
 	query = strings.ReplaceAll(query, "/", "\\/")
 

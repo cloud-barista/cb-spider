@@ -97,37 +97,7 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, newErr
 	}
 
-	// Check VM Name Duplication
-	vmExist, err := vmHandler.vmExists(vmReqInfo.IId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Create VM. : [%v]", err)
-		cblogger.Error(newErr.Error())
-		loggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-	if vmExist {
-		newErr := fmt.Errorf("Failed to Create VM. The Name [%s] already exists", vmReqInfo.IId.NameId)
-		cblogger.Error(newErr.Error())
-		loggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
-	// Check if S/G exists first
-	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("S/G ID to verify the existence of S/G : [%s]", sgIID.SystemId)
-
-		securityHandler := KTVpcSecurityHandler{
-			RegionInfo:    vmHandler.RegionInfo,
-			VMClient:      vmHandler.VMClient,
-			NetworkClient: vmHandler.NetworkClient,
-		}
-		if err := securityHandler.CheckSecurityGroupExists(sgIID); err != nil {
-			newErr := fmt.Errorf("SecurityGroup validation failed: %w", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-	}
-
+	// VM name uniqueness and S/G existence are guaranteed by the Spider metadb.
 	// Check Flavor Info. (Change Name to ID)
 	vmSpecId, err := getFlavorIdWithName(vmHandler.VMClient, vmReqInfo.VMSpecName)
 	if err != nil {
@@ -191,70 +161,25 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		keyPairId = vmReqInfo.KeyPairIID.NameId
 	}
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
-		// isPublicImage() in ImageHandler
-		imageHandler := KTVpcImageHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
-			ImageClient: vmHandler.ImageClient,
+		// Windows/Linux is resolved by the common-runtime (WindowsType). Root Disk Size default: 50GB Linux, 100GB Windows.
+		rootDiskSize = vmReqInfo.RootDiskSize
+		var createErr error
+		if vmReqInfo.WindowsType {
+			if strings.EqualFold(rootDiskSize, "") || strings.EqualFold(rootDiskSize, "default") {
+				rootDiskSize = DefaultWinRootDiskSize
+			}
+			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+		} else {
+			if strings.EqualFold(rootDiskSize, "") || strings.EqualFold(rootDiskSize, "default") {
+				rootDiskSize = DefaultDiskSize
+			}
+			initUserData, createErr = vmHandler.createLinuxInitUserData(keyPairId)
 		}
-		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if !isPublicImage {
-			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-
-		// CheckWindowsImage() in ImageHandler
-		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is MS Windows Image : [%v]", err)
+		if createErr != nil {
+			newErr := fmt.Errorf("Failed to Create Cloud-Init Script : [%v]", createErr)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
-		}
-		if isPublicWindowsImage { // # Incase of Public Windows image
-			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
-
-			// In case the Root Volume Size is not specified.
-			reqDiskSize := vmReqInfo.RootDiskSize
-			if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-				rootDiskSize = DefaultWinRootDiskSize
-			} else {
-				rootDiskSize = reqDiskSize
-			}
-
-			var createErr error
-			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				loggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
-		} else { // # Incase of Public Linux image
-			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
-
-			// In case the Root Volume Size is not specified.
-			reqDiskSize := vmReqInfo.RootDiskSize
-			if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-				rootDiskSize = DefaultDiskSize
-			} else {
-				rootDiskSize = reqDiskSize
-			}
-
-			var createErr error
-			initUserData, createErr = vmHandler.createLinuxInitUserData(keyPairId)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				loggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
 		}
 	} else { // In case of MyImage
 		var createErr error
@@ -406,17 +331,32 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				RegionInfo:    vmHandler.RegionInfo,
 				NetworkClient: vmHandler.NetworkClient, // Required!!
 			}
-			tierNetworkId, err := vpcHandler.getNetworkIdWithTierId(vmReqInfo.SubnetIID.SystemId)
+			// One subnet(tier) list gives both the tier network ID and the external network ID
+			subnetList, err := vpcHandler.listKTSubnet()
 			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the Subnet list : [%v]", err)
+				cblogger.Error(newErr.Error())
+				return irs.VMInfo{}, newErr
+			}
+			var tierNetworkId, extNetworkId string
+			for _, sn := range subnetList {
+				if sn.RefID == vmReqInfo.SubnetIID.SystemId {
+					tierNetworkId = sn.NetworkID
+				}
+				if strings.EqualFold(sn.RefName, "external") {
+					extNetworkId = sn.NetworkID
+				}
+			}
+			if tierNetworkId == "" {
 				newErr := fmt.Errorf("Failed to Get the Network ID!!")
 				cblogger.Error(newErr.Error())
 				return irs.VMInfo{}, newErr
 			}
-			cblogger.Infof("# Subnet(Tier) NetworkId : %s", *tierNetworkId)
 
 			// Create PortForwarding and Firewall Rules
 			secRuleSet := SecurityRuleSet{
-				TierNetworkId:          *tierNetworkId,
+				TierNetworkId:          tierNetworkId,
+				ExtNetworkId:           extNetworkId,
 				SecurityGroupSystemIDs: sgSystemIDs,
 				PrivateIP:              privateIP,
 				PublicIP:               publicIp,
@@ -903,6 +843,7 @@ func (vmHandler *KTVpcVMHandler) createPublicIP() (bool, string, error) {
 
 type SecurityRuleSet struct {
 	TierNetworkId          string
+	ExtNetworkId           string // optional: external network ID already resolved by the caller
 	SecurityGroupSystemIDs []string
 	PrivateIP              string
 	PublicIP               string
@@ -941,14 +882,16 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 		RegionInfo:    vmHandler.RegionInfo,
 		NetworkClient: vmHandler.NetworkClient, // Required!!
 	}
-	// Gets Network ID of External Subnet among Subnet(Tier) List
-	extNetId, getErr := vpcHandler.getNetworkID("external")
-	if getErr != nil {
-		newErr := fmt.Errorf("Failed to Get the External Network ID from Subnet Info : [%v]", getErr)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	} else {
-		cblogger.Infof("# External Network ID : %s", *extNetId)
+	// Gets Network ID of External Subnet among Subnet(Tier) List (unless already resolved by the caller)
+	extNetId := &ruleSet.ExtNetworkId
+	if ruleSet.ExtNetworkId == "" {
+		var getErr error
+		extNetId, getErr = vpcHandler.getNetworkID("external")
+		if getErr != nil {
+			newErr := fmt.Errorf("Failed to Get the External Network ID from Subnet Info : [%v]", getErr)
+			cblogger.Error(newErr.Error())
+			return false, newErr
+		}
 	}
 
 	for _, sgSystemID := range ruleSet.SecurityGroupSystemIDs {
@@ -1259,6 +1202,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		}
 	}
 
+	// PortForwarding rules are listed once and reused for NIC public IPs and the VM's public IP
+	pfRuleList, _ := vmHandler.listPortForwarding()
+
 	// Build NICs info from attachinterfaces
 	{
 		// Private IP -> Public IP map, built once from PortForwarding rules -
@@ -1268,11 +1214,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		// previously queried per-NIC for no real benefit; a single
 		// PortForwarding list covers every NIC.
 		fipMap := map[string]string{}
-		if pfRuleList, pfErr := vmHandler.listPortForwarding(); pfErr == nil {
-			for _, rule := range pfRuleList {
-				if rule.MappedIP != "" {
-					fipMap[rule.MappedIP] = rule.PublicIP
-				}
+		for _, rule := range pfRuleList {
+			if rule.MappedIP != "" {
+				fipMap[rule.MappedIP] = rule.PublicIP
 			}
 		}
 
@@ -1333,14 +1277,10 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 	}
 
 	var netInfo *NetworkInfo
-	if !strings.EqualFold(vmInfo.PrivateIP, "") {
-		var getNetErr error
-		netInfo, getNetErr = vmHandler.getNetIDsWithPrivateIP(vmInfo.PrivateIP)
-		if getNetErr != nil {
-			newErr := fmt.Errorf("Failed to Get PortForwarding Info. [%v]", getNetErr)
-			cblogger.Debug(newErr.Error())
-			// return irs.VMInfo{}, nil
-			// return irs.VMInfo{}, newErr
+	for _, rule := range pfRuleList {
+		if vmInfo.PrivateIP != "" && strings.EqualFold(rule.MappedIP, vmInfo.PrivateIP) {
+			netInfo = &NetworkInfo{PublicIP: rule.PublicIP, PublicIPID: rule.PublicIPID}
+			break
 		}
 	}
 	// cblogger.Info("\n\n### netInfo : ")
@@ -1367,36 +1307,24 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 	// Find the correct KT tier by name.
 	// vm.Addresses map key = tier name (e.g. "spider-watch") — this is set above and matches
 	// the RefName stored in Spider metadb via mappingSubnetInfo, so getTierRefIdWithTierName works correctly.
-	tierRefId, getNetErr := vpcHandler.getTierRefIdWithTierName(vmInfo.SubnetIID.NameId)
+	// Tier RefID and VPC ID from one subnet(tier) list
+	subnetList, getNetErr := vpcHandler.listKTSubnet()
 	if getNetErr != nil {
-		newErr := fmt.Errorf("Failed to Get the OsNetwork ID with the Tier Name : [%v]", getNetErr)
+		newErr := fmt.Errorf("Failed to Get the Subnet list : [%v]", getNetErr)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}
-	if tierRefId != nil {
-		vmInfo.SubnetIID.SystemId = *tierRefId // Caution!!) Not Tier 'NetworkId' but 'tierRefId' to Create VM through REST API!!
+	for _, sn := range subnetList {
+		if strings.EqualFold(sn.RefName, vmInfo.SubnetIID.NameId) {
+			vmInfo.SubnetIID.SystemId = sn.RefID // Caution!!) Not Tier 'NetworkId' but 'tierRefId' to Create VM through REST API!!
+			vmInfo.VpcIID.SystemId = sn.VpcID
+			break
+		}
 	}
 
-	vpcId, err := vpcHandler.getVPCIdWithTierRefId(vmInfo.SubnetIID.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC ID with the OsNetwork ID. [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-	if vpcId != nil {
-		vmInfo.VpcIID.SystemId = *vpcId
-	}
-
-	// # Get ImageInfo frome the Disk Volume
-	diskHandler := KTVpcDiskHandler{
-		RegionInfo:   vmHandler.RegionInfo,
-		VMClient:     vmHandler.VMClient,
-		VolumeClient: vmHandler.VolumeClient,
-	}
-
+	// # Get ImageInfo from the Disk Volume
 	var diskIIDs []irs.IID
 	var imageIID irs.IID
-	var getErr error
 	if len(vm.AttachedVolumes) > 0 && vmHandler.VolumeClient != nil {
 		for _, volume := range vm.AttachedVolumes {
 			cblogger.Infof("# Volume ID : %s", volume.ID)
@@ -1418,11 +1346,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 					vmInfo.RootDeviceName = ktVolume.Attachments[0].Device
 				}
 
-				imageIID, getErr = diskHandler.getImageNameandIDWithDiskID(volume.ID)
-				if getErr != nil {
-					cblogger.Infof("Failed to Get Image Info from the Disk Info : [%v]", getErr)
-					// return irs.VMInfo{}, err
-				}
+				imageIID = irs.IID{NameId: ktVolume.VolumeImageMetadata["image_name"], SystemId: ktVolume.VolumeImageMetadata["image_id"]}
 			} else {
 				diskIIDs = append(diskIIDs, irs.IID{SystemId: volume.ID}) // Data Disk. (Not bootable)
 			}
@@ -1546,36 +1470,6 @@ func (vmHandler *KTVpcVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, e
 			//break
 		}
 	}
-}
-
-func (vmHandler *KTVpcVMHandler) vmExists(vmIID irs.IID) (bool, error) {
-	cblogger.Info("KT Cloud VPC Driver: called vmExists()")
-
-	if strings.EqualFold(vmIID.NameId, "") {
-		newErr := fmt.Errorf("Invalid VM Name!!")
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-
-	allPagers, err := servers.List(vmHandler.VMClient, servers.ListOpts{Name: vmIID.NameId}).AllPages()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VM Pages from KT Cloud. : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-	vmList, err := servers.ExtractServers(allPagers)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VM list. : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-	for _, vm := range vmList {
-		if strings.EqualFold(vm.Name, vmIID.NameId) {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 func (vmHandler *KTVpcVMHandler) imageExists(imageIID irs.IID) (bool, error) {

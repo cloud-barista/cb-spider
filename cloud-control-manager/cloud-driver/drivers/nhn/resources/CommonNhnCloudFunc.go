@@ -112,9 +112,16 @@ func getPublicVPCInfo(networkClient *nhnsdk.ServiceClient, typeName string) (str
 	return "", nil
 }
 
+// flavorIDCache caches flavor name -> ID per endpoint (flavor IDs are immutable).
+var flavorIDCache sync.Map
+
 func getVMSpecIdWithName(client *nhnsdk.ServiceClient, flavorName string) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called GetVMSpecIdWithName()")
 
+	cacheKey := client.Endpoint + "|" + flavorName
+	if v, ok := flavorIDCache.Load(cacheKey); ok {
+		return v.(string), nil
+	}
 	allPages, err := flavors.ListDetail(client, nil).AllPages()
 	if err != nil {
 		return "", err
@@ -126,6 +133,7 @@ func getVMSpecIdWithName(client *nhnsdk.ServiceClient, flavorName string) (strin
 
 	for _, nhnFlavor := range nhnFlavorList {
 		if strings.EqualFold(nhnFlavor.Name, flavorName) {
+			flavorIDCache.Store(cacheKey, nhnFlavor.ID)
 			return nhnFlavor.ID, nil
 		}
 	}

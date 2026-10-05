@@ -102,8 +102,11 @@ func WaitForDone(client *cbs.Client, diskIID irs.IID, status string) (string, er
 		request.DiskIds = common.StringPtrs([]string{diskIID.SystemId})
 
 		response, errStatus := client.DescribeDisks(request)
-		if errStatus != nil {
-			cblogger.Error(errStatus.Error())
+		if errStatus != nil || len(response.Response.DiskSet) == 0 {
+			cblogger.Errorf("DescribeDisks failed or returned no disk for %s: %v", diskIID.SystemId, errStatus)
+			time.Sleep(time.Second * 1)
+			curRetryCnt++
+			continue
 		}
 
 		curStatus := *response.Response.DiskSet[0].DiskState
