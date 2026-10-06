@@ -30,11 +30,14 @@ import (
 )
 
 const (
-	maxPodCount          = 110
-	OwnerClusterKey      = "ownerCluster"
-	ScaleSetOwnerKey     = "aks-managed-poolName"
-	ClusterNodeSSHKeyKey = "sshkey"
-	ClusterAdminKey      = "clusterAdmin"
+	maxPodCount                           = 110
+	OwnerClusterKey                       = "ownerCluster"
+	ScaleSetOwnerKey                      = "aks-managed-poolName"
+	ClusterNodeSSHKeyKey                  = "sshkey"
+	ClusterAdminKey                       = "clusterAdmin"
+	AZURE_CLUSTER_NODEGROUP_TIMEOUT       = 10 * time.Minute
+	AZURE_CLUSTER_NODEGROUP_POLL_INTERVAL = 5 * time.Second
+	AZURE_CLUSTER_NODEGROUP_MAX_INTERVAL  = 30 * time.Second
 )
 
 type AzureClusterHandler struct {
@@ -147,8 +150,67 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		LoggingError(hiscallInfo, createErr)
 		return irs.ClusterInfo{}, createErr
 	}
+	nodeGroupCtx, cancel := context.WithTimeout(ac.Ctx, AZURE_CLUSTER_NODEGROUP_TIMEOUT)
+	defer cancel()
+	info.NodeGroupList, err = waitForAzureClusterNodeGroups(nodeGroupCtx, clusterReqInfo.NodeGroupList, info.NodeGroupList, AZURE_CLUSTER_NODEGROUP_POLL_INTERVAL, func(ctx context.Context) ([]irs.NodeGroupInfo, error) {
+		latestCluster, err := getRawCluster(clusterReqInfo.IId, ac.ManagedClustersClient, ctx, ac.CredentialInfo, ac.Region)
+		if err != nil {
+			return nil, err
+		}
+		return getNodeGroupInfoList(&latestCluster, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ctx)
+	})
+	if err != nil {
+		createErr = fmt.Errorf("failed to resolve created Azure cluster nodegroups: %w", err)
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.ClusterInfo{}, createErr
+	}
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
+}
+
+func waitForAzureClusterNodeGroups(ctx context.Context, requested, initial []irs.NodeGroupInfo, interval time.Duration, load func(context.Context) ([]irs.NodeGroupInfo, error)) ([]irs.NodeGroupInfo, error) {
+	validate := func(groups []irs.NodeGroupInfo) error {
+		for _, req := range requested {
+			found := false
+			for _, group := range groups {
+				if group.IId.NameId == req.IId.NameId && group.IId.SystemId != "" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("nodegroup %q has not been returned with its CSP ID", req.IId.NameId)
+			}
+		}
+		return nil
+	}
+
+	lastErr := validate(initial)
+	if lastErr == nil {
+		return initial, nil
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("waiting for Azure nodegroup IDs (%v): %w", lastErr, err)
+		}
+		groups, err := load(ctx)
+		if err == nil {
+			err = validate(groups)
+		}
+		if err == nil {
+			return groups, nil
+		}
+		lastErr = err
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, fmt.Errorf("waiting for Azure nodegroup IDs (%v): %w", lastErr, ctx.Err())
+		case <-timer.C:
+		}
+		interval = min(interval*2, AZURE_CLUSTER_NODEGROUP_MAX_INTERVAL)
+	}
 }
 
 func (ac *AzureClusterHandler) ListCluster() (listInfo []*irs.ClusterInfo, getErr error) {

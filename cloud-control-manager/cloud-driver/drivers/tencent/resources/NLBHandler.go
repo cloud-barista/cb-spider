@@ -1046,13 +1046,17 @@ func (NLBHandler *TencentNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (irs.VMG
 		return irs.VMGroupInfo{}, err
 	}
 
-	cblogger.Debug(response.Response.Listeners[0].Targets)
-
 	vms := make([]irs.IID, 0)
 	resVmInfo := irs.VMGroupInfo{
 		Protocol: Protocol_TCP,
 		VMs:      &vms,
 	}
+
+	if len(response.Response.Listeners) == 0 {
+		return resVmInfo, nil
+	}
+
+	cblogger.Debug(response.Response.Listeners[0].Targets)
 
 	if len(response.Response.Listeners[0].Targets) == 0 {
 		// Return empty VM group when no targets exist
