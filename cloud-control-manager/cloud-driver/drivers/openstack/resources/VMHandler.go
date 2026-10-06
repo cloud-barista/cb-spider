@@ -672,11 +672,13 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	// VM SecurityGroup 정보 설정
 	if len(server.SecurityGroups) != 0 {
 		sgIdByName := map[string]string{}
-		if pages, err := secgroups.List(vmHandler.ComputeClient).AllPages(context.TODO()); err == nil {
-			if sgList, err := secgroups.ExtractSecurityGroups(pages); err == nil {
-				for _, sg := range sgList {
-					sgIdByName[sg.Name] = sg.ID
-				}
+		if pages, err := secgroups.List(vmHandler.ComputeClient).AllPages(context.TODO()); err != nil {
+			cblogger.Errorf("failed to list security groups for VM %s: %v", server.ID, err)
+		} else if sgList, err := secgroups.ExtractSecurityGroups(pages); err != nil {
+			cblogger.Errorf("failed to extract security groups for VM %s: %v", server.ID, err)
+		} else {
+			for _, sg := range sgList {
+				sgIdByName[sg.Name] = sg.ID
 			}
 		}
 		securityGroupIdArr := make([]irs.IID, len(server.SecurityGroups))
