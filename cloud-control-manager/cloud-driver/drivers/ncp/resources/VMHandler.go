@@ -282,15 +282,19 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	}
 	cblogger.Infof("deleteInitScript Result : [%s]", *scriptDelResult)
 
-	curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waiting while Root disk is fully attached!!"
-	if statErr != nil {
-		newErr := fmt.Errorf("Failed to wait while Root disk is attaching!! : [%v]", statErr)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-	cblogger.Infof("==> Root disk [%s] status : [%s]", newVMIID.SystemId, curStat)
-	cblogger.Info("The Root disk has been fully Attached to the VM!!")
+	// NOTE: Waiting for the root disk to leave 'optimizing' (up to ~3 min) is not needed here.
+	// The VM is already Running and usable (SSH/disk I/O verified while optimizing); the wait only
+	// matters for storage operations, and Suspend/Terminate keep their own waitForDiskAttach().
+	// Removing it cuts NCP StartVM from ~250s to ~90s and ~70 CSP calls per VM.
+	// curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waiting while Root disk is fully attached!!"
+	// if statErr != nil {
+	// 	newErr := fmt.Errorf("Failed to wait while Root disk is attaching!! : [%v]", statErr)
+	// 	cblogger.Error(newErr.Error())
+	// 	LoggingError(callLogInfo, newErr)
+	// 	return irs.VMInfo{}, newErr
+	// }
+	// cblogger.Infof("==> Root disk [%s] status : [%s]", newVMIID.SystemId, curStat)
+	// cblogger.Info("The Root disk has been fully Attached to the VM!!")
 
 	vmInfo, error := vmHandler.GetVM(newVMIID)
 	if error != nil {
