@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -100,101 +99,11 @@ func getToken(tenantID string, clientID string, clientSecret string) (string, er
 	return azureAuth.AccessToken, nil
 }
 
-type patchVersion struct {
-	Upgrades []string `json:"upgrades"`
-}
-
-type version struct {
-	Version       string                  `json:"version"`
-	IsDefault     bool                    `json:"isDefault,omitempty"`
-	Capabilities  map[string][]string     `json:"capabilities"`
-	PatchVersions map[string]patchVersion `json:"patchVersions"`
-}
-
-type k8sVersions struct {
-	Values []version `json:"values"`
-}
-
-func getK8SVersions(credentialInfo idrv.CredentialInfo, location string) ([]string, error) {
-	URL := "https://management.azure.com/subscriptions/" + credentialInfo.SubscriptionId +
-		"/providers/Microsoft.ContainerService/locations/" + location + "/kubernetesVersions?api-version=2024-02-01"
-
-	token, err := getToken(credentialInfo.TenantId, credentialInfo.ClientId, credentialInfo.ClientSecret)
-	if err != nil {
-		return nil, err
-	}
-	var bearer = "Bearer " + token
-
-	ctx := context.Background()
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, URL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Authorization", bearer)
-	req = req.WithContext(ctx)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var vs k8sVersions
-	err = json.Unmarshal(responseBody, &vs)
-	if err != nil {
-		return nil, err
-	}
-
-	var versions []string
-	for _, v := range vs.Values {
-		keys := reflect.ValueOf(v.PatchVersions).MapKeys()
-		for _, key := range keys {
-			versions = append(versions, key.Interface().(string))
-		}
-	}
-
-	sort.Slice(versions, func(i, j int) bool { return versions[i] > versions[j] })
-
-	return versions, nil
-}
-
 func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (info irs.ClusterInfo, createErr error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
 
-	versions, err := getK8SVersions(ac.CredentialInfo, ac.Region.Region)
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to get K8S versions while Creating Cluster. err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.ClusterInfo{}, createErr
-	}
-
-	var k8sVersionUnsupported = true
-	for _, version := range versions {
-		if clusterReqInfo.Version == version {
-			k8sVersionUnsupported = false
-			break
-		}
-	}
-	if k8sVersionUnsupported {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. " +
-			"err = Unsupported K8S version. (Available versions: " + strings.Join(versions[:], ", ") + ")"))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.ClusterInfo{}, createErr
-	}
-
-	err = createCluster(clusterReqInfo, ac)
+	err := createCluster(clusterReqInfo, ac)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
