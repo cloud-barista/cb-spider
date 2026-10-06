@@ -355,7 +355,7 @@ csps:
       health_timeout: "default"
       health_threshold: "default"
     cluster_test:
-      version: "1.35.7"
+      version: "1.35.9"  # Available: 1.33.13, 1.34.12, 1.35.9, 1.36.5
       # IBM IKS: NodeGroup included in cluster create (Type-II)
       # IBM IKS uses Static Token (credentials embedded in kubeconfig)
       kubeconfig_type: "static"
@@ -424,7 +424,7 @@ csps:
       health_timeout: "default"
       health_threshold: "default"
     cluster_test:
-      version: "1.34.3-nks.1"  # Available: 1.34.3-nks.1
+      version: "1.34.3-nks.2"  # Available: 1.36.2-nks.2, 1.35.3-nks.2, 1.34.3-nks.2
       # NCP NKS: NodeGroup included in cluster create (Type-II)
       # NCP NKS uses Dynamic Token (Spider Default exec-plugin calling Spider Token API)
       kubeconfig_type: "spider_default"
@@ -467,7 +467,7 @@ csps:
       health_timeout: "default"
       health_threshold: "default"
     cluster_test:
-      version: "v1.32.3"  # Available: v1.31.4, v1.32.3, v1.33.4
+      version: "v1.33.4"  # Available: v1.33.4, v1.34.3, v1.35.5
       # NHN Cloud NKE: NodeGroup included in cluster create (Type-II)
       # NHN Cloud NKE uses Static Token (credentials embedded in kubeconfig)
       kubeconfig_type: "static"

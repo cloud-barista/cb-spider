@@ -288,25 +288,8 @@ var spiderImageInfo string
 
 func (r *Runner) startContainer(ctx context.Context, cfg *config.Config) error {
 	log.Infof("runner: pulling image %s", cfg.Spider.Image)
-	pullArgs := []string{"pull", cfg.Spider.Image}
-	const maxPullAttempts = 5
-	var pullErr error
-	for attempt := 1; attempt <= maxPullAttempts; attempt++ {
-		var out []byte
-		out, pullErr = exec.CommandContext(ctx, "docker", pullArgs...).CombinedOutput()
-		if pullErr == nil {
-			break
-		}
-		log.Warnf("runner: docker pull attempt %d/%d failed: %s", attempt, maxPullAttempts, strings.TrimSpace(string(out)))
-		if attempt < maxPullAttempts {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("runner: docker pull cancelled: %w", ctx.Err())
-			case <-time.After(2 * time.Second):
-			}
-		} else {
-			return fmt.Errorf("runner: docker pull: %w - %s", pullErr, strings.TrimSpace(string(out)))
-		}
+	if err := pullDockerImage(ctx, cfg.Spider.Image, 5, 2*time.Second); err != nil {
+		return fmt.Errorf("runner: %w", err)
 	}
 
 	// Capture the image digest and creation timestamp for traceability.
@@ -388,8 +371,8 @@ func startPostgresContainer(ctx context.Context, cfg *config.Config) error {
 	_ = exec.Command("docker", "rm", "-f", containerName).Run()
 
 	log.Infof("runner: pulling postgres image %s", cfg.Postgres.Image)
-	if pullOut, pullErr := exec.CommandContext(ctx, "docker", "pull", cfg.Postgres.Image).CombinedOutput(); pullErr != nil {
-		return fmt.Errorf("docker pull postgres: %w - %s", pullErr, strings.TrimSpace(string(pullOut)))
+	if err := pullDockerImage(ctx, cfg.Postgres.Image, 5, 2*time.Second); err != nil {
+		return fmt.Errorf("postgres: %w", err)
 	}
 
 	postgresArgs := []string{
