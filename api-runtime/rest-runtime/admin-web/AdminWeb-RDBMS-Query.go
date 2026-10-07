@@ -679,6 +679,12 @@ func RDBMSCreateDatabase(c echo.Context) error {
 		UserName       string `json:"UserName"`
 		Password       string `json:"Password"`
 		DatabaseName   string `json:"DatabaseName"`
+		// Charset/Collation: optional, mysql/mariadb only. AdminWeb does not interpret these --
+		// it only checks they're safe identifiers and forwards them as-is to the Spider REST API
+		// (see RDBMSRest.go's RDBMSDatabaseRequest), which is the layer that knows which CSPs
+		// support them and returns a clear error for the ones that don't.
+		Charset   string `json:"Charset"`
+		Collation string `json:"Collation"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
@@ -689,9 +695,22 @@ func RDBMSCreateDatabase(c echo.Context) error {
 	if !isValidIdentifier(req.DatabaseName) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid database name. Use only letters, numbers, and underscores."})
 	}
+	if req.Charset != "" && !isValidIdentifier(req.Charset) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid charset. Use only letters, numbers, and underscores."})
+	}
+	if req.Collation != "" && !isValidIdentifier(req.Collation) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid collation. Use only letters, numbers, and underscores."})
+	}
 
 	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases"
-	body, _ := json.Marshal(map[string]string{"ConnectionName": req.ConnectionName, "DatabaseName": req.DatabaseName, "MasterUserName": req.UserName, "MasterUserPassword": req.Password})
+	bodyFields := map[string]string{"ConnectionName": req.ConnectionName, "DatabaseName": req.DatabaseName, "MasterUserName": req.UserName, "MasterUserPassword": req.Password}
+	if req.Charset != "" {
+		bodyFields["Charset"] = req.Charset
+	}
+	if req.Collation != "" {
+		bodyFields["Collation"] = req.Collation
+	}
+	body, _ := json.Marshal(bodyFields)
 	httpReq, _ := http.NewRequest("POST", url, strings.NewReader(string(body)))
 	httpReq.Header.Set("Content-Type", "application/json")
 	setBasicAuthIfConfigured(httpReq)

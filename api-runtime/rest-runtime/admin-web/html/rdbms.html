@@ -1282,6 +1282,17 @@
                     <label for="newDatabaseName">Database Name:</label>
                     <input type="text" id="newDatabaseName" required placeholder="e.g., mydb" style="width: 65%;" pattern="[a-zA-Z_][a-zA-Z0-9_]*" title="Letters, numbers, underscores only. Must start with a letter or underscore.">
                 </div>
+                <div class="form-group">
+                    <label for="newDatabaseCharset">Charset (optional):</label>
+                    <input type="text" id="newDatabaseCharset" placeholder="e.g., utf8mb4" style="width: 65%;" pattern="[a-zA-Z_][a-zA-Z0-9_]*" title="Letters, numbers, underscores only. Must start with a letter or underscore.">
+                </div>
+                <div class="form-group">
+                    <label for="newDatabaseCollation">Collation (optional):</label>
+                    <input type="text" id="newDatabaseCollation" placeholder="e.g., utf8mb4_unicode_ci" style="width: 65%;" pattern="[a-zA-Z_][a-zA-Z0-9_]*" title="Letters, numbers, underscores only. Must start with a letter or underscore.">
+                </div>
+                <div class="form-group" style="font-size: 0.85em; color: #666;">
+                    Charset/Collation apply to mysql/mariadb only. Support differs by CSP: some need the username/password above even though plain database creation doesn't (Azure when Charset is given without Collation; Tencent when Collation is given; NCP always). NHN additionally requires "Direct Control" to be enabled on the instance beforehand (via the NHN console) -- otherwise its own permission error is shown as-is.
+                </div>
                 <div class="form-group" style="display: flex; justify-content: center; margin-top: 20px;">
                     <button type="submit">Create Database</button>
                     <button type="button" onclick="hideCreateDatabaseOverlay()" style="margin-left: 10px;">Cancel</button>
@@ -3648,6 +3659,8 @@
     // --- Create / Drop Database ---
     function showCreateDatabaseOverlay() {
         document.getElementById('newDatabaseName').value = '';
+        document.getElementById('newDatabaseCharset').value = '';
+        document.getElementById('newDatabaseCollation').value = '';
         document.getElementById('createDatabaseOverlay').style.display = 'flex';
         setTimeout(function() { document.getElementById('newDatabaseName').focus(); }, 100);
     }
@@ -3662,6 +3675,8 @@
             alert('Please enter a database name.');
             return;
         }
+        const charset = document.getElementById('newDatabaseCharset').value.trim();
+        const collation = document.getElementById('newDatabaseCollation').value.trim();
 
         const connConfig = document.getElementById('connConfig').value;
 
@@ -3669,7 +3684,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: dbName })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: dbName, Charset: charset, Collation: collation })
         })
         .then(response => response.json())
         .then(data => {

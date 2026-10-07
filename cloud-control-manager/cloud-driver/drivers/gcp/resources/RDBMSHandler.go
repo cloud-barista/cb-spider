@@ -824,9 +824,18 @@ func convertGCPStatusToRDBMSStatus(state string) irs.RDBMSStatus {
 
 // CreateDatabase creates a database in a GCP Cloud SQL instance.
 func (handler *GCPRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	return handler.CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, "", "")
+}
+
+// CreateDatabaseWithOptions creates a database in a GCP Cloud SQL instance, optionally with an
+// explicit charset and/or collation (empty = instance default, and may be changed later via the
+// Admin API). Cloud SQL's Database resource natively supports both; CB-Spider only checks that the
+// value is safe to use as a SQL identifier (see RDBMSManager.go) and otherwise passes it through
+// unvalidated -- Cloud SQL itself rejects anything it doesn't recognize.
+func (handler *GCPRDBMSHandler) CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, charset, collation string) error {
 	ctx := context.Background()
 	projectId := handler.getProjectId()
-	db := &sqladmin.Database{Name: dbName}
+	db := &sqladmin.Database{Name: dbName, Charset: charset, Collation: collation}
 	op, err := handler.Client.Databases.Insert(projectId, rdbmsSystemId, db).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("GCP CreateDatabase: %w", err)

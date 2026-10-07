@@ -709,11 +709,48 @@ type RDBMSDatabaseRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"ncp-korea1-config"`
 	DatabaseName   string `json:"DatabaseName,omitempty" example:"mydb"` // required only for create/delete
 	// MasterUserName/MasterUserPassword: required when the driver uses the SQL fallback (e.g. AWS,
-	// IBM). CB-Spider no longer tracks these after creation (see RDBMSManager.go's
-	// redactRDBMSMasterCredentials -- it cannot reliably confirm the actual master account for
-	// several CSPs), so the caller must supply both, the same credentials set at instance creation.
+	// IBM); when Charset is given without Collation specifically on Azure (see below -- GCP,
+	// OpenStack, and Alibaba apply a Charset-only request correctly without this); and whenever
+	// Charset/Collation is given at all on Tencent (a Collation triggers a follow-up SQL statement)
+	// or NCP (both always go through a SQL stored-procedure call) -- see below. CB-Spider no longer
+	// tracks these after creation (see RDBMSManager.go's redactRDBMSMasterCredentials -- it cannot
+	// reliably confirm the actual master account for several CSPs), so the caller must supply both,
+	// the same credentials set at instance creation.
 	MasterUserName     string `json:"MasterUserName,omitempty" example:"myadmin"`
 	MasterUserPassword string `json:"MasterUserPassword,omitempty" example:"P@ssw0rd"`
+	// Charset/Collation: optional, create only, mysql/mariadb only. CB-Spider does not validate
+	// these against a list of known names (MySQL/MariaDB each add new charsets/collations over
+	// time, and don't share a naming scheme for their newest ones) -- it only rejects characters
+	// that would be unsafe to use as a SQL identifier, and otherwise passes the value through
+	// unchanged to the CSP API, SQL engine, or CSP-provided SQL mechanism, which reports back if it
+	// doesn't recognize it. Supported on all 9 RDBMS-capable CSPs today, but by three different
+	// mechanisms with different caveats -- see RDBMSManager.go's rdbmsDatabaseOptionsManager (Azure,
+	// GCP, OpenStack, Alibaba: native API), rdbmsDatabaseCharsetManager (Tencent: native API for
+	// charset, a follow-up SQL ALTER DATABASE for collation -- requires MasterUserName/
+	// MasterUserPassword whenever Collation is given, since Tencent's API has no collation field at
+	// all), rdbmsDatabaseSQLStatementBuilder (NCP: both go through NCP's `sys.ncp_create_db` stored
+	// procedure over direct SQL -- requires MasterUserName/MasterUserPassword), and
+	// rdbmsDatabaseSQLFallbackEligible (NHN: a plain SQL CREATE DATABASE, which only works if the
+	// instance owner has separately enabled "Direct Control" in the NHN console -- CB-Spider cannot
+	// check or enable this itself, so an un-opted-in instance surfaces the engine's own permission
+	// error) plus the plain SQL fallback (AWS, IBM).
+	//
+	// If Charset is given but Collation is left empty on Azure specifically (see
+	// RDBMSManager.go's rdbmsDatabaseRequiresPairedCollation), CB-Spider resolves Charset's actual
+	// default collation on this instance via a live query (information_schema.CHARACTER_SETS)
+	// before creating the database, which requires MasterUserName/MasterUserPassword even though
+	// Azure's own create-database call otherwise wouldn't need them. This exists because Azure MySQL
+	// Flexible Server has been observed to silently ignore a Charset-only request -- falling back to
+	// the server's own default charset instead of the requested one, with no error -- unless
+	// Collation is also given in the same call. GCP, OpenStack, and Alibaba apply a Charset-only
+	// request correctly on their own and get no such lookup (for Alibaba specifically, an
+	// auto-filled Collation would incorrectly trip its MariaDB-only Collation rejection -- see its
+	// driver). The SQL-fallback drivers (AWS, IBM) need no such resolution either: a plain
+	// `CREATE DATABASE db CHARACTER SET x` with no COLLATE clause already makes MySQL/MariaDB
+	// itself resolve x's correct default collation. Give both Charset and Collation explicitly to
+	// skip the Azure lookup.
+	Charset   string `json:"Charset,omitempty" example:"utf8mb4"`
+	Collation string `json:"Collation,omitempty" example:"utf8mb4_unicode_ci"`
 }
 
 // RDBMSDatabaseListResponse wraps the list of databases returned by CSP API.
@@ -724,7 +761,7 @@ type RDBMSDatabaseListResponse struct {
 // createRDBMSDatabase godoc
 // @ID create-rdbms-database
 // @Summary Create Database in RDBMS
-// @Description Create a database inside an RDBMS instance using the CSP-native API.
+// @Description Create a database inside an RDBMS instance using the CSP-native API. Charset/Collation are optional and mysql/mariadb-only; CB-Spider does not validate their value against a fixed list, only that it's safe to pass through, and support depends on the CSP driver (see field docs).
 // @Tags [RDBMS Management]
 // @Accept  json
 // @Produce  json
@@ -746,7 +783,7 @@ func CreateRDBMSDatabase(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and DatabaseName are required")
 	}
 
-	err := cmrt.CreateRDBMSDatabase(req.ConnectionName, c.Param("Name"), req.DatabaseName, req.MasterUserName, req.MasterUserPassword)
+	err := cmrt.CreateRDBMSDatabase(req.ConnectionName, c.Param("Name"), req.DatabaseName, req.MasterUserName, req.MasterUserPassword, req.Charset, req.Collation)
 	if err != nil {
 		if err == cmrt.ErrRDBMSDatabaseMgrNotSupported {
 			return echo.NewHTTPError(http.StatusNotImplemented, err.Error())

@@ -915,8 +915,18 @@ func convertTroveStatusToRDBMSStatus(status string) irs.RDBMSStatus {
 
 // CreateDatabase creates a database in an OpenStack Trove instance.
 func (handler *OpenStackRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	return handler.CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, "", "")
+}
+
+// CreateDatabaseWithOptions creates a database in an OpenStack Trove instance, optionally with an
+// explicit charset and/or collation (empty = datastore default). Trove's Database API natively
+// supports both (character_set/collate) for the mysql datastore; CB-Spider only checks that the
+// value is safe to use as a SQL identifier (see RDBMSManager.go) and otherwise passes it through
+// unvalidated. Support on a MariaDB datastore is not guaranteed by the Trove API spec and depends
+// on the deployment.
+func (handler *OpenStackRDBMSHandler) CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, charset, collation string) error {
 	ctx := context.Background()
-	opts := databases.BatchCreateOpts{databases.CreateOpts{Name: dbName}}
+	opts := databases.BatchCreateOpts{databases.CreateOpts{Name: dbName, CharSet: charset, Collate: collation}}
 	if err := databases.Create(ctx, handler.DBClient, rdbmsSystemId, opts).ExtractErr(); err != nil {
 		return fmt.Errorf("OpenStack CreateDatabase: %w", err)
 	}

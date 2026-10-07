@@ -1332,6 +1332,24 @@ func (handler *NcpVpcRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbNam
 	}
 }
 
+// BuildCreateDatabaseSQL implements RDBMSManager.go's rdbmsDatabaseSQLStatementBuilder: it has no
+// native charset/collation field (AddCloudMysqlDatabaseList above takes only a name list), and a
+// plain `CREATE DATABASE` is blocked for the master account by NCP's own design ("to prevent
+// privilege abuse, DB-creation privilege is not granted directly to users" -- see NCP's Cloud DB
+// for MySQL permission guide). NCP instead documents a stored procedure for exactly this case:
+// `CALL sys.ncp_create_db('name', 'charset', 'collation')`, where passing an empty string for
+// charset or collation means "use the server default" (NCP's own documented usage). dbName,
+// charset, and collation are guaranteed already
+// validated against a safe-identifier pattern by CreateRDBMSDatabase before this is called, so
+// building the statement by string concatenation into single-quoted literals is safe.
+func (handler *NcpVpcRDBMSHandler) BuildCreateDatabaseSQL(dbEngine, dbName, charset, collation string) (string, error) {
+	engine := strings.ToLower(dbEngine)
+	if !strings.Contains(engine, "mysql") {
+		return "", fmt.Errorf("NCP: charset/collation is only supported for mysql (via sys.ncp_create_db), not %q", dbEngine)
+	}
+	return fmt.Sprintf("CALL sys.ncp_create_db('%s', '%s', '%s')", dbName, charset, collation), nil
+}
+
 // ListDatabases returns all database names in an NCP MySQL or PostgreSQL instance.
 func (handler *NcpVpcRDBMSHandler) ListDatabases(rdbmsSystemId, dbEngine string) ([]string, error) {
 	cblogger.Infof("NCP RDBMSDatabaseManager: ListDatabases instanceNo=%s engine=%s", rdbmsSystemId, dbEngine)
