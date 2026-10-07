@@ -805,6 +805,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 	}
 
 	// Apply Node Group autoscaler options
+	minNodeSize, maxNodeSize := 0, 0
 	if nodeGroupReqInfo.OnAutoScaling {
 		irsCluster.NodeGroupList = append(irsCluster.NodeGroupList, nodeGroupReqInfo)
 
@@ -814,6 +815,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 			LoggingError(hiscallInfo, applyAutoScalerOptionErr)
 			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", applyAutoScalerOptionErr))
 		}
+		minNodeSize, maxNodeSize = nodeGroupReqInfo.MinNodeSize, nodeGroupReqInfo.MaxNodeSize
 	}
 
 	// Get Workers in pool
@@ -855,13 +857,13 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 			NameId:   RetrieveUnableErr,
 			SystemId: RetrieveUnableErr,
 		},
-		OnAutoScaling:   false,
+		OnAutoScaling:            nodeGroupReqInfo.OnAutoScaling,
 		DesiredNodeSize: int(*newNodeGroup.WorkerCount),
-		MinNodeSize:     -1,
-		MaxNodeSize:     -1,
+		MinNodeSize:     minNodeSize,
+		MaxNodeSize:     maxNodeSize,
 		Status:          ic.getNodeGroupStatusFromString(*newNodeGroup.Lifecycle.DesiredState),
-		Nodes:           nodesIID,
-		KeyValueList:    nil,
+		Nodes:                    nodesIID,
+		KeyValueList:             nil,
 	}, nil
 }
 
@@ -1051,6 +1053,12 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 		return irs.NodeGroupInfo{}, nodeGroupNotExistErr
 	}
 
+	if DesiredNodeSize != targetNodeGroup.WorkerCount {
+		err := fmt.Errorf("IBM ChangeNodeGroupScaling cannot change DesiredNodeSize; use the IBM worker-pool resize API")
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return irs.NodeGroupInfo{}, err
+	}
 	nodeGroupName := targetNodeGroup.PoolName
 
 	kubeConfigStr, getKubeConfigErr := ic.getKubeConfig(irsCluster.IId.SystemId, resourceGroupId)
@@ -1099,9 +1107,9 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 				workerPoolAutoscalerConfigs[i].MaxSize = MaxNodeSize
 			}
 			newNodeGroupInfo = append(newNodeGroupInfo, irs.NodeGroupInfo{
-				IId:           irs.IID{NameId: workerPoolAutoscalerConfigs[i].Name},
-				OnAutoScaling: workerPoolAutoscalerConfigs[i].Enabled,
-				MinNodeSize:   workerPoolAutoscalerConfigs[i].MinSize,
+				IId:                      irs.IID{NameId: workerPoolAutoscalerConfigs[i].Name},
+				OnAutoScaling:            workerPoolAutoscalerConfigs[i].Enabled,
+				MinNodeSize:              workerPoolAutoscalerConfigs[i].MinSize,
 				MaxNodeSize:   workerPoolAutoscalerConfigs[i].MaxSize,
 			})
 		}
@@ -1163,13 +1171,13 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 			NameId:   RetrieveUnableErr,
 			SystemId: RetrieveUnableErr,
 		},
-		OnAutoScaling:   newNodeGroupInfo[changedNodeGroupIndex].OnAutoScaling,
+		OnAutoScaling:            newNodeGroupInfo[changedNodeGroupIndex].OnAutoScaling,
 		DesiredNodeSize: targetNodeGroup.WorkerCount,
 		MinNodeSize:     newNodeGroupInfo[changedNodeGroupIndex].MinNodeSize,
 		MaxNodeSize:     newNodeGroupInfo[changedNodeGroupIndex].MaxNodeSize,
 		Status:          ic.getNodeGroupStatusFromString(targetNodeGroup.Lifecycle.DesiredState),
-		Nodes:           nodesIID,
-		KeyValueList:    nil,
+		Nodes:                    nodesIID,
+		KeyValueList:             nil,
 	}, nil
 }
 
@@ -1958,34 +1966,9 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 			cblogger.Info("iks-ca-configmap is not yet available. The cluster may still be provisioning or initializing. Error: ", getAutoScalerConfigMapErr)
 		}
 
-		if configMap == nil {
-			for index, _ := range nodeGroupList {
-				nodeGroupList[index].OnAutoScaling = false
-				nodeGroupList[index].MinNodeSize = -1
-				nodeGroupList[index].MaxNodeSize = -1
-				// DesiredNodeSize is already set to the actual WorkerCount, so keep it as is
-			}
-		} else {
-			jsonProperty, exists := configMap.Data[AutoscalerConfigMapOptionProperty]
-			if !exists {
-				cblogger.Error(errors.New("Failed to get Autoscaler Config from Config Map"))
-			}
-
-			var workerPoolAutoscalerConfigs []kubernetesserviceapiv1.WorkerPoolAutoscalerConfig
-			unmarshalErr := json.Unmarshal([]byte(jsonProperty), &workerPoolAutoscalerConfigs)
-			if unmarshalErr != nil {
-				cblogger.Error(unmarshalErr)
-			}
-
-			for index, nodeGroup := range nodeGroupList {
-				for _, config := range workerPoolAutoscalerConfigs {
-					if config.Name == nodeGroup.IId.NameId {
-						nodeGroupList[index].OnAutoScaling = config.Enabled
-						nodeGroupList[index].MinNodeSize = config.MinSize
-						nodeGroupList[index].MaxNodeSize = config.MaxSize
-						// DesiredNodeSize is already set to the actual WorkerCount, so keep it as is
-					}
-				}
+		if configMap != nil {
+			if err := applyIBMNodeGroupScalingInfo(nodeGroupList, configMap.Data[AutoscalerConfigMapOptionProperty]); err != nil {
+				cblogger.Warnf("Autoscaling information is unavailable: %v", err)
 			}
 		}
 	} else {
@@ -2218,11 +2201,8 @@ func (ic *IbmClusterHandler) validateAtCreateCluster(clusterInfo irs.ClusterInfo
 		if i != 0 && nodeGroup.IId.NameId == "" {
 			return errors.New(fmt.Sprintf("Node Group name is required for Node Group #%d ", i))
 		}
-		if nodeGroup.MaxNodeSize < 1 {
-			return errors.New(fmt.Sprintf("MaxNodeSize of Node Group: %s cannot be smaller than 1", nodeGroup.IId))
-		}
-		if nodeGroup.MinNodeSize < 1 {
-			return errors.New(fmt.Sprintf("MinNodeSize of Node Group: %s cannot be smaller than 1", nodeGroup.IId))
+		if err := validateIBMNodeGroupScaling(nodeGroup); err != nil {
+			return err
 		}
 		if nodeGroup.DesiredNodeSize < 1 {
 			return errors.New(fmt.Sprintf("DesiredNodeSize of Node Group: %s cannot be smaller than 1", nodeGroup.IId))
@@ -2242,11 +2222,8 @@ func (ic *IbmClusterHandler) validateAtAddNodeGroup(clusterIID irs.IID, nodeGrou
 	if nodeGroupInfo.IId.NameId == "" {
 		return errors.New("Node Group name is required")
 	}
-	if nodeGroupInfo.MaxNodeSize < 1 {
-		return errors.New("MaxNodeSize cannot be smaller than 1")
-	}
-	if nodeGroupInfo.MinNodeSize < 1 {
-		return errors.New("MaxNodeSize cannot be smaller than 1")
+	if err := validateIBMNodeGroupScaling(nodeGroupInfo); err != nil {
+		return err
 	}
 	if nodeGroupInfo.DesiredNodeSize < 1 {
 		return errors.New("DesiredNodeSize cannot be smaller than 1")
@@ -2255,6 +2232,21 @@ func (ic *IbmClusterHandler) validateAtAddNodeGroup(clusterIID irs.IID, nodeGrou
 		return errors.New("VM Spec Name is required")
 	}
 
+	return nil
+}
+
+func validateIBMNodeGroupScaling(nodeGroup irs.NodeGroupInfo) error {
+	if nodeGroup.MinNodeSize < 0 || nodeGroup.MaxNodeSize < 0 {
+		return fmt.Errorf("Node group scaling limits cannot be negative")
+	}
+	if nodeGroup.OnAutoScaling {
+		if nodeGroup.MinNodeSize < 1 || nodeGroup.MaxNodeSize < nodeGroup.MinNodeSize {
+			return fmt.Errorf("Autoscaling requires 1 <= MinNodeSize <= MaxNodeSize")
+		}
+		if nodeGroup.DesiredNodeSize < nodeGroup.MinNodeSize || nodeGroup.DesiredNodeSize > nodeGroup.MaxNodeSize {
+			return fmt.Errorf("DesiredNodeSize must be between MinNodeSize and MaxNodeSize")
+		}
+	}
 	return nil
 }
 
@@ -2417,3 +2409,38 @@ func (ic *IbmClusterHandler) ensureSubnetPublicGateway(subnetId, vpcId string) e
 	cblogger.Infof("Successfully attached public gateway %s to subnet %s", publicGatewayId, subnetId)
 	return nil
 }
+
+func applyIBMNodeGroupScalingInfo(nodeGroups []irs.NodeGroupInfo, data string) error {
+	var configs []struct {
+		Name    string `json:"name"`
+		Enabled *bool  `json:"enabled"`
+		MinSize *int   `json:"minSize"`
+		MaxSize *int   `json:"maxSize"`
+	}
+	if err := json.Unmarshal([]byte(data), &configs); err != nil {
+		return fmt.Errorf("Cannot decode autoscaling configuration: %w", err)
+	}
+	seen := make(map[string]bool)
+	for _, config := range configs {
+		if config.Name == "" || seen[config.Name] || config.Enabled == nil || config.MinSize == nil || config.MaxSize == nil {
+			return fmt.Errorf("Incomplete or duplicate autoscaling configuration for worker pool %s", config.Name)
+		}
+		seen[config.Name] = true
+		if *config.MinSize < 0 || *config.MaxSize < *config.MinSize ||
+			(*config.Enabled && *config.MinSize < 1) {
+			return fmt.Errorf("Invalid autoscaling limits for worker pool %s", config.Name)
+		}
+	}
+	for i := range nodeGroups {
+		for _, config := range configs {
+			if config.Name == nodeGroups[i].IId.NameId {
+				nodeGroups[i].OnAutoScaling = *config.Enabled
+				nodeGroups[i].MinNodeSize = *config.MinSize
+				nodeGroups[i].MaxNodeSize = *config.MaxSize
+				break
+			}
+		}
+	}
+	return nil
+}
+

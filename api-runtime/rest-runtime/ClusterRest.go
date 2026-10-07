@@ -9,6 +9,8 @@
 package restruntime
 
 import (
+	"fmt"
+
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
@@ -175,6 +177,7 @@ type ClusterNodeGroupRequest struct {
 // @ID create-cluster
 // @Summary Create Cluster
 // @Description Create a new Cluster with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)] <br> * NodeGroupList is optional, depends on CSP type: <br> &nbsp;- Type-I (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster creation. <br> &nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node Group during initial Cluster creation.
+// @Description Malformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
@@ -190,10 +193,14 @@ func CreateCluster(c echo.Context) error {
 	req := ClusterCreateRequest{}
 
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	// Rest RegInfo => Driver ReqInfo
+	nodeGroups, err := convertNodeGroupList(req.ReqInfo.NodeGroupList)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
 	reqInfo := cres.ClusterInfo{
 		IId:     cres.IID{req.ReqInfo.Name, req.ReqInfo.Name},
 		Version: req.ReqInfo.Version,
@@ -202,7 +209,7 @@ func CreateCluster(c echo.Context) error {
 			SubnetIIDs:        convertIIDs(req.ReqInfo.SubnetNames),
 			SecurityGroupIIDs: convertIIDs(req.ReqInfo.SecurityGroupNames),
 		},
-		NodeGroupList: convertNodeGroupList(req.ReqInfo.NodeGroupList),
+		NodeGroupList: nodeGroups,
 		TagList:       req.ReqInfo.TagList,
 	}
 
@@ -366,6 +373,7 @@ type ClusterAddNodeGroupRequest struct {
 // @ID add-nodegroup
 // @Summary Add Node Group
 // @Description Add a new Node Group to an existing Cluster.
+// @Description Malformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
@@ -382,21 +390,12 @@ func AddNodeGroup(c echo.Context) error {
 	req := ClusterAddNodeGroupRequest{}
 
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	reqInfo := cres.NodeGroupInfo{
-		IId:          cres.IID{req.ReqInfo.Name, ""},
-		ImageIID:     cres.IID{req.ReqInfo.ImageName, ""},
-		VMSpecName:   req.ReqInfo.VMSpecName,
-		RootDiskType: req.ReqInfo.RootDiskType,
-		RootDiskSize: req.ReqInfo.RootDiskSize,
-		KeyPairIID:   cres.IID{req.ReqInfo.KeyPairName, ""},
-
-		OnAutoScaling:   func() bool { on, _ := strconv.ParseBool(req.ReqInfo.OnAutoScaling); return on }(),
-		DesiredNodeSize: func() int { size, _ := strconv.Atoi(req.ReqInfo.DesiredNodeSize); return size }(),
-		MinNodeSize:     func() int { size, _ := strconv.Atoi(req.ReqInfo.MinNodeSize); return size }(),
-		MaxNodeSize:     func() int { size, _ := strconv.Atoi(req.ReqInfo.MaxNodeSize); return size }(),
+	reqInfo, err := convertNodeGroup(req.ReqInfo)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	clusterName := c.Param("Name")
@@ -461,6 +460,7 @@ type ClusterSetNodeGroupAutoScalingRequest struct {
 // @ID set-nodegroup-autoscaling
 // @Summary Set Node Group Auto Scaling
 // @Description Enable or disable auto scaling for a Node Group in a Cluster.
+// @Description OnAutoScaling must be a valid boolean.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
@@ -478,13 +478,16 @@ func SetNodeGroupAutoScaling(c echo.Context) error {
 	req := ClusterSetNodeGroupAutoScalingRequest{}
 
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	clusterName := c.Param("Name")
 
 	// Call common-runtime API
-	on, _ := strconv.ParseBool(req.ReqInfo.OnAutoScaling)
+	on, err := strconv.ParseBool(req.ReqInfo.OnAutoScaling)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "OnAutoScaling must be a boolean")
+	}
 	result, err := cmrt.SetNodeGroupAutoScaling(req.ConnectionName, clusterName,
 		c.Param("NodeGroupName"), on)
 	if err != nil {
@@ -512,6 +515,7 @@ type ClusterChangeNodeGroupScalingRequest struct {
 // @ID change-nodegroup-scaling
 // @Summary Change Node Group Scaling
 // @Description Change the scaling settings for a Node Group in a Cluster.
+// @Description Node sizes must be non-negative integers.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
@@ -529,15 +533,17 @@ func ChangeNodeGroupScaling(c echo.Context) error {
 	req := ClusterChangeNodeGroupScalingRequest{}
 
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	clusterName := c.Param("Name")
 
 	// Call common-runtime API
-	desiredNodeSize, _ := strconv.Atoi(req.ReqInfo.DesiredNodeSize)
-	minNodeSize, _ := strconv.Atoi(req.ReqInfo.MinNodeSize)
-	maxNodeSize, _ := strconv.Atoi(req.ReqInfo.MaxNodeSize)
+	desiredNodeSize, minNodeSize, maxNodeSize, err := parseNodeGroupSizes(
+		req.ReqInfo.DesiredNodeSize, req.ReqInfo.MinNodeSize, req.ReqInfo.MaxNodeSize, false)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
 	result, err := cmrt.ChangeNodeGroupScaling(req.ConnectionName, clusterName,
 		c.Param("NodeGroupName"), desiredNodeSize, minNodeSize, maxNodeSize)
 	if err != nil {
@@ -723,15 +729,31 @@ func convertIIDs(names []string) []cres.IID {
 	return IIDs
 }
 
-func convertNodeGroupList(nodeGroupReqList []ClusterNodeGroupRequest) []cres.NodeGroupInfo {
+func convertNodeGroupList(nodeGroupReqList []ClusterNodeGroupRequest) ([]cres.NodeGroupInfo, error) {
 	nodeGroupInfoList := []cres.NodeGroupInfo{}
 	for _, ngReq := range nodeGroupReqList {
-		nodeGroupInfoList = append(nodeGroupInfoList, convertNodeGroup(ngReq))
+		nodeGroup, err := convertNodeGroup(ngReq)
+		if err != nil {
+			return nil, err
+		}
+		nodeGroupInfoList = append(nodeGroupInfoList, nodeGroup)
 	}
-	return nodeGroupInfoList
+	return nodeGroupInfoList, nil
 }
 
-func convertNodeGroup(ngReq ClusterNodeGroupRequest) cres.NodeGroupInfo {
+func convertNodeGroup(ngReq ClusterNodeGroupRequest) (cres.NodeGroupInfo, error) {
+	on := false
+	if ngReq.OnAutoScaling != "" {
+		var err error
+		on, err = strconv.ParseBool(ngReq.OnAutoScaling)
+		if err != nil {
+			return cres.NodeGroupInfo{}, fmt.Errorf("OnAutoScaling must be a boolean")
+		}
+	}
+	desired, min, max, err := parseNodeGroupSizes(ngReq.DesiredNodeSize, ngReq.MinNodeSize, ngReq.MaxNodeSize, true)
+	if err != nil {
+		return cres.NodeGroupInfo{}, err
+	}
 
 	nodeGroupInfo := cres.NodeGroupInfo{
 		IId:          cres.IID{ngReq.Name, ""},
@@ -741,12 +763,29 @@ func convertNodeGroup(ngReq ClusterNodeGroupRequest) cres.NodeGroupInfo {
 		RootDiskSize: ngReq.RootDiskSize,
 		KeyPairIID:   cres.IID{ngReq.KeyPairName, ""},
 
-		OnAutoScaling:   func() bool { on, _ := strconv.ParseBool(ngReq.OnAutoScaling); return on }(),
-		DesiredNodeSize: func() int { size, _ := strconv.Atoi(ngReq.DesiredNodeSize); return size }(),
-		MinNodeSize:     func() int { size, _ := strconv.Atoi(ngReq.MinNodeSize); return size }(),
-		MaxNodeSize:     func() int { size, _ := strconv.Atoi(ngReq.MaxNodeSize); return size }(),
+		OnAutoScaling:   on,
+		DesiredNodeSize: desired,
+		MinNodeSize:     min,
+		MaxNodeSize:     max,
 	}
-	return nodeGroupInfo
+	return nodeGroupInfo, nil
+}
+
+func parseNodeGroupSizes(desired, min, max string, allowEmpty bool) (int, int, int, error) {
+	values := [3]int{}
+	for i, field := range []struct{ name, value string }{
+		{"DesiredNodeSize", desired}, {"MinNodeSize", min}, {"MaxNodeSize", max},
+	} {
+		if allowEmpty && field.value == "" {
+			continue
+		}
+		value, err := strconv.Atoi(field.value)
+		if err != nil || value < 0 {
+			return 0, 0, 0, fmt.Errorf("%s must be a non-negative integer", field.name)
+		}
+		values[i] = value
+	}
+	return values[0], values[1], values[2], nil
 }
 
 // ClusterTokenResponse represents the response for EKS token

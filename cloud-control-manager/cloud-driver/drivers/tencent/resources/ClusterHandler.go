@@ -1190,11 +1190,16 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 	if nodeGroupInfo.MaxNodeSize < 1 {
 		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
 	}
-	if nodeGroupInfo.MinNodeSize < 1 {
-		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	if nodeGroupInfo.MinNodeSize < 0 {
+		return fmt.Errorf("MinNodeSize cannot be negative")
 	}
 	if nodeGroupInfo.DesiredNodeSize < 1 {
 		return fmt.Errorf("DesiredNodeSize cannot be smaller than 1")
+	}
+	if nodeGroupInfo.MinNodeSize > nodeGroupInfo.MaxNodeSize ||
+		nodeGroupInfo.DesiredNodeSize < nodeGroupInfo.MinNodeSize ||
+		nodeGroupInfo.DesiredNodeSize > nodeGroupInfo.MaxNodeSize {
+		return fmt.Errorf("DesiredNodeSize must be between MinNodeSize and MaxNodeSize")
 	}
 	if nodeGroupInfo.VMSpecName == "" {
 		return fmt.Errorf("VM Spec Name is required")
@@ -1210,11 +1215,14 @@ func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, 
 	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
 		return fmt.Errorf("Invalid Node Group IID")
 	}
-	if minNodeSize < 1 {
-		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	if minNodeSize < 0 {
+		return fmt.Errorf("MinNodeSize cannot be negative")
 	}
 	if maxNodeSize < 1 {
 		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if minNodeSize > maxNodeSize {
+		return fmt.Errorf("MinNodeSize cannot exceed MaxNodeSize")
 	}
 
 	return nil
