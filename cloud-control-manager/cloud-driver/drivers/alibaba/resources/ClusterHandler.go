@@ -726,6 +726,12 @@ func (ach *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nod
 		LoggingError(hiscallInfo, err)
 		return emptyNodeGroupInfo, err
 	}
+	if nodepool == nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: nodepool(%s) detail is empty", ngId)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
 	if nodepool.AutoScaling == nil {
 		err = fmt.Errorf("Failed to Change NodeGroup Scaling: nodepool(%s) has no autoscaling information", ngId)
 		cblogger.Error(err)
