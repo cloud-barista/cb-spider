@@ -1785,6 +1785,19 @@ func (handler *NhnCloudRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbN
 	return handler.pollRDSJobSimpleWithEndpoint(ctx, endpointFn, resp.JobId)
 }
 
+// IsSQLFallbackEligibleForCharsetCollation implements RDBMSManager.go's
+// rdbmsDatabaseSQLFallbackEligible. The v3.0 REST API above (db-schemas) has no charset/collation
+// field, but NHN Cloud RDS instances support an opt-in instance setting -- "DB 스키마 & 사용자
+// 직접 제어" ("Direct Control"), toggled in the NHN console, not via any API CB-Spider can call --
+// that grants the master account CREATE/DROP/CREATE USER on *.*, enough for a plain SQL
+// `CREATE DATABASE ... CHARACTER SET ... COLLATE ...` to work. CB-Spider has no way to check
+// whether a given instance has this enabled, so it always reports itself eligible and lets
+// CreateRDBMSDatabase attempt the SQL path; if Direct Control isn't actually on, the MySQL/MariaDB
+// engine's own permission-denied error surfaces to the caller, which already explains the problem.
+func (handler *NhnCloudRDBMSHandler) IsSQLFallbackEligibleForCharsetCollation() bool {
+	return true
+}
+
 // ListDatabases lists DB schemas on the NHN Cloud RDS instance.
 func (handler *NhnCloudRDBMSHandler) ListDatabases(rdbmsSystemId, dbEngine string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

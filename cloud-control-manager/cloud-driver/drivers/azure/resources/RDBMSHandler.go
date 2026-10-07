@@ -856,13 +856,34 @@ func convertFlexibleServerStatus(state string) irs.RDBMSStatus {
 
 // CreateDatabase creates a database in an Azure MySQL Flexible Server instance.
 func (handler *AzureRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	return handler.CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, "", "")
+}
+
+// CreateDatabaseWithOptions creates a database in an Azure MySQL Flexible Server instance, optionally
+// with an explicit charset and/or collation (empty = server default). Azure's Database resource
+// natively supports both (properties.charset/properties.collation); CB-Spider only checks that the
+// value is safe to use as a SQL identifier (see RDBMSManager.go) and otherwise passes it through
+// unvalidated -- Azure itself rejects any charset/collation name it doesn't recognize.
+func (handler *AzureRDBMSHandler) CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, charset, collation string) error {
 	if handler.DatabasesClient == nil {
 		return fmt.Errorf("Azure CreateDatabase: DatabasesClient is not initialized")
 	}
 	resourceGroup := handler.Region.Region
+
+	var props *armmysqlfs.DatabaseProperties
+	if charset != "" || collation != "" {
+		props = &armmysqlfs.DatabaseProperties{}
+		if charset != "" {
+			props.Charset = &charset
+		}
+		if collation != "" {
+			props.Collation = &collation
+		}
+	}
+
 	poller, err := handler.DatabasesClient.BeginCreateOrUpdate(
 		handler.Ctx, resourceGroup, rdbmsSystemId, dbName,
-		armmysqlfs.Database{}, nil,
+		armmysqlfs.Database{Properties: props}, nil,
 	)
 	if err != nil {
 		return fmt.Errorf("Azure CreateDatabase: %w", err)
@@ -871,6 +892,16 @@ func (handler *AzureRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName
 		return fmt.Errorf("Azure CreateDatabase (poll): %w", err)
 	}
 	return nil
+}
+
+// RequiresCollationPairedWithCharset implements RDBMSManager.go's
+// rdbmsDatabaseRequiresPairedCollation. Azure's Database resource API has been observed to
+// silently drop a Charset-only request (properties.collation left unset) -- falling back to the
+// server's own default charset entirely, with no error -- unless properties.collation is also
+// given in the same PUT. CreateRDBMSDatabase uses this to decide whether a Charset-only request
+// needs its collation resolved via a live query before calling CreateDatabaseWithOptions.
+func (handler *AzureRDBMSHandler) RequiresCollationPairedWithCharset() bool {
+	return true
 }
 
 // ListDatabases lists all databases in an Azure MySQL Flexible Server instance.
