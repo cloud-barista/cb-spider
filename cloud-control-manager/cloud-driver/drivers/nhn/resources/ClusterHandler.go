@@ -615,34 +615,19 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 
 	nodeGroupId := nodeGroup.UUID
 
+	if maxNodeSize > 10 {
+		return emptyNodeGroupInfo, fmt.Errorf("MaxNodeSize(%d) must be 10 or less on NHN Cloud", maxNodeSize)
+	}
+	if minNodeSize > nodeGroup.NodeCount {
+		return emptyNodeGroupInfo, fmt.Errorf("MinNodeSize(%d) must not exceed the current node count(%d)", minNodeSize, nodeGroup.NodeCount)
+	}
+	if maxNodeSize < nodeGroup.NodeCount {
+		return emptyNodeGroupInfo, fmt.Errorf("MaxNodeSize(%d) must not be below the current node count(%d)", maxNodeSize, nodeGroup.NodeCount)
+	}
+
 	enable := true
-	// CAUTION: desiredNodeSize cannot be applied in NHN Cloud
-	minNodeCount := minNodeSize
-	maxNodeCount := maxNodeSize
-
-	// Check if CurrentNodeCount >= minNodeCount or minNodeCount >= 1
-	// And CurrentNodeCount <= maxNodeCount or maxNodeCount <= 10
-	nodeCount := nodeGroup.NodeCount
-	if minNodeCount < 1 {
-		minNodeCount = 1
-		cblogger.Info("MinNodeSize must be 1 or greater. It will be set to 1.")
-	}
-	if nodeCount < minNodeCount {
-		minNodeCount = nodeCount
-		cblogger.Infof("MinNodeSize must be less than or equal to current node count. It will be set to current node count(%d).", nodeCount)
-	}
-
-	if maxNodeCount > 10 {
-		maxNodeCount = 10
-		cblogger.Info("MaxNodeSize must be 10 or less. It will be set to 10.")
-	}
-	if nodeCount > maxNodeCount {
-		maxNodeCount = nodeCount
-		cblogger.Infof("MaxNodeSize must be greater than or equal to current node count. It will be set to current node count(%d).", nodeCount)
-	}
-
 	// Set NodeGroup's Autoscale
-	_, err = nhnSetNodeGroupAutoscale(nch.ClusterClient, cluster.UUID, nodeGroupId, enable, minNodeCount, maxNodeCount)
+	_, err = nhnSetNodeGroupAutoscale(nch.ClusterClient, cluster.UUID, nodeGroupId, enable, minNodeSize, maxNodeSize)
 	if err != nil {
 		changeErr = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
 		return emptyNodeGroupInfo, changeErr
@@ -2284,14 +2269,18 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 
 func validateAtChangeNodeGroupScaling(minNodeSize int, maxNodeSize int) error {
 	if minNodeSize < 1 {
-		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+		return fmt.Errorf("MinNodeSize cannot be smaller than 1")
 	}
 	if maxNodeSize < 1 {
 		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
 	}
+	if minNodeSize > maxNodeSize {
+		return fmt.Errorf("MinNodeSize cannot exceed MaxNodeSize")
+	}
 
 	return nil
 }
+
 
 func (nch *NhnCloudClusterHandler) ListIID() ([]*irs.IID, error) {
 	defer func() {

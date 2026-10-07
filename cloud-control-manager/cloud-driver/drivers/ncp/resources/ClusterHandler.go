@@ -1452,29 +1452,52 @@ func (nvch *NcpVpcClusterHandler) GetAutoScalingGroups(autoScalingGroupName stri
 	*/
 }
 
-// AutoScaling 이라는 별도의 메뉴가 있음.
 func (nvch *NcpVpcClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
-	return false, nil
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, nodeGroupIID.SystemId, "SetNodeGroupAutoScaling()")
+	start := call.Start()
+	nodePool, err := nvch.getScalingNodePool(clusterIID, nodeGroupIID)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	body, err := ncpNodePoolScalingUpdate(nodePool, on, int(ncloud.Int32Value(nodePool.NodeCount)),
+		ncloud.Int32Value(nodePool.Autoscale.Min), ncloud.Int32Value(nodePool.Autoscale.Max))
+	if err == nil {
+		err = nvch.ClusterClient.V2Api.ClustersUuidNodePoolInstanceNoPatch(nvch.Ctx, body,
+			ncloud.String(clusterIID.SystemId), ncloud.String(nodeGroupIID.SystemId))
+	}
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	LoggingInfo(hiscallInfo, start)
+	return true, nil
 }
 
 func (nvch *NcpVpcClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID,
 	DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (irs.NodeGroupInfo, error) {
 	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s] / DesiredNodeSize : [%d] / MinNodeSize : [%d] / MaxNodeSize : [%d]", clusterIID.SystemId, nodeGroupIID.SystemId, DesiredNodeSize, MinNodeSize, MaxNodeSize)
 
-	if MinNodeSize < 1 || MaxNodeSize < 1 || DesiredNodeSize < 1 {
-		return irs.NodeGroupInfo{}, fmt.Errorf("invalid node group scaling values")
+	nodePool, err := nvch.getScalingNodePool(clusterIID, nodeGroupIID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.NodeGroupInfo{}, err
+	}
+	if MinNodeSize < 0 || MaxNodeSize < 0 || MinNodeSize > 250 || MaxNodeSize > 250 {
+		err := fmt.Errorf("NCP scaling limits must be between 0 and 250")
+		cblogger.Error(err)
+		return irs.NodeGroupInfo{}, err
+	}
+	updateBody, err := ncpNodePoolScalingUpdate(nodePool, ncloud.BoolValue(nodePool.Autoscale.Enabled),
+		DesiredNodeSize, int32(MinNodeSize), int32(MaxNodeSize))
+	if err != nil {
+		cblogger.Error(err)
+		return irs.NodeGroupInfo{}, err
 	}
 
-	updateBody := &vnks.NodePoolUpdateBody{
-		NodeCount: ncloud.Int32(int32(DesiredNodeSize)),
-		Autoscale: &vnks.AutoscalerUpdate{
-			Enabled: ncloud.Bool(true),
-			Min:     ncloud.Int32(int32(MinNodeSize)),
-			Max:     ncloud.Int32(int32(MaxNodeSize)),
-		},
-	}
-
-	err := nvch.ClusterClient.V2Api.ClustersUuidNodePoolInstanceNoPatch(nvch.Ctx, updateBody,
+	err = nvch.ClusterClient.V2Api.ClustersUuidNodePoolInstanceNoPatch(nvch.Ctx, updateBody,
 		ncloud.String(clusterIID.SystemId), ncloud.String(nodeGroupIID.SystemId))
 	if err != nil {
 		cblogger.Error(err)
@@ -1482,6 +1505,73 @@ func (nvch *NcpVpcClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nod
 	}
 
 	return nvch.GetNodeGroup(clusterIID, nodeGroupIID)
+}
+
+func (nvch *NcpVpcClusterHandler) getScalingNodePool(clusterIID, nodeGroupIID irs.IID) (*vnks.NodePool, error) {
+	if clusterIID.SystemId == "" || nodeGroupIID.SystemId == "" {
+		return nil, fmt.Errorf("Cluster and node group SystemId are required")
+	}
+	response, err := nvch.ClusterClient.V2Api.ClustersUuidNodePoolGet(nvch.Ctx, ncloud.String(clusterIID.SystemId))
+	if err != nil {
+		return nil, fmt.Errorf("Cannot retrieve node pool scaling settings: %w", err)
+	}
+	if response != nil {
+		for _, nodePool := range response.NodePool {
+			if nodePool != nil && nodePool.InstanceNo != nil &&
+				fmt.Sprint(*nodePool.InstanceNo) == nodeGroupIID.SystemId {
+				if nodePool.Autoscale == nil {
+					nodePool.Autoscale = &vnks.AutoscaleOption{
+						Enabled: ncloud.Bool(false),
+						Min:     ncloud.Int32(0),
+						Max:     ncloud.Int32(0),
+					}
+				}
+				return nodePool, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("Node pool %s not found", nodeGroupIID.SystemId)
+}
+
+func ncpNodePoolScalingUpdate(nodePool *vnks.NodePool, on bool, desired int, min, max int32) (*vnks.NodePoolUpdateBody, error) {
+	if nodePool == nil || nodePool.NodeCount == nil {
+		return nil, fmt.Errorf("Current node count is unavailable")
+	}
+	currentNodeCount := ncloud.Int32Value(nodePool.NodeCount)
+	body := &vnks.NodePoolUpdateBody{
+		Autoscale: &vnks.AutoscalerUpdate{Enabled: ncloud.Bool(on)},
+	}
+	if on {
+		// When enabling autoscaling, ensure min is at least 1 and max is valid
+		if min < 1 {
+			min = 1
+		}
+		if max < min {
+			if currentNodeCount > min {
+				max = currentNodeCount
+			} else {
+				max = min
+			}
+		}
+		if max > 250 {
+			max = 250
+		}
+		if min > max {
+			return nil, fmt.Errorf("NCP autoscaling requires 1 <= MinNodeSize <= MaxNodeSize <= 250")
+		}
+		body.Autoscale.Min = ncloud.Int32(min)
+		body.Autoscale.Max = ncloud.Int32(max)
+	} else {
+		if desired < 1 || int64(desired) > 2147483647 {
+			return nil, fmt.Errorf("NCP DesiredNodeSize must be a positive 32-bit integer")
+		}
+		body.NodeCount = ncloud.Int32(int32(desired))
+		if min >= 1 && max >= min && max <= 250 {
+			body.Autoscale.Min = ncloud.Int32(min)
+			body.Autoscale.Max = ncloud.Int32(max)
+		}
+	}
+	return body, nil
 }
 
 func (nvch *NcpVpcClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
