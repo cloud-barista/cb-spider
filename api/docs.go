@@ -1311,7 +1311,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Cluster with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)] \u003cbr\u003e * NodeGroupList is optional, depends on CSP type: \u003cbr\u003e \u0026nbsp;- Type-I (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster creation. \u003cbr\u003e \u0026nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node Group during initial Cluster creation.",
+                "description": "Create a new Cluster with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)] \u003cbr\u003e * NodeGroupList is optional, depends on CSP type: \u003cbr\u003e \u0026nbsp;- Type-I (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster creation. \u003cbr\u003e \u0026nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node Group during initial Cluster creation.\nMalformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1495,7 +1495,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/nodegroup": {
             "post": {
-                "description": "Add a new Node Group to an existing Cluster.",
+                "description": "Add a new Node Group to an existing Cluster.\nMalformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1622,7 +1622,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/nodegroup/{NodeGroupName}/autoscalesize": {
             "put": {
-                "description": "Change the scaling settings for a Node Group in a Cluster.",
+                "description": "Change the scaling settings for a Node Group in a Cluster.\nNode sizes must be non-negative integers.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1689,7 +1689,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/nodegroup/{NodeGroupName}/onautoscaling": {
             "put": {
-                "description": "Enable or disable auto scaling for a Node Group in a Cluster.",
+                "description": "Enable or disable auto scaling for a Node Group in a Cluster.\nOnAutoScaling must be a valid boolean.",
                 "consumes": [
                     "application/json"
                 ],
