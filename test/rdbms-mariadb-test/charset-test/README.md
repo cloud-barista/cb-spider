@@ -220,4 +220,4 @@ NHN        | PASS      | PASS      | PASS      | PASS      | PASS      | PASS   
 Total: 4 PASS, 0 FAIL
 ```
 
-NHN 테스트 인스턴스(MariaDB)에서도 "Direct Control"을 활성화한 뒤 재실행한 결과, NHN도 PASS로 전환 -- 4개 CSP 전체 정상 확인.
+NHN 테스트 인스턴스(MariaDB)에서도 "Direct Control"을 활성화한 뒤 재실행한 결과 -- 4개 CSP 전체 정상 확인.
