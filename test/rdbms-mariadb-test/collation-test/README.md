@@ -188,7 +188,7 @@ Same endpoints and request body as `../../rdbms-mysql-test/collation-test` -- se
 
 ## Test Results
 
-### 2026-10-07 (NHN Direct Control 비활성화)
+### 2026-10-07 (NHN Direct Control disabled)
 
 ```
 ====================================================================================================================
@@ -206,9 +206,11 @@ NHN        | FAIL      | SKIP      | SKIP      | FAIL      | SKIP      | SKIP   
 Total: 2 PASS, 2 FAIL
 ```
 
-`ALIBABA`의 FAIL은 "Confirmed finding" 섹션에서 설명한 대로 **의도된 결과**임 -- Alibaba RDS가 MariaDB 인스턴스에서 Collation을 지원하지 않는다는 공식 문서상 제약을 CB-Spider가 명확한 에러로 거부한 것(조용히 무시하지 않음). `NHN`의 FAIL은 이 테스트 인스턴스에 아직 "Direct Control"이 활성화되지 않은 상태라서 발생한 것으로, 환경 전제조건 미충족이지 CB-Spider 버그가 아님 (`nhn-collation-test.sh` 참고). AWS/OpenStack은 모두 정상.
+`ALIBABA` is unsupported by the CSP.
+The `NHN` FAIL is expected -- "Direct Control" isn't set up yet on this test instance (see
+`nhn-collation-test.sh`).
 
-### 2026-10-07 (NHN Direct Control 활성화 후)
+### 2026-10-07 (NHN Direct Control enabled)
 
 ```
 ====================================================================================================================
@@ -226,4 +228,5 @@ NHN        | PASS      | PASS      | PASS      | PASS      | PASS      | PASS   
 Total: 3 PASS, 1 FAIL
 ```
 
-NHN 테스트 인스턴스(MariaDB)에서 "Direct Control"을 활성화한 뒤 재실행한 결과, NHN은 PASS로 전환. `ALIBABA`는 Direct Control과 무관한, 앞서 설명한 별개의 의도된 제약이라 여전히 FAIL -- 이 FAIL은 정상적으로 유지되는 것이 맞음.
+Result after enabling "Direct Control" on the NHN test instance (MariaDB) and re-running.
+`ALIBABA` is unsupported by the CSP -- its FAIL is expected behavior.

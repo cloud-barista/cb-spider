@@ -243,7 +243,7 @@ tail -f /tmp/rdbms_collation_logs_<PID>/log_aws.txt
 
 ## Test Results
 
-### 2026-10-07 (NHN Direct Control 비활성화)
+### 2026-10-07 (NHN Direct Control disabled)
 
 ```
 ====================================================================================================================
@@ -266,9 +266,12 @@ NHN        | FAIL      | SKIP      | SKIP      | FAIL      | SKIP      | SKIP   
 Total: 8 PASS, 1 FAIL
 ```
 
-`NHN`의 FAIL은 이 테스트 인스턴스에 아직 "Direct Control"이 활성화되지 않은 상태라서 발생한 것으로, 환경 전제조건 미충족이지 CB-Spider 버그가 아님 (`nhn-collation-test.sh` 참고). 나머지 8개 CSP는 모두 정상, Tencent의 SQL `ALTER DATABASE` 후속 처리 경로와 NCP의 저장 프로시저 경로도 포함해서 정상 동작 확인.
+The `NHN` FAIL is caused by "Direct Control" not yet being enabled on this test instance -- an
+environment prerequisite not being met, not a CB-Spider bug (see `nhn-collation-test.sh`). The
+remaining 8 CSPs are all fine, including Tencent's SQL `ALTER DATABASE` follow-up path and NCP's
+stored-procedure path.
 
-### 2026-10-07 (NHN Direct Control 활성화 후)
+### 2026-10-07 (NHN Direct Control enabled)
 
 ```
 ====================================================================================================================
@@ -291,4 +294,5 @@ NHN        | PASS      | PASS      | PASS      | PASS      | PASS      | PASS   
 Total: 9 PASS, 0 FAIL
 ```
 
-NHN 테스트 인스턴스에서 "Direct Control"을 활성화한 뒤 재실행한 결과, NHN도 PASS로 전환 -- 9개 CSP 전체 정상 확인.
+Result after enabling "Direct Control" on the NHN test instance and re-running -- all 9 CSPs
+confirmed fine.
