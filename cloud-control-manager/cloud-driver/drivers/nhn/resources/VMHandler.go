@@ -1068,21 +1068,28 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 
 	// # Get SecurityGroup Info (one list call for all groups)
 	if len(server.SecurityGroups) != 0 {
+		// A failed listing must surface as an error: an empty SystemId is resolved by the
+		// runtime as "matches anything" and reports the wrong security group.
+		allPages, err := secgroups.List(vmHandler.VMClient).AllPages()
+		if err != nil {
+			return irs.VMInfo{}, fmt.Errorf("failed to list security groups for VM [%s]: %w", server.ID, err)
+		}
+		sgList, err := secgroups.ExtractSecurityGroups(allPages)
+		if err != nil {
+			return irs.VMInfo{}, fmt.Errorf("failed to parse security groups for VM [%s]: %w", server.ID, err)
+		}
 		sgIdByName := map[string]string{}
-		if allPages, err := secgroups.List(vmHandler.VMClient).AllPages(); err == nil {
-			if sgList, err := secgroups.ExtractSecurityGroups(allPages); err == nil {
-				for _, sg := range sgList {
-					sgIdByName[sg.Name] = sg.ID
-				}
-			}
+		for _, sg := range sgList {
+			sgIdByName[sg.Name] = sg.ID
 		}
 		sgIIds := make([]irs.IID, len(server.SecurityGroups))
 		for i, secGroupMap := range server.SecurityGroups {
 			secGroupName := secGroupMap["name"].(string)
-			sgIIds[i] = irs.IID{
-				NameId: secGroupName,
+			sgId, ok := sgIdByName[secGroupName]
+			if !ok {
+				return irs.VMInfo{}, fmt.Errorf("security group [%s] of VM [%s] was not found", secGroupName, server.ID)
 			}
-			sgIIds[i].SystemId = sgIdByName[secGroupName]
+			sgIIds[i] = irs.IID{NameId: secGroupName, SystemId: sgId}
 		}
 		vmInfo.SecurityGroupIIds = sgIIds
 	}

@@ -142,6 +142,7 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 		Password:         connInfo.CredentialInfo.Password,
 		DomainName:       connInfo.CredentialInfo.DomainName,
 		TenantID:         connInfo.CredentialInfo.ProjectID, // Caution : ProjectID to TenantID on SDK
+		AllowReauth:      true,                              // cached connections re-authenticate automatically on 401
 	}
 	providerClient, err := getProviderClient(authOpts)
 	if err != nil {

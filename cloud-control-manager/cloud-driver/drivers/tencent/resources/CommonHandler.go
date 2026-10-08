@@ -104,8 +104,11 @@ func WaitForDone(client *cbs.Client, diskIID irs.IID, status string) (string, er
 		response, errStatus := client.DescribeDisks(request)
 		if errStatus != nil || len(response.Response.DiskSet) == 0 {
 			cblogger.Errorf("DescribeDisks failed or returned no disk for %s: %v", diskIID.SystemId, errStatus)
-			time.Sleep(time.Second * 1)
 			curRetryCnt++
+			if curRetryCnt > maxRetryCnt {
+				return "Failed", errors.New("DescribeDisks for [" + diskIID.SystemId + "] kept failing; giving up after " + strconv.Itoa(maxRetryCnt) + " retries")
+			}
+			time.Sleep(time.Second * 1)
 			continue
 		}
 

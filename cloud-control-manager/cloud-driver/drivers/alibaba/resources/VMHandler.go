@@ -409,7 +409,10 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		}
 		diskRequest.DiskIds = &diskIds
 		if _, diskErr := vmHandler.Client.ModifyDiskAttribute(diskRequest); diskErr != nil {
-			return irs.VMInfo{}, errors.New("Instance created but modifying disk attributes failed " + diskErr.Error())
+			if _, cleanupErr := vmHandler.TerminateVM(newVmIID); cleanupErr != nil {
+				return irs.VMInfo{}, fmt.Errorf("modifying disk attributes failed: %v, and cleanup also failed: %v. VM may remain in cloud", diskErr, cleanupErr)
+			}
+			return irs.VMInfo{}, errors.New("Instance creation rolled back: modifying disk attributes failed " + diskErr.Error())
 		}
 	}
 

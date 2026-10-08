@@ -316,6 +316,10 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				newErr := fmt.Errorf("Failed to Find the PublicIP with the ID : [%v]", err)
 				cblogger.Error(newErr.Error())
 				loggingError(callLogInfo, newErr)
+				if r := ips.Delete(vmHandler.NetworkClient, publicIPId); r.Err != nil {
+					cblogger.Warnf("Failed to release the new PublicIP [%s]: %v", publicIPId, r.Err)
+				}
+				return irs.VMInfo{}, newErr
 			}
 
 			// // # Get Tier NameId
