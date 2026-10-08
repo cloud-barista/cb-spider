@@ -284,7 +284,8 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 
 	// NOTE: Waiting for the root disk to leave 'optimizing' (up to ~3 min) is not needed here.
 	// The VM is already Running and usable (SSH/disk I/O verified while optimizing); the wait only
-	// matters for storage operations, and Suspend/Terminate keep their own waitForDiskAttach().
+	// matters for storage operations: SuspendVM (and TerminateVM through it) waits itself, and
+	// AttachDisk / SnapshotVM wait at their entry before touching the root disk.
 	// Removing it cuts NCP StartVM from ~250s to ~90s and ~70 CSP calls per VM.
 	// curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waiting while Root disk is fully attached!!"
 	// if statErr != nil {
@@ -1095,12 +1096,9 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		if strings.EqualFold(ncloud.StringValue(disk.BlockStorageType.Code), "BASIC") {
 			vmInfo.RootDiskSize = strconv.FormatFloat(float64(ncloud.Int64Value(disk.BlockStorageSize))/(1024*1024*1024), 'f', 0, 64)
 			vmInfo.RootDeviceName = ncloud.StringValue(disk.DeviceName)
-			vmInfo.RootDiskType = "HDD"
-			if disk.BlockStorageDiskDetailType != nil {
-				if codeName := ncloud.StringValue(disk.BlockStorageDiskDetailType.CodeName); strings.EqualFold(codeName, "SSD") || strings.EqualFold(codeName, "CB1") || strings.EqualFold(codeName, "CB2") {
-					vmInfo.RootDiskType = "SSD"
-				}
-			}
+			// Must round-trip through StartVM, which sends the volume type (HDD -> CB1, SSD -> FB1).
+			// NCP labels CB1 disks with detail type "SSD", so decide by the volume type first.
+			vmInfo.RootDiskType = ncpRootDiskType(disk.BlockStorageVolumeType, disk.BlockStorageDiskDetailType)
 		} else {
 			vmInfo.DataDiskIIDs = append(vmInfo.DataDiskIIDs, irs.IID{NameId: ncloud.StringValue(disk.BlockStorageName), SystemId: ncloud.StringValue(disk.BlockStorageInstanceNo)})
 		}
@@ -1565,56 +1563,11 @@ func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *str
 			storageInstanceNo = disk.BlockStorageInstanceNo
 			storageSize = strconv.FormatFloat(float64(*disk.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
 			deviceName = disk.DeviceName
-			if disk.BlockStorageDiskDetailType != nil {
-				codeName := ncloud.StringValue(disk.BlockStorageDiskDetailType.CodeName)
-				if strings.EqualFold(codeName, "SSD") || strings.EqualFold(codeName, "CB1") || strings.EqualFold(codeName, "CB2") {
-					diskType = "SSD"
-				} else {
-					diskType = "HDD"
-				}
-			}
+			diskType = ncpRootDiskType(disk.BlockStorageVolumeType, disk.BlockStorageDiskDetailType)
 			break
 		}
 	}
 	return storageInstanceNo, &diskType, &storageSize, deviceName, nil
-}
-
-func (vmHandler *NcpVpcVMHandler) getVmDataDiskList(vmId *string) ([]irs.IID, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called getVmDataDiskList()")
-
-	if strings.EqualFold(*vmId, "") {
-		newErr := fmt.Errorf("Invalid VM Instance ID!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	storageReq := vserver.GetBlockStorageInstanceListRequest{
-		RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
-		ServerInstanceNo: vmId,
-	}
-	storageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	if len(storageResult.BlockStorageInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Get any BlockStorage Info!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting BlockStorage List!!")
-	}
-
-	var dataDiskIIDList []irs.IID
-	for _, disk := range storageResult.BlockStorageInstanceList {
-		if strings.EqualFold(*disk.ServerInstanceNo, *vmId) && !strings.EqualFold(*disk.BlockStorageType.Code, "BASIC") {
-			dataDiskIIDList = append(dataDiskIIDList, irs.IID{NameId: *disk.BlockStorageName, SystemId: *disk.BlockStorageInstanceNo})
-			// break
-		}
-	}
-	return dataDiskIIDList, nil
 }
 
 func (vmHandler *NcpVpcVMHandler) getNetworkInterfaceName(netInterfaceNo *string) (*string, error) {
@@ -1796,4 +1749,20 @@ func (vmHandler *NcpVpcVMHandler) ListIID() ([]*irs.IID, error) {
 		}
 	}
 	return iidList, nil
+}
+
+// ncpRootDiskType maps a block storage's type codes to the Spider-level HDD/SSD that StartVM
+// accepts back: volume type FB1 is SSD and CB1/CB2 are HDD (StartVM maps HDD -> CB1, SSD -> FB1).
+// Older (XEN) disks have no volume type, so fall back to the disk detail type.
+func ncpRootDiskType(volumeType *vserver.CommonCode, detailType *vserver.CommonCode) string {
+	if volumeType != nil && volumeType.Code != nil {
+		if strings.EqualFold(*volumeType.Code, "FB1") {
+			return "SSD"
+		}
+		return "HDD"
+	}
+	if detailType != nil && strings.EqualFold(ncloud.StringValue(detailType.CodeName), "SSD") {
+		return "SSD"
+	}
+	return "HDD"
 }

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -642,19 +643,34 @@ func collectSGTargets(vmHandler *KTVpcVMHandler, vmIDs []string, pfList []portfo
 			continue
 		}
 		t := sgVMTarget{vmID: vmID}
-		for tierName, addrs := range server.Addresses {
-			if list, ok := addrs.([]interface{}); ok {
+		// Addresses is a map: iterate tiers in a fixed order and take the private IP and the tier
+		// network together from the first tier that has a fixed IP, so multi-NIC VMs resolve
+		// deterministically instead of to whichever tier the map yields last.
+		tierNames := make([]string, 0, len(server.Addresses))
+		for tierName := range server.Addresses {
+			tierNames = append(tierNames, tierName)
+		}
+		sort.Strings(tierNames)
+		for _, tierName := range tierNames {
+			ip := ""
+			if list, ok := server.Addresses[tierName].([]interface{}); ok {
 				for _, a := range list {
 					if m, ok := a.(map[string]interface{}); ok && m["OS-EXT-IPS:type"] == "fixed" {
-						t.privateIP, _ = m["addr"].(string)
+						ip, _ = m["addr"].(string)
+						break
 					}
 				}
 			}
+			if ip == "" {
+				continue
+			}
+			t.privateIP = ip
 			for _, sn := range subnetList {
 				if strings.EqualFold(sn.RefName, tierName) {
 					t.tierNetID = sn.NetworkID
 				}
 			}
+			break
 		}
 		for _, pf := range pfList {
 			if t.privateIP != "" && strings.EqualFold(pf.MappedIP, t.privateIP) {
@@ -742,8 +758,15 @@ func (securityHandler *KTVpcSecurityHandler) AddRules(sgIID irs.IID, securityRul
 			extNetId = &id
 		}
 	}
-	pfList, _ := vmHandler.listPortForwarding()
-	fwList, _ := vmHandler.listFirewallRule()
+	// A failed listing must not be treated as "no rules": it would create duplicates below.
+	pfList, err := vmHandler.listPortForwarding()
+	if err != nil {
+		return irs.SecurityInfo{}, fmt.Errorf("failed to list port forwarding rules: %w", err)
+	}
+	fwList, err := vmHandler.listFirewallRule()
+	if err != nil {
+		return irs.SecurityInfo{}, fmt.Errorf("failed to list firewall rules: %w", err)
+	}
 
 	for _, t := range collectSGTargets(vmHandler, vmIDs, pfList, subnetList) {
 		vmID, publicIP, publicIPID := t.vmID, t.publicIP, t.publicIPID
@@ -982,9 +1005,19 @@ func (securityHandler *KTVpcSecurityHandler) RemoveRules(sgIID irs.IID, security
 		NetworkClient: securityHandler.NetworkClient,
 	}
 	// Shared lookups, fetched once per SG instead of per VM / per rule
-	subnetList, _ := vpcHandler.listKTSubnet()
-	pfList, _ := vmHandler.listPortForwarding()
-	fwList, _ := vmHandler.listFirewallRule()
+	// A failed listing must not be reported as a successful removal.
+	subnetList, err := vpcHandler.listKTSubnet()
+	if err != nil {
+		return false, fmt.Errorf("failed to list tiers: %w", err)
+	}
+	pfList, err := vmHandler.listPortForwarding()
+	if err != nil {
+		return false, fmt.Errorf("failed to list port forwarding rules: %w", err)
+	}
+	fwList, err := vmHandler.listFirewallRule()
+	if err != nil {
+		return false, fmt.Errorf("failed to list firewall rules: %w", err)
+	}
 
 	for _, t := range collectSGTargets(vmHandler, vmIDs, pfList, subnetList) {
 		vmID, publicIP := t.vmID, t.publicIP

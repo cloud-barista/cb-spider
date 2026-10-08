@@ -93,11 +93,13 @@ func GetPublicVPCInfo(client *gophercloud.ServiceClient, typeName string) (strin
 	return "", nil
 }
 
-// flavorCache caches flavors by endpoint|name (flavor definitions are immutable).
+// flavorCache caches flavors by client|endpoint|name (flavor definitions are immutable). The
+// provider client scopes the key to one authenticated project, so private flavors with the same
+// name in different projects (endpoints without a project id) cannot collide.
 var flavorCache sync.Map
 
 func GetFlavorByName(client *gophercloud.ServiceClient, flavorName string) (flavors.Flavor, error) {
-	cacheKey := client.Endpoint + "|" + flavorName
+	cacheKey := fmt.Sprintf("%p|%s|%s", client.ProviderClient, client.Endpoint, flavorName)
 	if v, ok := flavorCache.Load(cacheKey); ok {
 		return v.(flavors.Flavor), nil
 	}

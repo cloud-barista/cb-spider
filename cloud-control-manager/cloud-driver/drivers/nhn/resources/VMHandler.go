@@ -1153,37 +1153,6 @@ func (vmHandler *NhnCloudVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus
 	}
 }
 
-func (vmHandler *NhnCloudVMHandler) getOSPlatformWithImageID(imageId string) (irs.Platform, error) {
-	cblogger.Info("NHN Cloud Driver: called getOSPlatformWithImageID()")
-
-	if strings.EqualFold(imageId, "") {
-		newErr := fmt.Errorf("Invalid Image ID!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	nhnImage, err := comimages.Get(vmHandler.VMClient, imageId).Extract() // Caution!!) With VMClient (Not Like NHN Cloud ImageHandler)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NHN Cloud Image Info. [%v]", err.Error())
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	osType, exist := nhnImage.Metadata["os_type"].(string)
-	if !exist {
-		newErr := fmt.Errorf("Failed to Find OSType Info from the Image Info!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	if strings.EqualFold(osType, "windows") {
-		return irs.WINDOWS, nil
-	} else if strings.EqualFold(osType, "linux") {
-		return irs.LINUX_UNIX, nil
-	}
-	return irs.LINUX_UNIX, nil
-}
-
 func (vmHandler *NhnCloudVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPairId string) (*string, error) {
 	cblogger.Info("NHN Cloud driver: called createLinuxInitUserData()!!")
 

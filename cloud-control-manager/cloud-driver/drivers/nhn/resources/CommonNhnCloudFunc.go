@@ -19,7 +19,6 @@ import (
 	"time"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/secgroups"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/ports"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
@@ -139,27 +138,6 @@ func getVMSpecIdWithName(client *nhnsdk.ServiceClient, flavorName string) (strin
 	}
 
 	return "", fmt.Errorf("Failed to Find Flavor with the name [%s]", flavorName)
-}
-
-func getSGWithName(networkClient *nhnsdk.ServiceClient, securityGroupName string) (*secgroups.SecurityGroup, error) {
-	cblogger.Info("NHN Cloud Driver: called GetSGWithName()")
-
-	allPages, err := secgroups.List(networkClient).AllPages()
-	if err != nil {
-		return nil, err
-	}
-	nhnSGList, err := secgroups.ExtractSecurityGroups(allPages)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, nhnSG := range nhnSGList {
-		if strings.EqualFold(nhnSG.Name, securityGroupName) {
-			return &nhnSG, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Failed to Find SecurityGroups with the name [%s]", securityGroupName)
 }
 
 func getVPCWithName(networkClient *nhnsdk.ServiceClient, vpcName string) (*vpcs.VPC, error) {

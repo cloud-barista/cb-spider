@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
 
@@ -423,7 +424,8 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	cblogger.Error(newErr.Error())
 	loggingError(callLogInfo, newErr)
 	if delErr := servers.Delete(vmHandler.VMClient, vm.ID).ExtractErr(); delErr != nil {
-		cblogger.Warnf("Failed to delete the failed VM [%s] (continuing): %v", vm.ID, delErr)
+		newErr = fmt.Errorf("%v; cleanup of the failed VM also failed (VM may remain): %v", newErr, delErr)
+		cblogger.Error(newErr.Error())
 	}
 	return irs.VMInfo{}, newErr
 }
@@ -981,6 +983,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 		var wg sync.WaitGroup
 		var firstErr error
 		var errOnce sync.Once
+		var failed atomic.Bool // set with firstErr; later tasks skip instead of adding more partial rules
 
 		for _, t := range tasks {
 			task := t
@@ -989,6 +992,9 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 				defer wg.Done()
 				sem <- struct{}{}
 				defer func() { <-sem }()
+				if failed.Load() {
+					return
+				}
 
 				sgRule := task.rule
 				curProtocol := task.curProtocol
@@ -1017,7 +1023,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 						pfResult := portforward.Create(vmHandler.NetworkClient, createPfOpts)
 						if pfResult.Err != nil {
 							cblogger.Errorf("Failed to Create PortForwarding Rule: [%v]", pfResult.Err)
-							errOnce.Do(func() { firstErr = pfResult.Err })
+							errOnce.Do(func() { firstErr = pfResult.Err; failed.Store(true) })
 							return
 						}
 						extractedID, err := portforward.ExtractPortForwardingID(pfResult)
@@ -1032,7 +1038,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					destCIDR, err := ipToCidr32(ruleSet.PublicIP)
 					if err != nil {
 						cblogger.Errorf("Failed to Get Dest Net Band: [%v]", err)
-						errOnce.Do(func() { firstErr = err })
+						errOnce.Do(func() { firstErr = err; failed.Store(true) })
 						return
 					}
 
@@ -1057,7 +1063,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					if fwResult.Err != nil {
 						newErr := fmt.Errorf("Failed to Create Firewall 'inbound' Rule: %v", fwResult.Err)
 						cblogger.Error(newErr.Error())
-						errOnce.Do(func() { firstErr = newErr })
+						errOnce.Do(func() { firstErr = newErr; failed.Store(true) })
 						return
 					}
 					time.Sleep(100 * time.Millisecond)
@@ -1066,7 +1072,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					srcCIDR, err := ipToCidr32(ruleSet.PrivateIP)
 					if err != nil {
 						cblogger.Errorf("Failed to Get Source Net Band: [%v]", err)
-						errOnce.Do(func() { firstErr = err })
+						errOnce.Do(func() { firstErr = err; failed.Store(true) })
 						return
 					}
 
@@ -1091,7 +1097,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					if fwResult.Err != nil {
 						newErr := fmt.Errorf("Failed to Create Firewall 'outbound' Rule: %v", fwResult.Err)
 						cblogger.Error(newErr.Error())
-						errOnce.Do(func() { firstErr = newErr })
+						errOnce.Do(func() { firstErr = newErr; failed.Store(true) })
 						return
 					}
 					time.Sleep(100 * time.Millisecond)

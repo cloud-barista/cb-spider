@@ -50,6 +50,16 @@ func (myImageHandler *NcpVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 		return irs.MyImageInfo{}, newErr
 	}
 
+	// The root disk may still be 'optimizing' right after StartVM (which no longer waits for it);
+	// NCP rejects an image snapshot until it is attached.
+	vmHandler := NcpVpcVMHandler{RegionInfo: myImageHandler.RegionInfo, VMClient: myImageHandler.VMClient}
+	if _, waitErr := vmHandler.waitForDiskAttach(snapshotReqInfo.SourceVM); waitErr != nil {
+		newErr := fmt.Errorf("Failed to Wait for the Root Disk of the source VM to be attached : [%v]", waitErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.MyImageInfo{}, newErr
+	}
+
 	// Note) CreateMemberServerImageInstance() : For XEN/RHV
 	// Note) CreateServerImage() : For XEN/RHV/KVM
 	// NCP VPC ServerImage API does not return source VM info; store it in description for later retrieval.

@@ -71,6 +71,8 @@ func (AzureDriver) GetDriverVersion() string {
 }
 
 const (
+	// cspTimeout bounds the context created once per connection in ConnectCloud. Connections are
+	// cached (connectionCacheTTL = 50 min), so this must stay longer than that TTL.
 	cspTimeout time.Duration = 6000
 )
 

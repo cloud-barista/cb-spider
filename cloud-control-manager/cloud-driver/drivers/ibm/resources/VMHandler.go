@@ -940,34 +940,6 @@ func checkVMReqInfo(vmReqInfo irs.VMReqInfo) error {
 	}
 	return nil
 }
-func existInstance(vmIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
-	options := &vpcv1.ListInstancesOptions{}
-	instances, _, err := vpcService.ListInstancesWithContext(ctx, options)
-	if err != nil {
-		return false, err
-	}
-	for {
-		for _, instance := range instances.Instances {
-			if *instance.Name == vmIID.NameId {
-				return true, nil
-			}
-		}
-		nextstr, _ := getVMNextHref(instances.Next)
-		if nextstr != "" {
-			listInstanceOptionsNext := &vpcv1.ListInstancesOptions{
-				Start: core.StringPtr(nextstr),
-			}
-			instances, _, err = vpcService.ListInstancesWithContext(ctx, listInstanceOptionsNext)
-			if err != nil {
-				return false, err
-			}
-		} else {
-			break
-		}
-	}
-	return false, nil
-}
-
 func getRawVolume(volumeIId irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Volume, error) {
 	if volumeIId.SystemId == "" {
 		options := &vpcv1.ListVolumesOptions{}
@@ -1491,34 +1463,6 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 	vmInfo.KeyValueList = irs.StructToKeyValueList(instance)
 
 	return vmInfo, nil
-}
-
-func (vmHandler *IbmVMHandler) checkFloatingIPName(floatingIPName string) (exist bool, err error) {
-	options := &vpcv1.ListFloatingIpsOptions{}
-	floatingIPs, _, err := vmHandler.VpcService.ListFloatingIpsWithContext(vmHandler.Ctx, options)
-	if err != nil {
-		return false, err
-	}
-	for {
-		for _, floatingIP := range floatingIPs.FloatingIps {
-			if *floatingIP.Name == floatingIPName {
-				return true, nil
-			}
-		}
-		nextstr, _ := getFloatIPsNextHref(floatingIPs.Next)
-		if nextstr != "" {
-			listFloatingNext := &vpcv1.ListFloatingIpsOptions{
-				Start: core.StringPtr(nextstr),
-			}
-			floatingIPs, _, err = vmHandler.VpcService.ListFloatingIpsWithContext(vmHandler.Ctx, listFloatingNext)
-			if err != nil {
-				return false, err
-			}
-		} else {
-			break
-		}
-	}
-	return false, nil
 }
 
 type vmInfoWithError struct {

@@ -140,7 +140,15 @@ func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (i
 	if err != nil {
 		return nil, err
 	}
-	connectionCache.Store(cacheKey, cachedConnection{conn: cldConnection, expiresAt: time.Now().Add(connectionCacheTTL)})
+	// Drop expired entries so keys that never recur (rotated credentials, removed zones) do not accumulate.
+	now := time.Now()
+	connectionCache.Range(func(k, v any) bool {
+		if now.After(v.(cachedConnection).expiresAt) {
+			connectionCache.Delete(k)
+		}
+		return true
+	})
+	connectionCache.Store(cacheKey, cachedConnection{conn: cldConnection, expiresAt: now.Add(connectionCacheTTL)})
 
 	return cldConnection, nil
 }
@@ -153,7 +161,9 @@ type cachedConnection struct {
 
 var connectionCache sync.Map // cacheKey -> cachedConnection
 
-const connectionCacheTTL = 50 * time.Minute // below the typical 1h Keystone token lifetime
+// connectionCacheTTL must stay below the typical 1h Keystone token lifetime and below the
+// per-connection context timeout some drivers create once in ConnectCloud (Azure, IBM: 100 min).
+const connectionCacheTTL = 50 * time.Minute
 
 // Create ConnectionInfo object
 func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.ConnectionInfo, error) {
