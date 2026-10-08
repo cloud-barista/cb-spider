@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"time"
 
@@ -15,6 +16,12 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+)
+
+const (
+	IBM_VPC_LIST_MAX_ATTEMPTS   = 3
+	IBM_VPC_LIST_TIMEOUT        = time.Minute
+	IBM_VPC_LIST_RETRY_INTERVAL = 2 * time.Second
 )
 
 type IbmVPCHandler struct {
@@ -235,7 +242,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	listVpcsOptions := &vpcv1.ListVpcsOptions{}
 	var vpcInfos []*irs.VPCInfo
 	start := call.Start()
-	vpcs, _, err := vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions)
+	vpcs, _, err := listVPCsWithRetry(vpcHandler.Ctx, vpcHandler.VpcService, listVpcsOptions)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -259,7 +266,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			listVpcsOptions2 := &vpcv1.ListVpcsOptions{
 				Start: core.StringPtr(nextstr),
 			}
-			vpcs, _, err = vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions2)
+			vpcs, _, err = listVPCsWithRetry(vpcHandler.Ctx, vpcHandler.VpcService, listVpcsOptions2)
 			if err != nil {
 				getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
@@ -744,12 +751,44 @@ func existSubnet(subnetIID irs.IID, vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx 
 	return false, nil
 }
 
+func listVPCsWithRetry(ctx context.Context, service *vpcv1.VpcV1, options *vpcv1.ListVpcsOptions) (*vpcv1.VPCCollection, *core.DetailedResponse, error) {
+	lookupCtx, cancel := context.WithTimeout(ctx, IBM_VPC_LIST_TIMEOUT)
+	defer cancel()
+	retryInterval := IBM_VPC_LIST_RETRY_INTERVAL
+	for attempt := 1; attempt <= IBM_VPC_LIST_MAX_ATTEMPTS; attempt++ {
+		if err := lookupCtx.Err(); err != nil {
+			return nil, nil, fmt.Errorf("IBM VPC list cancelled: %w", err)
+		}
+		vpcs, response, err := service.ListVpcsWithContext(lookupCtx, options)
+		if err == nil {
+			return vpcs, response, nil
+		}
+		if ctxErr := lookupCtx.Err(); ctxErr != nil {
+			return nil, response, fmt.Errorf("IBM VPC list cancelled: %w", ctxErr)
+		}
+		var networkErr net.Error
+		if attempt == IBM_VPC_LIST_MAX_ATTEMPTS || !errors.As(err, &networkErr) || (!networkErr.Timeout() && !networkErr.Temporary()) {
+			return nil, response, fmt.Errorf("failed to list IBM VPCs: %w", err)
+		}
+		cblogger.Warnf("IBM VPC list attempt %d/%d failed with a transient network error; retrying", attempt, IBM_VPC_LIST_MAX_ATTEMPTS)
+		timer := time.NewTimer(retryInterval)
+		select {
+		case <-lookupCtx.Done():
+			timer.Stop()
+			return nil, response, fmt.Errorf("IBM VPC list cancelled: %w", lookupCtx.Err())
+		case <-timer.C:
+		}
+		retryInterval *= 2
+	}
+	return nil, nil, fmt.Errorf("IBM VPC list retry limit reached")
+}
+
 func existVpc(vpcIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
 	if vpcIID.NameId == "" {
 		return false, errors.New("inValid Name")
 	} else {
 		listVpcsOptions := &vpcv1.ListVpcsOptions{}
-		vpcs, _, err := vpcService.ListVpcsWithContext(ctx, listVpcsOptions)
+		vpcs, _, err := listVPCsWithRetry(ctx, vpcService, listVpcsOptions)
 		if err != nil {
 			return false, err
 		}
@@ -766,7 +805,7 @@ func existVpc(vpcIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (boo
 				listVpcsOptions2 := &vpcv1.ListVpcsOptions{
 					Start: core.StringPtr(nextstr),
 				}
-				vpcs, _, err = vpcService.ListVpcsWithContext(ctx, listVpcsOptions2)
+				vpcs, _, err = listVPCsWithRetry(ctx, vpcService, listVpcsOptions2)
 				if err != nil {
 					return false, fmt.Errorf("failed Get VPCList: %w", err)
 				}
@@ -780,7 +819,7 @@ func existVpc(vpcIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (boo
 func GetRawVPC(vpcIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.VPC, error) {
 	if vpcIID.SystemId == "" {
 		listVpcsOptions := &vpcv1.ListVpcsOptions{}
-		vpcs, _, err := vpcService.ListVpcsWithContext(ctx, listVpcsOptions)
+		vpcs, _, err := listVPCsWithRetry(ctx, vpcService, listVpcsOptions)
 		if err != nil {
 			return vpcv1.VPC{}, err
 		}
@@ -797,7 +836,7 @@ func GetRawVPC(vpcIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vp
 				listVpcsOptions2 := &vpcv1.ListVpcsOptions{
 					Start: core.StringPtr(nextstr),
 				}
-				vpcs, _, err = vpcService.ListVpcsWithContext(ctx, listVpcsOptions2)
+				vpcs, _, err = listVPCsWithRetry(ctx, vpcService, listVpcsOptions2)
 				if err != nil {
 					break
 				}
@@ -938,7 +977,7 @@ func (vpcHandler *IbmVPCHandler) ListIID() ([]*irs.IID, error) {
 	var iidList []*irs.IID
 
 	start := call.Start()
-	vpcs, _, err := vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions)
+	vpcs, _, err := listVPCsWithRetry(vpcHandler.Ctx, vpcHandler.VpcService, listVpcsOptions)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 		cblogger.Error(err.Error())
@@ -965,7 +1004,7 @@ func (vpcHandler *IbmVPCHandler) ListIID() ([]*irs.IID, error) {
 			listVpcsOptions2 := &vpcv1.ListVpcsOptions{
 				Start: core.StringPtr(nextstr),
 			}
-			vpcs, _, err = vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions2)
+			vpcs, _, err = listVPCsWithRetry(vpcHandler.Ctx, vpcHandler.VpcService, listVpcsOptions2)
 			if err != nil {
 				err = errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 				cblogger.Error(err.Error())
