@@ -83,7 +83,8 @@ func (driver *OracleDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ic
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cspTimeout)
+	// Connections are cached across requests, so no per-connection deadline (handlers set their own call timeouts).
+	ctx := context.Background()
 	return &connect.OracleConnection{
 		CredentialInfo:       connectionInfo.CredentialInfo,
 		Region:               connectionInfo.RegionInfo,
@@ -95,7 +96,6 @@ func (driver *OracleDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ic
 		BlockstorageClient:   blockstorageClient,
 		ConfigProvider:       provider,
 		Ctx:                  ctx,
-		Cancel:               cancel,
 	}, nil
 }
 

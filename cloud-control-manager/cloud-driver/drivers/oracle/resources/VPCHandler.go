@@ -23,6 +23,9 @@ type OracleVPCHandler struct {
 const (
 	subnetListRetryCount = 10
 	resourcePollInterval = 3 * time.Second
+	// resourceWaitTimeout bounds each wait* loop; the connection context carries no timeout since
+	// connections are cached and reused.
+	resourceWaitTimeout = 10 * time.Minute
 )
 
 func (handler *OracleVPCHandler) CreateVPC(req irs.VPCReqInfo) (irs.VPCInfo, error) {
@@ -312,6 +315,7 @@ func (handler *OracleVPCHandler) listSubnetsWithRetry(vcnID string) []core.Subne
 }
 
 func (handler *OracleVPCHandler) waitVcnAvailable(vcnID string) (core.Vcn, error) {
+	deadline := time.Now().Add(resourceWaitTimeout)
 	for {
 		resp, err := handler.Client.GetVcn(handler.Ctx, core.GetVcnRequest{VcnId: common.String(vcnID)})
 		if err != nil {
@@ -323,13 +327,14 @@ func (handler *OracleVPCHandler) waitVcnAvailable(vcnID string) (core.Vcn, error
 		if resp.Vcn.LifecycleState == core.VcnLifecycleStateTerminated || resp.Vcn.LifecycleState == core.VcnLifecycleStateTerminating {
 			return core.Vcn{}, fmt.Errorf("Oracle VCN %s entered unexpected state %s", vcnID, resp.Vcn.LifecycleState)
 		}
-		if err := handler.waitNextPoll(); err != nil {
+		if err := handler.waitNextPoll(deadline); err != nil {
 			return core.Vcn{}, err
 		}
 	}
 }
 
 func (handler *OracleVPCHandler) waitVcnDeleted(vcnID string) error {
+	deadline := time.Now().Add(resourceWaitTimeout)
 	for {
 		resp, err := handler.Client.GetVcn(handler.Ctx, core.GetVcnRequest{VcnId: common.String(vcnID)})
 		if isNotFound(err) {
@@ -341,13 +346,14 @@ func (handler *OracleVPCHandler) waitVcnDeleted(vcnID string) error {
 		if resp.Vcn.LifecycleState == core.VcnLifecycleStateTerminated {
 			return nil
 		}
-		if err := handler.waitNextPoll(); err != nil {
+		if err := handler.waitNextPoll(deadline); err != nil {
 			return err
 		}
 	}
 }
 
 func (handler *OracleVPCHandler) waitSubnetAvailable(subnetID string) error {
+	deadline := time.Now().Add(resourceWaitTimeout)
 	for {
 		resp, err := handler.Client.GetSubnet(handler.Ctx, core.GetSubnetRequest{SubnetId: common.String(subnetID)})
 		if err != nil {
@@ -359,13 +365,14 @@ func (handler *OracleVPCHandler) waitSubnetAvailable(subnetID string) error {
 		if resp.Subnet.LifecycleState == core.SubnetLifecycleStateTerminated || resp.Subnet.LifecycleState == core.SubnetLifecycleStateTerminating {
 			return fmt.Errorf("Oracle subnet %s entered unexpected state %s", subnetID, resp.Subnet.LifecycleState)
 		}
-		if err := handler.waitNextPoll(); err != nil {
+		if err := handler.waitNextPoll(deadline); err != nil {
 			return err
 		}
 	}
 }
 
 func (handler *OracleVPCHandler) waitSubnetDeleted(subnetID string) error {
+	deadline := time.Now().Add(resourceWaitTimeout)
 	for {
 		resp, err := handler.Client.GetSubnet(handler.Ctx, core.GetSubnetRequest{SubnetId: common.String(subnetID)})
 		if isNotFound(err) {
@@ -377,13 +384,14 @@ func (handler *OracleVPCHandler) waitSubnetDeleted(subnetID string) error {
 		if resp.Subnet.LifecycleState == core.SubnetLifecycleStateTerminated {
 			return nil
 		}
-		if err := handler.waitNextPoll(); err != nil {
+		if err := handler.waitNextPoll(deadline); err != nil {
 			return err
 		}
 	}
 }
 
 func (handler *OracleVPCHandler) waitInternetGatewayAvailable(igwID string) error {
+	deadline := time.Now().Add(resourceWaitTimeout)
 	for {
 		resp, err := handler.Client.GetInternetGateway(handler.Ctx, core.GetInternetGatewayRequest{IgId: common.String(igwID)})
 		if err != nil {
@@ -395,13 +403,14 @@ func (handler *OracleVPCHandler) waitInternetGatewayAvailable(igwID string) erro
 		if resp.InternetGateway.LifecycleState == core.InternetGatewayLifecycleStateTerminated || resp.InternetGateway.LifecycleState == core.InternetGatewayLifecycleStateTerminating {
 			return fmt.Errorf("Oracle internet gateway %s entered unexpected state %s", igwID, resp.InternetGateway.LifecycleState)
 		}
-		if err := handler.waitNextPoll(); err != nil {
+		if err := handler.waitNextPoll(deadline); err != nil {
 			return err
 		}
 	}
 }
 
 func (handler *OracleVPCHandler) waitInternetGatewayDeleted(igwID string) error {
+	deadline := time.Now().Add(resourceWaitTimeout)
 	for {
 		resp, err := handler.Client.GetInternetGateway(handler.Ctx, core.GetInternetGatewayRequest{IgId: common.String(igwID)})
 		if isNotFound(err) {
@@ -413,13 +422,14 @@ func (handler *OracleVPCHandler) waitInternetGatewayDeleted(igwID string) error 
 		if resp.InternetGateway.LifecycleState == core.InternetGatewayLifecycleStateTerminated {
 			return nil
 		}
-		if err := handler.waitNextPoll(); err != nil {
+		if err := handler.waitNextPoll(deadline); err != nil {
 			return err
 		}
 	}
 }
 
 func (handler *OracleVPCHandler) waitNetworkSecurityGroupDeleted(nsgID string) error {
+	deadline := time.Now().Add(resourceWaitTimeout)
 	for {
 		resp, err := handler.Client.GetNetworkSecurityGroup(handler.Ctx, core.GetNetworkSecurityGroupRequest{NetworkSecurityGroupId: common.String(nsgID)})
 		if isNotFound(err) {
@@ -431,7 +441,7 @@ func (handler *OracleVPCHandler) waitNetworkSecurityGroupDeleted(nsgID string) e
 		if resp.NetworkSecurityGroup.LifecycleState == core.NetworkSecurityGroupLifecycleStateTerminated {
 			return nil
 		}
-		if err := handler.waitNextPoll(); err != nil {
+		if err := handler.waitNextPoll(deadline); err != nil {
 			return err
 		}
 	}
@@ -475,7 +485,10 @@ func (handler *OracleVPCHandler) isInternetGatewayRoute(networkEntityID *string)
 	return err == nil
 }
 
-func (handler *OracleVPCHandler) waitNextPoll() error {
+func (handler *OracleVPCHandler) waitNextPoll(deadline time.Time) error {
+	if time.Now().After(deadline) {
+		return fmt.Errorf("timed out after %s waiting for the Oracle resource to reach the expected state", resourceWaitTimeout)
+	}
 	select {
 	case <-handler.Ctx.Done():
 		return handler.Ctx.Err()

@@ -100,55 +100,6 @@ func (vmHandler *AwsVMHandler) GetAmiDiskInfo(ImageSystemId string) (int64, erro
 func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Debug(vmReqInfo)
 
-	// amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
-	amiImage, errImgInfo := DescribeImageById(vmHandler.Client, &vmReqInfo.ImageIID, nil)
-	//amiImage, errImgInfo := imageHandler.GetAmiImage(vmReqInfo.ImageIID)
-	//imgInfo, errImgInfo := imageHandler.GetImage(vmReqInfo.ImageIID)
-	if errImgInfo != nil {
-		cblogger.Error(errImgInfo)
-		return irs.VMInfo{}, errImgInfo
-	}
-
-	// public image일 때
-	// 	 ImageOwnerAlias: "amazon"
-	// 	 OwnerId: "801119661308"
-	// MyImage일 때
-	//	 ImageOwnerAlias property가 없음
-	// 	 OwnerId는 자신의 Id(12자리)
-
-	isMyImage := false
-	abc := reflect.ValueOf(amiImage)
-	imageOwnerAliasField := abc.Elem().FieldByName("ImageOwnerAlias")
-	cblogger.Debugf("field: ", imageOwnerAliasField.IsValid())
-	if !imageOwnerAliasField.IsValid() {
-		cblogger.Debugf("ownerAlias: myimage ")
-		isMyImage = true
-	} else {
-		cblogger.Debugf("ownerAlias: ", imageOwnerAliasField)
-		cblogger.Debug("ownerAliasIsNil: ", imageOwnerAliasField.IsNil())
-		if imageOwnerAliasField.IsNil() {
-			isMyImage = true
-		}
-	}
-	cblogger.Debugf("isMyImage: ", isMyImage)
-	// cblogger.Debugf("abc: ", abc)
-	// if abc != nil {
-	// 	ownerAlias := amiImage.ImageOwnerAlias
-	// 	if *ownerAlias == "amazon" {
-	// 		cblogger.Debugf("ownerAlias: amazon ", *ownerAlias)
-	// 	} else {
-	// 		cblogger.Debugf("ownerAlias: myimage ", *ownerAlias)
-	// 		isMyImage = true
-	// 	}
-	// }
-	// if !reflect.ValueOf(&amiImage.ImageOwnerAlias).IsNil() {
-
-	// }
-
-	// cblogger.Debugf("OwnerId = ", *owner)
-	//===============================
-	// Root Disk Size 사전 검증 - 이슈#536
-	//===============================
 	if vmReqInfo.RootDiskSize != "" {
 		//default로 전달 받은 경우 아무것도 하지 않음 (default는 스파이더 상위에서 다른 값으로 바뀌어서 전달 받기 때문에 로직은 필요 없음)
 		if strings.EqualFold(vmReqInfo.RootDiskSize, "default") {
@@ -162,34 +113,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			//	return irs.VMInfo{}, err
 			//}
 
-			imageVolumeSize, err := GetImageSizeFromEc2Image(amiImage)
-			if err != nil {
-				return irs.VMInfo{}, err
-			}
 
-			// if len(result.Images) > 0 {
-			// 	if !reflect.ValueOf(result.Images[0].BlockDeviceMappings).IsNil() {
-			// 		if !reflect.ValueOf(result.Images[0].BlockDeviceMappings[0].Ebs).IsNil() {
-			// 			isize := aws.Int64(*result.Images[0].BlockDeviceMappings[0].Ebs.VolumeSize)
-			// 			return *isize, nil
-			// 		} else {
-			// 			cblogger.Error("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-			// 			return -1, errors.New("BlockDeviceMappings에서 Ebs 정보를 찾을 수 없습니다.")
-			// 		}
-			// 	} else {
-			// 		cblogger.Error("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-			// 		return -1, errors.New("BlockDeviceMappings 정보를 찾을 수 없습니다.")
-			// 	}
-			// } else {
-			// 	cblogger.Error("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
-			// 	return -1, errors.New("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
-			// }
-
-			if imageVolumeSize < 0 {
-				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Unable to query the default volume size for the requested image.", nil)
-			}
-
-			//요청된 사이즈 체크
 			iChkDiskSize, err := strconv.ParseInt(vmReqInfo.RootDiskSize, 10, 64)
 			if err != nil {
 				cblogger.Error(err)
@@ -197,7 +121,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			}
 
 			// 요청된 사이즈는 볼륨 사이즈 보다는 크거나 같아야 함.
-			cblogger.Infof("Requested root disk size %dGB (image default %dGB); size validation is delegated to AWS.", iChkDiskSize, imageVolumeSize)
+			cblogger.Infof("Requested root disk size %dGB; size validation is delegated to AWS.", iChkDiskSize)
 		}
 	}
 
@@ -285,9 +209,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	userData := ""
 	isWindowsImage := false
 
-	guestOS := GetOsTypeFromEc2Image(amiImage)
-	cblogger.Debugf("imgInfo.GuestOS : [%s]", guestOS)
-	if strings.Contains(strings.ToUpper(guestOS), "WINDOWS") {
+	if vmReqInfo.WindowsType {
 
 		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
 		if err != nil {
@@ -536,9 +458,12 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	if len(vmReqInfo.DataDiskIIDs) > len(availableVolumeNames) {
 		return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Too many Disks.", nil)
 	}
-	availableDeviceList, err := DescribeAvailableDiskDeviceList(vmHandler.Client, irs.IID{SystemId: newVmId})
-	if err != nil {
-		return irs.VMInfo{}, err
+	var availableDeviceList []string
+	if len(vmReqInfo.DataDiskIIDs) > 0 {
+		availableDeviceList, err = DescribeAvailableDiskDeviceList(vmHandler.Client, irs.IID{SystemId: newVmId})
+		if err != nil {
+			return irs.VMInfo{}, err
+		}
 	}
 	for diskIndex, dataDiskIID := range vmReqInfo.DataDiskIIDs {
 		deviceName := availableDeviceList[diskIndex]
@@ -1132,18 +1057,6 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		}
 	}
 
-	// TODO : Image 분류 처리 추가할 것
-	awsImageInfo, err := DescribeImageById(vmHandler.Client, &irs.IID{SystemId: *instance.ImageId}, nil)
-	if err != nil {
-		// fail to get ImageInfo
-		//awsImageInfo.Public
-		//awsImageInfo.OwnerId //
-		//awsImageInfo.ImageOwnerAlias
-	}
-	cblogger.Debug(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
-	// instance.ImageId
-	// describeImage -> is-public
-
 	if !reflect.ValueOf(instance.Placement.AvailabilityZone).IsNil() {
 		vmInfo.Region = irs.RegionInfo{
 			Region: vmHandler.Region.Region, //리전 정보 추가
@@ -1227,7 +1140,9 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 
 	// vmInfo.KeyValueList = keyValueList
 	vmInfo.KeyValueList = irs.StructToKeyValueList(instance) // KeyValueList 추가
-	vmInfo.TagList, _ = vmHandler.TagHandler.ListTag(irs.VM, vmInfo.IId)
+	for _, t := range instance.Tags {
+		vmInfo.TagList = append(vmInfo.TagList, irs.KeyValue{Key: aws.StringValue(t.Key), Value: aws.StringValue(t.Value)})
+	}
 	//vmInfo.TagList, _ = GetResourceTag(vmHandler, vmInfo.IId)
 	return vmInfo
 }

@@ -13,12 +13,8 @@
 package resources
 
 import (
-	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -34,6 +30,7 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/attachinterfaces"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/floatingips"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/keypairs"
+	secgroups "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/secgroups"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/startstop"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
@@ -110,16 +107,8 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	vpcHandler := NhnCloudVPCHandler{
 		NetworkClient: vmHandler.NetworkClient,
 	}
-	vpc, err := vpcHandler.getRawVPC(vmReqInfo.VpcIID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to get VPC info : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
 	if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
-		isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vpc.ID)
+		isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vmReqInfo.VpcIID.SystemId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -135,29 +124,6 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		}
 	}
 
-	// Check if VM Name is Duplicated
-	listOpts := servers.ListOpts{Name: vmReqInfo.IId.NameId}
-	allPages, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VM with the name : %s", vmReqInfo.IId.NameId)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-	vmList, err := servers.ExtractServers(allPages)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VM Info with the name : %s", vmReqInfo.IId.NameId)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-	if len(vmList) != 0 {
-		newErr := fmt.Errorf("The VM Name [%s] already exists!!", vmReqInfo.IId.NameId)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
 	// Get VM SpecId with the name
 	vmSpecId, err := getVMSpecIdWithName(vmHandler.VMClient, vmReqInfo.VMSpecName)
 	if err != nil {
@@ -168,22 +134,9 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	}
 	cblogger.Infof("# vmSpecId : [%s]", vmSpecId)
 
-	// Get SecurityGroupId list
+	// Get SecurityGroupId list (SystemIds are resolved by the common-runtime)
 	var sgIdList []string
 	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
-		if sgIID.SystemId == "" {
-			sgHandler := NhnCloudSecurityHandler{
-				VMClient: vmHandler.VMClient,
-			}
-			sg, err := sgHandler.getRawSecurity(sgIID)
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Get Security Group with the name : %v", err)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
-			sgIID.SystemId = sg.ID
-		}
 		sgIdList = append(sgIdList, sgIID.SystemId)
 	}
 
@@ -195,97 +148,24 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	} else {
 		keyPairId = vmReqInfo.KeyPairIID.NameId
 	}
-	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
-		// isPublicImage() in ImageHandler
-		imageHandler := NhnCloudImageHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
-			ImageClient: vmHandler.ImageClient,
-		}
-		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if !isPublicImage {
-			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-
-		// CheckWindowsImage() in ImageHandler
-		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is MS Windows Image : [%v]", err)
+	// Windows/Linux is resolved by the common-runtime (WindowsType); Public/MyImage both use the same userdata path.
+	if vmReqInfo.WindowsType {
+		var createErr error
+		initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+		if createErr != nil {
+			newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
 		}
-		if isPublicWindowsImage {
-			var createErr error
-			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
-		} else {
-			var createErr error
-			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
-		}
-	} else { // In case of MyImage
-		// isPublicImage() in 'MyImage'Handler
-		myImageHandler := NhnCloudMyImageHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
-			ImageClient: vmHandler.ImageClient,
-		}
-		isPublicImage, err := myImageHandler.isPublicImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if isPublicImage {
-			newErr := fmt.Errorf("'MyImage' type is selected, but Specified image is Not a MyImage!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-
-		// CheckWindowsImage() in 'MyImage'Handler
-		isMyWindowsImage, err := myImageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether My Image is MS Windows Image : [%v]", err)
+	} else {
+		var createErr error
+		initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
+		if createErr != nil {
+			newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
-		}
-		if isMyWindowsImage {
-			var createErr error
-			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
-		} else {
-			var createErr error
-			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
 		}
 	}
 	// cblogger.Infof("init UserData : [%s]", *initUserData)
@@ -297,7 +177,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		ImageRef:       vmReqInfo.ImageIID.SystemId,
 		FlavorRef:      vmSpecId,
 		Networks: []servers.Network{
-			{UUID: vpc.ID},
+			{UUID: vmReqInfo.VpcIID.SystemId},
 		},
 		UserData: []byte(*initUserData), // Apply cloud-init script
 	}
@@ -335,14 +215,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	var reqDiskSizeInt int
 	// Set VM RootDiskSize
 	// When Volume Size is not specified.
-	imageOSPlatform, err := vmHandler.getOSPlatformWithImageID(vmReqInfo.ImageIID.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Image OSPlatform Info : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-	if imageOSPlatform == irs.WINDOWS {
+	if vmReqInfo.WindowsType {
 		if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
 			reqDiskSize = DefaultWinRootDiskSize
 		}
@@ -908,40 +781,18 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 }
 
 func getAvailabilityZoneFromAPI(computeClient *nhnsdk.ServiceClient, serverID string) (string, error) {
-	url := computeClient.ServiceURL("servers", serverID)
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	var r struct {
+		Server struct {
+			Zone string `json:"OS-EXT-AZ:availability_zone"`
+		} `json:"server"`
 	}
-	client := &http.Client{Transport: tr}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
+	if _, err := computeClient.Get(computeClient.ServiceURL("servers", serverID), &r, nil); err != nil {
 		return "", err
 	}
-	req.Header.Add("X-Auth-Token", computeClient.TokenID)
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
+	if r.Server.Zone == "" {
+		return "", fmt.Errorf("availability zone not found")
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get server details: %s", resp.Status)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	var serverResponse map[string]interface{}
-	if err := json.Unmarshal(body, &serverResponse); err != nil {
-		return "", err
-	}
-	if server, ok := serverResponse["server"].(map[string]interface{}); ok {
-		if zone, ok := server["OS-EXT-AZ:availability_zone"].(string); ok {
-			return zone, nil
-		}
-	}
-	return "", fmt.Errorf("availability zone not found")
+	return r.Server.Zone, nil
 }
 
 func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VMInfo, error) {
@@ -1215,33 +1066,38 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		}
 	}
 
-	// # Get SecurityGroup Info
+	// # Get SecurityGroup Info (one list call for all groups)
 	if len(server.SecurityGroups) != 0 {
+		// A failed listing must surface as an error: an empty SystemId is resolved by the
+		// runtime as "matches anything" and reports the wrong security group.
+		allPages, err := secgroups.List(vmHandler.VMClient).AllPages()
+		if err != nil {
+			return irs.VMInfo{}, fmt.Errorf("failed to list security groups for VM [%s]: %w", server.ID, err)
+		}
+		sgList, err := secgroups.ExtractSecurityGroups(allPages)
+		if err != nil {
+			return irs.VMInfo{}, fmt.Errorf("failed to parse security groups for VM [%s]: %w", server.ID, err)
+		}
+		sgIdByName := map[string]string{}
+		for _, sg := range sgList {
+			sgIdByName[sg.Name] = sg.ID
+		}
 		sgIIds := make([]irs.IID, len(server.SecurityGroups))
 		for i, secGroupMap := range server.SecurityGroups {
 			secGroupName := secGroupMap["name"].(string)
-			sgIIds[i] = irs.IID{
-				NameId: secGroupName,
+			sgId, ok := sgIdByName[secGroupName]
+			if !ok {
+				return irs.VMInfo{}, fmt.Errorf("security group [%s] of VM [%s] was not found", secGroupName, server.ID)
 			}
-			secGroup, err := getSGWithName(vmHandler.VMClient, secGroupName)
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Get the Security Group Info!! : [%v] ", err)
-				cblogger.Error(newErr.Error())
-				return irs.VMInfo{}, newErr
-			} else if secGroup != nil {
-				sgIIds[i].SystemId = secGroup.ID
-			}
+			sgIIds[i] = irs.IID{NameId: secGroupName, SystemId: sgId}
 		}
 		vmInfo.SecurityGroupIIds = sgIIds
 	}
 
-	imageOSPlatform, err := vmHandler.getOSPlatformWithImageID(vmInfo.ImageIId.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Image OSPlatform Info : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
+	vmInfo.Platform = irs.LINUX_UNIX
+	if osType, ok := nhnImage.Metadata["os_type"].(string); ok && strings.EqualFold(osType, "windows") {
+		vmInfo.Platform = irs.WINDOWS
 	}
-	vmInfo.Platform = imageOSPlatform
 
 	if (vmInfo.PublicIP != "") && (vmInfo.Platform == irs.WINDOWS) {
 		vmInfo.VMUserId = DefaultWindowsUserName
@@ -1295,37 +1151,6 @@ func (vmHandler *NhnCloudVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus
 			//break
 		}
 	}
-}
-
-func (vmHandler *NhnCloudVMHandler) getOSPlatformWithImageID(imageId string) (irs.Platform, error) {
-	cblogger.Info("NHN Cloud Driver: called getOSPlatformWithImageID()")
-
-	if strings.EqualFold(imageId, "") {
-		newErr := fmt.Errorf("Invalid Image ID!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	nhnImage, err := comimages.Get(vmHandler.VMClient, imageId).Extract() // Caution!!) With VMClient (Not Like NHN Cloud ImageHandler)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NHN Cloud Image Info. [%v]", err.Error())
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	osType, exist := nhnImage.Metadata["os_type"].(string)
-	if !exist {
-		newErr := fmt.Errorf("Failed to Find OSType Info from the Image Info!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	if strings.EqualFold(osType, "windows") {
-		return irs.WINDOWS, nil
-	} else if strings.EqualFold(osType, "linux") {
-		return irs.LINUX_UNIX, nil
-	}
-	return irs.LINUX_UNIX, nil
 }
 
 func (vmHandler *NhnCloudVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPairId string) (*string, error) {

@@ -9,10 +9,12 @@
 package clouddriverhandler
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -124,14 +126,44 @@ func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (i
 		return nil, err
 	}
 
+	// Reuse a cached connection: the key hashes the whole ConnectionInfo, so any credential/region
+	// change yields a new key automatically. TTL keeps token-based clients (Keystone) fresh.
+	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%+v", connectionInfo))))
+	if os.Getenv("CALL_COUNT") == "" { // profiling mode needs fresh counting clients
+		if v, ok := connectionCache.Load(cacheKey); ok && time.Now().Before(v.(cachedConnection).expiresAt) {
+			return v.(cachedConnection).conn, nil
+		}
+	}
+
 	// Connect to the cloud using the connection info
 	cldConnection, err := cldDriver.ConnectCloud(connectionInfo)
 	if err != nil {
 		return nil, err
 	}
+	// Drop expired entries so keys that never recur (rotated credentials, removed zones) do not accumulate.
+	now := time.Now()
+	connectionCache.Range(func(k, v any) bool {
+		if now.After(v.(cachedConnection).expiresAt) {
+			connectionCache.Delete(k)
+		}
+		return true
+	})
+	connectionCache.Store(cacheKey, cachedConnection{conn: cldConnection, expiresAt: now.Add(connectionCacheTTL)})
 
 	return cldConnection, nil
 }
+
+// cachedConnection is a driver connection reused across REST requests (SDK clients are goroutine-safe).
+type cachedConnection struct {
+	conn      icon.CloudConnection
+	expiresAt time.Time
+}
+
+var connectionCache sync.Map // cacheKey -> cachedConnection
+
+// connectionCacheTTL must stay below the typical 1h Keystone token lifetime and below the
+// per-connection context timeout some drivers create once in ConnectCloud (Azure, IBM: 100 min).
+const connectionCacheTTL = 50 * time.Minute
 
 // Create ConnectionInfo object
 func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.ConnectionInfo, error) {

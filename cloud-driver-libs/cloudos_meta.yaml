@@ -136,10 +136,10 @@ KT:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
   credentialcsp: IdentityEndpoint / Username / Password / DomainName / ProjectID
-  rootdisktype: HDD / SSD
-  rootdisksize: HDD|50|100|GB / SSD|50|100|GB
-  disktype: HDD / SSD
-  disksize: HDD|10|2000|GB / SSD|10|2000|GB
+  rootdisktype: SSD / HDD
+  rootdisksize: SSD|50|100|GB / HDD|50|100|GB
+  disktype: SSD / HDD
+  disksize: SSD|10|2000|GB / HDD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem / RDBMS
   idmaxlength: 30 / 48 / 30 / 100 / 63 / 50 / 30 / 50 / 0 / 20 / 30
 

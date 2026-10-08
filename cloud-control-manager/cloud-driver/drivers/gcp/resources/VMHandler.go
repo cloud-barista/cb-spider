@@ -72,84 +72,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		isMyImage = true
 		imageURL = "global/machineImages/" + imageURL // MyImage는 ImageURL 형태가 아니라 ID를 사용하므로 앞에 URL 형태를 붙여줌
 	}
-	// 이미지 사이즈 추출
-	//var projectIdForImage string
-	var imageSize int64
-	//imageUrlArr := strings.Split(imageURL, "/")
-	//imageName := imageUrlArr[len(imageUrlArr)-1]
+	isWindows = vmReqInfo.WindowsType // resolved by the common-runtime (no image lookup here)
 
 	var pubKey string
-	if isMyImage {
-
-		//spider-myimage-1-cdlkbi2t39h9lqh14i90
-		//projects/csta-349809/global/machineImages",
-
-		machineImage, err := GetMachineImageInfo(vmHandler.Client, projectID, vmReqInfo.ImageIID.SystemId)
-		if err != nil {
-			return irs.VMInfo{}, err
-		}
-
-		// osFeatures := machineImage.GuestOsFeatures
-
-		// for _, feature := range osFeatures {
-		// 	if feature.Type == "WINDOWS" {
-		// 		isWindows = true
-		// 		break
-		// 	}
-		// }
-
-		// disks := machineImage.SavedDisks
-		// for _, disk := range disks {
-		// 	if disk
-		// 		isWindows = true
-		// 		break
-		// 	}
-		// }
-		ip := machineImage.InstanceProperties
-		disks := ip.Disks
-		for _, disk := range disks {
-			if disk.Boot { // Boot Device
-				//diskSize := disk.DiskSizeGb
-				imageSize = disk.DiskSizeGb // image size가 맞나??
-				cblogger.Debug(imageSize)
-				osFeatures := disk.GuestOsFeatures
-				for _, feature := range osFeatures {
-					if feature.Type == "WINDOWS" {
-						isWindows = true
-						break
-					}
-				}
-				cblogger.Debug(isWindows)
-			}
-		}
-
-		//imageSize = machineImage.DiskSizeGb
-
-	} else {
-
-		computeImage, err := GetPublicImageInfo(vmHandler.Client, vmReqInfo.ImageIID)
-		if err != nil {
-			cblogger.Error("GetPublicImageInfo err : ", err)
-			return irs.VMInfo{}, err
-		}
-
-		// projectIdForImage = imageUrlArr[6]
-		// imageResp, err := vmHandler.Client.Images.Get(projectIdForImage, imageName).Do()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		//osFeatures := imageResp.GuestOsFeatures
-		osFeatures := computeImage.GuestOsFeatures
-
-		for _, feature := range osFeatures {
-			if feature.Type == "WINDOWS" {
-				isWindows = true
-			}
-		}
-
-		imageSize = computeImage.DiskSizeGb
-
-	}
 	cblogger.Info("isMyImage = ", isMyImage)
 	cblogger.Info("isWindows = ", isWindows)
 
@@ -378,7 +303,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 			//imageSize = imageResp.DiskSizeGb
 
-			cblogger.Infof("Requested root disk size %dGB (image %dGB); validation is delegated to GCP.", iDiskSize, imageSize)
+			cblogger.Infof("Requested root disk size %dGB; validation is delegated to GCP.", iDiskSize)
 
 			instance.Disks[0].InitializeParams.DiskSizeGb = iDiskSize
 
@@ -1221,7 +1146,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			NameId:   server.Labels["keypair"],
 			SystemId: server.Labels["keypair"],
 		},
-		ImageIId:  vmHandler.getImageIID(server),
+		ImageIId:  getImageIID(server, diskInfo),
 		PublicIP:  gcpPublicIP,
 		PrivateIP: server.NetworkInterfaces[0].NetworkIP,
 		VpcIID: irs.IID{
@@ -1354,49 +1279,16 @@ func (vmHandler *GCPVMHandler) getImageType(sourceMachineImage string) irs.Image
 
 // 이미지 URL 방식 대신 이름을 사용하도록 변경 중
 // @TODO : 2020-05-15 카푸치노 버전에서는 이름 대신 URL을 사용하기로 했음.
-func (vmHandler *GCPVMHandler) getImageIID(server *compute.Instance) irs.IID {
-	// projectID := vmHandler.Credential.ProjectID
-	// zone := vmHandler.Region.Zone
-	// dArr := strings.Split(diskname, "/")
-	// var result string
-	// if dArr != nil {
-	// 	result = dArr[len(dArr)-1]
-	// }
-	// cblogger.Infof("result : [%s]", result)
-	iId := irs.IID{}
+func getImageIID(server *compute.Instance, bootDisk *compute.Disk) irs.IID {
 	if server.SourceMachineImage != "" {
-		iId.NameId = server.SourceMachineImage
-		iId.SystemId = server.SourceMachineImage
-	} else {
-		info, err := vmHandler.getDiskInfo(server.Disks[0].Source)
-
-		cblogger.Infof("********************************** Disk Information ****************")
-		cblogger.Debug(info)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.IID{}
-		}
-
-		/* 2020-05-14 카푸치노 다음 버전에서 사용 예정
-		arrImageUrl := strings.Split(info.SourceImage, "/")
-		imageName := ""
-		if len(arrImageUrl) > 0 {
-			imageName = arrImageUrl[len(arrImageUrl)-1]
-		}
-		iId := irs.IID{
-			NameId:   imageName,
-			SystemId: imageName,
-		}
-		*/
-
-		iId.NameId = info.SourceImage //2020-05-14 NameId는 사용자가 사용한 이름도 있기 때문에 리턴하지 않도록 수정
-		iId.SystemId = info.SourceImage
-
+		return irs.IID{NameId: server.SourceMachineImage, SystemId: server.SourceMachineImage}
 	}
-	return iId
+	if bootDisk == nil {
+		return irs.IID{}
+	}
+	return irs.IID{NameId: bootDisk.SourceImage, SystemId: bootDisk.SourceImage}
 }
 
-// getVM에서 DiskSize, DiskType이 넘어오지 않아 Disk정보를 조회
 func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, error) {
 	dArr := strings.Split(diskname, "/")
 	var result string

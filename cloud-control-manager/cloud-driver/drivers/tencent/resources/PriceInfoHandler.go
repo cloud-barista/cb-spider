@@ -10,6 +10,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
 
@@ -49,20 +50,30 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 
 	switch {
 	case strings.EqualFold("cvm", productFamily):
-		if t.Client.GetRegion() != regionName {
-			t.Client.Init(regionName)
+		// The VM client is shared through the connection cache, so it must never be
+		// re-initialized to another region in place; use a region-specific client instead.
+		client := t.Client
+		if client.GetRegion() != regionName {
+			cpf := profile.NewClientProfile()
+			cpf.HttpProfile.Endpoint = "cvm.tencentcloudapi.com"
+			cpf.Language = "en-US"
+			regionClient, err := cvm.NewClient(t.Client.GetCredential(), regionName, cpf)
+			if err != nil {
+				return "", err
+			}
+			client = regionClient
 		}
 		keyValueMap := make(map[string]string)
 		for _, kv := range additionalFilters {
 			keyValueMap[kv.Key] = kv.Value
 		}
 
-		standardInfo, err := describeZoneInstanceConfigInfos(t.Client, filterKeyValueMap)
+		standardInfo, err := describeZoneInstanceConfigInfos(client, filterKeyValueMap)
 		if err != nil {
 			return "", err
 		}
 
-		res, err := mappingToComputeStruct(t.Client.GetRegion(), standardInfo, keyValueMap, simpleVMSpecInfo)
+		res, err := mappingToComputeStruct(client.GetRegion(), standardInfo, keyValueMap, simpleVMSpecInfo)
 		if err != nil {
 			return "", err
 		}

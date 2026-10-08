@@ -19,6 +19,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
 
@@ -97,37 +99,7 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, newErr
 	}
 
-	// Check VM Name Duplication
-	vmExist, err := vmHandler.vmExists(vmReqInfo.IId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Create VM. : [%v]", err)
-		cblogger.Error(newErr.Error())
-		loggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-	if vmExist {
-		newErr := fmt.Errorf("Failed to Create VM. The Name [%s] already exists", vmReqInfo.IId.NameId)
-		cblogger.Error(newErr.Error())
-		loggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
-	// Check if S/G exists first
-	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("S/G ID to verify the existence of S/G : [%s]", sgIID.SystemId)
-
-		securityHandler := KTVpcSecurityHandler{
-			RegionInfo:    vmHandler.RegionInfo,
-			VMClient:      vmHandler.VMClient,
-			NetworkClient: vmHandler.NetworkClient,
-		}
-		if err := securityHandler.CheckSecurityGroupExists(sgIID); err != nil {
-			newErr := fmt.Errorf("SecurityGroup validation failed: %w", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-	}
-
+	// VM name uniqueness and S/G existence are guaranteed by the Spider metadb.
 	// Check Flavor Info. (Change Name to ID)
 	vmSpecId, err := getFlavorIdWithName(vmHandler.VMClient, vmReqInfo.VMSpecName)
 	if err != nil {
@@ -191,70 +163,25 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		keyPairId = vmReqInfo.KeyPairIID.NameId
 	}
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
-		// isPublicImage() in ImageHandler
-		imageHandler := KTVpcImageHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
-			ImageClient: vmHandler.ImageClient,
+		// Windows/Linux is resolved by the common-runtime (WindowsType). Root Disk Size default: 50GB Linux, 100GB Windows.
+		rootDiskSize = vmReqInfo.RootDiskSize
+		var createErr error
+		if vmReqInfo.WindowsType {
+			if strings.EqualFold(rootDiskSize, "") || strings.EqualFold(rootDiskSize, "default") {
+				rootDiskSize = DefaultWinRootDiskSize
+			}
+			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+		} else {
+			if strings.EqualFold(rootDiskSize, "") || strings.EqualFold(rootDiskSize, "default") {
+				rootDiskSize = DefaultDiskSize
+			}
+			initUserData, createErr = vmHandler.createLinuxInitUserData(keyPairId)
 		}
-		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if !isPublicImage {
-			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-
-		// CheckWindowsImage() in ImageHandler
-		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is MS Windows Image : [%v]", err)
+		if createErr != nil {
+			newErr := fmt.Errorf("Failed to Create Cloud-Init Script : [%v]", createErr)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
-		}
-		if isPublicWindowsImage { // # Incase of Public Windows image
-			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
-
-			// In case the Root Volume Size is not specified.
-			reqDiskSize := vmReqInfo.RootDiskSize
-			if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-				rootDiskSize = DefaultWinRootDiskSize
-			} else {
-				rootDiskSize = reqDiskSize
-			}
-
-			var createErr error
-			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				loggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
-		} else { // # Incase of Public Linux image
-			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
-
-			// In case the Root Volume Size is not specified.
-			reqDiskSize := vmReqInfo.RootDiskSize
-			if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-				rootDiskSize = DefaultDiskSize
-			} else {
-				rootDiskSize = reqDiskSize
-			}
-
-			var createErr error
-			initUserData, createErr = vmHandler.createLinuxInitUserData(keyPairId)
-			if createErr != nil {
-				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
-				cblogger.Error(newErr.Error())
-				loggingError(callLogInfo, newErr)
-				return irs.VMInfo{}, newErr
-			}
 		}
 	} else { // In case of MyImage
 		var createErr error
@@ -288,13 +215,19 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		reqDiskSize = DefaultDiskSize
 	}
 
+	// When Root Volume Type is not specified, default to SSD
+	reqDiskType := vmReqInfo.RootDiskType
+	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
+		reqDiskType = "SSD"
+	}
+
 	blockDeviceSet := []volumeboot.BlockDevice{
 		{
 			DestinationType: volumeboot.DestinationVolume, // DestinationType is the type that gets created. Possible values are "volume" and "local". volumeboot.DestinationType => "volume"
 			BootIndex:       0,                            // BootIndex is the boot index. It defaults to 0. Set as the Root Volume.
 			SourceType:      bootSourceType,               // volumeboot.SourceImage
 			VolumeSize:      rootDiskSize,                 // VolumeSize is the size of the volume to create (in gigabytes). This can be omitted for existing volumes.
-			VolumeType:      vmReqInfo.RootDiskType,
+			VolumeType:      reqDiskType,
 			UUID:            vmReqInfo.ImageIID.SystemId,
 		},
 	}
@@ -365,15 +298,6 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 		cblogger.Infof("The SystemIds of the Security Group : [%s]", sgSystemIDs)
 
-		// Register SecurityGroupInfo to DB
-		providerName := "KTVPC"
-		sgInfo, regErr := sim.RegisterSecurityGroup(vm.ID, providerName, keyValueList)
-		if regErr != nil {
-			cblogger.Error(regErr)
-			return irs.VMInfo{}, regErr
-		}
-		cblogger.Infof(" === S/G Info to Register to DB : [%v]", sgInfo)
-
 		if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
 			cblogger.Info("# Start to Create New Public IP!!")
 			var publicIPId string
@@ -393,6 +317,9 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				newErr := fmt.Errorf("Failed to Find the PublicIP with the ID : [%v]", err)
 				cblogger.Error(newErr.Error())
 				loggingError(callLogInfo, newErr)
+				if r := ips.Delete(vmHandler.NetworkClient, publicIPId); r.Err != nil {
+					cblogger.Warnf("Failed to release the new PublicIP [%s]: %v", publicIPId, r.Err)
+				}
 				return irs.VMInfo{}, newErr
 			}
 
@@ -406,17 +333,32 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				RegionInfo:    vmHandler.RegionInfo,
 				NetworkClient: vmHandler.NetworkClient, // Required!!
 			}
-			tierNetworkId, err := vpcHandler.getNetworkIdWithTierId(vmReqInfo.SubnetIID.SystemId)
+			// One subnet(tier) list gives both the tier network ID and the external network ID
+			subnetList, err := vpcHandler.listKTSubnet()
 			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the Subnet list : [%v]", err)
+				cblogger.Error(newErr.Error())
+				return irs.VMInfo{}, newErr
+			}
+			var tierNetworkId, extNetworkId string
+			for _, sn := range subnetList {
+				if sn.RefID == vmReqInfo.SubnetIID.SystemId {
+					tierNetworkId = sn.NetworkID
+				}
+				if strings.EqualFold(sn.RefName, "external") {
+					extNetworkId = sn.NetworkID
+				}
+			}
+			if tierNetworkId == "" {
 				newErr := fmt.Errorf("Failed to Get the Network ID!!")
 				cblogger.Error(newErr.Error())
 				return irs.VMInfo{}, newErr
 			}
-			cblogger.Infof("# Subnet(Tier) NetworkId : %s", *tierNetworkId)
 
 			// Create PortForwarding and Firewall Rules
 			secRuleSet := SecurityRuleSet{
-				TierNetworkId:          *tierNetworkId,
+				TierNetworkId:          tierNetworkId,
+				ExtNetworkId:           extNetworkId,
 				SecurityGroupSystemIDs: sgSystemIDs,
 				PrivateIP:              privateIP,
 				PublicIP:               publicIp,
@@ -428,10 +370,21 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				loggingError(callLogInfo, newErr)
 				return irs.VMInfo{}, newErr
 			}
+			// Persist the PublicIP mapping: port-forwarding rules are the only CSP-side link between
+			// a VM and its PublicIP, and they disappear when the last inbound rule is removed.
+			keyValueList = append(keyValueList,
+				irs.KeyValue{Key: "PublicIP", Value: publicIp},
+				irs.KeyValue{Key: "PublicIPID", Value: publicIPId})
 		} else {
 			cblogger.Info("# AssignPublicIP=false: skipping Public IP creation and PortForwarding/Firewall rule setup. " +
 				"KT Cloud VPC enforces Security Groups only via per-PublicIP Firewall/PortForwarding rules, " +
 				"so the requested SecurityGroups will NOT be enforced at the network level for this VM.")
+		}
+
+		// Register SecurityGroupInfo (SG IDs + PublicIP mapping) to DB
+		if _, regErr := sim.RegisterSecurityGroup(vm.ID, "KTVPC", keyValueList); regErr != nil {
+			cblogger.Error(regErr)
+			return irs.VMInfo{}, regErr
 		}
 
 		// Get vm info
@@ -453,7 +406,28 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		// vmInfo.SecurityGroupIIds = sgIIDs
 		return vmInfo, nil
 	}
-	return irs.VMInfo{}, nil
+
+	// The VM left BUILD in a non-active state (e.g. ERROR). Returning an empty VMInfo with a nil
+	// error made TB keep a node without a SystemId that it could never query again; instead
+	// delete the failed VM (best effort) and report the failure.
+	faultMsg := ""
+	if raw := servers.Get(vmHandler.VMClient, vm.ID); raw.Err == nil { // KT SDK's Server struct has no Fault field; read it from the raw body
+		if m, ok := raw.Body.(map[string]interface{}); ok {
+			if srv, ok := m["server"].(map[string]interface{}); ok {
+				if f, ok := srv["fault"].(map[string]interface{}); ok {
+					faultMsg = fmt.Sprintf(" (fault: %v)", f["message"])
+				}
+			}
+		}
+	}
+	newErr := fmt.Errorf("Failed to Start VM. VM [%s] ended in status [%s] instead of active%s", vm.ID, vmResult.Status, faultMsg)
+	cblogger.Error(newErr.Error())
+	loggingError(callLogInfo, newErr)
+	if delErr := servers.Delete(vmHandler.VMClient, vm.ID).ExtractErr(); delErr != nil {
+		newErr = fmt.Errorf("%v; cleanup of the failed VM also failed (VM may remain): %v", newErr, delErr)
+		cblogger.Error(newErr.Error())
+	}
+	return irs.VMInfo{}, newErr
 }
 
 func (vmHandler *KTVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
@@ -903,6 +877,7 @@ func (vmHandler *KTVpcVMHandler) createPublicIP() (bool, string, error) {
 
 type SecurityRuleSet struct {
 	TierNetworkId          string
+	ExtNetworkId           string // optional: external network ID already resolved by the caller
 	SecurityGroupSystemIDs []string
 	PrivateIP              string
 	PublicIP               string
@@ -941,14 +916,16 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 		RegionInfo:    vmHandler.RegionInfo,
 		NetworkClient: vmHandler.NetworkClient, // Required!!
 	}
-	// Gets Network ID of External Subnet among Subnet(Tier) List
-	extNetId, getErr := vpcHandler.getNetworkID("external")
-	if getErr != nil {
-		newErr := fmt.Errorf("Failed to Get the External Network ID from Subnet Info : [%v]", getErr)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	} else {
-		cblogger.Infof("# External Network ID : %s", *extNetId)
+	// Gets Network ID of External Subnet among Subnet(Tier) List (unless already resolved by the caller)
+	extNetId := &ruleSet.ExtNetworkId
+	if ruleSet.ExtNetworkId == "" {
+		var getErr error
+		extNetId, getErr = vpcHandler.getNetworkID("external")
+		if getErr != nil {
+			newErr := fmt.Errorf("Failed to Get the External Network ID from Subnet Info : [%v]", getErr)
+			cblogger.Error(newErr.Error())
+			return false, newErr
+		}
 	}
 
 	for _, sgSystemID := range ruleSet.SecurityGroupSystemIDs {
@@ -966,207 +943,170 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 			return false, newErr
 		}
 
-		var protocols []string
-		for _, sgRule := range *sgInfo.SecurityRules {
-			if strings.EqualFold(sgRule.IPProtocol, "tcp") { // case insensitive comparing and returns true.
-				protocols = []string{"TCP"}
-			} else if strings.EqualFold(sgRule.IPProtocol, "udp") {
-				protocols = []string{"UDP"}
-			} else if strings.EqualFold(sgRule.IPProtocol, "icmp") {
-				protocols = []string{"ICMP"}
-			} else if strings.EqualFold(sgRule.IPProtocol, "ALL") {
-				protocols = []string{"TCP", "UDP", "ICMP"}
-			} else {
-				cblogger.Errorf("Failed to Find mapping Protocol matching with the given Protocol [%s].", sgRule.IPProtocol)
-				return false, errors.New("Failed to Find mapping Protocol matching with the given Protocol." + sgRule.IPProtocol)
-			}
+		type ruleTask struct {
+			rule        irs.SecurityRuleInfo
+			curProtocol string
+		}
+		var tasks []ruleTask
 
-			var pfRuleId string // ### To apply 'pfRuleId' value even in the case of the 'ICMP' protocol
-			for _, curProtocol := range protocols {
-				cblogger.Infof("\n")
-				cblogger.Infof("### Current Protocol : [%s]", curProtocol)
+		for _, sgRule := range *sgInfo.SecurityRules {
+			dir := strings.ToLower(sgRule.Direction)
+			proto := strings.ToUpper(strings.TrimSpace(sgRule.IPProtocol))
+
+			if dir == "outbound" {
+				// Outbound: KT Cloud VPC Firewall supports "ALL" natively, no need to split into TCP/UDP/ICMP
+				if proto == "ALL" {
+					tasks = append(tasks, ruleTask{rule: sgRule, curProtocol: "ALL"})
+				} else if proto == "TCP" || proto == "UDP" || proto == "ICMP" {
+					tasks = append(tasks, ruleTask{rule: sgRule, curProtocol: proto})
+				} else {
+					cblogger.Errorf("Failed to Find mapping Protocol matching with the given Protocol [%s].", sgRule.IPProtocol)
+					return false, errors.New("Failed to Find mapping Protocol matching with the given Protocol." + sgRule.IPProtocol)
+				}
+			} else { // inbound
+				// Inbound: PortForwarding supports only TCP and UDP, so ALL expands for PF + ICMP firewall
+				if proto == "ALL" {
+					tasks = append(tasks, ruleTask{rule: sgRule, curProtocol: "TCP"})
+					tasks = append(tasks, ruleTask{rule: sgRule, curProtocol: "UDP"})
+					tasks = append(tasks, ruleTask{rule: sgRule, curProtocol: "ICMP"})
+				} else if proto == "TCP" || proto == "UDP" || proto == "ICMP" {
+					tasks = append(tasks, ruleTask{rule: sgRule, curProtocol: proto})
+				} else {
+					cblogger.Errorf("Failed to Find mapping Protocol matching with the given Protocol [%s].", sgRule.IPProtocol)
+					return false, errors.New("Failed to Find mapping Protocol matching with the given Protocol." + sgRule.IPProtocol)
+				}
+			}
+		}
+
+		// Execute rule tasks in parallel with a bounded worker pool (up to 3 concurrent calls)
+		sem := make(chan struct{}, 3)
+		var wg sync.WaitGroup
+		var firstErr error
+		var errOnce sync.Once
+		var failed atomic.Bool // set with firstErr; later tasks skip instead of adding more partial rules
+
+		for _, t := range tasks {
+			task := t
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				if failed.Load() {
+					return
+				}
+
+				sgRule := task.rule
+				curProtocol := task.curProtocol
 				// When the request port number is '-1', all ports are opened.
 				if (sgRule.FromPort == "-1") && (sgRule.ToPort == "-1") {
 					sgRule.FromPort = "1"
 					sgRule.ToPort = "65535"
 				}
-
-				// It's impossible to input any port number when the curProtocol is ICMP on KT Cloud firewall.
-				// Caution!!) KT Cloud does Not support 'ICMP' protocol for PortForwarding Rule.
 				if curProtocol == "ICMP" {
 					sgRule.FromPort = ""
 					sgRule.ToPort = ""
 				}
 
 				if strings.EqualFold(sgRule.Direction, "inbound") {
-					if !(strings.EqualFold(curProtocol, "ICMP")) {
-						cblogger.Info("### Start to Create PortForwarding Rules!!")
-
-						// ### Set Port Forwarding Rules
+					var pfRuleId string
+					if curProtocol != "ICMP" {
 						createPfOpts := &portforward.CreateOpts{
-							PublicIpID:       ruleSet.PublicIPId, // Required
-							MappedIP:         ruleSet.PrivateIP,  // Required
-							Protocol:         curProtocol,        // Required
-							StartPrivatePort: sgRule.FromPort,    // Required
-							EndPrivatePort:   sgRule.ToPort,      // Required
-							StartPublicPort:  sgRule.FromPort,    // Required
-							EndPublicPort:    sgRule.ToPort,      // Required
+							PublicIpID:       ruleSet.PublicIPId,
+							MappedIP:         ruleSet.PrivateIP,
+							Protocol:         curProtocol,
+							StartPrivatePort: sgRule.FromPort,
+							EndPrivatePort:   sgRule.ToPort,
+							StartPublicPort:  sgRule.FromPort,
+							EndPublicPort:    sgRule.ToPort,
 						}
-						// cblogger.Info("\n ### createPfOpts : ")
-						// spew.Dump(createPfOpts)
-						// cblogger.Info("\n")
-
-						pfResult := portforward.Create(vmHandler.NetworkClient, createPfOpts) // NetworkClient!!. and, Not ~.Extract()
+						pfResult := portforward.Create(vmHandler.NetworkClient, createPfOpts)
 						if pfResult.Err != nil {
-							cblogger.Errorf("Failed to Create the Port Forwarding Rule : [%v]", pfResult.Err)
-							return false, pfResult.Err
+							cblogger.Errorf("Failed to Create PortForwarding Rule: [%v]", pfResult.Err)
+							errOnce.Do(func() { firstErr = pfResult.Err; failed.Store(true) })
+							return
 						}
-
-						// Extract the created PortForwarding ID
-						portForwardingId, err := portforward.ExtractPortForwardingID(pfResult)
+						extractedID, err := portforward.ExtractPortForwardingID(pfResult)
 						if err != nil {
 							cblogger.Errorf("Failed to extract portForwardingId: %v", err)
 						} else {
-							cblogger.Infof("Created portForwardingId: %s", portForwardingId)
-							pfRuleId = portForwardingId
+							pfRuleId = extractedID
 						}
-
-						cblogger.Info("### Waiting for PortForwarding Rules to be Created!!")
-						// To prevent - json: cannot unmarshal string into Go struct field AsyncJobResult.nc_queryasyncjobresultresponse.result of type job.JobResult
-						time.Sleep(time.Second * 2)
+						time.Sleep(100 * time.Millisecond)
 					}
 
-					// ### Set FireWall Rules (In case of "Inbound" FireWall Rules)
-					// Caution!!) KT Cloud VPC 'Firewall Rules' Support "inbound" and "outbound"
-					cblogger.Info("### Start to Create Firewall 'inbound' Rules!!")
-
-					destCIDR, err := ipToCidr32(ruleSet.PublicIP) // Output format ex) "172.25.1.0/32". Not Private IP to login from External
+					destCIDR, err := ipToCidr32(ruleSet.PublicIP)
 					if err != nil {
-						cblogger.Errorf("Failed to Get Dest Net Band : [%v]", err)
-						return false, err
-					} else {
-						cblogger.Infof("Dest CIDR : %s", destCIDR)
+						cblogger.Errorf("Failed to Get Dest Net Band: [%v]", err)
+						errOnce.Do(func() { firstErr = err; failed.Store(true) })
+						return
 					}
 
 					srcIPAdds := "0.0.0.0/0"
-
-					inboundFWOpts := &rules.CreateOpts{}
-
-					if !(strings.EqualFold(curProtocol, "ICMP")) { // Incase of 'TCP' and 'UDP'
-						comment := "Allow inbound - " + curProtocol + " - " + sgRule.FromPort + " to " + sgRule.ToPort
-						inboundFWOpts = &rules.CreateOpts{
-							Action:           true, // accept
-							Protocol:         curProtocol,
-							StartPort:        sgRule.FromPort,
-							EndPort:          sgRule.ToPort,
-							SrcNetwork:       []string{*extNetId},
-							PortForwardingId: pfRuleId,
-							SrcAddress:       []string{srcIPAdds},
-							DstAddress:       []string{destCIDR},
-							Comment:          comment,
-							SrcNat:           false,
-						}
-					} else { // Incase of 'ICMP'. Note) 'ICMP' does not have Port Forwarding rule and 'its ID'
-						comment := "Allow inbound - " + curProtocol
-						inboundFWOpts = &rules.CreateOpts{
-							Action:           true, // accept
-							Protocol:         curProtocol,
-							SrcNetwork:       []string{*extNetId},
-							PortForwardingId: pfRuleId,
-							SrcAddress:       []string{srcIPAdds},
-							DstAddress:       []string{destCIDR},
-							Comment:          comment,
-							SrcNat:           false,
-						}
+					comment := "Allow inbound - " + curProtocol
+					if curProtocol != "ICMP" {
+						comment += " - " + sgRule.FromPort + " to " + sgRule.ToPort
 					}
-					// cblogger.Info("\n# Inbound FireWall Options : ")
-					// spew.Dump(inboundFWOpts)
-					// cblogger.Info("\n")
-
-					// fwRuleJobId := ""
+					inboundFWOpts := &rules.CreateOpts{
+						Action:           true,
+						Protocol:         curProtocol,
+						StartPort:        sgRule.FromPort,
+						EndPort:          sgRule.ToPort,
+						SrcNetwork:       []string{*extNetId},
+						PortForwardingId: pfRuleId,
+						SrcAddress:       []string{srcIPAdds},
+						DstAddress:       []string{destCIDR},
+						Comment:          comment,
+						SrcNat:           false,
+					}
 					fwResult := rules.Create(vmHandler.NetworkClient, inboundFWOpts)
 					if fwResult.Err != nil {
-						newErr := fmt.Errorf("Failed to Create the FireWall 'inbound' Rule : %v", fwResult.Err)
+						newErr := fmt.Errorf("Failed to Create Firewall 'inbound' Rule: %v", fwResult.Err)
 						cblogger.Error(newErr.Error())
-						return false, newErr
-					} else {
-						jobId, err := rules.ExtractJobID(fwResult)
-						if err != nil {
-							cblogger.Errorf("Failed to Extract the JobId: %v", err)
-						} else {
-							cblogger.Infof("Created F/W rule JobId: %s", jobId)
-							// fwRuleJobId = jobId
-						}
+						errOnce.Do(func() { firstErr = newErr; failed.Store(true) })
+						return
 					}
+					time.Sleep(100 * time.Millisecond)
 
-					cblogger.Info("### Waiting for FireWall 'inbound' Rules to be Created(600sec) !!")
-					// $$$ To prevent - json: cannot unmarshal string into Go struct field AsyncJobResult.nc_queryasyncjobresultresponse.result of type job.JobResult
-					time.Sleep(time.Second * 2)
-
-					// jobWaitErr := vmHandler.waitForAsyncJob(fwRuleJobId, 600000000000)
-					// if jobWaitErr != nil {
-					// 	cblogger.Errorf("Failed to Wait the Job : [%v]", jobWaitErr)
-					// 	return false, jobWaitErr
-					// }
-				}
-
-				// ### In case of "Outbound" FireWall Rules
-				if strings.EqualFold(sgRule.Direction, "outbound") {
-					cblogger.Info("### Start to Create Firewall 'outbound' Rules!!")
-
-					srcCIDR, err := ipToCidr32(ruleSet.PrivateIP) // Output format ex) "172.25.1.5/32",  ipToCidr24() : Output format ex) "172.25.1.0/24"
+				} else if strings.EqualFold(sgRule.Direction, "outbound") {
+					srcCIDR, err := ipToCidr32(ruleSet.PrivateIP)
 					if err != nil {
-						cblogger.Errorf("Failed to Get Source Net Band : [%v]", err)
-						return false, err
-					} else {
-						cblogger.Infof("Source CIDR : %s", srcCIDR)
+						cblogger.Errorf("Failed to Get Source Net Band: [%v]", err)
+						errOnce.Do(func() { firstErr = err; failed.Store(true) })
+						return
 					}
 
 					destIPAdds := "0.0.0.0/0"
-					comment := "Allow outbound - " + curProtocol + " - " + sgRule.FromPort + " to " + sgRule.ToPort
+					comment := "Allow outbound - " + curProtocol
+					if curProtocol != "ALL" && curProtocol != "ICMP" {
+						comment += " - " + sgRule.FromPort + " to " + sgRule.ToPort
+					}
 					outboundFWOpts := &rules.CreateOpts{
-						Action:     true, // accept
+						Action:     true,
 						Protocol:   curProtocol,
 						StartPort:  sgRule.FromPort,
 						EndPort:    sgRule.ToPort,
 						SrcNetwork: []string{ruleSet.TierNetworkId},
 						DstNetwork: []string{*extNetId},
 						SrcAddress: []string{srcCIDR},
-						DstAddress: []string{destIPAdds}, // Cannot be entered simultaneously with portForwardingId
+						DstAddress: []string{destIPAdds},
 						Comment:    comment,
 						SrcNat:     true,
 					}
-					// cblogger.Info("\n# Outbound FireWall Options : ")
-					// spew.Dump(outboundFWOpts)
-					// cblogger.Info("\n")
-
-					// fwRuleJobId := ""
 					fwResult := rules.Create(vmHandler.NetworkClient, outboundFWOpts)
 					if fwResult.Err != nil {
-						newErr := fmt.Errorf("Failed to Create the FireWall 'outbound' Rule : %v", fwResult.Err)
+						newErr := fmt.Errorf("Failed to Create Firewall 'outbound' Rule: %v", fwResult.Err)
 						cblogger.Error(newErr.Error())
-						return false, newErr
-					} else {
-						jobId, err := rules.ExtractJobID(fwResult)
-						if err != nil {
-							cblogger.Infof("Failed to Extract the JobId: %v", err)
-						} else {
-							cblogger.Infof("Created F/W rule JobId: %s", jobId)
-							// fwRuleJobId = jobId
-						}
+						errOnce.Do(func() { firstErr = newErr; failed.Store(true) })
+						return
 					}
-
-					cblogger.Info("### Waiting for FireWall 'outbound' Rules to be Created!!")
-					// $$$ To prevent - json: cannot unmarshal string into Go struct field AsyncJobResult.nc_queryasyncjobresultresponse.result of type job.JobResult
-					time.Sleep(time.Second * 2)
-
-					// jobWaitErr := vmHandler.waitForAsyncJob(fwRuleJobId, 600000000000)
-					// if jobWaitErr != nil {
-					// 	cblogger.Errorf("Failed to Wait the Job : [%v]", jobWaitErr)
-					// 	return false, jobWaitErr
-					// }
+					time.Sleep(100 * time.Millisecond)
 				}
-			}
+			}()
+		}
+		wg.Wait()
+		if firstErr != nil {
+			return false, firstErr
 		}
 	}
 	return true, nil
@@ -1241,6 +1181,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		// Since S/G is managed as a file, the systemID is the same as the name ID.
 		var sgIIDs []irs.IID
 		for _, kv := range sgInfo.KeyValueInfoList {
+			if kv.Key == "PublicIP" || kv.Key == "PublicIPID" { // persisted PublicIP mapping, not an SG
+				continue
+			}
 			sgIIDs = append(sgIIDs, irs.IID{NameId: kv.Key, SystemId: kv.Value})
 		}
 		vmInfo.SecurityGroupIIds = sgIIDs
@@ -1259,6 +1202,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		}
 	}
 
+	// PortForwarding rules are listed once and reused for NIC public IPs and the VM's public IP
+	pfRuleList, _ := vmHandler.listPortForwarding()
+
 	// Build NICs info from attachinterfaces
 	{
 		// Private IP -> Public IP map, built once from PortForwarding rules -
@@ -1268,11 +1214,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		// previously queried per-NIC for no real benefit; a single
 		// PortForwarding list covers every NIC.
 		fipMap := map[string]string{}
-		if pfRuleList, pfErr := vmHandler.listPortForwarding(); pfErr == nil {
-			for _, rule := range pfRuleList {
-				if rule.MappedIP != "" {
-					fipMap[rule.MappedIP] = rule.PublicIP
-				}
+		for _, rule := range pfRuleList {
+			if rule.MappedIP != "" {
+				fipMap[rule.MappedIP] = rule.PublicIP
 			}
 		}
 
@@ -1333,14 +1277,15 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 	}
 
 	var netInfo *NetworkInfo
-	if !strings.EqualFold(vmInfo.PrivateIP, "") {
-		var getNetErr error
-		netInfo, getNetErr = vmHandler.getNetIDsWithPrivateIP(vmInfo.PrivateIP)
-		if getNetErr != nil {
-			newErr := fmt.Errorf("Failed to Get PortForwarding Info. [%v]", getNetErr)
-			cblogger.Debug(newErr.Error())
-			// return irs.VMInfo{}, nil
-			// return irs.VMInfo{}, newErr
+	for _, rule := range pfRuleList {
+		if vmInfo.PrivateIP != "" && strings.EqualFold(rule.MappedIP, vmInfo.PrivateIP) {
+			netInfo = &NetworkInfo{PublicIP: rule.PublicIP, PublicIPID: rule.PublicIPID}
+			break
+		}
+	}
+	if netInfo == nil { // no port-forwarding rule left (e.g. last inbound rule removed)
+		if ip, id := storedPublicIP(vm.ID); ip != "" {
+			netInfo = &NetworkInfo{PublicIP: ip, PublicIPID: id}
 		}
 	}
 	// cblogger.Info("\n\n### netInfo : ")
@@ -1367,36 +1312,24 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 	// Find the correct KT tier by name.
 	// vm.Addresses map key = tier name (e.g. "spider-watch") — this is set above and matches
 	// the RefName stored in Spider metadb via mappingSubnetInfo, so getTierRefIdWithTierName works correctly.
-	tierRefId, getNetErr := vpcHandler.getTierRefIdWithTierName(vmInfo.SubnetIID.NameId)
+	// Tier RefID and VPC ID from one subnet(tier) list
+	subnetList, getNetErr := vpcHandler.listKTSubnet()
 	if getNetErr != nil {
-		newErr := fmt.Errorf("Failed to Get the OsNetwork ID with the Tier Name : [%v]", getNetErr)
+		newErr := fmt.Errorf("Failed to Get the Subnet list : [%v]", getNetErr)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}
-	if tierRefId != nil {
-		vmInfo.SubnetIID.SystemId = *tierRefId // Caution!!) Not Tier 'NetworkId' but 'tierRefId' to Create VM through REST API!!
+	for _, sn := range subnetList {
+		if strings.EqualFold(sn.RefName, vmInfo.SubnetIID.NameId) {
+			vmInfo.SubnetIID.SystemId = sn.RefID // Caution!!) Not Tier 'NetworkId' but 'tierRefId' to Create VM through REST API!!
+			vmInfo.VpcIID.SystemId = sn.VpcID
+			break
+		}
 	}
 
-	vpcId, err := vpcHandler.getVPCIdWithTierRefId(vmInfo.SubnetIID.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC ID with the OsNetwork ID. [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-	if vpcId != nil {
-		vmInfo.VpcIID.SystemId = *vpcId
-	}
-
-	// # Get ImageInfo frome the Disk Volume
-	diskHandler := KTVpcDiskHandler{
-		RegionInfo:   vmHandler.RegionInfo,
-		VMClient:     vmHandler.VMClient,
-		VolumeClient: vmHandler.VolumeClient,
-	}
-
+	// # Get ImageInfo from the Disk Volume
 	var diskIIDs []irs.IID
 	var imageIID irs.IID
-	var getErr error
 	if len(vm.AttachedVolumes) > 0 && vmHandler.VolumeClient != nil {
 		for _, volume := range vm.AttachedVolumes {
 			cblogger.Infof("# Volume ID : %s", volume.ID)
@@ -1418,11 +1351,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 					vmInfo.RootDeviceName = ktVolume.Attachments[0].Device
 				}
 
-				imageIID, getErr = diskHandler.getImageNameandIDWithDiskID(volume.ID)
-				if getErr != nil {
-					cblogger.Infof("Failed to Get Image Info from the Disk Info : [%v]", getErr)
-					// return irs.VMInfo{}, err
-				}
+				imageIID = irs.IID{NameId: ktVolume.VolumeImageMetadata["image_name"], SystemId: ktVolume.VolumeImageMetadata["image_id"]}
 			} else {
 				diskIIDs = append(diskIIDs, irs.IID{SystemId: volume.ID}) // Data Disk. (Not bootable)
 			}
@@ -1548,36 +1477,6 @@ func (vmHandler *KTVpcVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, e
 	}
 }
 
-func (vmHandler *KTVpcVMHandler) vmExists(vmIID irs.IID) (bool, error) {
-	cblogger.Info("KT Cloud VPC Driver: called vmExists()")
-
-	if strings.EqualFold(vmIID.NameId, "") {
-		newErr := fmt.Errorf("Invalid VM Name!!")
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-
-	allPagers, err := servers.List(vmHandler.VMClient, servers.ListOpts{Name: vmIID.NameId}).AllPages()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VM Pages from KT Cloud. : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-	vmList, err := servers.ExtractServers(allPagers)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VM list. : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-	for _, vm := range vmList {
-		if strings.EqualFold(vm.Name, vmIID.NameId) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
 func (vmHandler *KTVpcVMHandler) imageExists(imageIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called imageExists()")
 
@@ -1696,6 +1595,24 @@ type NetworkInfo struct {
 	PublicIPID		string
 }
 */
+
+// storedPublicIP returns the PublicIP/PublicIPID persisted at StartVM (see RegisterSecurityGroup).
+func storedPublicIP(vmID string) (string, string) {
+	info, err := sim.GetSecurityGroup(vmID)
+	if err != nil || info == nil {
+		return "", ""
+	}
+	var ip, id string
+	for _, kv := range info.KeyValueInfoList {
+		switch kv.Key {
+		case "PublicIP":
+			ip = kv.Value
+		case "PublicIPID":
+			id = kv.Value
+		}
+	}
+	return ip, id
+}
 
 func (vmHandler *KTVpcVMHandler) getNetIDsWithPrivateIP(privateIpAddr string) (*NetworkInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getNetIDsWithPrivateIP()!")

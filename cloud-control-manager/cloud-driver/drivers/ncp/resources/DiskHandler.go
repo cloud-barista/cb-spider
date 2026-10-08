@@ -465,6 +465,16 @@ func (diskHandler *NcpVpcDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID)
 		return irs.DiskInfo{}, newErr
 	}
 
+	// The root disk may still be 'optimizing' right after StartVM (which no longer waits for it);
+	// NCP rejects storage operations on the VM until it is attached.
+	vmHandler := NcpVpcVMHandler{RegionInfo: diskHandler.RegionInfo, VMClient: diskHandler.VMClient}
+	if _, waitErr := vmHandler.waitForDiskAttach(vmIID); waitErr != nil {
+		newErr := fmt.Errorf("Failed to Wait for the Root Disk of the VM to be attached : [%v]", waitErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.DiskInfo{}, newErr
+	}
+
 	attachReq := vserver.AttachBlockStorageInstanceRequest{
 		RegionCode: 				ncloud.String(diskHandler.RegionInfo.Region),
 		ServerInstanceNo: 			ncloud.String(vmIID.SystemId),
@@ -491,7 +501,7 @@ func (diskHandler *NcpVpcDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID)
 
 	// Wait for Disk Attachment finished
 	curStatus, waitErr := diskHandler.waitForDiskAttachment(diskIID)
-	if err != nil {
+	if waitErr != nil {
 		newErr := fmt.Errorf("Failed to Wait for the Disk Attachment. [%v]", waitErr.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)

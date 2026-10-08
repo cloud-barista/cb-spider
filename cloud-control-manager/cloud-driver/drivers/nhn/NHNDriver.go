@@ -88,6 +88,7 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		Password:         connInfo.CredentialInfo.Password,
 		DomainName:       connInfo.CredentialInfo.DomainName,
 		TenantID:         connInfo.CredentialInfo.TenantId, // Caution : TenantID spelling for SDK
+		AllowReauth:      true,                             // cached connections re-authenticate automatically on 401
 	}
 	providerClient, err := ostack.AuthenticatedClient(authOpts)
 	if err != nil {

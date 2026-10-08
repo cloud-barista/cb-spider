@@ -47,13 +47,11 @@ func init() {
 	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 }
 
-// newArmClientOptions returns arm.ClientOptions with a fresh http.Transport per call.
+// newArmClientOptions returns arm.ClientOptions with a dedicated http.Transport per client.
 //
-// Azure ARM sends HTTP/2 GOAWAY frames periodically (~60s) to recycle connections.
-// When all SDK clients share http.DefaultTransport, a single GOAWAY simultaneously
-// cancels every in-flight stream across all concurrent VM operations. By giving each
-// ConnectCloud() call its own transport, each concurrent operation has an isolated
-// HTTP/2 connection — a GOAWAY on one connection only affects that one operation.
+// Azure ARM sends HTTP/2 GOAWAY frames periodically (~60s) to recycle connections. Each SDK
+// client gets its own transport so a GOAWAY on one client's connection does not cancel the
+// in-flight streams of the others; the azcore retry policy covers the affected request.
 func newArmClientOptions(extraPolicies ...policy.Policy) *arm.ClientOptions {
 	opts := &arm.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
@@ -73,6 +71,8 @@ func (AzureDriver) GetDriverVersion() string {
 }
 
 const (
+	// cspTimeout bounds the context created once per connection in ConnectCloud. Connections are
+	// cached (connectionCacheTTL = 50 min), so this must stay longer than that TTL.
 	cspTimeout time.Duration = 6000
 )
 

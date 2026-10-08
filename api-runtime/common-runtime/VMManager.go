@@ -746,9 +746,9 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		return nil, err
 	}
 
-	// check Winddows GuestOS
+	// check Winddows GuestOS (cached per connection+image; the result is passed to the driver via WindowsType)
 	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
+	isWindowsOS, err = checkImageWindowsOSCached(connectionName, cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
 	if err != nil {
 		if strings.Contains(err.Error(), "yet!") {
 			cblog.Info(err)
@@ -757,6 +757,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 			return nil, err
 		}
 	}
+	reqInfoForDriver.WindowsType = isWindowsOS
 
 	if isWindowsOS {
 		rsType = "windowsvm" // be used for NCP and NCP in IIDManager.New()
@@ -1064,6 +1065,21 @@ func checkImageType(reqInfo *cres.VMReqInfo) error {
 		}
 	}
 	return nil
+}
+
+// windowsImageCache caches checkImageWindowsOS results. Image SystemIds are immutable, so no TTL is needed.
+var windowsImageCache sync.Map // key: connectionName|imageType|imageSystemId -> bool
+
+func checkImageWindowsOSCached(connectionName string, cldConn ccon.CloudConnection, imageType cres.ImageType, imageIID cres.IID) (bool, error) {
+	key := connectionName + "|" + string(imageType) + "|" + imageIID.SystemId
+	if v, ok := windowsImageCache.Load(key); ok {
+		return v.(bool), nil
+	}
+	isWindows, err := checkImageWindowsOS(cldConn, imageType, imageIID)
+	if err == nil {
+		windowsImageCache.Store(key, isWindows)
+	}
+	return isWindows, err
 }
 
 func checkImageWindowsOS(cldConn ccon.CloudConnection, imageType cres.ImageType, imageIID cres.IID) (bool, error) {
