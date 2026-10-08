@@ -5842,7 +5842,8 @@ paths:
         <br> * NodeGroupList is optional, depends on CSP type: <br> &nbsp;- Type-I
         (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster
         creation. <br> &nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node
-        Group during initial Cluster creation."
+        Group during initial Cluster creation.\nMalformed scaling values are rejected;
+        omitted creation fields retain their zero values for driver validation."
       operationId: create-cluster
       parameters:
       - description: Request body for creating a Cluster
@@ -5969,7 +5970,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Add a new Node Group to an existing Cluster.
+      description: |-
+        Add a new Node Group to an existing Cluster.
+        Malformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.
       operationId: add-nodegroup
       parameters:
       - description: The name of the Cluster to add the Node Group to
@@ -6056,7 +6059,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Change the scaling settings for a Node Group in a Cluster.
+      description: |-
+        Change the scaling settings for a Node Group in a Cluster.
+        Node sizes must be non-negative integers.
       operationId: change-nodegroup-scaling
       parameters:
       - description: The name of the Cluster to change Node Group Scaling
@@ -6102,7 +6107,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Enable or disable auto scaling for a Node Group in a Cluster.
+      description: |-
+        Enable or disable auto scaling for a Node Group in a Cluster.
+        OnAutoScaling must be a valid boolean.
       operationId: set-nodegroup-autoscaling
       parameters:
       - description: The name of the Cluster to set Node Group Auto Scaling
