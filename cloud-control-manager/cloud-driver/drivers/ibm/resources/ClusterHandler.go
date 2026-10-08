@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -39,11 +40,14 @@ const (
 	GetAutoScalerConfigErr = "Get Autoscaler Config Map Error"
 
 	// Retry Counts
-	EnableAutoScalerRetry  = 120 // minutes
-	DisableAutoScalerRetry = 120 // minutes
-	InitSecurityGroupRetry = 120 // minutes
-	RestoreDefaultSGRetry  = 120 // minutes
-	UpgradeMasterRetry     = 120 // minutes
+	EnableAutoScalerRetry             = 120 // minutes
+	DisableAutoScalerRetry            = 120 // minutes
+	InitSecurityGroupRetry            = 120 // minutes
+	RestoreDefaultSGRetry             = 120 // minutes
+	UpgradeMasterRetry                = 120 // minutes
+	IBM_RESOURCE_GROUP_MAX_ATTEMPTS   = 3
+	IBM_RESOURCE_GROUP_LOOKUP_TIMEOUT = time.Minute
+	IBM_RESOURCE_GROUP_RETRY_INTERVAL = 2 * time.Second
 
 	// Status tags
 	AutoScalerStatus    = "CB-SPIDER-PMKS-AUTOSCALER-STATUS:"
@@ -1652,11 +1656,32 @@ func (ic *IbmClusterHandler) getDefaultResourceGroupId() (string, error) {
 			return "", err
 		}
 
-		resourceGroups, _, listResourceGroupsErr := resourceManagerService.ListResourceGroups(&resourcemanagerv2.ListResourceGroupsOptions{
-			Default: core.BoolPtr(true),
-		})
+		lookupCtx, cancel := context.WithTimeout(ic.Ctx, IBM_RESOURCE_GROUP_LOOKUP_TIMEOUT)
+		defer cancel()
+		options := &resourcemanagerv2.ListResourceGroupsOptions{Default: core.BoolPtr(true)}
+		resourceGroups, _, listResourceGroupsErr := resourceManagerService.ListResourceGroupsWithContext(lookupCtx, options)
+		retryInterval := IBM_RESOURCE_GROUP_RETRY_INTERVAL
+		for attempt := 1; listResourceGroupsErr != nil && attempt < IBM_RESOURCE_GROUP_MAX_ATTEMPTS; attempt++ {
+			if err := lookupCtx.Err(); err != nil {
+				return "", fmt.Errorf("default resource group lookup cancelled: %w", err)
+			}
+			var networkErr net.Error
+			if !errors.As(listResourceGroupsErr, &networkErr) || (!networkErr.Timeout() && !networkErr.Temporary()) {
+				break
+			}
+			cblogger.Warnf("default resource group lookup attempt %d/%d failed with a transient network error; retrying", attempt, IBM_RESOURCE_GROUP_MAX_ATTEMPTS)
+			timer := time.NewTimer(retryInterval)
+			select {
+			case <-lookupCtx.Done():
+				timer.Stop()
+				return "", fmt.Errorf("default resource group lookup cancelled: %w", lookupCtx.Err())
+			case <-timer.C:
+			}
+			resourceGroups, _, listResourceGroupsErr = resourceManagerService.ListResourceGroupsWithContext(lookupCtx, options)
+			retryInterval *= 2
+		}
 		if listResourceGroupsErr != nil {
-			return "", listResourceGroupsErr
+			return "", fmt.Errorf("failed to list default resource groups: %w", listResourceGroupsErr)
 		}
 
 		for _, resourceGroup := range resourceGroups.Resources {
