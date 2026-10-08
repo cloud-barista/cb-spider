@@ -182,7 +182,7 @@ Same endpoints and request body as `../../rdbms-mysql-test/charset-test` -- see
 
 ## Test Results
 
-### 2026-10-07 (NHN Direct Control 비활성화)
+### 2026-10-07 (NHN Direct Control disabled)
 
 ```
 ====================================================================================================================
@@ -200,9 +200,11 @@ NHN        | FAIL      | SKIP      | SKIP      | FAIL      | SKIP      | SKIP   
 Total: 3 PASS, 1 FAIL
 ```
 
-`NHN`의 FAIL은 이 테스트 인스턴스에 아직 "Direct Control"이 활성화되지 않은 상태라서 발생한 것으로, 환경 전제조건 미충족이지 CB-Spider 버그가 아님 (`nhn-charset-test.sh` 참고). AWS/Alibaba/OpenStack은 모두 정상.
+The `NHN` FAIL is caused by "Direct Control" not yet being enabled on this test instance -- an
+environment prerequisite not being met, not a CB-Spider bug (see `nhn-charset-test.sh`).
+AWS/Alibaba/OpenStack are all fine.
 
-### 2026-10-07 (NHN Direct Control 활성화 후)
+### 2026-10-07 (NHN Direct Control enabled)
 
 ```
 ====================================================================================================================
@@ -220,4 +222,5 @@ NHN        | PASS      | PASS      | PASS      | PASS      | PASS      | PASS   
 Total: 4 PASS, 0 FAIL
 ```
 
-NHN 테스트 인스턴스(MariaDB)에서도 "Direct Control"을 활성화한 뒤 재실행한 결과 -- 4개 CSP 전체 정상 확인.
+Result after enabling "Direct Control" on the NHN test instance (MariaDB) and re-running -- all 4
+CSPs confirmed fine.

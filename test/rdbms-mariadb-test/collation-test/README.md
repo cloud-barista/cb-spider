@@ -188,7 +188,7 @@ Same endpoints and request body as `../../rdbms-mysql-test/collation-test` -- se
 
 ## Test Results
 
-### 2026-10-07 (NHN Direct Control 비활성화)
+### 2026-10-07 (NHN Direct Control disabled)
 
 ```
 ====================================================================================================================
@@ -206,10 +206,11 @@ NHN        | FAIL      | SKIP      | SKIP      | FAIL      | SKIP      | SKIP   
 Total: 2 PASS, 2 FAIL
 ```
 
-`ALIBABA`는 CSP 미지원. 
-`NHN`의 FAIL은 이 테스트 인스턴스에 아직 "Direct Control" 미설정 상태로 정상. (`nhn-collation-test.sh` 참고).
+`ALIBABA` is unsupported by the CSP.
+The `NHN` FAIL is expected -- "Direct Control" isn't set up yet on this test instance (see
+`nhn-collation-test.sh`).
 
-### 2026-10-07 (NHN Direct Control 활성화 후)
+### 2026-10-07 (NHN Direct Control enabled)
 
 ```
 ====================================================================================================================
@@ -227,4 +228,5 @@ NHN        | PASS      | PASS      | PASS      | PASS      | PASS      | PASS   
 Total: 3 PASS, 1 FAIL
 ```
 
-NHN 테스트 인스턴스(MariaDB)에서 "Direct Control"을 활성화한 뒤 재실행한 결과. `ALIBABA`는 CSP 미지원 -- FAIL은 정상 동작.
+Result after enabling "Direct Control" on the NHN test instance (MariaDB) and re-running.
+`ALIBABA` is unsupported by the CSP -- its FAIL is expected behavior.
