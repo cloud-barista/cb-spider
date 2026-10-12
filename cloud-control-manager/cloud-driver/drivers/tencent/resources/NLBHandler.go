@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"strings"
@@ -313,11 +314,23 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var nlbInfoList []*irs.NLBInfo
 	for _, curNLB := range loadBalancerSet {
 		cblogger.Debugf("[%s] NLB information retrieval - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
-		nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerId})
+		var (
+			nlbInfo irs.NLBInfo
+			nlbErr  error
+		)
+		func() {
+			// Guard against panics caused by partial or terminating NLB state on CSP.
+			defer func() {
+				if r := recover(); r != nil {
+					nlbErr = fmt.Errorf("recovered panic in GetNLB: %v", r)
+				}
+			}()
+			nlbInfo, nlbErr = NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerId})
+		}()
 
 		if nlbErr != nil {
-			cblogger.Error(nlbErr)
-			return nil, nlbErr
+			cblogger.Warnf("failed to get NLB [%s]: %v (skipping deleted/terminating NLB)", *curNLB.LoadBalancerId, nlbErr)
+			continue
 		}
 		nlbInfoList = append(nlbInfoList, &nlbInfo)
 	}
@@ -1094,7 +1107,16 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 
 	cblogger.Debug(response.ToJsonString())
 
+	// Guard against empty listeners during NLB termination or listener deletion.
+	if response.Response.Listeners == nil || len(response.Response.Listeners) == 0 {
+		return irs.HealthCheckerInfo{}, fmt.Errorf("no listeners found for NLB: %s", nlbIID.SystemId)
+	}
+
 	tencentHealthCheck := response.Response.Listeners[0].HealthCheck
+	// Return empty health check info when health check configuration is absent.
+	if tencentHealthCheck == nil {
+		return irs.HealthCheckerInfo{}, nil
+	}
 
 	resHealthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol:  *tencentHealthCheck.CheckType,
