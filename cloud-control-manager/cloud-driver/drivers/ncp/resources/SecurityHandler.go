@@ -41,6 +41,20 @@ func init() {
 	cblogger = cblog.GetLogger("NCP Security Group Handler")
 }
 
+// NCP rejects an ACG change while the previous one is still being applied (1007009); retry briefly.
+func acgRetry[T any](fn func() (T, error)) (T, error) {
+	var res T
+	var err error
+	for attempt := 0; attempt < 12; attempt++ {
+		res, err = fn()
+		if err == nil || !strings.Contains(err.Error(), "1007009") {
+			return res, err
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return res, err
+}
+
 func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Info("NCP VPC cloud driver: called CreateSecurity()!")
 
@@ -158,7 +172,9 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 						}
 
 						callLogStart := call.Start()
-						sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+						sgInboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupInboundRuleResponse, error) {
+							return securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+						})
 						if err != nil {
 							cblogger.Error(err)
 							cblogger.Error(*sgInboundRule.ReturnMessage)
@@ -215,7 +231,9 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 				}
 
 				callLogStart := call.Start()
-				sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+				sgInboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupInboundRuleResponse, error) {
+					return securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+				})
 				if err != nil {
 					cblogger.Error(err)
 					cblogger.Error(*sgInboundRule.ReturnMessage)
@@ -265,7 +283,9 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 						}
 
 						callLogStart := call.Start()
-						sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+						sgOutboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupOutboundRuleResponse, error) {
+							return securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+						})
 						if err != nil {
 							cblogger.Error(err)
 							cblogger.Error(*sgOutboundRule.ReturnMessage)
@@ -321,7 +341,9 @@ func (securityHandler *NcpVpcSecurityHandler) CreateSecurity(securityReqInfo irs
 				}
 
 				callLogStart := call.Start()
-				sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+				sgOutboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupOutboundRuleResponse, error) {
+					return securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+				})
 				if err != nil {
 					cblogger.Error(err)
 					cblogger.Error(*sgOutboundRule.ReturnMessage)
@@ -576,7 +598,9 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 						}
 
 						callLogStart := call.Start()
-						sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+						sgInboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupInboundRuleResponse, error) {
+							return securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+						})
 						if err != nil {
 							cblogger.Error(err)
 							cblogger.Error(*sgInboundRule.ReturnMessage)
@@ -632,7 +656,9 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 				}
 
 				callLogStart := call.Start()
-				sgInboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+				sgInboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupInboundRuleResponse, error) {
+					return securityHandler.VMClient.V2Api.AddAccessControlGroupInboundRule(&inboundReq)
+				})
 				if err != nil {
 					cblogger.Error(err)
 					cblogger.Error(*sgInboundRule.ReturnMessage)
@@ -684,7 +710,9 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 						}
 
 						callLogStart := call.Start()
-						sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+						sgOutboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupOutboundRuleResponse, error) {
+							return securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+						})
 						if err != nil {
 							cblogger.Error(err)
 							cblogger.Error(*sgOutboundRule.ReturnMessage)
@@ -740,7 +768,9 @@ func (securityHandler *NcpVpcSecurityHandler) AddRules(sgIID irs.IID, securityRu
 				}
 
 				callLogStart := call.Start()
-				sgOutboundRule, err := securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+				sgOutboundRule, err := acgRetry(func() (*vserver.AddAccessControlGroupOutboundRuleResponse, error) {
+					return securityHandler.VMClient.V2Api.AddAccessControlGroupOutboundRule(&outboundReq)
+				})
 				if err != nil {
 					cblogger.Error(err)
 					cblogger.Error(*sgOutboundRule.ReturnMessage)
@@ -852,7 +882,9 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 						}
 
 						callLogStart := call.Start()
-						sgInboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupInboundRule(&inboundReq)
+						sgInboundRule, err := acgRetry(func() (*vserver.RemoveAccessControlGroupInboundRuleResponse, error) {
+							return securityHandler.VMClient.V2Api.RemoveAccessControlGroupInboundRule(&inboundReq)
+						})
 						if err != nil {
 							cblogger.Error(err)
 							cblogger.Error(*sgInboundRule.ReturnMessage)
@@ -904,7 +936,9 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 				}
 
 				callLogStart := call.Start()
-				sgInboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupInboundRule(&inboundReq)
+				sgInboundRule, err := acgRetry(func() (*vserver.RemoveAccessControlGroupInboundRuleResponse, error) {
+					return securityHandler.VMClient.V2Api.RemoveAccessControlGroupInboundRule(&inboundReq)
+				})
 				if err != nil {
 					cblogger.Error(err)
 					cblogger.Error(*sgInboundRule.ReturnMessage)
@@ -950,7 +984,9 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 						}
 
 						callLogStart := call.Start()
-						sgOutboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupOutboundRule(&outboundReq)
+						sgOutboundRule, err := acgRetry(func() (*vserver.RemoveAccessControlGroupOutboundRuleResponse, error) {
+							return securityHandler.VMClient.V2Api.RemoveAccessControlGroupOutboundRule(&outboundReq)
+						})
 						if err != nil {
 							cblogger.Error(err)
 							cblogger.Error(*sgOutboundRule.ReturnMessage)
@@ -1002,7 +1038,9 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 				}
 
 				callLogStart := call.Start()
-				sgOutboundRule, err := securityHandler.VMClient.V2Api.RemoveAccessControlGroupOutboundRule(&outboundReq)
+				sgOutboundRule, err := acgRetry(func() (*vserver.RemoveAccessControlGroupOutboundRuleResponse, error) {
+					return securityHandler.VMClient.V2Api.RemoveAccessControlGroupOutboundRule(&outboundReq)
+				})
 				if err != nil {
 					cblogger.Error(err)
 					cblogger.Error(*sgOutboundRule.ReturnMessage)

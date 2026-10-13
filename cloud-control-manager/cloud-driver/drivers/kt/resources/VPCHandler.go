@@ -250,6 +250,10 @@ func (vpcHandler *KTVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.II
 
 	networkId, err := vpcHandler.getNetworkIdWithTierId(subnetIID.SystemId)
 	if err != nil {
+		if strings.Contains(err.Error(), "No NetworkId found") || strings.Contains(err.Error(), "Failed to Get Any Subnet") {
+			cblogger.Infof("Subnet(Tier) [%s] no longer exists; treating as deleted", subnetIID.SystemId)
+			return true, nil
+		}
 		newErr := fmt.Errorf("Failed to Get the Network ID!!")
 		cblogger.Error(newErr.Error())
 		return false, newErr
@@ -1064,57 +1068,42 @@ func (vpcHandler *KTVpcVPCHandler) waitForSubnetActive(networkId string) error {
 // isSubnetDeleted checks if a subnet has been successfully deleted.
 // It returns true if the subnet can't be found (404 error).
 func (vpcHandler *KTVpcVPCHandler) isSubnetDeleted(networkId string) (bool, error) {
-	result := subnets.Get(vpcHandler.NetworkClient, networkId)
-	if result.Err != nil {
-		// 404 error means that the subnet has been deleted.
-		if _, ok := result.Err.(ktvpcsdk.ErrDefault404); ok {
+	// subnets.Get() still returns the tier after deletion; use the list instead
+	subnetList, err := vpcHandler.listKTSubnet()
+	if err != nil {
+		if strings.Contains(err.Error(), "Failed to Find Any Subnet") {
 			return true, nil
 		}
-		return false, result.Err
+		return false, err
 	}
-
-	return false, nil
+	for _, sn := range subnetList {
+		if strings.EqualFold(sn.NetworkID, networkId) {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // waitForSubnetDeletion waits for a subnet to be deleted.
 func (vpcHandler *KTVpcVPCHandler) waitForSubnetDeletion(networkId string) error {
 	cblogger.Info("KT Cloud VPC driver: called waitForSubnetDeletion()!!")
 
-	maxAttempts := 3
-	delaySeconds := 3
+	// Tier deletion is asynchronous and can take minutes
+	maxAttempts := 60
+	delaySeconds := 5
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		isSubnetActive, err := vpcHandler.isSubnetActive(networkId)
+		deleted, err := vpcHandler.isSubnetDeleted(networkId)
 		if err != nil {
-			cblogger.Errorf("Error checking subnet deletion (attempt %d/%d): %v", attempt, maxAttempts, err)
-			time.Sleep(time.Duration(delaySeconds) * time.Second)
-			continue
-		}
-		if !isSubnetActive {
-			cblogger.Infof("Subnet [%s] is Not Active", networkId)
+			cblogger.Warnf("Error checking subnet deletion (attempt %d/%d): %v", attempt, maxAttempts, err)
+		} else if deleted {
+			cblogger.Infof("Subnet [%s] has been deleted", networkId)
 			return nil
+		} else {
+			cblogger.Infof("Subnet [%s] is still being deleted (attempt %d/%d)", networkId, attempt, maxAttempts)
 		}
-
-		cblogger.Infof("\nSubnet [%s] is still being deleted (attempt %d/%d)", networkId, attempt, maxAttempts)
 		time.Sleep(time.Duration(delaySeconds) * time.Second)
 	}
-
-	//     for attempt := 1; attempt <= maxAttempts; attempt++ {
-	//         deleted, err := vpcHandler.isSubnetDeleted(networkId)
-	//         if err != nil {
-	//             cblogger.Errorf("Error checking subnet deletion (attempt %d/%d): %v", attempt, maxAttempts, err)
-	//             time.Sleep(time.Duration(delaySeconds) * time.Second)
-	//             continue
-	//         }
-	//         if deleted {
-	//             cblogger.Infof("Subnet [%s] has been deleted", networkId)
-	//             return nil
-	//         }
-
-	//         cblogger.Infof("\nSubnet [%s] is still being deleted (attempt %d/%d)", networkId, attempt, maxAttempts)
-	//         time.Sleep(time.Duration(delaySeconds) * time.Second)
-	//     }
-
 	return fmt.Errorf("maximum number of attempts (%d) exceeded waiting for subnet [%s] to be deleted", maxAttempts, networkId)
 }
 

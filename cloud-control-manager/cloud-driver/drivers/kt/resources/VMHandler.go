@@ -184,6 +184,10 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			return irs.VMInfo{}, newErr
 		}
 	} else { // In case of MyImage
+		rootDiskSize = vmReqInfo.RootDiskSize
+		if strings.EqualFold(rootDiskSize, "") || strings.EqualFold(rootDiskSize, "default") {
+			rootDiskSize = DefaultDiskSize
+		}
 		var createErr error
 		initUserData, createErr = vmHandler.createLinuxInitUserData(keyPairId)
 		if createErr != nil {
@@ -207,12 +211,6 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	} else if vmReqInfo.ImageType == irs.MyImage {
 		bootSourceType = volumeboot.SourceImage // volumeboot.SourceType => "image". Not "snapshot"
 		// bootSourceType = volumeboot.SourceSnapshot	// volumeboot.SourceType => "snapshot"
-	}
-
-	// When Root Volume Size is not specified.
-	reqDiskSize := vmReqInfo.RootDiskSize
-	if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-		reqDiskSize = DefaultDiskSize
 	}
 
 	// When Root Volume Type is not specified, default to SSD
@@ -239,9 +237,22 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	// cblogger.Info("\n ### Boot Options : ")
 	// spew.Dump(bootOpts)
 
-	vm, err := volumeboot.Create(vmHandler.VMClient, bootOpts).Extract()
+	createResult := volumeboot.Create(vmHandler.VMClient, bootOpts)
+	vm, err := createResult.Extract()
 	if err != nil {
+		switch e := err.(type) { // ErrDefaultNNN hide the response body in Error()
+		case ktvpcsdk.ErrDefault500:
+			err = fmt.Errorf("%v: %s", err, string(e.Body))
+		case ktvpcsdk.ErrDefault400:
+			err = fmt.Errorf("%v: %s", err, string(e.Body))
+		}
 		newErr := fmt.Errorf("Failed to Create VM!! [%v]", err)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+	if strings.EqualFold(vm.ID, "") {
+		newErr := fmt.Errorf("failed to create VM [%s]: KT Cloud returned no VM ID, response: %v", vmReqInfo.IId.NameId, createResult.Body)
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
@@ -697,15 +708,6 @@ func (vmHandler *KTVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 			return irs.Failed, newErr
 		}
 
-		// Delete PublicIP connected VM
-		_, dellIpErr := vmHandler.removePublicIP(vm.PublicIP)
-		if dellIpErr != nil {
-			newErr := fmt.Errorf("Failed to Delete Public IP : [%v]", dellIpErr)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return irs.Failed, newErr
-		}
-
 	} else {
 		// PublicIP is empty: try to clean up PF rules by private IP (MappedIP) to avoid orphans.
 		cblogger.Info("The VM doesn't have any connected Public IP. Attempting PF rule cleanup by private IP.")
@@ -726,6 +728,17 @@ func (vmHandler *KTVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		}
 	} else {
 		cblogger.Info("The VM doesn't have any Private IP!! Waitting for Termination!!")
+	}
+
+	// Delete the PublicIP after all rules referencing it are gone
+	if !strings.EqualFold(vm.PublicIP, "") {
+		_, dellIpErr := vmHandler.removePublicIP(vm.PublicIP)
+		if dellIpErr != nil {
+			newErr := fmt.Errorf("Failed to Delete Public IP : [%v]", dellIpErr)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return irs.Failed, newErr
+		}
 	}
 
 	// Terminate VM
@@ -1904,11 +1917,17 @@ func (vmHandler *KTVpcVMHandler) removePublicIP(publicIpAddr string) (bool, erro
 	}
 
 	// 1. Find the public IP ID by IP address
-	publicIPID, err := vmHandler.findPublicIPIDByIP(publicIpAddr)
+	fip, err := vmHandler.findPublicIPByAddr(publicIpAddr)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Find the PublicIP ID: [%v]", err)
 		cblogger.Error(newErr.Error())
 		return false, newErr
+	}
+	publicIPID := fip.PublicIpID
+	if strings.EqualFold(fip.Type, "SRCNAT") {
+		// Account-level SRCNAT IP: not deletable
+		cblogger.Infof("PublicIP %s (ID: %s) is the account's SRCNAT IP; keeping it", publicIpAddr, publicIPID)
+		return true, nil
 	}
 	cblogger.Infof("PublicIP ID : %s", publicIPID)
 
@@ -2359,12 +2378,20 @@ func (vmHandler *KTVpcVMHandler) findFirewallPolicyIDsByIP(fwRules []rules.Firew
 
 // findPublicIPIDByIP searches for a public IP ID based on the given public IP address
 func (vmHandler *KTVpcVMHandler) findPublicIPIDByIP(publicIPAddress string) (string, error) {
-	cblogger.Info("KT Cloud driver: called findPublicIPIDByIP()!!")
+	fip, err := vmHandler.findPublicIPByAddr(publicIPAddress)
+	if err != nil {
+		return "", err
+	}
+	return fip.PublicIpID, nil
+}
+
+func (vmHandler *KTVpcVMHandler) findPublicIPByAddr(publicIPAddress string) (*ips.FloatingIP, error) {
+	cblogger.Info("KT Cloud driver: called findPublicIPByAddr()")
 
 	if strings.EqualFold(publicIPAddress, "") {
 		newErr := fmt.Errorf("Invalid PublicIP Address!!")
 		cblogger.Error(newErr.Error())
-		return "", newErr
+		return nil, newErr
 	}
 
 	// List all floating IPs with pagination
@@ -2374,7 +2401,7 @@ func (vmHandler *KTVpcVMHandler) findPublicIPIDByIP(publicIPAddress string) (str
 	}
 	pager := ips.List(vmHandler.NetworkClient, listOpts)
 
-	var foundPublicIPID string
+	var found *ips.FloatingIP
 
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
 		fips, err := ips.ExtractFloatingIPs(page)
@@ -2387,7 +2414,8 @@ func (vmHandler *KTVpcVMHandler) findPublicIPIDByIP(publicIPAddress string) (str
 		// Search for matching public IP address
 		for _, fip := range fips {
 			if strings.EqualFold(fip.PublicIP, publicIPAddress) {
-				foundPublicIPID = fip.PublicIpID
+				f := fip
+				found = &f
 				return false, nil // Stop iteration when found
 			}
 		}
@@ -2396,16 +2424,16 @@ func (vmHandler *KTVpcVMHandler) findPublicIPIDByIP(publicIPAddress string) (str
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the FloatingIP ID [%v]", err)
 		cblogger.Error(newErr.Error())
-		return "", newErr
+		return nil, newErr
 	}
 
-	if foundPublicIPID == "" {
+	if found == nil {
 		newErr := fmt.Errorf("The PublicIP address %s not found", publicIPAddress)
 		cblogger.Error(newErr.Error())
-		return "", newErr
+		return nil, newErr
 	}
 
-	return foundPublicIPID, nil
+	return found, nil
 }
 
 // findPublicIPByID searches for a public IP address based on the given public IP ID
