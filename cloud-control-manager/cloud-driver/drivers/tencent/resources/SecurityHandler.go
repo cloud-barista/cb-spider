@@ -52,7 +52,7 @@ Action : ACCEPT or DROP
 // Tencent의 경우 : If no rules are set, all traffic is rejected by default
 // CB Spider의 outbound default는 All Open이므로 기본 Egress는 모두 open : CreateSecurityGroupWithPolicies
 // 사용자의 policy를 추가로 적용 : CreateSecurityGroupPolicies
-// 1번의 request는 한반향만 가능(두가지 동시에 불가)
+// Only one direction (Ingress or Egress) is allowed per API request in Tencent Cloud
 func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
 	//=================================================
@@ -112,53 +112,80 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Debug("Security Policy Processing")
-	securityGroupPolicySet := &vpc.SecurityGroupPolicySet{}
-	request := vpc.NewCreateSecurityGroupPoliciesRequest()
-	request.SecurityGroupId = common.StringPtr(*defaultEgressResponse.Response.SecurityGroup.SecurityGroupId)
+	securityGroupPolicyIngressSet := &vpc.SecurityGroupPolicySet{}
+	securityGroupPolicyEgressSet := &vpc.SecurityGroupPolicySet{}
 
-	for _, curPolicy := range *securityReqInfo.SecurityRules {
-		securityGroupPolicy := new(vpc.SecurityGroupPolicy)
-		securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
-		//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
-		securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
-		securityGroupPolicy.Action = common.StringPtr("accept")
+	// Separate Ingress and Egress requests because Tencent Cloud rejects simultaneous creation
+	if securityReqInfo.SecurityRules != nil {
+		for _, curPolicy := range *securityReqInfo.SecurityRules {
+			securityGroupPolicy := new(vpc.SecurityGroupPolicy)
+			securityGroupPolicy.Protocol = common.StringPtr(curPolicy.IPProtocol)
+			//securityGroupPolicy.CidrBlock = common.StringPtr("0.0.0.0/0")
+			securityGroupPolicy.CidrBlock = common.StringPtr(curPolicy.CIDR)
+			securityGroupPolicy.Action = common.StringPtr("accept")
 
-		// 포트 번호에 "-"가 오면 모든 포트로 설정
-		if curPolicy.FromPort == "-1" || curPolicy.ToPort == "-1" {
-			securityGroupPolicy.Port = common.StringPtr("ALL")
-		} else if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
-			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
-		} else {
-			securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
-		}
+			// Set "ALL" if port range contains "-"
+			if curPolicy.FromPort == "-1" || curPolicy.ToPort == "-1" {
+				securityGroupPolicy.Port = common.StringPtr("ALL")
+			} else if curPolicy.ToPort != "" && curPolicy.ToPort != curPolicy.FromPort {
+				securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort + "-" + curPolicy.ToPort)
+			} else {
+				securityGroupPolicy.Port = common.StringPtr(curPolicy.FromPort)
+			}
 
-		if strings.EqualFold(curPolicy.Direction, "inbound") {
-			securityGroupPolicySet.Ingress = append(securityGroupPolicySet.Ingress, securityGroupPolicy)
-		} else {
-			securityGroupPolicySet.Egress = append(securityGroupPolicySet.Egress, securityGroupPolicy)
+			if strings.EqualFold(curPolicy.Direction, "inbound") {
+				securityGroupPolicyIngressSet.Ingress = append(securityGroupPolicyIngressSet.Ingress, securityGroupPolicy)
+			} else {
+				securityGroupPolicyEgressSet.Egress = append(securityGroupPolicyEgressSet.Egress, securityGroupPolicy)
+			}
 		}
 	}
 
-	request.SecurityGroupPolicySet = securityGroupPolicySet
+	callLogInfo.CloudOSAPI = "CreateSecurityGroupPolicies()"
 
-	//callLogStart := call.Start()
-	//response, err := securityHandler.Client.CreateSecurityGroupWithPolicies(request)
+	// Ingress request
+	if len(securityGroupPolicyIngressSet.Ingress) > 0 {
+		ingressRequest := vpc.NewCreateSecurityGroupPoliciesRequest()
+		ingressRequest.SecurityGroupId = common.StringPtr(*defaultEgressResponse.Response.SecurityGroup.SecurityGroupId)
+		ingressRequest.SecurityGroupPolicySet = securityGroupPolicyIngressSet
 
-	response, err := securityHandler.Client.CreateSecurityGroupPolicies(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		callLogStart = call.Start()
+		ingressResponse, err := securityHandler.Client.CreateSecurityGroupPolicies(ingressRequest)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-		cblogger.Error(err)
-		cblogger.Debug(request)
-		return irs.SecurityInfo{}, err
+			cblogger.Error(err)
+			cblogger.Debug(ingressRequest)
+			return irs.SecurityInfo{}, err
+		}
+		cblogger.Debug(ingressResponse.ToJsonString())
+		callogger.Info(call.String(callLogInfo))
 	}
-	//cblogger.Debug(response)
-	cblogger.Debug(response.ToJsonString())
 
-	callogger.Info(call.String(callLogInfo))
+	// Egress request
+	if len(securityGroupPolicyEgressSet.Egress) > 0 {
+		egressRequest := vpc.NewCreateSecurityGroupPoliciesRequest()
+		egressRequest.SecurityGroupId = common.StringPtr(*defaultEgressResponse.Response.SecurityGroup.SecurityGroupId)
+		egressRequest.SecurityGroupPolicySet = securityGroupPolicyEgressSet
+
+		callLogStart = call.Start()
+		egressResponse, err := securityHandler.Client.CreateSecurityGroupPolicies(egressRequest)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			cblogger.Debug(egressRequest)
+			return irs.SecurityInfo{}, err
+		}
+		cblogger.Debug(egressResponse.ToJsonString())
+		callogger.Info(call.String(callLogInfo))
+	}
 
 	securityInfo, errSecurity := securityHandler.GetSecurity(irs.IID{SystemId: *defaultEgressResponse.Response.SecurityGroup.SecurityGroupId})
 	if errSecurity != nil {
