@@ -212,7 +212,7 @@
         text-align: center;
     }
 
-    .rdbms-name, .rdbms-status, .rdbms-vpc, .rdbms-engine, .rdbms-spec, .rdbms-network, .rdbms-auth, .rdbms-options, .tags, .misc {
+    .rdbms-name, .rdbms-status, .rdbms-vpc, .rdbms-engine, .rdbms-spec, .rdbms-network, .rdbms-options, .tags, .misc {
         text-align: center;
     }
     .rdbms-name {
@@ -238,10 +238,6 @@
     }
     .rdbms-network {
         width: 14%;
-        vertical-align: top;
-    }
-    .rdbms-auth {
-        width: 10%;
         vertical-align: top;
     }
     .rdbms-options {
@@ -1024,7 +1020,6 @@
                 <th class="rdbms-engine">Engine</th>
                 <th class="rdbms-spec">Instance</th>
                 <th class="rdbms-network">Network</th>
-                <th class="rdbms-auth">Auth</th>
                 <th class="rdbms-options">Options</th>
                 <th class="tags">Tags</th>
                 <th class="misc">Misc</th>
@@ -1123,16 +1118,12 @@
                             <td>{{if $rdbms.NHNAutoOpenDBSecurityGroup}}Yes{{else}}No{{end}}</td>
                         </tr>
                         {{end}}
-                    </table>
-                </td>
-
-                <!-- Auth -->
-                <td class="rdbms-auth">
-                    <table class="inner-table">
+                        {{if eq $.ProviderName "NCP"}}
                         <tr>
-                            <th>User</th>
-                            <td>{{if $rdbms.MasterUserName}}{{$rdbms.MasterUserName}}{{else}}<span style="color:#999;" title="CB-Spider no longer reports the master user name after creation (it cannot reliably confirm it for every CSP) -- keep the username/password you set when creating this instance.">not shown</span>{{end}}</td>
+                            <th>Auto-open ACG</th>
+                            <td>{{if $rdbms.NCPAutoOpenACG}}Yes{{else}}No{{end}}</td>
                         </tr>
+                        {{end}}
                     </table>
                 </td>
 
@@ -1475,6 +1466,19 @@
                         <div class="form-group" style="margin-top: -6px;">
                             <label></label>
                             <small style="flex: 2; text-align: left; color: #666;">NHN only. Requires Public Access = Yes. Auto-creates a fully-open (0.0.0.0/0) DB Security Group and deletes it automatically when the instance is deleted.</small>
+                        </div>
+                    </div>
+                    <div id="ncpAutoOpenACGGroup" style="display:none;">
+                        <div class="form-group">
+                            <label for="ncpAutoOpenACG">Auto-open ACG:</label>
+                            <select id="ncpAutoOpenACG" name="ncpAutoOpenACG" style="background-color: #E6E6FA; width: 65%;">
+                                <option value="false" selected>No</option>
+                                <option value="true">Yes</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: -6px;">
+                            <label></label>
+                            <small style="flex: 2; text-align: left; color: #666;">NCP only. NCP has no API to assign a Public Domain, so Public Access is unavailable here. This only opens the instance's auto-created ACG to 0.0.0.0/0; set up the Public Domain manually via the NCP Console afterward to actually reach it from outside the VPC.</small>
                         </div>
                     </div>
                 </fieldset>
@@ -1859,6 +1863,10 @@
         const nhnAutoOpenDBSecurityGroupEl = document.getElementById('nhnAutoOpenDBSecurityGroup');
         const nhnAutoOpenDBSecurityGroup = !!nhnAutoOpenDBSecurityGroupEl && nhnAutoOpenDBSecurityGroupEl.value === 'true';
 
+        // NCP-only convenience option (hidden/reset to false for all other providers)
+        const ncpAutoOpenACGEl = document.getElementById('ncpAutoOpenACG');
+        const ncpAutoOpenACG = !!ncpAutoOpenACGEl && ncpAutoOpenACGEl.value === 'true';
+
         const data = {
             ConnectionName: connConfig,
             ReqInfo: {
@@ -1876,6 +1884,7 @@
                 HighAvailability: highAvailability,
                 PublicAccess: publicAccess,
                 NHNAutoOpenDBSecurityGroup: nhnAutoOpenDBSecurityGroup || undefined,
+                NCPAutoOpenACG: ncpAutoOpenACG || undefined,
                 Encryption: encryption,
                 DeletionProtection: deletionProtection,
                 BackupRetentionDays: backupRetentionDays,
@@ -2283,6 +2292,20 @@
                 } else {
                     nhnSGGroup.style.display = 'none';
                     document.getElementById('nhnAutoOpenDBSecurityGroup').value = 'false';
+                }
+            }
+
+            // NCP-only convenience option: open the instance's auto-created ACG
+            // to 0.0.0.0/0 (see RDBMSInfo.NCPAutoOpenACG). Not gated by Public
+            // Access -- NCP rejects PublicAccess=true outright, so the Public
+            // Access control above is disabled for NCP via SupportsPublicAccess.
+            const ncpACGGroup = document.getElementById('ncpAutoOpenACGGroup');
+            if (ncpACGGroup) {
+                if (isNCPProvider()) {
+                    ncpACGGroup.style.display = '';
+                } else {
+                    ncpACGGroup.style.display = 'none';
+                    document.getElementById('ncpAutoOpenACG').value = 'false';
                 }
             }
 
@@ -3264,6 +3287,11 @@
     function isNHNProvider() {
         const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
         return provider === 'NHN';
+    }
+
+    function isNCPProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return provider === 'NCP';
     }
 
     // NHNAutoOpenDBSecurityGroup requires PublicAccess=true (enforced by the
