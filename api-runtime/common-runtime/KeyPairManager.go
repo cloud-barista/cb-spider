@@ -104,8 +104,8 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
 
 	// (2) get resource info(CSP-ID)
 	// check existence and get info of this resouce in the CSP
-	// Do not user NameId, because Azure driver use it like SystemId
-	getInfo, err := handler.GetKey(cres.IID{NameId: userIID.SystemId, SystemId: userIID.SystemId})
+	// Do not use userIID.NameId (user-given alias) for CSP lookup. Azure driver expects the CSP resource's short name in IID.NameId.
+	getInfo, err := handler.GetKey(cres.IID{NameId: getMSShortID(userIID.SystemId), SystemId: userIID.SystemId})
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
