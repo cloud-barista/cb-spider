@@ -3916,6 +3916,19 @@ definitions:
           MasterUserPassword:
             example: password123!
             type: string
+          NCPAutoOpenACG:
+            default: false
+            description: |-
+              NCPAutoOpenACG (NCP only): NCP provides no API to assign a public
+              domain to an RDBMS instance, so Spider rejects PublicAccess=true for
+              NCP outright. When NCPAutoOpenACG is true, CB-Spider waits for the
+              instance to reach running state and adds a TCP 0.0.0.0/0 inbound
+              rule (on the DB port) to the dedicated Access Control Group NCP
+              auto-creates for the instance. This only opens the ACG; a Public
+              Domain must still be configured manually via the NCP Console to
+              actually reach the instance from outside the VPC. Ignored by every
+              other CSP.
+            type: boolean
           NHNAutoOpenDBSecurityGroup:
             default: false
             description: |-
@@ -4100,6 +4113,9 @@ definitions:
         items:
           $ref: '#/definitions/spider.KeyValue'
         type: array
+      NCPAutoOpenACG:
+        default: false
+        type: boolean
       NHNAutoOpenDBSecurityGroup:
         default: false
         type: boolean

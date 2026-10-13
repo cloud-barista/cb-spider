@@ -321,6 +321,13 @@ func (handler *NcpVpcRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.
 	if rdbmsReqInfo.MasterUserPassword == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserPassword is required")
 	}
+	// NCP does not expose a public-domain assignment API: Spider cannot make an
+	// NCP RDBMS instance publicly reachable, so PublicAccess=true is rejected
+	// outright. Use NCPAutoOpenACG to open the instance's auto-created ACG to
+	// 0.0.0.0/0, then configure the Public Domain manually via the NCP Console.
+	if rdbmsReqInfo.PublicAccess {
+		return irs.RDBMSInfo{}, errors.New("PublicAccess is not supported for NCP: NCP provides no API to assign a public domain to an RDBMS instance; it must be configured manually via the NCP Console. Use NCPAutoOpenACG=true to open the instance's ACG to 0.0.0.0/0, then set up the Public Domain in the NCP Console")
+	}
 
 	switch engineType {
 	case "mysql":
@@ -414,7 +421,7 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	instanceNo := derefStr(resp.CloudMysqlInstanceList[0].CloudMysqlInstanceNo)
 	instForInfo := resp.CloudMysqlInstanceList[0]
 
-	if reqInfo.PublicAccess {
+	if reqInfo.NCPAutoOpenACG {
 		port := "3306"
 		// NCP only populates AccessControlGroupNoList once the instance reaches "running" state.
 		cblogger.Infof("NCP MySQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
@@ -426,9 +433,9 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 			if len(runningInst.AccessControlGroupNoList) > 0 {
 				acgNo := derefStr(runningInst.AccessControlGroupNoList[0])
 				if err := handler.addPublicACGInboundRule(reqInfo.VpcIID.SystemId, acgNo, port); err != nil {
-					cblogger.Warnf("NCP MySQL: failed to open ACG %s for public access: %v", acgNo, err)
+					cblogger.Warnf("NCP MySQL: failed to open ACG %s via NCPAutoOpenACG: %v", acgNo, err)
 				} else {
-					cblogger.Infof("NCP MySQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) for public access", acgNo, port)
+					cblogger.Infof("NCP MySQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) via NCPAutoOpenACG", acgNo, port)
 				}
 			} else {
 				cblogger.Warnf("NCP MySQL: instance running but ACG list empty for instance %s; add inbound rule 0.0.0.0/0->%s manually", instanceNo, port)
@@ -439,6 +446,9 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	info := handler.convertMysqlInstanceToRDBMSInfo(instForInfo)
 	// NCP does not expose master username via API; populate from request
 	info.MasterUserName = reqInfo.MasterUserName
+	// NCPAutoOpenACG above is already re-derived live from the instance's ACG rules
+	// (see convertMysqlInstanceToRDBMSInfo), which correctly reflects false if the
+	// instance never reached running state in time or the rule-add call failed.
 	return info, nil
 }
 
@@ -514,7 +524,7 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	instanceNo := derefStr(resp.CloudPostgresqlInstanceList[0].CloudPostgresqlInstanceNo)
 	instForInfo := resp.CloudPostgresqlInstanceList[0]
 
-	if reqInfo.PublicAccess {
+	if reqInfo.NCPAutoOpenACG {
 		port := "5432"
 		cblogger.Infof("NCP PostgreSQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
 		runningInst, waitErr := handler.waitForPostgresqlRunningAndGet(instanceNo, 40*time.Minute)
@@ -525,9 +535,9 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 			if len(runningInst.AccessControlGroupNoList) > 0 {
 				acgNo := derefStr(runningInst.AccessControlGroupNoList[0])
 				if err := handler.addPublicACGInboundRule(reqInfo.VpcIID.SystemId, acgNo, port); err != nil {
-					cblogger.Warnf("NCP PostgreSQL: failed to open ACG %s for public access: %v", acgNo, err)
+					cblogger.Warnf("NCP PostgreSQL: failed to open ACG %s via NCPAutoOpenACG: %v", acgNo, err)
 				} else {
-					cblogger.Infof("NCP PostgreSQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) for public access", acgNo, port)
+					cblogger.Infof("NCP PostgreSQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) via NCPAutoOpenACG", acgNo, port)
 				}
 			} else {
 				cblogger.Warnf("NCP PostgreSQL: instance running but ACG list empty for instance %s; add inbound rule 0.0.0.0/0->%s manually", instanceNo, port)
@@ -538,6 +548,9 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	info := handler.convertPostgresqlInstanceToRDBMSInfo(instForInfo)
 	// NCP does not expose master username via API; populate from request
 	info.MasterUserName = reqInfo.MasterUserName
+	// NCPAutoOpenACG above is already re-derived live from the instance's ACG rules
+	// (see convertPostgresqlInstanceToRDBMSInfo), which correctly reflects false if the
+	// instance never reached running state in time or the rule-add call failed.
 	return info, nil
 }
 
@@ -943,14 +956,20 @@ func (handler *NcpVpcRDBMSHandler) waitForPostgresqlRunning(instanceNo string, t
 	return fmt.Errorf("timed out waiting for PostgreSQL instance %s to reach running state", instanceNo)
 }
 
+// ncpAutoOpenACGRuleDescription tags the inbound rule added by NCPAutoOpenACG so it can be
+// told apart from a rule the user added themselves via the NCP Console/API, letting
+// GetRDBMS/ListRDBMS re-derive the NCPAutoOpenACG flag live instead of only at creation time.
+const ncpAutoOpenACGRuleDescription = "Auto-created by CB-Spider: allow inbound DB port from 0.0.0.0/0 (NCPAutoOpenACG=true)"
+
 // addPublicACGInboundRule adds a TCP 0.0.0.0/0 inbound rule for the given port to the
-// specified ACG, enabling external client connections when PublicAccess is requested.
+// specified ACG, enabling external client connections when NCPAutoOpenACG is requested.
 func (handler *NcpVpcRDBMSHandler) addPublicACGInboundRule(vpcNo, acgNo, port string) error {
 	if handler.VServerClient == nil {
 		return fmt.Errorf("VServerClient not initialized; cannot configure ACG")
 	}
 	protocol := "TCP"
 	ipBlock := "0.0.0.0/0"
+	description := ncpAutoOpenACGRuleDescription
 	_, err := handler.VServerClient.V2Api.AddAccessControlGroupInboundRule(
 		&vserver.AddAccessControlGroupInboundRuleRequest{
 			RegionCode:           &handler.RegionInfo.Region,
@@ -958,14 +977,42 @@ func (handler *NcpVpcRDBMSHandler) addPublicACGInboundRule(vpcNo, acgNo, port st
 			AccessControlGroupNo: &acgNo,
 			AccessControlGroupRuleList: []*vserver.AddAccessControlGroupRuleParameter{
 				{
-					ProtocolTypeCode: &protocol,
-					IpBlock:          &ipBlock,
-					PortRange:        &port,
+					ProtocolTypeCode:                  &protocol,
+					IpBlock:                           &ipBlock,
+					PortRange:                         &port,
+					AccessControlGroupRuleDescription: &description,
 				},
 			},
 		},
 	)
 	return err
+}
+
+// hasAutoOpenACGRule reports whether the given ACG currently carries an inbound rule that
+// CB-Spider added via NCPAutoOpenACG (identified by ncpAutoOpenACGRuleDescription), so
+// GetRDBMS/ListRDBMS can re-derive NCPAutoOpenACG live rather than relying on stored state.
+func (handler *NcpVpcRDBMSHandler) hasAutoOpenACGRule(acgNo string) bool {
+	if handler.VServerClient == nil || acgNo == "" {
+		return false
+	}
+	ruleTypeCode := "INBND"
+	resp, err := handler.VServerClient.V2Api.GetAccessControlGroupRuleList(
+		&vserver.GetAccessControlGroupRuleListRequest{
+			RegionCode:                     &handler.RegionInfo.Region,
+			AccessControlGroupNo:           &acgNo,
+			AccessControlGroupRuleTypeCode: &ruleTypeCode,
+		},
+	)
+	if err != nil || resp == nil {
+		return false
+	}
+	for _, rule := range resp.AccessControlGroupRuleList {
+		if rule != nil && rule.AccessControlGroupRuleDescription != nil &&
+			*rule.AccessControlGroupRuleDescription == ncpAutoOpenACGRuleDescription {
+			return true
+		}
+	}
+	return false
 }
 
 // getPostgresqlMasterUserName fetches the DB user list for a PostgreSQL instance and
@@ -1096,6 +1143,12 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 			}
 		}
 		kvList = append(kvList, irs.KeyValue{Key: "AccessControlGroupNos", Value: strings.Join(acgNos, ",")})
+		// NCPAutoOpenACG is CB-Spider-side state, not stored by NCP: re-derive it live from
+		// the attached ACG's rules (see addPublicACGInboundRule/hasAutoOpenACGRule) so it
+		// stays accurate on GetRDBMS/ListRDBMS, matching NHNAutoOpenDBSecurityGroup's pattern.
+		if acgNos[0] != "" {
+			info.NCPAutoOpenACG = handler.hasAutoOpenACGRule(acgNos[0])
+		}
 	}
 	if len(inst.CloudMysqlConfigList) > 0 {
 		configs := []string{}
@@ -1226,6 +1279,12 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 			}
 		}
 		kvList = append(kvList, irs.KeyValue{Key: "AccessControlGroupNos", Value: strings.Join(acgNos, ",")})
+		// NCPAutoOpenACG is CB-Spider-side state, not stored by NCP: re-derive it live from
+		// the attached ACG's rules (see addPublicACGInboundRule/hasAutoOpenACGRule) so it
+		// stays accurate on GetRDBMS/ListRDBMS, matching NHNAutoOpenDBSecurityGroup's pattern.
+		if acgNos[0] != "" {
+			info.NCPAutoOpenACG = handler.hasAutoOpenACGRule(acgNos[0])
+		}
 	}
 	if len(inst.CloudPostgresqlConfigList) > 0 {
 		configs := []string{}

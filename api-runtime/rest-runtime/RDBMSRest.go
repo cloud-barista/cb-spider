@@ -55,6 +55,7 @@ type RDBMSInfoResponse struct {
 	Endpoint     string `json:"Endpoint,omitempty"`
 
 	NHNAutoOpenDBSecurityGroup bool `json:"NHNAutoOpenDBSecurityGroup,omitempty" default:"false"`
+	NCPAutoOpenACG             bool `json:"NCPAutoOpenACG,omitempty" default:"false"`
 
 	Encryption bool `json:"Encryption,omitempty" default:"false"`
 
@@ -88,6 +89,7 @@ func toRDBMSInfoResponse(info *cres.RDBMSInfo) *RDBMSInfoResponse {
 		PublicAccess:               info.PublicAccess,
 		Endpoint:                   info.Endpoint,
 		NHNAutoOpenDBSecurityGroup: info.NHNAutoOpenDBSecurityGroup,
+		NCPAutoOpenACG:             info.NCPAutoOpenACG,
 		Encryption:                 info.Encryption,
 		DeletionProtection:         info.DeletionProtection,
 		Status:                     info.Status,
@@ -235,6 +237,17 @@ type RDBMSCreateRequest struct {
 		// SQL access.
 		NHNAutoOpenDBSecurityGroup bool `json:"NHNAutoOpenDBSecurityGroup,omitempty" default:"false"`
 
+		// NCPAutoOpenACG (NCP only): NCP provides no API to assign a public
+		// domain to an RDBMS instance, so Spider rejects PublicAccess=true for
+		// NCP outright. When NCPAutoOpenACG is true, CB-Spider waits for the
+		// instance to reach running state and adds a TCP 0.0.0.0/0 inbound
+		// rule (on the DB port) to the dedicated Access Control Group NCP
+		// auto-creates for the instance. This only opens the ACG; a Public
+		// Domain must still be configured manually via the NCP Console to
+		// actually reach the instance from outside the VPC. Ignored by every
+		// other CSP.
+		NCPAutoOpenACG bool `json:"NCPAutoOpenACG,omitempty" default:"false"`
+
 		TagList []cres.KeyValue `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`
 }
@@ -304,6 +317,7 @@ func CreateRDBMS(c echo.Context) error {
 		// Encryption is not configurable at creation (CSP default)
 
 		NHNAutoOpenDBSecurityGroup: req.ReqInfo.NHNAutoOpenDBSecurityGroup,
+		NCPAutoOpenACG:             req.ReqInfo.NCPAutoOpenACG,
 
 		TagList: req.ReqInfo.TagList,
 	}

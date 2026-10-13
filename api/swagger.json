@@ -19326,6 +19326,11 @@
                             "type": "string",
                             "example": "password123!"
                         },
+                        "NCPAutoOpenACG": {
+                            "description": "NCPAutoOpenACG (NCP only): NCP provides no API to assign a public\ndomain to an RDBMS instance, so Spider rejects PublicAccess=true for\nNCP outright. When NCPAutoOpenACG is true, CB-Spider waits for the\ninstance to reach running state and adds a TCP 0.0.0.0/0 inbound\nrule (on the DB port) to the dedicated Access Control Group NCP\nauto-creates for the instance. This only opens the ACG; a Public\nDomain must still be configured manually via the NCP Console to\nactually reach the instance from outside the VPC. Ignored by every\nother CSP.",
+                            "type": "boolean",
+                            "default": false
+                        },
                         "NHNAutoOpenDBSecurityGroup": {
                             "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.\nWhen true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)\nNHN Cloud RDS DB Security Group, and deletes it automatically when the\ninstance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does\nnot use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup\ninstead); if this flag is false (default), create and attach a DB\nSecurity Group yourself via the NHN Cloud console/API for external\nSQL access.",
                             "type": "boolean",
@@ -19498,6 +19503,10 @@
                     "items": {
                         "$ref": "#/definitions/spider.KeyValue"
                     }
+                },
+                "NCPAutoOpenACG": {
+                    "type": "boolean",
+                    "default": false
                 },
                 "NHNAutoOpenDBSecurityGroup": {
                     "type": "boolean",
