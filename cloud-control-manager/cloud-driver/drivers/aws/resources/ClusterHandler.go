@@ -1125,12 +1125,27 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		input.DiskSize = aws.Int64(rootDiskSize)
 	}
 
+	spiderLaunchTemplate := false
 	if useLaunchTemplate {
 		input.LaunchTemplate = &eks.LaunchTemplateSpecification{
 			Id:      launchTemplateID,
 			Version: launchTemplateVersion,
 		}
 		// DiskSize cannot be combined with LaunchTemplate.
+		input.DiskSize = nil
+	} else {
+		// Launch Template with IMDS HttpPutResponseHopLimit=2 so that every node the Auto Scaling group
+		// launches (including after scale out/in) lets Pods reach the node role: #1487
+		ltID, ltErr := ClusterHandler.createNodeGroupLaunchTemplate(clusterIID.SystemId, nodeGroupReqInfo.IId.NameId, amiType,
+			nodeGroupReqInfo.KeyPairIID.SystemId, nodeSecurityGroupList, rootDiskSize)
+		if ltErr != nil {
+			cblogger.Error(ltErr)
+			return irs.NodeGroupInfo{}, ltErr
+		}
+		spiderLaunchTemplate = true
+		input.LaunchTemplate = &eks.LaunchTemplateSpecification{Id: ltID}
+		// RemoteAccess and DiskSize cannot be combined with LaunchTemplate: key pair, security groups and disk size are in the template.
+		input.RemoteAccess = nil
 		input.DiskSize = nil
 	}
 
@@ -1145,6 +1160,11 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	result, err := ClusterHandler.Client.CreateNodegroup(input) // async
 	if err != nil {
 		cblogger.Error(err)
+		if spiderLaunchTemplate {
+			if delErr := ClusterHandler.deleteNodeGroupLaunchTemplate(clusterIID.SystemId, nodeGroupReqInfo.IId.NameId); delErr != nil {
+				cblogger.Error(delErr)
+			}
+		}
 		return irs.NodeGroupInfo{}, err
 	}
 
@@ -1435,6 +1455,9 @@ func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 	}
 
 	cblogger.Debug(result)
+
+	// Remove the Launch Template spider created for this NodeGroup once the NodeGroup is gone (async).
+	go ClusterHandler.deleteNodeGroupLaunchTemplateAfterNodeGroupDeleted(clusterIID.SystemId, nodeGroupIID.SystemId)
 
 	return true, nil
 }
@@ -2090,6 +2113,17 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	}
 
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(aws.Int64Value(rootDiskSize), 10)
+
+	// NodeGroups using a Launch Template keep the key pair and disk size in the template.
+	if nodeGroup.LaunchTemplate != nil && (nodeGroupInfo.KeyPairIID.SystemId == "" || rootDiskSize == nil) {
+		ltKeyName, ltRootDiskSize := NodeGroupHandler.nodeGroupLaunchTemplateInfo(nodeGroup.LaunchTemplate)
+		if nodeGroupInfo.KeyPairIID.SystemId == "" && ltKeyName != "" {
+			nodeGroupInfo.KeyPairIID = irs.IID{SystemId: ltKeyName}
+		}
+		if rootDiskSize == nil && ltRootDiskSize > 0 {
+			nodeGroupInfo.RootDiskSize = strconv.FormatInt(ltRootDiskSize, 10)
+		}
+	}
 
 	// TODO : should node list be queried by NodegroupArn?
 	//nodeList := []irs.IID{}
