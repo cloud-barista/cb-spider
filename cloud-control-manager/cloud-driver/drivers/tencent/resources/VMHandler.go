@@ -77,12 +77,16 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Region: vmHandler.Region,
 		Client: vmHandler.VPCClient,
 	}
-	subnetInfo, err := GetSubnet(vpcHandler.Client, vmReqInfo.VpcIID.SystemId, vmReqInfo.SubnetIID.SystemId)
-	if err != nil {
-		return irs.VMInfo{}, errors.New("there is no available subnet")
-	}
-	if subnetInfo.Zone != "" {
-		zoneId = subnetInfo.Zone
+	if vmHandler.Region.TargetZone != "" { // zone resolved by the common-runtime from the subnet's metadb record
+		zoneId = vmHandler.Region.TargetZone
+	} else {
+		subnetInfo, err := GetSubnet(vpcHandler.Client, vmReqInfo.VpcIID.SystemId, vmReqInfo.SubnetIID.SystemId)
+		if err != nil {
+			return irs.VMInfo{}, errors.New("there is no available subnet")
+		}
+		if subnetInfo.Zone != "" {
+			zoneId = subnetInfo.Zone
+		}
 	}
 	cblogger.Debugf("Zone : %s", zoneId)
 	if zoneId == "" {

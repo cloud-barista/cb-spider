@@ -888,9 +888,6 @@ func (handler *TencentRDBMSHandler) convertToRDBMSInfo(inst *cdb.InstanceInfo) i
 		rdbmsInfo.HighAvailability = (*inst.ProtectMode > 0)
 	}
 
-	// Master username
-	rdbmsInfo.MasterUserName = tencentDefaultAdminUser // Tencent CDB always uses "root"
-
 	// Created time
 	if inst.CreateTime != nil {
 		t, err := time.Parse("2006-01-02 15:04:05", *inst.CreateTime)
@@ -1290,11 +1287,24 @@ func isEngineVersionMatched(target string, candidates []*string) bool {
 
 // CreateDatabase creates a database in a Tencent Cloud CDB instance.
 func (handler *TencentRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
-	charSet := "utf8mb4"
+	return handler.CreateDatabaseWithCharset(rdbmsSystemId, dbEngine, dbName, "")
+}
+
+// CreateDatabaseWithCharset creates a database in a Tencent Cloud CDB instance with an explicit
+// charset (empty = utf8mb4, CB-Spider's prior hardcoded default). Tencent's CreateDatabase API
+// supports CharacterSetName (utf8/gbk/latin1/utf8mb4) but has no collation field at all --
+// CreateRDBMSDatabase applies a requested collation separately via a follow-up ALTER DATABASE over
+// direct SQL (see RDBMSManager.go's rdbmsDatabaseCharsetManager). CB-Spider only checks that the
+// charset value is safe to use as a SQL identifier (see RDBMSManager.go) and otherwise passes it
+// through unvalidated -- Tencent CDB itself rejects anything it doesn't recognize.
+func (handler *TencentRDBMSHandler) CreateDatabaseWithCharset(rdbmsSystemId, dbEngine, dbName, charset string) error {
+	if charset == "" {
+		charset = "utf8mb4"
+	}
 	req := cdb.NewCreateDatabaseRequest()
 	req.InstanceId = common.StringPtr(rdbmsSystemId)
 	req.DBName = common.StringPtr(dbName)
-	req.CharacterSetName = common.StringPtr(charSet)
+	req.CharacterSetName = common.StringPtr(charset)
 	if _, err := handler.Client.CreateDatabase(req); err != nil {
 		return fmt.Errorf("Tencent CreateDatabase: %w", err)
 	}

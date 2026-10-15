@@ -176,9 +176,9 @@ func handleAddTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID ir
 
 	switch resType {
 	case irs.VM:
-		cc := tagHandler.ComputeClient
+		cc := *tagHandler.ComputeClient // copy: the shared client must not be mutated
 		cc.Microversion = "2.52"
-		err = computeTags.Add(context.TODO(), cc, systemId, encodedTag).ExtractErr()
+		err = computeTags.Add(context.TODO(), &cc, systemId, encodedTag).ExtractErr()
 	case irs.VPC:
 		err = networkTags.Add(context.TODO(), tagHandler.NetworkClient, "networks", systemId, encodedTag).ExtractErr()
 	case irs.SUBNET:
@@ -226,9 +226,9 @@ func handleListTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID i
 
 	switch resType {
 	case irs.VM:
-		cc := tagHandler.ComputeClient
+		cc := *tagHandler.ComputeClient // copy: the shared client must not be mutated
 		cc.Microversion = "2.52"
-		tagStrings, err = computeTags.List(context.TODO(), cc, systemId).Extract()
+		tagStrings, err = computeTags.List(context.TODO(), &cc, systemId).Extract()
 	case irs.VPC:
 		tagStrings, err = networkTags.List(context.TODO(), tagHandler.NetworkClient, "networks", systemId).Extract()
 	case irs.SUBNET:
@@ -280,9 +280,9 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 
 	switch resType {
 	case irs.VM:
-		cc := tagHandler.ComputeClient
+		cc := *tagHandler.ComputeClient // copy: the shared client must not be mutated
 		cc.Microversion = "2.52"
-		err = computeTags.Delete(context.TODO(), cc, systemId, encodedTag).ExtractErr()
+		err = computeTags.Delete(context.TODO(), &cc, systemId, encodedTag).ExtractErr()
 	case irs.VPC:
 		err = networkTags.Delete(context.TODO(), tagHandler.NetworkClient, "networks", systemId, encodedTag).ExtractErr()
 	case irs.SUBNET:

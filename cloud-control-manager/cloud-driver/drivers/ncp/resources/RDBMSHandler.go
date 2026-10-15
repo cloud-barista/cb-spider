@@ -321,6 +321,13 @@ func (handler *NcpVpcRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.
 	if rdbmsReqInfo.MasterUserPassword == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserPassword is required")
 	}
+	// NCP does not expose a public-domain assignment API: Spider cannot make an
+	// NCP RDBMS instance publicly reachable, so PublicAccess=true is rejected
+	// outright. Use NCPAutoOpenACG to open the instance's auto-created ACG to
+	// 0.0.0.0/0, then configure the Public Domain manually via the NCP Console.
+	if rdbmsReqInfo.PublicAccess {
+		return irs.RDBMSInfo{}, errors.New("PublicAccess is not supported for NCP: NCP provides no API to assign a public domain to an RDBMS instance; it must be configured manually via the NCP Console. Use NCPAutoOpenACG=true to open the instance's ACG to 0.0.0.0/0, then set up the Public Domain in the NCP Console")
+	}
 
 	switch engineType {
 	case "mysql":
@@ -414,7 +421,7 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	instanceNo := derefStr(resp.CloudMysqlInstanceList[0].CloudMysqlInstanceNo)
 	instForInfo := resp.CloudMysqlInstanceList[0]
 
-	if reqInfo.PublicAccess {
+	if reqInfo.NCPAutoOpenACG {
 		port := "3306"
 		// NCP only populates AccessControlGroupNoList once the instance reaches "running" state.
 		cblogger.Infof("NCP MySQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
@@ -426,9 +433,9 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 			if len(runningInst.AccessControlGroupNoList) > 0 {
 				acgNo := derefStr(runningInst.AccessControlGroupNoList[0])
 				if err := handler.addPublicACGInboundRule(reqInfo.VpcIID.SystemId, acgNo, port); err != nil {
-					cblogger.Warnf("NCP MySQL: failed to open ACG %s for public access: %v", acgNo, err)
+					cblogger.Warnf("NCP MySQL: failed to open ACG %s via NCPAutoOpenACG: %v", acgNo, err)
 				} else {
-					cblogger.Infof("NCP MySQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) for public access", acgNo, port)
+					cblogger.Infof("NCP MySQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) via NCPAutoOpenACG", acgNo, port)
 				}
 			} else {
 				cblogger.Warnf("NCP MySQL: instance running but ACG list empty for instance %s; add inbound rule 0.0.0.0/0->%s manually", instanceNo, port)
@@ -439,6 +446,9 @@ func (handler *NcpVpcRDBMSHandler) createMysqlInstance(reqInfo irs.RDBMSInfo, hi
 	info := handler.convertMysqlInstanceToRDBMSInfo(instForInfo)
 	// NCP does not expose master username via API; populate from request
 	info.MasterUserName = reqInfo.MasterUserName
+	// NCPAutoOpenACG above is already re-derived live from the instance's ACG rules
+	// (see convertMysqlInstanceToRDBMSInfo), which correctly reflects false if the
+	// instance never reached running state in time or the rule-add call failed.
 	return info, nil
 }
 
@@ -514,7 +524,7 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	instanceNo := derefStr(resp.CloudPostgresqlInstanceList[0].CloudPostgresqlInstanceNo)
 	instForInfo := resp.CloudPostgresqlInstanceList[0]
 
-	if reqInfo.PublicAccess {
+	if reqInfo.NCPAutoOpenACG {
 		port := "5432"
 		cblogger.Infof("NCP PostgreSQL: waiting for instance %s to reach running state before configuring ACG...", instanceNo)
 		runningInst, waitErr := handler.waitForPostgresqlRunningAndGet(instanceNo, 40*time.Minute)
@@ -525,9 +535,9 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 			if len(runningInst.AccessControlGroupNoList) > 0 {
 				acgNo := derefStr(runningInst.AccessControlGroupNoList[0])
 				if err := handler.addPublicACGInboundRule(reqInfo.VpcIID.SystemId, acgNo, port); err != nil {
-					cblogger.Warnf("NCP PostgreSQL: failed to open ACG %s for public access: %v", acgNo, err)
+					cblogger.Warnf("NCP PostgreSQL: failed to open ACG %s via NCPAutoOpenACG: %v", acgNo, err)
 				} else {
-					cblogger.Infof("NCP PostgreSQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) for public access", acgNo, port)
+					cblogger.Infof("NCP PostgreSQL: opened ACG %s (TCP 0.0.0.0/0 -> %s) via NCPAutoOpenACG", acgNo, port)
 				}
 			} else {
 				cblogger.Warnf("NCP PostgreSQL: instance running but ACG list empty for instance %s; add inbound rule 0.0.0.0/0->%s manually", instanceNo, port)
@@ -538,6 +548,9 @@ func (handler *NcpVpcRDBMSHandler) createPostgresqlInstance(reqInfo irs.RDBMSInf
 	info := handler.convertPostgresqlInstanceToRDBMSInfo(instForInfo)
 	// NCP does not expose master username via API; populate from request
 	info.MasterUserName = reqInfo.MasterUserName
+	// NCPAutoOpenACG above is already re-derived live from the instance's ACG rules
+	// (see convertPostgresqlInstanceToRDBMSInfo), which correctly reflects false if the
+	// instance never reached running state in time or the rule-add call failed.
 	return info, nil
 }
 
@@ -943,14 +956,20 @@ func (handler *NcpVpcRDBMSHandler) waitForPostgresqlRunning(instanceNo string, t
 	return fmt.Errorf("timed out waiting for PostgreSQL instance %s to reach running state", instanceNo)
 }
 
+// ncpAutoOpenACGRuleDescription tags the inbound rule added by NCPAutoOpenACG so it can be
+// told apart from a rule the user added themselves via the NCP Console/API, letting
+// GetRDBMS/ListRDBMS re-derive the NCPAutoOpenACG flag live instead of only at creation time.
+const ncpAutoOpenACGRuleDescription = "Auto-created by CB-Spider: allow inbound DB port from 0.0.0.0/0 (NCPAutoOpenACG=true)"
+
 // addPublicACGInboundRule adds a TCP 0.0.0.0/0 inbound rule for the given port to the
-// specified ACG, enabling external client connections when PublicAccess is requested.
+// specified ACG, enabling external client connections when NCPAutoOpenACG is requested.
 func (handler *NcpVpcRDBMSHandler) addPublicACGInboundRule(vpcNo, acgNo, port string) error {
 	if handler.VServerClient == nil {
 		return fmt.Errorf("VServerClient not initialized; cannot configure ACG")
 	}
 	protocol := "TCP"
 	ipBlock := "0.0.0.0/0"
+	description := ncpAutoOpenACGRuleDescription
 	_, err := handler.VServerClient.V2Api.AddAccessControlGroupInboundRule(
 		&vserver.AddAccessControlGroupInboundRuleRequest{
 			RegionCode:           &handler.RegionInfo.Region,
@@ -958,9 +977,10 @@ func (handler *NcpVpcRDBMSHandler) addPublicACGInboundRule(vpcNo, acgNo, port st
 			AccessControlGroupNo: &acgNo,
 			AccessControlGroupRuleList: []*vserver.AddAccessControlGroupRuleParameter{
 				{
-					ProtocolTypeCode: &protocol,
-					IpBlock:          &ipBlock,
-					PortRange:        &port,
+					ProtocolTypeCode:                  &protocol,
+					IpBlock:                           &ipBlock,
+					PortRange:                         &port,
+					AccessControlGroupRuleDescription: &description,
 				},
 			},
 		},
@@ -968,28 +988,31 @@ func (handler *NcpVpcRDBMSHandler) addPublicACGInboundRule(vpcNo, acgNo, port st
 	return err
 }
 
-// getMysqlMasterUserName fetches the DB user list for a MySQL instance and returns
-// the first user with DDL authority (the master/owner user created at instance creation).
-// Returns "" on any error so callers can fall back to their own stored value.
-func (handler *NcpVpcRDBMSHandler) getMysqlMasterUserName(instanceNo string) string {
-	pageNo := int32(0)
-	pageSize := int32(100)
-	resp, err := handler.MysqlClient.V2Api.GetCloudMysqlUserList(&vmysql.GetCloudMysqlUserListRequest{
-		RegionCode:           &handler.RegionInfo.Region,
-		CloudMysqlInstanceNo: &instanceNo,
-		PageNo:               &pageNo,
-		PageSize:             &pageSize,
-	})
-	if err != nil || resp == nil {
-		cblogger.Infof("NCP MySQL: could not fetch user list for instance %s: %v", instanceNo, err)
-		return ""
+// hasAutoOpenACGRule reports whether the given ACG currently carries an inbound rule that
+// CB-Spider added via NCPAutoOpenACG (identified by ncpAutoOpenACGRuleDescription), so
+// GetRDBMS/ListRDBMS can re-derive NCPAutoOpenACG live rather than relying on stored state.
+func (handler *NcpVpcRDBMSHandler) hasAutoOpenACGRule(acgNo string) bool {
+	if handler.VServerClient == nil || acgNo == "" {
+		return false
 	}
-	for _, u := range resp.CloudMysqlUserList {
-		if u.Authority != nil && strings.ToUpper(*u.Authority) == "DDL" {
-			return derefStr(u.UserName)
+	ruleTypeCode := "INBND"
+	resp, err := handler.VServerClient.V2Api.GetAccessControlGroupRuleList(
+		&vserver.GetAccessControlGroupRuleListRequest{
+			RegionCode:                     &handler.RegionInfo.Region,
+			AccessControlGroupNo:           &acgNo,
+			AccessControlGroupRuleTypeCode: &ruleTypeCode,
+		},
+	)
+	if err != nil || resp == nil {
+		return false
+	}
+	for _, rule := range resp.AccessControlGroupRuleList {
+		if rule != nil && rule.AccessControlGroupRuleDescription != nil &&
+			*rule.AccessControlGroupRuleDescription == ncpAutoOpenACGRuleDescription {
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
 // getPostgresqlMasterUserName fetches the DB user list for a PostgreSQL instance and
@@ -1032,7 +1055,6 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 		BackupRetentionDays: int(derefInt32(inst.BackupFileRetentionPeriod)),
 		BackupTime:          derefStr(inst.BackupTime),
 
-		MasterUserName:     handler.getMysqlMasterUserName(derefStr(inst.CloudMysqlInstanceNo)),
 		DeletionProtection: false,
 		PublicAccess:       false,
 
@@ -1121,6 +1143,12 @@ func (handler *NcpVpcRDBMSHandler) convertMysqlInstanceToRDBMSInfo(inst *vmysql.
 			}
 		}
 		kvList = append(kvList, irs.KeyValue{Key: "AccessControlGroupNos", Value: strings.Join(acgNos, ",")})
+		// NCPAutoOpenACG is CB-Spider-side state, not stored by NCP: re-derive it live from
+		// the attached ACG's rules (see addPublicACGInboundRule/hasAutoOpenACGRule) so it
+		// stays accurate on GetRDBMS/ListRDBMS, matching NHNAutoOpenDBSecurityGroup's pattern.
+		if acgNos[0] != "" {
+			info.NCPAutoOpenACG = handler.hasAutoOpenACGRule(acgNos[0])
+		}
 	}
 	if len(inst.CloudMysqlConfigList) > 0 {
 		configs := []string{}
@@ -1165,7 +1193,6 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 		BackupRetentionDays: int(derefInt32(inst.BackupFileRetentionPeriod)),
 		BackupTime:          derefStr(inst.BackupTime),
 
-		MasterUserName:     handler.getPostgresqlMasterUserName(derefStr(inst.CloudPostgresqlInstanceNo)),
 		DeletionProtection: false, // PostgreSQL does not support deletion protection
 		PublicAccess:       false,
 
@@ -1252,6 +1279,12 @@ func (handler *NcpVpcRDBMSHandler) convertPostgresqlInstanceToRDBMSInfo(inst *vp
 			}
 		}
 		kvList = append(kvList, irs.KeyValue{Key: "AccessControlGroupNos", Value: strings.Join(acgNos, ",")})
+		// NCPAutoOpenACG is CB-Spider-side state, not stored by NCP: re-derive it live from
+		// the attached ACG's rules (see addPublicACGInboundRule/hasAutoOpenACGRule) so it
+		// stays accurate on GetRDBMS/ListRDBMS, matching NHNAutoOpenDBSecurityGroup's pattern.
+		if acgNos[0] != "" {
+			info.NCPAutoOpenACG = handler.hasAutoOpenACGRule(acgNos[0])
+		}
 	}
 	if len(inst.CloudPostgresqlConfigList) > 0 {
 		configs := []string{}
@@ -1356,6 +1389,24 @@ func (handler *NcpVpcRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbNam
 	default:
 		return fmt.Errorf("NCP RDBMSDatabaseManager: unsupported DB engine: %s", dbEngine)
 	}
+}
+
+// BuildCreateDatabaseSQL implements RDBMSManager.go's rdbmsDatabaseSQLStatementBuilder: it has no
+// native charset/collation field (AddCloudMysqlDatabaseList above takes only a name list), and a
+// plain `CREATE DATABASE` is blocked for the master account by NCP's own design ("to prevent
+// privilege abuse, DB-creation privilege is not granted directly to users" -- see NCP's Cloud DB
+// for MySQL permission guide). NCP instead documents a stored procedure for exactly this case:
+// `CALL sys.ncp_create_db('name', 'charset', 'collation')`, where passing an empty string for
+// charset or collation means "use the server default" (NCP's own documented usage). dbName,
+// charset, and collation are guaranteed already
+// validated against a safe-identifier pattern by CreateRDBMSDatabase before this is called, so
+// building the statement by string concatenation into single-quoted literals is safe.
+func (handler *NcpVpcRDBMSHandler) BuildCreateDatabaseSQL(dbEngine, dbName, charset, collation string) (string, error) {
+	engine := strings.ToLower(dbEngine)
+	if !strings.Contains(engine, "mysql") {
+		return "", fmt.Errorf("NCP: charset/collation is only supported for mysql (via sys.ncp_create_db), not %q", dbEngine)
+	}
+	return fmt.Sprintf("CALL sys.ncp_create_db('%s', '%s', '%s')", dbName, charset, collation), nil
 }
 
 // ListDatabases returns all database names in an NCP MySQL or PostgreSQL instance.

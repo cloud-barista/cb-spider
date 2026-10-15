@@ -391,15 +391,19 @@ func (myImageHandler *IbmMyImageHandler) cleanSnapshotByMyImage(myImageIID irs.I
 		return listSnapshotErr
 	}
 
+	// Resolve the snapshot group by SystemId first: for a registered MyImage the driver
+	// NameId is the CSP ID, which never matches the snapshot name prefix, so matching by
+	// NameId alone deleted nothing and still reported success.
 	myImageNameId := ""
-	if myImageIID.NameId != "" {
-		myImageNameId = myImageIID.NameId
-	} else {
+	if myImageIID.SystemId != "" {
 		for _, snapshot := range snapshots {
 			if *snapshot.ID == myImageIID.SystemId {
 				myImageNameId = strings.Split(*snapshot.Name, DEV)[0]
 			}
 		}
+	}
+	if myImageNameId == "" {
+		myImageNameId = myImageIID.NameId
 	}
 
 	if myImageNameId != "" {

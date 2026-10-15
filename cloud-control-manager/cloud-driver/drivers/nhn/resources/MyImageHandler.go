@@ -157,23 +157,18 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 		// cblogger.Info("\n")
 	}
 
-	// To Wait for Creating a Snapshot Image
-	curStatus, err := myImageHandler.waitForImageSnapshot(newImageIID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait to Get Image Info. [%v]", err.Error())
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.MyImageInfo{}, newErr
-	}
-	cblogger.Infof("==> Image Status of [%s] : [%s]", newImageIID.SystemId, string(curStatus))
-
 	myImageInfo, err := myImageHandler.GetMyImage(newImageIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait to Get Image Info. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get New Image Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.MyImageInfo{}, newErr
 	}
+
+	if myImageInfo.SourceVM.SystemId == "" {
+		myImageInfo.SourceVM = snapshotReqInfo.SourceVM
+	}
+
 	return myImageInfo, nil
 }
 

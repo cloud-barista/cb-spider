@@ -111,6 +111,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		Password:         connInfo.CredentialInfo.Password,
 		DomainName:       connInfo.CredentialInfo.DomainName,
 		TenantID:         connInfo.CredentialInfo.ProjectID,
+		AllowReauth:      true, // cached connections re-authenticate automatically on 401
 	}
 
 	config := &tls.Config{InsecureSkipVerify: true}

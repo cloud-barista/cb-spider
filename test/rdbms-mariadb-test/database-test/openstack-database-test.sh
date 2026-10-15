@@ -4,6 +4,7 @@
 export CSP_NAME="OPENSTACK"
 export CONNECTION_NAME="openstack-config01"
 export RDBMS_NAME="cb-spider-mariadb-test"
+export MASTER_USER_NAME="myadmin"
 export MASTER_USER_PASSWORD="Password123!"
 export RESULT_FILE="${RESULT_DIR:-/tmp/rdbms_mgmt_results}/result_openstack.txt"
 

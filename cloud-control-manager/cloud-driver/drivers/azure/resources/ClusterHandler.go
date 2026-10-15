@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,11 +30,14 @@ import (
 )
 
 const (
-	maxPodCount          = 110
-	OwnerClusterKey      = "ownerCluster"
-	ScaleSetOwnerKey     = "aks-managed-poolName"
-	ClusterNodeSSHKeyKey = "sshkey"
-	ClusterAdminKey      = "clusterAdmin"
+	maxPodCount                           = 110
+	OwnerClusterKey                       = "ownerCluster"
+	ScaleSetOwnerKey                      = "aks-managed-poolName"
+	ClusterNodeSSHKeyKey                  = "sshkey"
+	ClusterAdminKey                       = "clusterAdmin"
+	AZURE_CLUSTER_NODEGROUP_TIMEOUT       = 10 * time.Minute
+	AZURE_CLUSTER_NODEGROUP_POLL_INTERVAL = 5 * time.Second
+	AZURE_CLUSTER_NODEGROUP_MAX_INTERVAL  = 30 * time.Second
 )
 
 type AzureClusterHandler struct {
@@ -100,101 +102,11 @@ func getToken(tenantID string, clientID string, clientSecret string) (string, er
 	return azureAuth.AccessToken, nil
 }
 
-type patchVersion struct {
-	Upgrades []string `json:"upgrades"`
-}
-
-type version struct {
-	Version       string                  `json:"version"`
-	IsDefault     bool                    `json:"isDefault,omitempty"`
-	Capabilities  map[string][]string     `json:"capabilities"`
-	PatchVersions map[string]patchVersion `json:"patchVersions"`
-}
-
-type k8sVersions struct {
-	Values []version `json:"values"`
-}
-
-func getK8SVersions(credentialInfo idrv.CredentialInfo, location string) ([]string, error) {
-	URL := "https://management.azure.com/subscriptions/" + credentialInfo.SubscriptionId +
-		"/providers/Microsoft.ContainerService/locations/" + location + "/kubernetesVersions?api-version=2024-02-01"
-
-	token, err := getToken(credentialInfo.TenantId, credentialInfo.ClientId, credentialInfo.ClientSecret)
-	if err != nil {
-		return nil, err
-	}
-	var bearer = "Bearer " + token
-
-	ctx := context.Background()
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, URL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Authorization", bearer)
-	req = req.WithContext(ctx)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var vs k8sVersions
-	err = json.Unmarshal(responseBody, &vs)
-	if err != nil {
-		return nil, err
-	}
-
-	var versions []string
-	for _, v := range vs.Values {
-		keys := reflect.ValueOf(v.PatchVersions).MapKeys()
-		for _, key := range keys {
-			versions = append(versions, key.Interface().(string))
-		}
-	}
-
-	sort.Slice(versions, func(i, j int) bool { return versions[i] > versions[j] })
-
-	return versions, nil
-}
-
 func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (info irs.ClusterInfo, createErr error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
 
-	versions, err := getK8SVersions(ac.CredentialInfo, ac.Region.Region)
-	if err != nil {
-		createErr = errors.New(fmt.Sprintf("Failed to get K8S versions while Creating Cluster. err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.ClusterInfo{}, createErr
-	}
-
-	var k8sVersionUnsupported = true
-	for _, version := range versions {
-		if clusterReqInfo.Version == version {
-			k8sVersionUnsupported = false
-			break
-		}
-	}
-	if k8sVersionUnsupported {
-		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. " +
-			"err = Unsupported K8S version. (Available versions: " + strings.Join(versions[:], ", ") + ")"))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.ClusterInfo{}, createErr
-	}
-
-	err = createCluster(clusterReqInfo, ac)
+	err := createCluster(clusterReqInfo, ac)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -238,8 +150,67 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		LoggingError(hiscallInfo, createErr)
 		return irs.ClusterInfo{}, createErr
 	}
+	nodeGroupCtx, cancel := context.WithTimeout(ac.Ctx, AZURE_CLUSTER_NODEGROUP_TIMEOUT)
+	defer cancel()
+	info.NodeGroupList, err = waitForAzureClusterNodeGroups(nodeGroupCtx, clusterReqInfo.NodeGroupList, info.NodeGroupList, AZURE_CLUSTER_NODEGROUP_POLL_INTERVAL, func(ctx context.Context) ([]irs.NodeGroupInfo, error) {
+		latestCluster, err := getRawCluster(clusterReqInfo.IId, ac.ManagedClustersClient, ctx, ac.CredentialInfo, ac.Region)
+		if err != nil {
+			return nil, err
+		}
+		return getNodeGroupInfoList(&latestCluster, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ctx)
+	})
+	if err != nil {
+		createErr = fmt.Errorf("failed to resolve created Azure cluster nodegroups: %w", err)
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.ClusterInfo{}, createErr
+	}
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
+}
+
+func waitForAzureClusterNodeGroups(ctx context.Context, requested, initial []irs.NodeGroupInfo, interval time.Duration, load func(context.Context) ([]irs.NodeGroupInfo, error)) ([]irs.NodeGroupInfo, error) {
+	validate := func(groups []irs.NodeGroupInfo) error {
+		for _, req := range requested {
+			found := false
+			for _, group := range groups {
+				if group.IId.NameId == req.IId.NameId && group.IId.SystemId != "" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("nodegroup %q has not been returned with its CSP ID", req.IId.NameId)
+			}
+		}
+		return nil
+	}
+
+	lastErr := validate(initial)
+	if lastErr == nil {
+		return initial, nil
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("waiting for Azure nodegroup IDs (%v): %w", lastErr, err)
+		}
+		groups, err := load(ctx)
+		if err == nil {
+			err = validate(groups)
+		}
+		if err == nil {
+			return groups, nil
+		}
+		lastErr = err
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, fmt.Errorf("waiting for Azure nodegroup IDs (%v): %w", lastErr, ctx.Err())
+		case <-timer.C:
+		}
+		interval = min(interval*2, AZURE_CLUSTER_NODEGROUP_MAX_INTERVAL)
+	}
 }
 
 func (ac *AzureClusterHandler) ListCluster() (listInfo []*irs.ClusterInfo, getErr error) {

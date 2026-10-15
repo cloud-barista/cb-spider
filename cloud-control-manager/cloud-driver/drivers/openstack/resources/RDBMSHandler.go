@@ -496,7 +496,6 @@ func (handler *OpenStackRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 			if err != nil {
 				return false, err
 			}
-			info.MasterUserName = handler.queryMasterUserName(inst.ID)
 			rdbmsList = append(rdbmsList, &info)
 		}
 		return true, nil
@@ -548,7 +547,6 @@ func (handler *OpenStackRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSInfo{}, err
 	}
-	rdbmsInfo.MasterUserName = handler.queryMasterUserName(instanceID)
 	return rdbmsInfo, nil
 }
 
@@ -699,9 +697,24 @@ func (handler *OpenStackRDBMSHandler) enableAndConfigureUser(instanceID, masterU
 	return "root", rootPassword, nil
 }
 
+const (
+	// The DB instance's port can take a while to become reachable after Trove
+	// reports the instance ACTIVE (security-group propagation / agent startup
+	// delay), so a single short-timeout attempt is not reliable -- see
+	// grantAdminPrivileges.
+	OPENSTACK_GRANT_ADMIN_MAX_ATTEMPTS   = 5
+	OPENSTACK_GRANT_ADMIN_TIMEOUT        = 2 * time.Minute
+	OPENSTACK_GRANT_ADMIN_RETRY_INTERVAL = 5 * time.Second
+)
+
 // grantAdminPrivileges connects to MySQL as root and grants ALL PRIVILEGES ON *.*
 // to the given user so they can create databases and manage the instance.
-// Failures are non-fatal – logged as warnings only.
+// The connection/exec is retried with backoff on transient network errors
+// (e.g. the instance's DB port not yet reachable), since Trove reporting the
+// instance ACTIVE does not guarantee the port is already open. Failures are
+// still non-fatal to the caller -- logged as warnings only -- but retrying
+// here fixes the common case where a single short-timeout attempt observed
+// the instance before it became reachable.
 func grantAdminPrivileges(endpoint, port, rootPassword, userName string) error {
 	if endpoint == "" || endpoint == "NA" || rootPassword == "" || userName == "" {
 		return nil
@@ -724,17 +737,42 @@ func grantAdminPrivileges(endpoint, port, rootPassword, userName string) error {
 	}
 	defer db.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), OPENSTACK_GRANT_ADMIN_TIMEOUT)
 	defer cancel()
 
 	grantSQL := fmt.Sprintf("GRANT ALL PRIVILEGES ON *.* TO '%s'@'%%' WITH GRANT OPTION", userName)
-	if _, err := db.ExecContext(ctx, grantSQL); err != nil {
-		return fmt.Errorf("grantAdminPrivileges: GRANT failed: %w", err)
+
+	retryInterval := OPENSTACK_GRANT_ADMIN_RETRY_INTERVAL
+	var lastErr error
+	for attempt := 1; attempt <= OPENSTACK_GRANT_ADMIN_MAX_ATTEMPTS; attempt++ {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("grantAdminPrivileges: cancelled: %w", ctxErr)
+		}
+
+		if _, execErr := db.ExecContext(ctx, grantSQL); execErr != nil {
+			lastErr = fmt.Errorf("grantAdminPrivileges: GRANT failed: %w", execErr)
+		} else if _, flushErr := db.ExecContext(ctx, "FLUSH PRIVILEGES"); flushErr != nil {
+			lastErr = fmt.Errorf("grantAdminPrivileges: FLUSH PRIVILEGES failed: %w", flushErr)
+		} else {
+			return nil
+		}
+
+		var networkErr net.Error
+		if attempt == OPENSTACK_GRANT_ADMIN_MAX_ATTEMPTS || !errors.As(lastErr, &networkErr) || (!networkErr.Timeout() && !networkErr.Temporary()) {
+			return lastErr
+		}
+		cblogger.Warnf("grantAdminPrivileges: attempt %d/%d failed with a transient network error (DB port at %s not yet reachable?); retrying: %v",
+			attempt, OPENSTACK_GRANT_ADMIN_MAX_ATTEMPTS, address, lastErr)
+		timer := time.NewTimer(retryInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("grantAdminPrivileges: cancelled while waiting to retry: %w", ctx.Err())
+		case <-timer.C:
+		}
+		retryInterval *= 2
 	}
-	if _, err := db.ExecContext(ctx, "FLUSH PRIVILEGES"); err != nil {
-		return fmt.Errorf("grantAdminPrivileges: FLUSH PRIVILEGES failed: %w", err)
-	}
-	return nil
+	return lastErr
 }
 
 // findInstanceIDByName finds a Trove instance's system ID by its name.
@@ -876,8 +914,6 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 
 		Endpoint: endpoint,
 
-		MasterUserName: "NA", // populated by caller via queryMasterUserName()
-
 		HighAvailability: false, // Trove HA is deployment-specific
 
 		BackupRetentionDays: 0,
@@ -895,32 +931,6 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 			{Key: "VolumeUsed", Value: fmt.Sprintf("%.2f", inst.Volume.Used)},
 		},
 	}, nil
-}
-
-// queryMasterUserName queries the Trove users API for the given instance and
-// returns the first non-root user name found, or "root" if none exist.
-func (handler *OpenStackRDBMSHandler) queryMasterUserName(instanceID string) string {
-	var found string
-	err := users.List(handler.DBClient, instanceID).EachPage(context.TODO(), func(_ context.Context, page pagination.Page) (bool, error) {
-		userList, err := users.ExtractUsers(page)
-		if err != nil {
-			return false, err
-		}
-		for _, u := range userList {
-			if strings.ToLower(u.Name) != "root" {
-				found = u.Name
-				return false, nil // stop iteration
-			}
-		}
-		return true, nil
-	})
-	if err != nil {
-		cblogger.Warnf("queryMasterUserName for instance %s: %v", instanceID, err)
-	}
-	if found == "" {
-		return "root"
-	}
-	return found
 }
 
 // convertTroveStatusToRDBMSStatus maps Trove status strings to RDBMSStatus.
@@ -945,8 +955,18 @@ func convertTroveStatusToRDBMSStatus(status string) irs.RDBMSStatus {
 
 // CreateDatabase creates a database in an OpenStack Trove instance.
 func (handler *OpenStackRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	return handler.CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, "", "")
+}
+
+// CreateDatabaseWithOptions creates a database in an OpenStack Trove instance, optionally with an
+// explicit charset and/or collation (empty = datastore default). Trove's Database API natively
+// supports both (character_set/collate) for the mysql datastore; CB-Spider only checks that the
+// value is safe to use as a SQL identifier (see RDBMSManager.go) and otherwise passes it through
+// unvalidated. Support on a MariaDB datastore is not guaranteed by the Trove API spec and depends
+// on the deployment.
+func (handler *OpenStackRDBMSHandler) CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, charset, collation string) error {
 	ctx := context.Background()
-	opts := databases.BatchCreateOpts{databases.CreateOpts{Name: dbName}}
+	opts := databases.BatchCreateOpts{databases.CreateOpts{Name: dbName, CharSet: charset, Collate: collation}}
 	if err := databases.Create(ctx, handler.DBClient, rdbmsSystemId, opts).ExtractErr(); err != nil {
 		return fmt.Errorf("OpenStack CreateDatabase: %w", err)
 	}

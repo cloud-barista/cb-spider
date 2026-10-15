@@ -212,7 +212,7 @@
         text-align: center;
     }
 
-    .rdbms-name, .rdbms-status, .rdbms-vpc, .rdbms-engine, .rdbms-spec, .rdbms-network, .rdbms-auth, .rdbms-options, .tags, .misc {
+    .rdbms-name, .rdbms-status, .rdbms-vpc, .rdbms-engine, .rdbms-spec, .rdbms-network, .rdbms-options, .tags, .misc {
         text-align: center;
     }
     .rdbms-name {
@@ -238,10 +238,6 @@
     }
     .rdbms-network {
         width: 14%;
-        vertical-align: top;
-    }
-    .rdbms-auth {
-        width: 10%;
         vertical-align: top;
     }
     .rdbms-options {
@@ -1024,7 +1020,6 @@
                 <th class="rdbms-engine">Engine</th>
                 <th class="rdbms-spec">Instance</th>
                 <th class="rdbms-network">Network</th>
-                <th class="rdbms-auth">Auth</th>
                 <th class="rdbms-options">Options</th>
                 <th class="tags">Tags</th>
                 <th class="misc">Misc</th>
@@ -1123,16 +1118,12 @@
                             <td>{{if $rdbms.NHNAutoOpenDBSecurityGroup}}Yes{{else}}No{{end}}</td>
                         </tr>
                         {{end}}
-                    </table>
-                </td>
-
-                <!-- Auth -->
-                <td class="rdbms-auth">
-                    <table class="inner-table">
+                        {{if eq $.ProviderName "NCP"}}
                         <tr>
-                            <th>User</th>
-                            <td>{{$rdbms.MasterUserName}}</td>
+                            <th>Auto-open ACG</th>
+                            <td>{{if $rdbms.NCPAutoOpenACG}}Yes{{else}}No{{end}}</td>
                         </tr>
+                        {{end}}
                     </table>
                 </td>
 
@@ -1200,6 +1191,8 @@
 
             <!-- Connection Section -->
             <div class="db-connect-section">
+                <label id="dbUserNameLabel">User:</label>
+                <input type="text" id="dbUserName" placeholder="Master user name" style="width: 140px;">
                 <label id="dbPasswordLabel">Password:</label>
                 <input type="password" id="dbPassword" placeholder="Master user password" style="width: 200px;">
                 <span id="dbPasswordNotRequired" style="display:none; font-size:11px; color:#888; margin-left:6px;">DB management uses CSP API; needed for table operations</span>
@@ -1279,6 +1272,17 @@
                 <div class="form-group">
                     <label for="newDatabaseName">Database Name:</label>
                     <input type="text" id="newDatabaseName" required placeholder="e.g., mydb" style="width: 65%;" pattern="[a-zA-Z_][a-zA-Z0-9_]*" title="Letters, numbers, underscores only. Must start with a letter or underscore.">
+                </div>
+                <div class="form-group">
+                    <label for="newDatabaseCharset">Charset (optional):</label>
+                    <input type="text" id="newDatabaseCharset" placeholder="e.g., utf8mb4" style="width: 65%;" pattern="[a-zA-Z_][a-zA-Z0-9_]*" title="Letters, numbers, underscores only. Must start with a letter or underscore.">
+                </div>
+                <div class="form-group">
+                    <label for="newDatabaseCollation">Collation (optional):</label>
+                    <input type="text" id="newDatabaseCollation" placeholder="e.g., utf8mb4_unicode_ci" style="width: 65%;" pattern="[a-zA-Z_][a-zA-Z0-9_]*" title="Letters, numbers, underscores only. Must start with a letter or underscore.">
+                </div>
+                <div class="form-group" style="font-size: 0.85em; color: #666;">
+                    Charset/Collation apply to mysql/mariadb only. Support differs by CSP: some need the username/password above even though plain database creation doesn't (Azure when Charset is given without Collation; Tencent when Collation is given; NCP always). NHN additionally requires "Direct Control" to be enabled on the instance beforehand (via the NHN console) -- otherwise its own permission error is shown as-is.
                 </div>
                 <div class="form-group" style="display: flex; justify-content: center; margin-top: 20px;">
                     <button type="submit">Create Database</button>
@@ -1462,6 +1466,19 @@
                         <div class="form-group" style="margin-top: -6px;">
                             <label></label>
                             <small style="flex: 2; text-align: left; color: #666;">NHN only. Requires Public Access = Yes. Auto-creates a fully-open (0.0.0.0/0) DB Security Group and deletes it automatically when the instance is deleted.</small>
+                        </div>
+                    </div>
+                    <div id="ncpAutoOpenACGGroup" style="display:none;">
+                        <div class="form-group">
+                            <label for="ncpAutoOpenACG">Auto-open ACG:</label>
+                            <select id="ncpAutoOpenACG" name="ncpAutoOpenACG" style="background-color: #E6E6FA; width: 65%;">
+                                <option value="false" selected>No</option>
+                                <option value="true">Yes</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: -6px;">
+                            <label></label>
+                            <small style="flex: 2; text-align: left; color: #666;">NCP only. NCP has no API to assign a Public Domain, so Public Access is unavailable here. This only opens the instance's auto-created ACG to 0.0.0.0/0; set up the Public Domain manually via the NCP Console afterward to actually reach it from outside the VPC.</small>
                         </div>
                     </div>
                 </fieldset>
@@ -1846,6 +1863,10 @@
         const nhnAutoOpenDBSecurityGroupEl = document.getElementById('nhnAutoOpenDBSecurityGroup');
         const nhnAutoOpenDBSecurityGroup = !!nhnAutoOpenDBSecurityGroupEl && nhnAutoOpenDBSecurityGroupEl.value === 'true';
 
+        // NCP-only convenience option (hidden/reset to false for all other providers)
+        const ncpAutoOpenACGEl = document.getElementById('ncpAutoOpenACG');
+        const ncpAutoOpenACG = !!ncpAutoOpenACGEl && ncpAutoOpenACGEl.value === 'true';
+
         const data = {
             ConnectionName: connConfig,
             ReqInfo: {
@@ -1863,6 +1884,7 @@
                 HighAvailability: highAvailability,
                 PublicAccess: publicAccess,
                 NHNAutoOpenDBSecurityGroup: nhnAutoOpenDBSecurityGroup || undefined,
+                NCPAutoOpenACG: ncpAutoOpenACG || undefined,
                 Encryption: encryption,
                 DeletionProtection: deletionProtection,
                 BackupRetentionDays: backupRetentionDays,
@@ -2270,6 +2292,20 @@
                 } else {
                     nhnSGGroup.style.display = 'none';
                     document.getElementById('nhnAutoOpenDBSecurityGroup').value = 'false';
+                }
+            }
+
+            // NCP-only convenience option: open the instance's auto-created ACG
+            // to 0.0.0.0/0 (see RDBMSInfo.NCPAutoOpenACG). Not gated by Public
+            // Access -- NCP rejects PublicAccess=true outright, so the Public
+            // Access control above is disabled for NCP via SupportsPublicAccess.
+            const ncpACGGroup = document.getElementById('ncpAutoOpenACGGroup');
+            if (ncpACGGroup) {
+                if (isNCPProvider()) {
+                    ncpACGGroup.style.display = '';
+                } else {
+                    ncpACGGroup.style.display = 'none';
+                    document.getElementById('ncpAutoOpenACG').value = 'false';
                 }
             }
 
@@ -3161,6 +3197,7 @@
 
     // ==================== DB Detail Panel ====================
     let currentRDBMS = null;
+    let currentDBUserName = null;
     let currentDBPassword = null;
     let currentDBName = null;
     let currentTable = null;
@@ -3252,6 +3289,11 @@
         return provider === 'NHN';
     }
 
+    function isNCPProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return provider === 'NCP';
+    }
+
     // NHNAutoOpenDBSecurityGroup requires PublicAccess=true (enforced by the
     // backend too — see validateForm()). Keep the control in sync with
     // Public Access so users can't set an invalid combination in the first
@@ -3279,6 +3321,7 @@
 
     function showDBPanel(rdbmsName) {
         currentRDBMS = rdbmsName;
+        currentDBUserName = null;
         currentDBPassword = null;
         currentDBName = null;
         currentTable = null;
@@ -3307,6 +3350,7 @@
             '<span style="background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 4px;">🗄️ ' + rdbmsName + '</span>';
 
         // Reset state
+        document.getElementById('dbUserName').value = '';
         document.getElementById('dbPassword').value = '';
         document.getElementById('dbConnectStatus').textContent = '';
         document.getElementById('dbConnectStatus').className = 'db-connect-status';
@@ -3324,15 +3368,16 @@
             notRequired.style.display = isNativeDBProvider() ? 'inline' : 'none';
         }
 
-        // Scroll to panel, then focus password input
+        // Scroll to panel, then focus user name input
         panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(function() { document.getElementById('dbPassword').focus(); }, 100);
+        setTimeout(function() { document.getElementById('dbUserName').focus(); }, 100);
     }
 
     function hideDBPanel() {
         document.getElementById('db-panel').style.display = 'none';
         document.querySelectorAll('tr.selected-rdbms').forEach(el => el.classList.remove('selected-rdbms'));
         currentRDBMS = null;
+        currentDBUserName = null;
         currentDBPassword = null;
         currentTable = null;
     }
@@ -3345,8 +3390,13 @@
 
         const connConfig = document.getElementById('connConfig').value;
         const statusEl = document.getElementById('dbConnectStatus');
+        const username = document.getElementById('dbUserName').value.trim();
         const password = document.getElementById('dbPassword').value;
 
+        if (!username) {
+            alert('Please enter the master user name (the one set when this RDBMS was created).');
+            return;
+        }
         if (!password) {
             alert('Please enter the database password.');
             return;
@@ -3365,7 +3415,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/connect`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: password, DatabaseName: '' })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: username, Password: password, DatabaseName: '' })
         })
         .then(response => response.json())
         .then(data => {
@@ -3375,6 +3425,7 @@
                 statusEl.className = 'db-connect-status error';
                 return;
             }
+            currentDBUserName = username;
             currentDBPassword = password;
             currentDBName = null;
             statusEl.textContent = '✓ Connected — Select a database below';
@@ -3388,7 +3439,7 @@
             // connections to the same RDBMS instance (loadDatabases uses SQL fallback on CSPs
             // like AWS), which has been observed to cause the secure-transport check's separate
             // CA-certificate probe connection to time out under that contention.
-            loadDatabases().finally(() => checkSecureTransport(connConfig, password));
+            loadDatabases().finally(() => checkSecureTransport(connConfig, username, password));
         })
         .catch(error => {
             hideLoading();
@@ -3401,7 +3452,7 @@
     // client connections, via standard SQL against the engine itself (CSP-agnostic):
     //   MySQL/MariaDB: SHOW VARIABLES LIKE 'require_secure_transport'
     //   PostgreSQL:    pg_hba_file_rules
-    function checkSecureTransport(connConfig, password) {
+    function checkSecureTransport(connConfig, username, password) {
         const el = document.getElementById('dbSecureTransportStatus');
         const detailsLink = document.getElementById('dbSecureTransportDetailsLink');
         el.textContent = 'Checking TLS enforcement...';
@@ -3412,7 +3463,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/security/secure-transport`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: password })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: username, Password: password })
         })
         .then(response => response.json())
         .then(data => {
@@ -3432,13 +3483,16 @@
                 const on = data.RequireSecureTransport === 'ON';
                 el.textContent = `[${data.Engine}] ` + (on ? '🔒 ON' : '⚠️ OFF');
                 el.className = 'db-connect-status ' + (on ? 'connected' : 'warn');
+                el.title = data.RecommendedSSLMode ? `Recommended SSL Mode: ${data.RecommendedSSLMode}` : '';
                 detailsLink.style.display = 'inline';
             } else if (data.Enforced !== undefined) {
                 el.textContent = `[${data.Engine}] ` + (data.Enforced ? '🔒 ON' : '⚠️ OFF');
                 el.className = 'db-connect-status ' + (data.Enforced ? 'connected' : 'warn');
+                el.title = data.RecommendedSSLMode ? `Recommended SSL Mode: ${data.RecommendedSSLMode}` : '';
                 detailsLink.style.display = 'inline';
             } else {
                 el.textContent = '';
+                el.title = '';
             }
         })
         .catch(error => {
@@ -3468,6 +3522,14 @@
             ? `Yes (cipher: ${escapeHtml(data.TLSCipher || 'unknown')})`
             : 'No (server does not offer TLS at all)';
         rows.push(`<div><b>TLS in use (this check):</b> ${tlsLine}</div>`);
+
+        if (data.RecommendedSSLMode) {
+            const modeColor = { DISABLED: '#888', VERIFY_CA: '#856404', VERIFY_IDENTITY: '#388e3c' }[data.RecommendedSSLMode] || '#333';
+            rows.push(`<div><b>Recommended SSL Mode:</b> <span style="color:${modeColor}; font-weight:bold;">${escapeHtml(data.RecommendedSSLMode)}</span></div>`);
+            if (data.RecommendedSSLMode === 'VERIFY_CA') {
+                rows.push(`<div style="font-size:11px; color:#888;">Server certificate has no Subject Alternative Name — hostname verification (ssl-mode=VERIFY_IDENTITY) will fail regardless of client config. Use ssl-mode=VERIFY_CA (chain trust only) with the CA certificate below.</div>`);
+            }
+        }
 
         if (data.Rules && data.Rules.length > 0) {
             let table = '<table style="width:100%; border-collapse:collapse; margin-top:4px;" border="1" cellpadding="4">' +
@@ -3535,6 +3597,7 @@
     }
 
     function disconnectDB() {
+        currentDBUserName = null;
         currentDBPassword = null;
         currentDBName = null;
         currentTable = null;
@@ -3561,7 +3624,7 @@
         return fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: '' })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: '' })
         })
         .then(response => response.json())
         .then(data => {
@@ -3624,6 +3687,8 @@
     // --- Create / Drop Database ---
     function showCreateDatabaseOverlay() {
         document.getElementById('newDatabaseName').value = '';
+        document.getElementById('newDatabaseCharset').value = '';
+        document.getElementById('newDatabaseCollation').value = '';
         document.getElementById('createDatabaseOverlay').style.display = 'flex';
         setTimeout(function() { document.getElementById('newDatabaseName').focus(); }, 100);
     }
@@ -3638,6 +3703,8 @@
             alert('Please enter a database name.');
             return;
         }
+        const charset = document.getElementById('newDatabaseCharset').value.trim();
+        const collation = document.getElementById('newDatabaseCollation').value.trim();
 
         const connConfig = document.getElementById('connConfig').value;
 
@@ -3645,7 +3712,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: dbName })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: dbName, Charset: charset, Collation: collation })
         })
         .then(response => response.json())
         .then(data => {
@@ -3674,7 +3741,7 @@
         fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases/${encodeURIComponent(dbName)}/drop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword })
+            body: JSON.stringify({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword })
         })
         .then(response => response.json())
         .then(data => {
@@ -4120,7 +4187,7 @@
     // Helper to build common request body with connection info
     function dbRequestBody(extra = {}) {
         const connConfig = document.getElementById('connConfig').value;
-        return Object.assign({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: currentDBName || '' }, extra);
+        return Object.assign({ ConnectionName: connConfig, UserName: currentDBUserName, Password: currentDBPassword, DatabaseName: currentDBName || '' }, extra);
     }
 
     // --- Loading Spinner ---
@@ -4145,17 +4212,19 @@
         }
     });
 
-    // --- Enter key on password triggers Connect ---
+    // --- Enter key on user name/password triggers Connect ---
     document.addEventListener('DOMContentLoaded', function() {
-        var pwField = document.getElementById('dbPassword');
-        if (pwField) {
-            pwField.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !pwField.disabled) {
-                    e.preventDefault();
-                    connectToDB();
-                }
-            });
-        }
+        ['dbUserName', 'dbPassword'].forEach(function(id) {
+            var field = document.getElementById(id);
+            if (field) {
+                field.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !field.disabled) {
+                        e.preventDefault();
+                        connectToDB();
+                    }
+                });
+            }
+        });
     });
 
 </script>

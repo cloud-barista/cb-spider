@@ -611,7 +611,7 @@ const docTemplate = `{
                     "200": {
                         "description": "List of all RDBMS information within the specified connection, including RDBMS in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
-                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                            "$ref": "#/definitions/spider.RDBMSAllInfoListResponse"
                         }
                     },
                     "400": {
@@ -1311,7 +1311,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Cluster with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)] \u003cbr\u003e * NodeGroupList is optional, depends on CSP type: \u003cbr\u003e \u0026nbsp;- Type-I (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster creation. \u003cbr\u003e \u0026nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node Group during initial Cluster creation.",
+                "description": "Create a new Cluster with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)] \u003cbr\u003e * NodeGroupList is optional, depends on CSP type: \u003cbr\u003e \u0026nbsp;- Type-I (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster creation. \u003cbr\u003e \u0026nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node Group during initial Cluster creation.\nMalformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1495,7 +1495,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/nodegroup": {
             "post": {
-                "description": "Add a new Node Group to an existing Cluster.",
+                "description": "Add a new Node Group to an existing Cluster.\nMalformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1622,7 +1622,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/nodegroup/{NodeGroupName}/autoscalesize": {
             "put": {
-                "description": "Change the scaling settings for a Node Group in a Cluster.",
+                "description": "Change the scaling settings for a Node Group in a Cluster.\nNode sizes must be non-negative integers.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1689,7 +1689,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/nodegroup/{NodeGroupName}/onautoscaling": {
             "put": {
-                "description": "Enable or disable auto scaling for a Node Group in a Cluster.",
+                "description": "Enable or disable auto scaling for a Node Group in a Cluster.\nOnAutoScaling must be a valid boolean.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8011,7 +8011,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Relational Database (RDBMS) with the specified configuration.",
+                "description": "Create a new Relational Database (RDBMS) with the specified configuration. \u003cbr\u003e The response never echoes back MasterUserName/MasterUserPassword -- you already supplied them in this request, so keep them yourself, e.g. alongside your SSH private key.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8038,7 +8038,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Details of the created RDBMS",
                         "schema": {
-                            "$ref": "#/definitions/spider.RDBMSInfo"
+                            "$ref": "#/definitions/spider.RDBMSInfoResponse"
                         }
                     },
                     "400": {
@@ -8096,7 +8096,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Details of the RDBMS",
                         "schema": {
-                            "$ref": "#/definitions/spider.RDBMSInfo"
+                            "$ref": "#/definitions/spider.RDBMSInfoResponse"
                         }
                     },
                     "400": {
@@ -8215,9 +8215,15 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "The master user name (required by SQL-based drivers such as AWS and IBM)",
+                        "name": "X-Master-User-Name",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
                         "description": "The master user password (required by SQL-based drivers such as AWS and IBM)",
-                        "name": "MasterUserPassword",
-                        "in": "query"
+                        "name": "X-Master-User-Password",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8248,7 +8254,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a database inside an RDBMS instance using the CSP-native API.",
+                "description": "Create a database inside an RDBMS instance using the CSP-native API. Charset/Collation are optional and mysql/mariadb-only; CB-Spider does not validate their value against a fixed list, only that it's safe to pass through, and support depends on the CSP driver (see field docs).",
                 "consumes": [
                     "application/json"
                 ],
@@ -8404,9 +8410,16 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "The master user name, used to connect and run the SQL check",
+                        "name": "X-Master-User-Name",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "The master user password, used to connect and run the SQL check",
-                        "name": "MasterUserPassword",
-                        "in": "query",
+                        "name": "X-Master-User-Password",
+                        "in": "header",
                         "required": true
                     }
                 ],
@@ -9626,7 +9639,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Details of the registered RDBMS",
                         "schema": {
-                            "$ref": "#/definitions/spider.RDBMSInfo"
+                            "$ref": "#/definitions/spider.RDBMSInfoResponse"
                         }
                     },
                     "400": {
@@ -14070,6 +14083,10 @@ const docTemplate = `{
                     "description": "\"mysql\", \"mariadb\", or \"postgres\"",
                     "type": "string"
                 },
+                "RecommendedSSLMode": {
+                    "description": "RecommendedSSLMode is the strongest of RDBMSSSLModeDisabled/VerifyCA/VerifyIdentity a\nclient can actually use against this instance, derived empirically rather than from CSP\nmetadata (no CSP exposes this directly):\n  - DISABLED: TLSInUse=false — the server offers no TLS at all (e.g. Alibaba/Tencent/NCP\n    with TLS turned off).\n  - VERIFY_CA: TLSInUse=true, but the server's certificate has no Subject Alternative Name\n    at all, so hostname verification (VERIFY_IDENTITY) will always fail regardless of\n    client config — e.g. MySQL's own auto-generated certs on OpenStack Trove/NHN Cloud\n    (see test/rdbms-mysql-test/tls-test/README.md's Known Caveats). Chain-only\n    verification against CACertificate above still works.\n  - VERIFY_IDENTITY: TLSInUse=true and the certificate carries a usable SAN (e.g. AWS,\n    Azure, GCP, IBM) — the strongest mode is safe to use.\nEmpty when TLSInUse=true but the certificate probe itself failed (see CACertificateError):\nthere's then no basis to tell VERIFY_CA and VERIFY_IDENTITY apart.",
+                    "type": "string"
+                },
                 "RequireSecureTransport": {
                     "description": "MySQL/MariaDB: raw value of the require_secure_transport system variable (\"ON\" or \"OFF\").",
                     "type": "string"
@@ -15957,159 +15974,6 @@ const docTemplate = `{
                 "DataSourceAPI",
                 "DataSourceStatic"
             ]
-        },
-        "spider.RDBMSInfo": {
-            "description": "Relational Database (RDBMS) Information",
-            "type": "object",
-            "required": [
-                "DBEngine",
-                "DBEngineVersion",
-                "DBSpec",
-                "IId",
-                "MasterUserName",
-                "Status",
-                "StorageSize",
-                "VpcIID"
-            ],
-            "properties": {
-                "BackupRetentionDays": {
-                    "description": "Backup",
-                    "type": "integer",
-                    "example": 7
-                },
-                "BackupTime": {
-                    "description": "Preferred backup time (read-only, CSP-managed. Not configurable at creation via Spider.)",
-                    "type": "string",
-                    "example": "03:00"
-                },
-                "CreatedTime": {
-                    "type": "string"
-                },
-                "DBEngine": {
-                    "description": "DB Engine",
-                    "type": "string",
-                    "example": "mysql"
-                },
-                "DBEngineVersion": {
-                    "description": "e.g., \"8.0\", \"10.6\", \"15\"",
-                    "type": "string",
-                    "example": "8.0"
-                },
-                "DBInstanceType": {
-                    "description": "Primary | ReadReplica (for response)",
-                    "type": "string",
-                    "example": "Primary"
-                },
-                "DBSpec": {
-                    "description": "Instance Spec",
-                    "type": "string",
-                    "example": "db.t3.medium"
-                },
-                "DeletionProtection": {
-                    "description": "Protection",
-                    "type": "boolean",
-                    "default": false
-                },
-                "Encryption": {
-                    "description": "Encryption - read-only, CSP-managed. Not configurable at creation via Spider.",
-                    "type": "boolean",
-                    "default": false
-                },
-                "Endpoint": {
-                    "description": "Connection endpoint (for response)",
-                    "type": "string"
-                },
-                "HighAvailability": {
-                    "description": "High Availability",
-                    "type": "boolean",
-                    "default": false
-                },
-                "IId": {
-                    "description": "{NameId, SystemId}",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.IID"
-                        }
-                    ]
-                },
-                "Iops": {
-                    "description": "Iops: Provisioned IOPS for the storage volume.\nAWS: required for io1/io2 (100–64000).\nOther CSPs: not used.",
-                    "type": "string",
-                    "example": "3000"
-                },
-                "KeyValueList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.KeyValue"
-                    }
-                },
-                "MasterUserName": {
-                    "description": "Authentication",
-                    "type": "string",
-                    "example": "admin"
-                },
-                "MasterUserPassword": {
-                    "description": "Master user password (for Create request only)",
-                    "type": "string"
-                },
-                "NHNAutoOpenDBSecurityGroup": {
-                    "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with\nPublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN\nCloud RDS DB Security Group, attaches it at creation, and deletes it\nautomatically when the instance is deleted. Ignored by every other CSP.\nSecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at\nall: NHN Cloud RDS DB Security Groups are a resource type separate from\nthe VPC/Neutron security group CB-Spider manages, so when this flag is\nfalse (the default), you must create one yourself via the NHN Cloud\nconsole or API and attach it to the instance for external SQL access.",
-                    "type": "boolean",
-                    "default": false
-                },
-                "PublicAccess": {
-                    "description": "Access",
-                    "type": "boolean",
-                    "default": false
-                },
-                "SecurityGroupIIDs": {
-                    "description": "Associated Security Groups",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
-                    }
-                },
-                "Status": {
-                    "description": "Status (for response)",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.RDBMSStatus"
-                        }
-                    ],
-                    "example": "Available"
-                },
-                "StorageSize": {
-                    "description": "in GB",
-                    "type": "string",
-                    "example": "100"
-                },
-                "StorageType": {
-                    "description": "Storage\nStorageType: storage volume type for the RDBMS instance.\ne.g., \"gp2\", \"io1\", \"SSD\", \"cloud_essd\"\nOpenStack: configurable at creation time, but Trove API does not return this field in responses (always \"NA\").",
-                    "type": "string",
-                    "example": "gp2"
-                },
-                "SubnetIIDs": {
-                    "description": "Network",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
-                    }
-                },
-                "TagList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.KeyValue"
-                    }
-                },
-                "VpcIID": {
-                    "description": "Owner VPC IID",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.IID"
-                        }
-                    ]
-                }
-            }
         },
         "spider.RDBMSMetaInfo": {
             "description": "RDBMS Meta Information for CSP-specific capabilities",
@@ -19362,6 +19226,42 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.RDBMSAllInfoListResponse": {
+            "type": "object",
+            "properties": {
+                "AllListInfo": {
+                    "type": "object",
+                    "properties": {
+                        "MappedInfoList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.RDBMSInfoResponse"
+                            }
+                        },
+                        "OnlyCSPInfoList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.RDBMSInfoResponse"
+                            }
+                        },
+                        "OnlySpiderList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        }
+                    }
+                },
+                "ResourceType": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RSType"
+                        }
+                    ],
+                    "example": "rdbms"
+                }
+            }
+        },
         "spider.RDBMSCreateRequest": {
             "type": "object",
             "required": [
@@ -19428,6 +19328,11 @@ const docTemplate = `{
                         "MasterUserPassword": {
                             "type": "string",
                             "example": "password123!"
+                        },
+                        "NCPAutoOpenACG": {
+                            "description": "NCPAutoOpenACG (NCP only): NCP provides no API to assign a public\ndomain to an RDBMS instance, so Spider rejects PublicAccess=true for\nNCP outright. When NCPAutoOpenACG is true, CB-Spider waits for the\ninstance to reach running state and adds a TCP 0.0.0.0/0 inbound\nrule (on the DB port) to the dedicated Access Control Group NCP\nauto-creates for the instance. This only opens the ACG; a Public\nDomain must still be configured manually via the NCP Console to\nactually reach the instance from outside the VPC. Ignored by every\nother CSP.",
+                            "type": "boolean",
+                            "default": false
                         },
                         "NHNAutoOpenDBSecurityGroup": {
                             "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.\nWhen true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)\nNHN Cloud RDS DB Security Group, and deletes it automatically when the\ninstance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does\nnot use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup\ninstead); if this flag is false (default), create and attach a DB\nSecurity Group yourself via the NHN Cloud console/API for external\nSQL access.",
@@ -19501,6 +19406,15 @@ const docTemplate = `{
                 "ConnectionName"
             ],
             "properties": {
+                "Charset": {
+                    "description": "Charset/Collation: optional, create only, mysql/mariadb only. CB-Spider does not validate\nthese against a list of known names (MySQL/MariaDB each add new charsets/collations over\ntime, and don't share a naming scheme for their newest ones) -- it only rejects characters\nthat would be unsafe to use as a SQL identifier, and otherwise passes the value through\nunchanged to the CSP API, SQL engine, or CSP-provided SQL mechanism, which reports back if it\ndoesn't recognize it. Supported on all 9 RDBMS-capable CSPs today, but by three different\nmechanisms with different caveats -- see RDBMSManager.go's rdbmsDatabaseOptionsManager (Azure,\nGCP, OpenStack, Alibaba: native API), rdbmsDatabaseCharsetManager (Tencent: native API for\ncharset, a follow-up SQL ALTER DATABASE for collation -- requires MasterUserName/\nMasterUserPassword whenever Collation is given, since Tencent's API has no collation field at\nall), rdbmsDatabaseSQLStatementBuilder (NCP: both go through NCP's ` + "`" + `sys.ncp_create_db` + "`" + ` stored\nprocedure over direct SQL -- requires MasterUserName/MasterUserPassword), and\nrdbmsDatabaseSQLFallbackEligible (NHN: a plain SQL CREATE DATABASE, which only works if the\ninstance owner has separately enabled \"Direct Control\" in the NHN console -- CB-Spider cannot\ncheck or enable this itself, so an un-opted-in instance surfaces the engine's own permission\nerror) plus the plain SQL fallback (AWS, IBM).\n\nIf Charset is given but Collation is left empty on Azure specifically (see\nRDBMSManager.go's rdbmsDatabaseRequiresPairedCollation), CB-Spider resolves Charset's actual\ndefault collation on this instance via a live query (information_schema.CHARACTER_SETS)\nbefore creating the database, which requires MasterUserName/MasterUserPassword even though\nAzure's own create-database call otherwise wouldn't need them. This exists because Azure MySQL\nFlexible Server has been observed to silently ignore a Charset-only request -- falling back to\nthe server's own default charset instead of the requested one, with no error -- unless\nCollation is also given in the same call. GCP, OpenStack, and Alibaba apply a Charset-only\nrequest correctly on their own and get no such lookup (for Alibaba specifically, an\nauto-filled Collation would incorrectly trip its MariaDB-only Collation rejection -- see its\ndriver). The SQL-fallback drivers (AWS, IBM) need no such resolution either: a plain\n` + "`" + `CREATE DATABASE db CHARACTER SET x` + "`" + ` with no COLLATE clause already makes MySQL/MariaDB\nitself resolve x's correct default collation. Give both Charset and Collation explicitly to\nskip the Azure lookup.",
+                    "type": "string",
+                    "example": "utf8mb4"
+                },
+                "Collation": {
+                    "type": "string",
+                    "example": "utf8mb4_unicode_ci"
+                },
                 "ConnectionName": {
                     "type": "string",
                     "example": "ncp-korea1-config"
@@ -19510,8 +19424,12 @@ const docTemplate = `{
                     "type": "string",
                     "example": "mydb"
                 },
+                "MasterUserName": {
+                    "description": "MasterUserName/MasterUserPassword: required when the driver uses the SQL fallback (e.g. AWS,\nIBM); when Charset is given without Collation specifically on Azure (see below -- GCP,\nOpenStack, and Alibaba apply a Charset-only request correctly without this); and whenever\nCharset/Collation is given at all on Tencent (a Collation triggers a follow-up SQL statement)\nor NCP (both always go through a SQL stored-procedure call) -- see below. CB-Spider no longer\ntracks these after creation (see RDBMSManager.go's redactRDBMSMasterCredentials -- it cannot\nreliably confirm the actual master account for several CSPs), so the caller must supply both,\nthe same credentials set at instance creation.",
+                    "type": "string",
+                    "example": "myadmin"
+                },
                 "MasterUserPassword": {
-                    "description": "required when driver uses SQL (e.g. AWS, IBM)",
                     "type": "string",
                     "example": "P@ssw0rd"
                 }
@@ -19531,6 +19449,115 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.RDBMSInfoResponse": {
+            "type": "object",
+            "properties": {
+                "BackupRetentionDays": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "BackupTime": {
+                    "type": "string",
+                    "example": "03:00"
+                },
+                "CreatedTime": {
+                    "type": "string"
+                },
+                "DBEngine": {
+                    "type": "string",
+                    "example": "mysql"
+                },
+                "DBEngineVersion": {
+                    "type": "string",
+                    "example": "8.0"
+                },
+                "DBInstanceType": {
+                    "type": "string",
+                    "example": "Primary"
+                },
+                "DBSpec": {
+                    "type": "string",
+                    "example": "db.t3.medium"
+                },
+                "DeletionProtection": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "Encryption": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "Endpoint": {
+                    "type": "string"
+                },
+                "HighAvailability": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.IID"
+                },
+                "Iops": {
+                    "type": "string",
+                    "example": "3000"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "NCPAutoOpenACG": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "NHNAutoOpenDBSecurityGroup": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "PublicAccess": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "SecurityGroupIIDs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "Status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RDBMSStatus"
+                        }
+                    ],
+                    "example": "Available"
+                },
+                "StorageSize": {
+                    "type": "string",
+                    "example": "100"
+                },
+                "StorageType": {
+                    "type": "string",
+                    "example": "gp2"
+                },
+                "SubnetIIDs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "VpcIID": {
+                    "$ref": "#/definitions/spider.IID"
+                }
+            }
+        },
         "spider.RDBMSListResponse": {
             "type": "object",
             "required": [
@@ -19540,7 +19567,7 @@ const docTemplate = `{
                 "rdbms": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/spider.RDBMSInfo"
+                        "$ref": "#/definitions/spider.RDBMSInfoResponse"
                     }
                 }
             }

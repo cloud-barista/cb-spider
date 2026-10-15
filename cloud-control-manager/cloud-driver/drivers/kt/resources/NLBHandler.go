@@ -2091,7 +2091,15 @@ func (nlbHandler *KTVpcNLBHandler) getNLBVMList(nlbIID irs.IID) ([]ktvpclb.LbSer
 	// Paginate through all servers in the NLB
 	start := call.Start()
 	err := ktvpclb.ListLbServer(nlbHandler.NLBClient, listLbServerOpts).EachPage(func(page pagination.Page) (bool, error) {
-		servers, err := ktvpclb.ExtractLbServers(page)
+		var resp struct {
+			Data struct {
+				VMs []struct {
+					ktvpclb.LbServer
+					ID string `json:"id"`
+				} `json:"vm"`
+			} `json:"data"`
+		}
+		err := page.(ktvpclb.ServerPage).ExtractInto(&resp)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to extract servers: %w", err)
 			cblogger.Error(newErr.Error())
@@ -2099,8 +2107,13 @@ func (nlbHandler *KTVpcNLBHandler) getNLBVMList(nlbIID irs.IID) ([]ktvpclb.LbSer
 			return false, newErr
 		}
 
-		nlbVmList = append(nlbVmList, servers...)
-		vmCount += len(servers)
+		for _, server := range resp.Data.VMs {
+			if server.ID != "" {
+				server.ServiceID = server.ID
+			}
+			nlbVmList = append(nlbVmList, server.LbServer)
+		}
+		vmCount += len(resp.Data.VMs)
 
 		// Continue pagination
 		return true, nil

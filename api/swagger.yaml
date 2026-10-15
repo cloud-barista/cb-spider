@@ -130,6 +130,23 @@ definitions:
       Engine:
         description: '"mysql", "mariadb", or "postgres"'
         type: string
+      RecommendedSSLMode:
+        description: |-
+          RecommendedSSLMode is the strongest of RDBMSSSLModeDisabled/VerifyCA/VerifyIdentity a
+          client can actually use against this instance, derived empirically rather than from CSP
+          metadata (no CSP exposes this directly):
+            - DISABLED: TLSInUse=false — the server offers no TLS at all (e.g. Alibaba/Tencent/NCP
+              with TLS turned off).
+            - VERIFY_CA: TLSInUse=true, but the server's certificate has no Subject Alternative Name
+              at all, so hostname verification (VERIFY_IDENTITY) will always fail regardless of
+              client config — e.g. MySQL's own auto-generated certs on OpenStack Trove/NHN Cloud
+              (see test/rdbms-mysql-test/tls-test/README.md's Known Caveats). Chain-only
+              verification against CACertificate above still works.
+            - VERIFY_IDENTITY: TLSInUse=true and the certificate carries a usable SAN (e.g. AWS,
+              Azure, GCP, IBM) — the strongest mode is safe to use.
+          Empty when TLSInUse=true but the certificate probe itself failed (see CACertificateError):
+          there's then no basis to tell VERIFY_CA and VERIFY_IDENTITY apart.
+        type: string
       RequireSecureTransport:
         description: 'MySQL/MariaDB: raw value of the require_secure_transport system
           variable ("ON" or "OFF").'
@@ -1499,136 +1516,6 @@ definitions:
     x-enum-varnames:
     - DataSourceAPI
     - DataSourceStatic
-  spider.RDBMSInfo:
-    description: Relational Database (RDBMS) Information
-    properties:
-      BackupRetentionDays:
-        description: Backup
-        example: 7
-        type: integer
-      BackupTime:
-        description: Preferred backup time (read-only, CSP-managed. Not configurable
-          at creation via Spider.)
-        example: "03:00"
-        type: string
-      CreatedTime:
-        type: string
-      DBEngine:
-        description: DB Engine
-        example: mysql
-        type: string
-      DBEngineVersion:
-        description: e.g., "8.0", "10.6", "15"
-        example: "8.0"
-        type: string
-      DBInstanceType:
-        description: Primary | ReadReplica (for response)
-        example: Primary
-        type: string
-      DBSpec:
-        description: Instance Spec
-        example: db.t3.medium
-        type: string
-      DeletionProtection:
-        default: false
-        description: Protection
-        type: boolean
-      Encryption:
-        default: false
-        description: Encryption - read-only, CSP-managed. Not configurable at creation
-          via Spider.
-        type: boolean
-      Endpoint:
-        description: Connection endpoint (for response)
-        type: string
-      HighAvailability:
-        default: false
-        description: High Availability
-        type: boolean
-      IId:
-        allOf:
-        - $ref: '#/definitions/spider.IID'
-        description: '{NameId, SystemId}'
-      Iops:
-        description: |-
-          Iops: Provisioned IOPS for the storage volume.
-          AWS: required for io1/io2 (100–64000).
-          Other CSPs: not used.
-        example: "3000"
-        type: string
-      KeyValueList:
-        items:
-          $ref: '#/definitions/spider.KeyValue'
-        type: array
-      MasterUserName:
-        description: Authentication
-        example: admin
-        type: string
-      MasterUserPassword:
-        description: Master user password (for Create request only)
-        type: string
-      NHNAutoOpenDBSecurityGroup:
-        default: false
-        description: |-
-          NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with
-          PublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN
-          Cloud RDS DB Security Group, attaches it at creation, and deletes it
-          automatically when the instance is deleted. Ignored by every other CSP.
-          SecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at
-          all: NHN Cloud RDS DB Security Groups are a resource type separate from
-          the VPC/Neutron security group CB-Spider manages, so when this flag is
-          false (the default), you must create one yourself via the NHN Cloud
-          console or API and attach it to the instance for external SQL access.
-        type: boolean
-      PublicAccess:
-        default: false
-        description: Access
-        type: boolean
-      SecurityGroupIIDs:
-        description: Associated Security Groups
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
-      Status:
-        allOf:
-        - $ref: '#/definitions/spider.RDBMSStatus'
-        description: Status (for response)
-        example: Available
-      StorageSize:
-        description: in GB
-        example: "100"
-        type: string
-      StorageType:
-        description: |-
-          Storage
-          StorageType: storage volume type for the RDBMS instance.
-          e.g., "gp2", "io1", "SSD", "cloud_essd"
-          OpenStack: configurable at creation time, but Trove API does not return this field in responses (always "NA").
-        example: gp2
-        type: string
-      SubnetIIDs:
-        description: Network
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
-      TagList:
-        items:
-          $ref: '#/definitions/spider.KeyValue'
-        type: array
-      VpcIID:
-        allOf:
-        - $ref: '#/definitions/spider.IID'
-        description: Owner VPC IID
-    required:
-    - DBEngine
-    - DBEngineVersion
-    - DBSpec
-    - IId
-    - MasterUserName
-    - Status
-    - StorageSize
-    - VpcIID
-    type: object
   spider.RDBMSMetaInfo:
     description: RDBMS Meta Information for CSP-specific capabilities
     properties:
@@ -3964,6 +3851,28 @@ definitions:
     required:
     - ServiceTypes
     type: object
+  spider.RDBMSAllInfoListResponse:
+    properties:
+      AllListInfo:
+        properties:
+          MappedInfoList:
+            items:
+              $ref: '#/definitions/spider.RDBMSInfoResponse'
+            type: array
+          OnlyCSPInfoList:
+            items:
+              $ref: '#/definitions/spider.RDBMSInfoResponse'
+            type: array
+          OnlySpiderList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+        type: object
+      ResourceType:
+        allOf:
+        - $ref: '#/definitions/spider.RSType'
+        example: rdbms
+    type: object
   spider.RDBMSCreateRequest:
     properties:
       ConnectionName:
@@ -4007,6 +3916,19 @@ definitions:
           MasterUserPassword:
             example: password123!
             type: string
+          NCPAutoOpenACG:
+            default: false
+            description: |-
+              NCPAutoOpenACG (NCP only): NCP provides no API to assign a public
+              domain to an RDBMS instance, so Spider rejects PublicAccess=true for
+              NCP outright. When NCPAutoOpenACG is true, CB-Spider waits for the
+              instance to reach running state and adds a TCP 0.0.0.0/0 inbound
+              rule (on the DB port) to the dedicated Access Control Group NCP
+              auto-creates for the instance. This only opens the ACG; a Public
+              Domain must still be configured manually via the NCP Console to
+              actually reach the instance from outside the VPC. Ignored by every
+              other CSP.
+            type: boolean
           NHNAutoOpenDBSecurityGroup:
             default: false
             description: |-
@@ -4077,6 +3999,44 @@ definitions:
     type: object
   spider.RDBMSDatabaseRequest:
     properties:
+      Charset:
+        description: |-
+          Charset/Collation: optional, create only, mysql/mariadb only. CB-Spider does not validate
+          these against a list of known names (MySQL/MariaDB each add new charsets/collations over
+          time, and don't share a naming scheme for their newest ones) -- it only rejects characters
+          that would be unsafe to use as a SQL identifier, and otherwise passes the value through
+          unchanged to the CSP API, SQL engine, or CSP-provided SQL mechanism, which reports back if it
+          doesn't recognize it. Supported on all 9 RDBMS-capable CSPs today, but by three different
+          mechanisms with different caveats -- see RDBMSManager.go's rdbmsDatabaseOptionsManager (Azure,
+          GCP, OpenStack, Alibaba: native API), rdbmsDatabaseCharsetManager (Tencent: native API for
+          charset, a follow-up SQL ALTER DATABASE for collation -- requires MasterUserName/
+          MasterUserPassword whenever Collation is given, since Tencent's API has no collation field at
+          all), rdbmsDatabaseSQLStatementBuilder (NCP: both go through NCP's `sys.ncp_create_db` stored
+          procedure over direct SQL -- requires MasterUserName/MasterUserPassword), and
+          rdbmsDatabaseSQLFallbackEligible (NHN: a plain SQL CREATE DATABASE, which only works if the
+          instance owner has separately enabled "Direct Control" in the NHN console -- CB-Spider cannot
+          check or enable this itself, so an un-opted-in instance surfaces the engine's own permission
+          error) plus the plain SQL fallback (AWS, IBM).
+
+          If Charset is given but Collation is left empty on Azure specifically (see
+          RDBMSManager.go's rdbmsDatabaseRequiresPairedCollation), CB-Spider resolves Charset's actual
+          default collation on this instance via a live query (information_schema.CHARACTER_SETS)
+          before creating the database, which requires MasterUserName/MasterUserPassword even though
+          Azure's own create-database call otherwise wouldn't need them. This exists because Azure MySQL
+          Flexible Server has been observed to silently ignore a Charset-only request -- falling back to
+          the server's own default charset instead of the requested one, with no error -- unless
+          Collation is also given in the same call. GCP, OpenStack, and Alibaba apply a Charset-only
+          request correctly on their own and get no such lookup (for Alibaba specifically, an
+          auto-filled Collation would incorrectly trip its MariaDB-only Collation rejection -- see its
+          driver). The SQL-fallback drivers (AWS, IBM) need no such resolution either: a plain
+          `CREATE DATABASE db CHARACTER SET x` with no COLLATE clause already makes MySQL/MariaDB
+          itself resolve x's correct default collation. Give both Charset and Collation explicitly to
+          skip the Azure lookup.
+        example: utf8mb4
+        type: string
+      Collation:
+        example: utf8mb4_unicode_ci
+        type: string
       ConnectionName:
         example: ncp-korea1-config
         type: string
@@ -4084,8 +4044,19 @@ definitions:
         description: required only for create/delete
         example: mydb
         type: string
+      MasterUserName:
+        description: |-
+          MasterUserName/MasterUserPassword: required when the driver uses the SQL fallback (e.g. AWS,
+          IBM); when Charset is given without Collation specifically on Azure (see below -- GCP,
+          OpenStack, and Alibaba apply a Charset-only request correctly without this); and whenever
+          Charset/Collation is given at all on Tencent (a Collation triggers a follow-up SQL statement)
+          or NCP (both always go through a SQL stored-procedure call) -- see below. CB-Spider no longer
+          tracks these after creation (see RDBMSManager.go's redactRDBMSMasterCredentials -- it cannot
+          reliably confirm the actual master account for several CSPs), so the caller must supply both,
+          the same credentials set at instance creation.
+        example: myadmin
+        type: string
       MasterUserPassword:
-        description: required when driver uses SQL (e.g. AWS, IBM)
         example: P@ssw0rd
         type: string
     required:
@@ -4100,11 +4071,87 @@ definitions:
     required:
     - rdbmsengine
     type: object
+  spider.RDBMSInfoResponse:
+    properties:
+      BackupRetentionDays:
+        example: 7
+        type: integer
+      BackupTime:
+        example: "03:00"
+        type: string
+      CreatedTime:
+        type: string
+      DBEngine:
+        example: mysql
+        type: string
+      DBEngineVersion:
+        example: "8.0"
+        type: string
+      DBInstanceType:
+        example: Primary
+        type: string
+      DBSpec:
+        example: db.t3.medium
+        type: string
+      DeletionProtection:
+        default: false
+        type: boolean
+      Encryption:
+        default: false
+        type: boolean
+      Endpoint:
+        type: string
+      HighAvailability:
+        default: false
+        type: boolean
+      IId:
+        $ref: '#/definitions/spider.IID'
+      Iops:
+        example: "3000"
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      NCPAutoOpenACG:
+        default: false
+        type: boolean
+      NHNAutoOpenDBSecurityGroup:
+        default: false
+        type: boolean
+      PublicAccess:
+        default: false
+        type: boolean
+      SecurityGroupIIDs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.RDBMSStatus'
+        example: Available
+      StorageSize:
+        example: "100"
+        type: string
+      StorageType:
+        example: gp2
+        type: string
+      SubnetIIDs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      VpcIID:
+        $ref: '#/definitions/spider.IID'
+    type: object
   spider.RDBMSListResponse:
     properties:
       rdbms:
         items:
-          $ref: '#/definitions/spider.RDBMSInfo'
+          $ref: '#/definitions/spider.RDBMSInfoResponse'
         type: array
     required:
     - rdbms
@@ -5291,7 +5338,7 @@ paths:
           description: List of all RDBMS information within the specified connection,
             including RDBMS in CB-Spider only, CSP only, and mapped between both.
           schema:
-            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+            $ref: '#/definitions/spider.RDBMSAllInfoListResponse'
         "400":
           description: Bad Request, possibly due to invalid query parameter
           schema:
@@ -5811,7 +5858,8 @@ paths:
         <br> * NodeGroupList is optional, depends on CSP type: <br> &nbsp;- Type-I
         (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster
         creation. <br> &nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node
-        Group during initial Cluster creation."
+        Group during initial Cluster creation.\nMalformed scaling values are rejected;
+        omitted creation fields retain their zero values for driver validation."
       operationId: create-cluster
       parameters:
       - description: Request body for creating a Cluster
@@ -5938,7 +5986,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Add a new Node Group to an existing Cluster.
+      description: |-
+        Add a new Node Group to an existing Cluster.
+        Malformed scaling values are rejected; omitted creation fields retain their zero values for driver validation.
       operationId: add-nodegroup
       parameters:
       - description: The name of the Cluster to add the Node Group to
@@ -6025,7 +6075,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Change the scaling settings for a Node Group in a Cluster.
+      description: |-
+        Change the scaling settings for a Node Group in a Cluster.
+        Node sizes must be non-negative integers.
       operationId: change-nodegroup-scaling
       parameters:
       - description: The name of the Cluster to change Node Group Scaling
@@ -6071,7 +6123,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Enable or disable auto scaling for a Node Group in a Cluster.
+      description: |-
+        Enable or disable auto scaling for a Node Group in a Cluster.
+        OnAutoScaling must be a valid boolean.
       operationId: set-nodegroup-autoscaling
       parameters:
       - description: The name of the Cluster to set Node Group Auto Scaling
@@ -10382,6 +10436,9 @@ paths:
       consumes:
       - application/json
       description: Create a new Relational Database (RDBMS) with the specified configuration.
+        <br> The response never echoes back MasterUserName/MasterUserPassword -- you
+        already supplied them in this request, so keep them yourself, e.g. alongside
+        your SSH private key.
       operationId: create-rdbms
       parameters:
       - description: Request body for creating an RDBMS
@@ -10396,7 +10453,7 @@ paths:
         "200":
           description: Details of the created RDBMS
           schema:
-            $ref: '#/definitions/spider.RDBMSInfo'
+            $ref: '#/definitions/spider.RDBMSInfoResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
@@ -10480,7 +10537,7 @@ paths:
         "200":
           description: Details of the RDBMS
           schema:
-            $ref: '#/definitions/spider.RDBMSInfo'
+            $ref: '#/definitions/spider.RDBMSInfoResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
@@ -10514,10 +10571,15 @@ paths:
         name: ConnectionName
         required: true
         type: string
+      - description: The master user name (required by SQL-based drivers such as AWS
+          and IBM)
+        in: header
+        name: X-Master-User-Name
+        type: string
       - description: The master user password (required by SQL-based drivers such
           as AWS and IBM)
-        in: query
-        name: MasterUserPassword
+        in: header
+        name: X-Master-User-Password
         type: string
       produces:
       - application/json
@@ -10545,7 +10607,9 @@ paths:
       consumes:
       - application/json
       description: Create a database inside an RDBMS instance using the CSP-native
-        API.
+        API. Charset/Collation are optional and mysql/mariadb-only; CB-Spider does
+        not validate their value against a fixed list, only that it's safe to pass
+        through, and support depends on the CSP driver (see field docs).
       operationId: create-rdbms-database
       parameters:
       - description: The name of the RDBMS instance
@@ -10650,9 +10714,14 @@ paths:
         name: ConnectionName
         required: true
         type: string
+      - description: The master user name, used to connect and run the SQL check
+        in: header
+        name: X-Master-User-Name
+        required: true
+        type: string
       - description: The master user password, used to connect and run the SQL check
-        in: query
-        name: MasterUserPassword
+        in: header
+        name: X-Master-User-Password
         required: true
         type: string
       produces:
@@ -11488,7 +11557,7 @@ paths:
         "200":
           description: Details of the registered RDBMS
           schema:
-            $ref: '#/definitions/spider.RDBMSInfo'
+            $ref: '#/definitions/spider.RDBMSInfoResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields

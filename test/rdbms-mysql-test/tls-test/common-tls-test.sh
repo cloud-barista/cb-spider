@@ -14,6 +14,9 @@
 #   CSP_NAME              - Display name (e.g., AWS)
 #   CONNECTION_NAME       - Spider connection config name
 #   RDBMS_NAME            - RDBMS instance name
+#   MASTER_USER_NAME      - MasterUserName used when creating the RDBMS instance (CB-Spider's
+#                           GET /spider/rdbms/{Name} no longer returns it -- see
+#                           api-runtime/common-runtime/RDBMSManager.go's redactRDBMSMasterCredentials)
 #   MASTER_USER_PASSWORD  - MasterUserPassword used when creating the RDBMS instance
 #   RESULT_FILE           - Path to write pipe-separated result line
 #
@@ -55,6 +58,7 @@ exec go run "${SCRIPT_DIR}/tlsprobe" \
     -spider-auth "${SPIDER_AUTH}" \
     -connection "${CONNECTION_NAME}" \
     -rdbms "${RDBMS_NAME}" \
+    -username "${MASTER_USER_NAME}" \
     -password "${MASTER_USER_PASSWORD}" \
     -csp-name "${CSP_NAME}" \
     -timeout "${CONNECT_TIMEOUT}s" \

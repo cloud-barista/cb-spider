@@ -223,6 +223,17 @@ type RDBMSInfo struct {
 	// console or API and attach it to the instance for external SQL access.
 	NHNAutoOpenDBSecurityGroup bool `json:"NHNAutoOpenDBSecurityGroup,omitempty" default:"false"`
 
+	// NCPAutoOpenACG (NCP only): NCP Cloud DB for MySQL/PostgreSQL does not
+	// expose a public-domain assignment API, so CB-Spider rejects
+	// PublicAccess=true for NCP (see SupportsPublicAccess in GetMetaInfo).
+	// When NCPAutoOpenACG is true, CB-Spider waits for the instance to reach
+	// running state and adds a TCP 0.0.0.0/0 inbound rule (on the DB port) to
+	// the dedicated Access Control Group NCP auto-creates for the instance.
+	// This only opens the ACG; to actually reach the instance from outside
+	// the VPC, a Public Domain must still be configured manually via the NCP
+	// Console (NCP provides no API for that step). Ignored by every other CSP.
+	NCPAutoOpenACG bool `json:"NCPAutoOpenACG,omitempty" default:"false"`
+
 	// Encryption - read-only, CSP-managed. Not configurable at creation via Spider.
 	Encryption bool `json:"Encryption,omitempty" default:"false"` // Storage encryption enabled (CSP default)
 

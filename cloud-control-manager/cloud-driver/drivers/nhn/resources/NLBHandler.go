@@ -125,6 +125,27 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		return irs.NLBInfo{}, newErr
 	}
 
+	// Attach pool members if VMs are specified
+	if nlbReqInfo.VMGroup.VMs != nil && len(*nlbReqInfo.VMGroup.VMs) > 0 {
+		if _, err := nlbHandler.waitToGetNLBInfo(irs.IID{SystemId: lb.ID}); err != nil {
+			newErr := fmt.Errorf("failed waiting for loadbalancer to be ACTIVE before attaching members: %w", err)
+			cblogger.Error(newErr.Error())
+			callLogInfo.ErrorMSG = newErr.Error()
+			calllogger := calllog.GetLogger("NHN-CALLLOG")
+			calllogger.Error(calllog.String(callLogInfo))
+			return irs.NLBInfo{}, newErr
+		}
+
+		if _, err := nlbHandler.attachPoolMembers(*nlbReqInfo.VMGroup.VMs, nlbReqInfo.VMGroup.Port, pool.ID); err != nil {
+			newErr := fmt.Errorf("failed to attach pool members: %w", err)
+			cblogger.Error(newErr.Error())
+			callLogInfo.ErrorMSG = newErr.Error()
+			calllogger := calllog.GetLogger("NHN-CALLLOG")
+			calllogger.Error(calllog.String(callLogInfo))
+			return irs.NLBInfo{}, newErr
+		}
+	}
+
 	publicIP, err := nlbHandler.createPublicIP(lb.VipPortID)
 	if err != nil {
 		newErr := fmt.Errorf("failed to create Public IP: %w", err)
@@ -337,12 +358,12 @@ func (nlbHandler *NhnCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	lbList, ok := rawBody["loadbalancers"].([]interface{})
 	if !ok {
-		newErr := fmt.Errorf("invalid response format: no loadbalancers field")
-		cblogger.Error(newErr.Error())
-		callLogInfo.ErrorMSG = newErr.Error()
+		// Return empty list when loadbalancers field is absent or nil.
+		callLogInfo.ElapsedTime = calllog.Elapsed(callLogStart)
+		callLogInfo.ErrorMSG = ""
 		calllogger := calllog.GetLogger("NHN-CALLLOG")
-		calllogger.Error(calllog.String(callLogInfo))
-		return nil, newErr
+		calllogger.Info(calllog.String(callLogInfo))
+		return nlbList, nil
 	}
 
 	for _, lb := range lbList {
@@ -1175,8 +1196,22 @@ func (nlbHandler *NhnCloudNLBHandler) attachPoolMembers(vmIIDs []irs.IID, port s
 		return nil, fmt.Errorf("invalid port %s", port)
 	}
 
+	// Resolve LB ID from pool to ensure LB is ACTIVE before/after member creation
+	var lbID string
+	if pool, pErr := nlbHandler.getRawPoolById(poolID); pErr == nil && len(pool.Listeners) > 0 {
+		if listener, lErr := nlbHandler.getRawListenerById(pool.Listeners[0].ID); lErr == nil && len(listener.Loadbalancers) > 0 {
+			lbID = listener.Loadbalancers[0].ID
+		}
+	}
+
 	var members []pools.Member
 	for _, vm := range vmIIDs {
+		if lbID != "" {
+			if _, err := nlbHandler.waitToGetNLBInfo(irs.IID{SystemId: lbID}); err != nil {
+				return nil, fmt.Errorf("failed waiting for NLB %s to be ACTIVE before attaching member %s: %w", lbID, vm.NameId, err)
+			}
+		}
+
 		privateIP, subnetID, err := nlbHandler.getNetInfoWithVMName(vm.NameId)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get net info for VM %s: %v", vm.NameId, err)
@@ -1196,6 +1231,13 @@ func (nlbHandler *NhnCloudNLBHandler) attachPoolMembers(vmIIDs []irs.IID, port s
 		}
 		members = append(members, *member)
 	}
+
+	if lbID != "" {
+		if _, err := nlbHandler.waitToGetNLBInfo(irs.IID{SystemId: lbID}); err != nil {
+			return nil, fmt.Errorf("failed waiting for NLB %s to be ACTIVE after attaching members: %w", lbID, err)
+		}
+	}
+
 	return members, nil
 }
 

@@ -13,12 +13,17 @@
 //
 // Usage:
 //
-//	go run . -connection aws-config01 -rdbms cb-spider-mysql-test -password 'Password123!' -csp-name AWS
+//	go run . -connection aws-config01 -rdbms cb-spider-mysql-test -username myadmin -password 'Password123!' -csp-name AWS
 //
 // Or build once and reuse the binary:
 //
 //	go build -o tlsprobe .
-//	./tlsprobe -connection aws-config01 -rdbms cb-spider-mysql-test -password 'Password123!' -csp-name AWS
+//	./tlsprobe -connection aws-config01 -rdbms cb-spider-mysql-test -username myadmin -password 'Password123!' -csp-name AWS
+//
+// -username must be the MasterUserName given at instance creation: CB-Spider's
+// GET /spider/rdbms/{Name} no longer returns it (see RDBMSManager.go's
+// redactRDBMSMasterCredentials), since CB-Spider cannot reliably confirm the actual
+// master account for several CSPs after creation.
 package main
 
 import (
@@ -42,9 +47,8 @@ import (
 )
 
 type rdbmsInfo struct {
-	Endpoint       string `json:"Endpoint"`
-	MasterUserName string `json:"MasterUserName"`
-	Message        string `json:"message"`
+	Endpoint string `json:"Endpoint"`
+	Message  string `json:"message"`
 }
 
 type caCertInfo struct {
@@ -60,6 +64,7 @@ type secureTransportInfo struct {
 	TLSInUse               bool        `json:"TLSInUse"`
 	CACertificate          *caCertInfo `json:"CACertificate"`
 	CACertificateError     string      `json:"CACertificateError"`
+	RecommendedSSLMode     string      `json:"RecommendedSSLMode"`
 	Message                string      `json:"message"`
 }
 
@@ -83,6 +88,7 @@ func run() int {
 	spiderAuth := flag.String("spider-auth", envOr("SPIDER_AUTH", "admin:****"), "Basic auth as user:pass")
 	connectionName := flag.String("connection", "", "Spider connection config name (required)")
 	rdbmsName := flag.String("rdbms", "", "RDBMS instance name (required)")
+	username := flag.String("username", "", "MasterUserName set when the instance was created (required) -- CB-Spider's GET /spider/rdbms/{Name} no longer returns it, see RDBMSManager.go's redactRDBMSMasterCredentials")
 	password := flag.String("password", "", "MasterUserPassword (required)")
 	cspName := flag.String("csp-name", "", "Display name for log lines (default: -connection value)")
 	timeout := flag.Duration("timeout", 10*time.Second, "Per-attempt connection timeout")
@@ -90,8 +96,8 @@ func run() int {
 	resultFile := flag.String("result-file", "", "Optional path to write a pipe-separated result line")
 	flag.Parse()
 
-	if *connectionName == "" || *rdbmsName == "" || *password == "" {
-		fmt.Fprintln(os.Stderr, "usage: tlsprobe -connection <name> -rdbms <name> -password <password> [flags]")
+	if *connectionName == "" || *rdbmsName == "" || *username == "" || *password == "" {
+		fmt.Fprintln(os.Stderr, "usage: tlsprobe -connection <name> -rdbms <name> -username <username> -password <password> [flags]")
 		flag.PrintDefaults()
 		return 2
 	}
@@ -124,29 +130,26 @@ func run() int {
 		return 1
 	}
 
-	// ── Get RDBMS Info (Endpoint, MasterUserName) ──────────────────────────────
+	// ── Get RDBMS Info (Endpoint) ────────────────────────────────────────────
 	logf("GetRDBMS: fetching endpoint")
 	var info rdbmsInfo
 	infoURL := fmt.Sprintf("%s/spider/rdbms/%s?ConnectionName=%s", *spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName))
-	if err := httpGetJSON(infoURL, *spiderAuth, &info); err != nil {
+	if err := httpGetJSON(infoURL, *spiderAuth, nil, &info); err != nil {
 		return abort("GetRDBMS", err.Error())
 	}
 	if info.Endpoint == "" {
 		return abort("GetRDBMS", fmt.Sprintf("empty Endpoint in response (message: %q)", info.Message))
 	}
-	if info.MasterUserName == "" {
-		return abort("GetRDBMS", fmt.Sprintf("empty MasterUserName in response (message: %q)", info.Message))
-	}
 
 	host, port := splitHostPort(info.Endpoint)
-	logf("Endpoint: %s:%s (user: %s)", host, port, info.MasterUserName)
+	logf("Endpoint: %s:%s (user: %s)", host, port, *username)
 
 	// ── Get Secure Transport Status + CA Certificate ───────────────────────────
 	logf("GetRDBMSSecureTransport: checking require_secure_transport and capturing CA cert")
 	var st secureTransportInfo
-	stURL := fmt.Sprintf("%s/spider/rdbms/%s/secure-transport?ConnectionName=%s&MasterUserPassword=%s",
-		*spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName), url.QueryEscape(*password))
-	if err := httpGetJSON(stURL, *spiderAuth, &st); err != nil {
+	stURL := fmt.Sprintf("%s/spider/rdbms/%s/secure-transport?ConnectionName=%s",
+		*spiderURL, url.PathEscape(*rdbmsName), url.QueryEscape(*connectionName))
+	if err := httpGetJSON(stURL, *spiderAuth, map[string]string{"X-Master-User-Name": *username, "X-Master-User-Password": *password}, &st); err != nil {
 		return abort("GetRDBMSSecureTransport", err.Error())
 	}
 	if st.Message != "" {
@@ -160,7 +163,7 @@ func run() int {
 	if st.TLSInUse {
 		tlsAvailable = "ON"
 	}
-	logf("require_secure_transport=%s, TLS available on this instance=%s", st.RequireSecureTransport, tlsAvailable)
+	logf("require_secure_transport=%s, TLS available on this instance=%s, RecommendedSSLMode=%s", st.RequireSecureTransport, tlsAvailable, orDefault(st.RecommendedSSLMode, "(empty)"))
 	if !st.TLSInUse {
 		logf("Server does not offer TLS at all -- S1 (plaintext) will still be tested below (that's the only mode this instance can use), but S2/S3/S4 (which require TLS) will be N/A.")
 	}
@@ -205,7 +208,7 @@ func run() int {
 
 	attempt := func(label string, tlsCfg *tls.Config) (bool, error) {
 		cfg := mysql.NewConfig()
-		cfg.User = info.MasterUserName
+		cfg.User = *username
 		cfg.Passwd = *password
 		cfg.Net = "tcp"
 		cfg.Addr = net.JoinHostPort(host, port)
@@ -311,6 +314,29 @@ func run() int {
 		s4 = notApplic
 	}
 
+	// ── Cross-check RecommendedSSLMode against what actually worked ────────────
+	// This isn't graded into overall PASS/FAIL (RecommendedSSLMode is a convenience the API
+	// derives from the same probe this tool re-does independently for S3/S4) -- just a
+	// consistency warning in case CB-Spider's SAN detection and this tool's ever disagree.
+	switch {
+	case !st.TLSInUse:
+		if st.RecommendedSSLMode != "DISABLED" {
+			logf("WARNING: RecommendedSSLMode=%q but TLSInUse=false -- expected \"DISABLED\"", st.RecommendedSSLMode)
+		}
+	case !haveCA:
+		if st.RecommendedSSLMode != "" {
+			logf("WARNING: RecommendedSSLMode=%q but no CA certificate was captured -- expected empty", st.RecommendedSSLMode)
+		}
+	case s4 == pass:
+		if st.RecommendedSSLMode != "VERIFY_IDENTITY" {
+			logf("WARNING: RecommendedSSLMode=%q but S4 (hostname verification) succeeded -- expected \"VERIFY_IDENTITY\"", st.RecommendedSSLMode)
+		}
+	case s3 == pass:
+		if st.RecommendedSSLMode != "VERIFY_CA" {
+			logf("WARNING: RecommendedSSLMode=%q but only S3 (chain-only verification) succeeded, not S4 -- expected \"VERIFY_CA\"", st.RecommendedSSLMode)
+		}
+	}
+
 	// ── Write Result ────────────────────────────────────────────────────────────
 	elapsed := formatElapsed(time.Since(start))
 	overall := pass
@@ -389,13 +415,16 @@ func humanWant(want scenarioResult) string {
 	return "FAIL"
 }
 
-func httpGetJSON(rawURL, basicAuth string, out interface{}) error {
+func httpGetJSON(rawURL, basicAuth string, headers map[string]string, out interface{}) error {
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
 	}
 	if user, pass, ok := strings.Cut(basicAuth, ":"); ok {
 		req.SetBasicAuth(user, pass)
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)

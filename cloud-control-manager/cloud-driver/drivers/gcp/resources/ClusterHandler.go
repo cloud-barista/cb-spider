@@ -82,12 +82,12 @@ type GCPClusterHandler struct {
 }
 
 /*
-NodePool 이름이 default-pool로 생성 됨.
-Machine Type 이 e2-medium으로 생성 됨.
-BootDisk 도 100으로 생성 됨
-sg(firewall rule) 추가 안됨.
+The NodePool is created with the name default-pool.
+The machine type is created as e2-medium.
+The boot disk is also created as 100.
+The SG (firewall rule) is not added.
 
-fail 기다리는것 처리 확인할 것.
+Check how waiting for a failure is handled.
 */
 
 var (
@@ -210,7 +210,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// parent := "projects/" + projectID + "/locations/" + zone
 	//projects/csta-349809/locations/asia-northeast3-a
 
-	// Meta정보에 securityGroup 정보를 Key,Val 형태로 넣고 실제 값(val)은 nodeConfig 에 set하여 사용
+	// Store the securityGroup info in Meta as Key/Val, and set the actual value (val) in nodeConfig
 	labels := make(map[string]string)
 	var sgTags []string
 	if len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
@@ -227,7 +227,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	reqCluster := container.Cluster{}
 	reqCluster.Name = clusterReqInfo.IId.NameId
 
-	// version 없으면 default
+	// Use the default when no version is given
 	if clusterReqInfo.Version != "" {
 		reqCluster.InitialClusterVersion = clusterReqInfo.Version
 	}
@@ -252,7 +252,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	}
 
 	if len(clusterReqInfo.NodeGroupList) > 0 {
-		// 최초 생성 시 nodeGroup을 1개 지정함. 2개 이상일 때는 생성 후에 add NodeGroup으로 추가
+		// Specify one nodeGroup at initial creation. Add any additional ones with add NodeGroup after creation
 		for _, reqNodeGroup := range clusterReqInfo.NodeGroupList {
 			nodePool := container.NodePool{}
 			nodePool.Name = reqNodeGroup.IId.NameId
@@ -308,13 +308,13 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			nodePool.Config = &nodeConfig
 
 			nodePools = append(nodePools, &nodePool)
-			//break //1개만 add?
+			//break // add only one?
 		}
 		rb.Cluster.NodePools = nodePools
 	}
 	// else {
-	// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
-	// NodeGroup이 없는경우 Set.
+	// At least one NodeGroup is passed in, so the cluster's InitialNodeCount cannot be set at the same time.
+	// Set it when there is no NodeGroup.
 	// reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
 	// }
 
@@ -354,9 +354,9 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	return clusterInfo, nil
 }
 
-// location은 region 또는 zone
-// path param으로 location이 사용되고
-// 기존 request 객체 내 projectId, zone 은 deprecated
+// location is a region or a zone
+// location is used as a path param, and
+// projectId and zone in the existing request object are deprecated
 // Location "-" matches all zones and all regions.
 func (ClusterHandler *GCPClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	projectID := ClusterHandler.Credential.ProjectID
@@ -405,7 +405,7 @@ func (ClusterHandler *GCPClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 		// 				if err != nil {
 		// 					return clusterInfoList, err
 		// 				}
-		// 				// nodeGroup의 Instance ID
+		// 				// Instance ID of the nodeGroup
 		// 				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 		// 				nodeList = append(nodeList, nodeIID)
 		// 			}
@@ -416,7 +416,7 @@ func (ClusterHandler *GCPClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 		// clusterInfo.NodeGroupList = nodeGroupList
 		clusterInfo, err := convertCluster(ClusterHandler.Client, ClusterHandler.Credential, ClusterHandler.Region, cluster)
 		if err != nil {
-			cblogger.Error(err) // 에러가 났어도 다음 항목 조회
+			cblogger.Error(err) // keep listing the next items even if an error occurred
 			continue
 		}
 
@@ -467,7 +467,7 @@ func (ClusterHandler *GCPClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	// 				if err != nil {
 	// 					return clusterInfo, err
 	// 				}
-	// 				// nodeGroup의 Instance ID
+	// 				// Instance ID of the nodeGroup
 	// 				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 	// 				nodeList = append(nodeList, nodeIID)
 	// 			}
@@ -486,7 +486,7 @@ func (ClusterHandler *GCPClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	return clusterInfo, nil
 }
 
-// 성공 실패여부만 return하는 경우는 Done까지 기다린 후 결과를 return
+// When only success/failure is returned, wait until Done and then return the result
 func (ClusterHandler *GCPClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
@@ -516,8 +516,8 @@ func (ClusterHandler *GCPClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 	return true, nil
 }
 
-// 객체 조회를 하는 것은 status 가 ing로 나타날 것이므로 operation 수행후 얼마간 실패로 떨어지는지 대기
-// 실패하지 않으면 대기를 종료하고 조회시킴
+// A lookup shows the status as in progress, so wait a while after the operation to see whether it fails
+// If it does not fail, stop waiting and look it up
 func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	cblogger.Info("GCP Cloud Driver: called AddNodeGroup()")
 	if err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo); err != nil {
@@ -530,7 +530,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
 
-	// cluster 조회
+	// Get the cluster
 	clusterInfo, err := ClusterHandler.GetCluster(clusterIID)
 	if err != nil {
 		cblogger.Info("clusterInfo : ", clusterInfo)
@@ -670,7 +670,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 					return nodeGroupInfo, err
 				}
 				cblogger.Info("instanceInfo: ", instanceInfo)
-				// nodeGroup의 Instance ID
+				// Instance ID of the nodeGroup
 				nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 				nodeList = append(nodeList, nodeIID)
 			}
@@ -683,7 +683,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 }
 
-// autoScaling 에 대한 true/false 만 바꾼다.
+// Changes only the true/false of autoScaling.
 func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
 	if on == true {
 		// https://github.com/cloud-barista/cb-spider/issues/1329
@@ -722,8 +722,8 @@ func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 	return true, nil
 }
 
-// autoScaling에 대한 설정 값을 바꾼다.
-// TODO : 현재 autoScaling 설정값을 조회해서 다르면 Set 해야하나
+// Changes the autoScaling settings.
+// TODO : should the current autoScaling settings be looked up and set only when they differ?
 func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
 	cblogger.Info("GCP Cloud Driver: called ChangeNodeGroupScaling()")
 	if err := validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, desiredNodeSize, minNodeSize, maxNodeSize); err != nil {
@@ -746,13 +746,13 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	intMinNodeSize := int64(minNodeSize)
 	intDesiredNodeSize := int64(desiredNodeSize)
 
-	// autoScaling의 min/max 변경
+	// Change the autoScaling min/max
 	orgAutoScaling := orgNodePool.Autoscaling
 	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 
-	// min, max의 변경일 때
+	// When min or max changes
 	if intMaxNodeSize > 0 || intMinNodeSize > 0 {
-		//기존 autoscaling이 false였으면 둘 다 값이 있어야 함.
+		// If the existing autoscaling was false, both values are required.
 		if orgAutoScaling == nil || orgAutoScaling.Enabled == false {
 			cblogger.Info("autoScaling : ", orgAutoScaling)
 			orgAutoScaling = &container.NodePoolAutoscaling{}
@@ -760,7 +760,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 			orgAutoScaling.MaxNodeCount = intMaxNodeSize
 			orgAutoScaling.MinNodeCount = intMinNodeSize
 		} else {
-			// autoscaling == true 일 때, min과 max는 기존값과 달라야 함. 다른것만 set
+			// When autoscaling == true, min and max must differ from the existing values. Set only the ones that differ
 			newCount := 0
 			if intMaxNodeSize > 0 && orgAutoScaling.MaxNodeCount != intMaxNodeSize {
 				cblogger.Info("intMaxNodeSize : ", intMaxNodeSize)
@@ -803,22 +803,22 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 		}
 
 	}
-	// case1 : orgAutoScaling == false 면 true로 변경
-	//			min, max 값 둘 다 필요
+	// case1 : if orgAutoScaling == false, change it to true
+	//			both min and max are required
 
-	// case2 : orgAutoScaling == true 면
-	//			min, max 둘 중 하나만 변경해도 됨.
+	// case2 : if orgAutoScaling == true
+	//			changing only one of min and max is enough.
 
-	// case3 : desire 변경이면
-	//			기존값과 다르면 set. --> 다른 API임.
+	// case3 : for a desired-size change
+	//			set it if it differs from the existing value. --> a different API.
 
 	// 1. autoscaling off -> on
-	//    on, min, max 도 지정필요
+	//    on, min, and max must also be specified
 	// 2. autoscaling on -> on. min, max change
-	//	  기존 autoScaling 이 on 이어야 하고
-	//	  min, max 둘 중 하나는 값이 달라야 함.
+	//	  the existing autoScaling must be on, and
+	//	  one of min and max must differ.
 	// 3. initNodeCount change
-	//	  기존 initNodeCount 와 달라야 함.
+	//	  it must differ from the existing initNodeCount.
 
 	// if orgAutoScaling == nil || orgAutoScaling.Enabled == false {
 	// 	cblogger.Info("autoScaling : ", orgAutoScaling)
@@ -835,7 +835,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	// 	orgAutoScaling.MinNodeCount = intMinNodeSize
 	// }
 
-	// autoScaling의 desired node Count 변경
+	// Change the autoScaling desired node count
 	if intDesiredNodeSize > 0 && orgNodePool.InitialNodeCount != intDesiredNodeSize {
 		cblogger.Info("InitialNodeCount : ", orgNodePool.InitialNodeCount)
 		cblogger.Info("desiredNodeSize : ", intDesiredNodeSize)
@@ -861,7 +861,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 		}
 	}
 
-	// 처리가 끝났으면 NodePool 조회
+	// When processing is done, get the NodePool
 	nodePool, err := getNodePools(ClusterHandler.ContainerClient, projectID, ClusterHandler.Region, clusterIID, nodeGroupIID)
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
@@ -870,7 +870,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 }
 
-// 성공 실패여부만 return하는 경우는 Done까지 기다린 후 결과를 return
+// When only success/failure is returned, wait until Done and then return the result
 func (ClusterHandler *GCPClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
@@ -902,8 +902,8 @@ func (ClusterHandler *GCPClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 }
 
 // cluster version upgrade
-// 객체 조회를 하는 것은 status 가 ing로 나타날 것이므로 operation 수행후 얼마간 실패로 떨어지는지 대기
-// 실패하지 않으면 대기를 종료하고 조회시킴
+// A lookup shows the status as in progress, so wait a while after the operation to see whether it fails
+// If it does not fail, stop waiting and look it up
 func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
 	clusterInfo := irs.ClusterInfo{}
 
@@ -916,17 +916,22 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
 
-	// 현재 클러스터 버전 확인
+	// Get the current cluster version
 	currentCluster, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.Get(parent).Do()
 	if err != nil {
 		return clusterInfo, fmt.Errorf("Failed to get current cluster version: %v", err)
 	}
 
-	// 이미 원하는 버전으로 업그레이드되었다면 노드 풀만 업그레이드
-	if currentCluster.CurrentMasterVersion == newVersion {
-		cblogger.Info(fmt.Sprintf("Control plane is already at version %s, skipping control plane upgrade", newVersion))
+	// Version the node pools are upgraded to: the control plane's actual version, since
+	// newVersion may be an alias (e.g. "1.35") that GKE resolves to a full gke.N patch.
+	masterVersion := currentCluster.CurrentMasterVersion
+
+	// If the control plane is already at the requested version, upgrade only the node pools
+	if gkeVersionMatches(currentCluster.CurrentMasterVersion, newVersion) {
+		cblogger.Info(fmt.Sprintf("Control plane is already at version %s (requested %s), skipping control plane upgrade",
+			currentCluster.CurrentMasterVersion, newVersion))
 	} else {
-		// 기존 컨트롤 플레인 업그레이드 로직
+		// Control plane upgrade
 		rb := &container.UpdateMasterRequest{
 			MasterVersion: newVersion,
 		}
@@ -941,28 +946,29 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		}
 		cblogger.Debug(op)
 
-		// WaitContainerOperationDone 함수 사용 (20분 타임아웃)
+		// Use WaitContainerOperationDone (20-minute timeout)
 		operationErr := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_UPDATE_CLUSTER, 1200)
 		if operationErr != nil {
 			cblogger.Error(operationErr)
 			return clusterInfo, operationErr
 		}
 
-		// 컨트롤 플레인 업그레이드 후 클러스터 상태 확인
+		// Check the cluster state after the control plane upgrade
 		updatedCluster, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.Get(parent).Do()
 		if err != nil {
 			return clusterInfo, fmt.Errorf("Failed to get cluster after master upgrade: %v", err)
 		}
 
-		// 컨트롤 플레인 버전이 실제로 업그레이드 되었는지 확인
-		if updatedCluster.CurrentMasterVersion != newVersion {
+		// Check that the control plane version was actually upgraded
+		if !gkeVersionMatches(updatedCluster.CurrentMasterVersion, newVersion) {
 			return clusterInfo, fmt.Errorf("Control plane upgrade not complete. Current version: %s, Expected: %s",
 				updatedCluster.CurrentMasterVersion, newVersion)
 		}
-		cblogger.Info(fmt.Sprintf("Control plane upgraded successfully to version %s", newVersion))
+		masterVersion = updatedCluster.CurrentMasterVersion
+		cblogger.Info(fmt.Sprintf("Control plane upgraded successfully to version %s (requested %s)", masterVersion, newVersion))
 	}
 
-	// 업그레이드 재시도 로직
+	// Retry logic before the node pool upgrade
 	maxRetries := 10
 	retryInterval := 120
 	backoffFactor := 1.5
@@ -975,7 +981,7 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		}
 
 		if !hasActive {
-			break // 진행 중인 작업이 없으면 계속 진행
+			break // continue when no operation is in progress
 		}
 
 		if i == maxRetries-1 {
@@ -986,44 +992,44 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			currentInterval, i+1, maxRetries))
 		time.Sleep(time.Duration(currentInterval) * time.Second)
 
-		// 지수 백오프 적용
+		// Apply exponential backoff
 		currentInterval = int(float64(currentInterval) * backoffFactor)
 	}
 
-	// 노드풀 리스트 조회
+	// List the node pools
 	cblogger.Info(fmt.Sprintf("Fetching node pools for cluster: %s", clusterIID.NameId))
 
 	nodePools, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.List(parent).Do()
 	if err != nil {
 		err := fmt.Errorf("Failed to list Node Pools: %v", err)
 		cblogger.Error(err)
-		return clusterInfo, err // 노드풀 리스트 조회 오류 시 clusterInfo 반환
+		return clusterInfo, err // return clusterInfo when listing the node pools fails
 	}
 
-	// Worker Node(노드풀) 업그레이드 기능
-	for _, nodePool := range nodePools.NodePools { // 각 노드풀을 순회하며 업그레이드
+	// Worker node (node pool) upgrade
+	for _, nodePool := range nodePools.NodePools { // upgrade each node pool in turn
 		// cblogger.Info(fmt.Sprintf("Upgrading Node Pool: %s", nodePool.Name))
-		cblogger.Info(fmt.Sprintf("Upgrading Node Pool: %s to version %s", nodePool.Name, newVersion))
+		cblogger.Info(fmt.Sprintf("Upgrading Node Pool: %s to version %s", nodePool.Name, masterVersion))
 
 		nodePoolParent := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s", projectID, zone, clusterIID.NameId, nodePool.Name)
 		nodePoolRequest := &container.UpdateNodePoolRequest{
-			NodeVersion: newVersion, // 각 노드풀의 버전 변경 요청
+			NodeVersion: masterVersion, // upgrade each node pool to the control plane's version
 		}
 
-		// 업그레이드 요청 전에 로그 추가
+		// Log before sending the upgrade request
 		cblogger.Info(fmt.Sprintf("Sending upgrade request for Node Pool: %s with path: %s", nodePool.Name, nodePoolParent))
 
 		nodeOp, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.Update(nodePoolParent, nodePoolRequest).Do()
 		if err != nil {
 			err := fmt.Errorf("Failed to Upgrade Node Pool: %v", err)
 			cblogger.Error(err)
-			return clusterInfo, err // 노드풀 업그레이드 실패 시 clusterInfo 반환
+			return clusterInfo, err // return clusterInfo when a node pool upgrade fails
 		}
 
-		// GCP 업그레이드 요청 완료 로그
+		// Log that the GCP upgrade request was sent
 		cblogger.Info(fmt.Sprintf("Upgrade request sent for Node Pool: %s, Operation Name: %s", nodePool.Name, nodeOp.Name))
 
-		// WaitContainerOperationDone 함수 사용 (20분 타임아웃)
+		// Use WaitContainerOperationDone (20-minute timeout)
 		operationErr := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, nodeOp.Name, GCP_CONTAINER_OPERATION_UPGRADE_NODES, 1200)
 		if operationErr != nil {
 			return clusterInfo, operationErr
@@ -1035,7 +1041,20 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 	return ClusterHandler.GetCluster(clusterIID)
 }
 
-// location은 region 또는 zone.
+// gkeVersionMatches reports whether actual, a full GKE version such as "1.35.6-gke.1250001",
+// satisfies requested. requested is either that exact version or a GKE version alias:
+// "1.X" picks a patch of minor 1.X, and "1.X.Y" picks a gke.N build of 1.X.Y.
+func gkeVersionMatches(actual, requested string) bool {
+	if strings.EqualFold(actual, requested) {
+		return true
+	}
+	if requested == "" || strings.Contains(requested, "-") {
+		return false // empty, or an explicit gke.N version that did not match exactly
+	}
+	return strings.HasPrefix(actual, requested+".") || strings.HasPrefix(actual, requested+"-")
+}
+
+// location is a region or a zone.
 func getParentAtContainer(projectID string, location string) string {
 	parent := "projects/" + projectID + "/locations/" + location
 	return parent
@@ -1051,9 +1070,9 @@ func getParentNodePoolsAtContainer(projectID string, location string, clusters s
 	return parent
 }
 
-// container.Cluster에서 spider의 clusterInfo로 변경
-// cluster의 nodePool에는 instanceGroupUrl 만 있어서 nodeGroup의 상세정보가 없음
-// 추가로 nodepool을 조회해야 함.
+// Converts a container.Cluster into Spider's clusterInfo
+// The cluster's nodePool has only instanceGroupUrl, without the nodeGroup details
+// so the nodepool must be looked up separately.
 func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo, err error) {
 	clusterInfo := irs.ClusterInfo{}
 
@@ -1076,7 +1095,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterVersion := cluster.InitialClusterVersion //initialClusterVersion, currentMasterVersion, currentNodeVersion
 
 	// 3. Network       NetworkInfo
-	securityGroups := []irs.IID{} // SecurityGroup으로 정의된 Label추출
+	securityGroups := []irs.IID{} // Labels extracted as SecurityGroup
 	var metaSecurityGroupTags []string
 
 	tags := make([]irs.KeyValue, 0)
@@ -1092,9 +1111,9 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterInfo.TagList = tags
 
 	cblogger.Info("metaSecurityGroupTags : ", metaSecurityGroupTags)
-	// NodeConfig의 Tag가 SecurityGroup으로 사용하는 Tag인지 알려면
-	// Metadata에 Label이 정의되어있는지 여부로 확인
-	// Create에서 Metadata 와 nodeConfig의 Tag가 같은값이 들어가는데 굳이 한번 더 체크할 필요가 있을까?
+	// To tell whether a NodeConfig Tag is the one used as a SecurityGroup,
+	// check whether the Label is defined in Metadata
+	// Create puts the same value in Metadata and the nodeConfig Tag; is a second check really needed?
 	for _, securityGroupTag := range metaSecurityGroupTags {
 		securityGroups = append(securityGroups, irs.IID{NameId: securityGroupTag, SystemId: securityGroupTag})
 	}
@@ -1174,7 +1193,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 			// 	nodeGroupInfo.OnAutoScaling = autoScaling
 			// }
 
-			//nodeGroupInfo.Nodes : 별도의 API 호출필요
+			//nodeGroupInfo.Nodes : requires a separate API call
 			nodeGroupInfo, err := mappingNodeGroupInfo(nodePool)
 			if err != nil {
 				return clusterInfo, err
@@ -1228,7 +1247,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterInfo.CreatedTime = createDatetime
 	clusterInfo.Addons = addOnsInfo
 
-	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	// 2025-03-13 Changed to use StructToKeyValueList
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
 	// cblogger.Debug(clusterInfo)
 
@@ -1265,7 +1284,7 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(nodePool.Config.DiskSizeGb, 10)
 	nodeGroupInfo.RootDiskType = nodePool.Config.DiskType
 
-	// 2025-03-13 StructToKeyValueList 사용으로 변경. InstanceGroup_idx 와 GCP_PMKS_KEYPAIR_KEY 는 살려둠
+	// 2025-03-13 Changed to use StructToKeyValueList. InstanceGroup_idx and GCP_PMKS_KEYPAIR_KEY are kept
 	keyValueList := irs.StructToKeyValueList(nodePool)
 
 	if nodePool.InstanceGroupUrls != nil {
@@ -1293,7 +1312,7 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 	return nodeGroupInfo, nil
 }
 
-// Cluster의 상태
+// Cluster status
 func getClusterStatus(clusterStatus string) irs.ClusterStatus {
 	status := irs.ClusterInactive
 	if strings.EqualFold(clusterStatus, "PROVISIONING") {
@@ -1310,7 +1329,7 @@ func getClusterStatus(clusterStatus string) irs.ClusterStatus {
 	return status
 }
 
-// NodeGroup의 상태
+// NodeGroup status
 func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 	status := irs.NodeGroupInactive
 	if strings.EqualFold(nodePoolStatus, "PROVISIONING") {
@@ -1328,8 +1347,8 @@ func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 }
 
 // update autoScaling
-// TODO : nodePool정보 조회하여 변경할 것만 전송할까? getNodePools(containerClient *container.Service, projectID string, region string, zone string, clusterIID irs.IID, nodeGroupIID irs.IID) (*container.NodePool, error)
-// 필요한 parameter만 set 해서 org와 다른것들을 update
+// TODO : look up the nodePool and send only what changes? getNodePools(containerClient *container.Service, projectID string, region string, zone string, clusterIID irs.IID, nodeGroupIID irs.IID) (*container.NodePool, error)
+// Set only the needed parameters and update what differs from org
 // func updateNodeGroupAutoScaling(containerClient *container.Service, projectID string, region string, zone string, clusterIID irs.IID, orgNodeGroupReqInfo irs.NodeGroupInfo, nodeGroupReqInfo irs.NodeGroupInfo, autoscalingType string) (bool, error) {
 // 	reqNodePool := container.NodePool{}
 // 	autoScaling := container.NodePoolAutoscaling{}
@@ -1396,7 +1415,7 @@ func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 // 	return true, nil
 // }
 
-// NodePool 조회
+// Get the NodePool
 func getNodePools(containerClient *container.Service, projectID string, region idrv.RegionInfo, clusterIID irs.IID, nodeGroupIID irs.IID) (*container.NodePool, error) {
 
 	parent := getParentNodePoolsAtContainer(projectID, region.Zone, clusterIID.NameId, nodeGroupIID.NameId)
@@ -1416,8 +1435,8 @@ func getNodePools(containerClient *container.Service, projectID string, region i
 	return nodePool, nil
 }
 
-// clusterInfo 로 Set
-// cluster에는 NodeGroup의 link정보만 있어서 NodeGroup정보를 추가로 조회해야 함.
+// Set into clusterInfo
+// The cluster has only NodeGroup links, so the NodeGroup info must be looked up separately.
 func convertCluster(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, cluster *container.Cluster) (irs.ClusterInfo, error) {
 	clusterInfo, err := mappingClusterInfo(cluster)
 	if err != nil {
@@ -1425,11 +1444,11 @@ func convertCluster(client *compute.Service, credential idrv.CredentialInfo, reg
 		// return irs.ClusterInfo{}, err
 	}
 
-	// mappingClusterInfo에서 우선 nodeGroup 정보가 set 됨. nodeGroup.KeyValueList에 instanceGroupID가 들어있음.
+	// mappingClusterInfo sets the nodeGroup info first. nodeGroup.KeyValueList contains the instanceGroupID.
 	cblogger.Info("nodeGroupList ", clusterInfo.NodeGroupList)
 	//nodePools = resp.NodePools
 	nodeGroupList, err := convertNodeGroup(client, credential, region, clusterInfo.NodeGroupList)
-	if err != err { // 오류가 나도 clusterInfo를 넘김
+	if err != err { // pass clusterInfo along even if an error occurred
 		// failed to get nodeGroupInfo
 		cblogger.Error(err)
 	}
@@ -1438,8 +1457,8 @@ func convertCluster(client *compute.Service, credential idrv.CredentialInfo, reg
 	return clusterInfo, nil
 }
 
-// nodeGroupInfo로 set
-// nodeGroup 정보에서 Node
+// Set into nodeGroupInfo
+// Node from the nodeGroup info
 func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, orgNodeGroupList []irs.NodeGroupInfo) ([]irs.NodeGroupInfo, error) {
 	nodeGroupList := []irs.NodeGroupInfo{}
 	for _, nodeGroupInfo := range orgNodeGroupList {
@@ -1473,11 +1492,11 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 						return nodeGroupList, err
 					}
 					//cblogger.Debug(instanceInfo)
-					// nodeGroup의 Instance ID
+					// Instance ID of the nodeGroup
 					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 					nodeList = append(nodeList, nodeIID)
 				}
-				nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // empty면 오류나므로 기본값으로 설정후 update하도록
+				nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // set a default and update it later, since an empty value causes an error
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
 				//cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
@@ -1656,17 +1675,17 @@ func (ClusterHandler *GCPClusterHandler) ListIID() ([]*irs.IID, error) {
 	return iidList, nil
 }
 
-// 클러스터에 진행 중인 작업이 있는지 확인하는 함수
+// Checks whether the cluster has an operation in progress
 func (ClusterHandler *GCPClusterHandler) hasActiveOperations(projectID, zone, clusterName string) (bool, error) {
 	listOperationsParent := fmt.Sprintf("projects/%s/locations/%s", projectID, zone)
 
-	// 진행 중인 작업 목록 조회
+	// List the operations in progress
 	operations, err := ClusterHandler.ContainerClient.Projects.Locations.Operations.List(listOperationsParent).Do()
 	if err != nil {
 		return false, err
 	}
 
-	// 클러스터와 관련된 진행 중인 작업 검색
+	// Find the in-progress operations related to the cluster
 	clusterPattern := fmt.Sprintf("/clusters/%s/", clusterName)
 	for _, op := range operations.Operations {
 		if strings.Contains(op.TargetLink, clusterPattern) && op.Status != "DONE" {

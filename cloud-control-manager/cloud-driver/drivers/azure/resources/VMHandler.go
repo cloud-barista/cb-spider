@@ -67,21 +67,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-	// 1. pre Check
-	// 1-1. Exist VM
-	vmExist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-	if vmExist {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = The VM name %s already exists", vmReqInfo.IId.NameId))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
+	// 1. pre Check (VM name uniqueness is guaranteed by the Spider metadb)
 	// 1-2. Check VMImageIID Image format, Exist Image, AuthInfo (Linux : SSHKey, Window: Password)
 	imageOsType, err := CheckVMReqInfoOSType(vmReqInfo, vmHandler.ImageClient, vmHandler.CredentialInfo, vmHandler.Region, vmHandler.Ctx)
 	if err != nil {
@@ -119,14 +105,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			return irs.VMInfo{}, createErr
 		}
 	} else {
-		convertMyImageIId, err := ConvertMyImageIID(vmReqInfo.ImageIID, vmHandler.CredentialInfo, vmHandler.Region)
-		if err != nil {
-			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
-			cblogger.Error(createErr.Error())
-			LoggingError(hiscallInfo, createErr)
-			return irs.VMInfo{}, createErr
-		}
-		_, err = vmHandler.ImageClient.Get(vmHandler.Ctx, vmHandler.Region.Region, convertMyImageIId.NameId, nil)
+		_, err = ConvertMyImageIID(vmReqInfo.ImageIID, vmHandler.CredentialInfo, vmHandler.Region)
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
@@ -134,34 +113,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			return irs.VMInfo{}, createErr
 		}
 	}
-	rawDataDiskList := make([]armcompute.Disk, len(vmReqInfo.DataDiskIIDs))
-	// 1-3. Check DataDisk, Check DataDisk Status
-	if len(vmReqInfo.DataDiskIIDs) > 0 {
-		for i, dataDiskIID := range vmReqInfo.DataDiskIIDs {
-			convertedDiskIId, err := ConvertDiskIID(dataDiskIID, vmHandler.CredentialInfo, vmHandler.Region)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to get DataDisk err = %s", err.Error()))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			disk, err := GetRawDisk(convertedDiskIId, vmHandler.Region.Region, vmHandler.DiskClient, vmHandler.Ctx)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to get DataDisk err = %s", err.Error()))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			err = CheckAttachStatus(&disk)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to check DataDisk Status err = %s", err.Error()))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
-			}
-			rawDataDiskList[i] = disk
-		}
-	}
+	// 1-3. DataDisk existence/status is validated by AttachList after the VM is created.
 
 	cleanVMClientSet := CleanVMClientSet{
 		VPCName:    vmReqInfo.VpcIID.NameId,
@@ -1425,16 +1377,9 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 		createErr := errors.New(fmt.Sprintf("Failed to create PublicIP, error=%s", err))
 		return irs.IID{}, createErr
 	}
-	_, err = poller.PollUntilDone(vmHandler.Ctx, nil)
+	publicIPInfo, err := poller.PollUntilDone(vmHandler.Ctx, nil)
 	if err != nil {
 		return irs.IID{}, err
-	}
-
-	// 생성된 PublicIP 정보 리턴
-	publicIPInfo, err := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, nil)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to get PublicIP, error=%s", err))
-		return irs.IID{}, getErr
 	}
 	publicIPIId := irs.IID{NameId: *publicIPInfo.Name, SystemId: *publicIPInfo.ID}
 	return publicIPIId, nil
@@ -1645,14 +1590,7 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId 
 		createErr := errors.New(fmt.Sprintf("Failed to create NetworkInterface, error=%s", err))
 		return irs.IID{}, createErr
 	}
-	_, err = poller.PollUntilDone(vmHandler.Ctx, nil)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to create NetworkInterface, error=%s", err))
-		return irs.IID{}, createErr
-	}
-
-	// 생성된 VNic 정보 리턴
-	resp2, err := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, VNicName, nil)
+	resp2, err := poller.PollUntilDone(vmHandler.Ctx, nil)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to create NetworkInterface, error=%s", err))
 		return irs.IID{}, createErr
@@ -2057,7 +1995,10 @@ func CheckVMReqInfoOSType(vmReqInfo irs.VMReqInfo, imageClient *armcompute.Image
 	if vmReqInfo.ImageType == "" || vmReqInfo.ImageType == irs.PublicImage {
 		return getOSTypeByPublicImage(vmReqInfo.ImageIID)
 	} else {
-		return getOSTypeByMyImage(vmReqInfo.ImageIID, imageClient, credentialInfo, region, ctx)
+		if vmReqInfo.WindowsType {
+			return irs.WINDOWS, nil
+		}
+		return irs.LINUX_UNIX, nil
 	}
 }
 

@@ -76,11 +76,14 @@ func fetchRDBMSInfo(connConfig, rdbmsName string) (*cres.RDBMSInfo, error) {
 }
 
 // openDBConnection creates a database/sql connection to the RDBMS instance.
-// dbNameOverride specifies the database name to connect to.
-func openDBConnection(info *cres.RDBMSInfo, password, dbNameOverride string) (*sql.DB, string, error) {
+// dbNameOverride specifies the database name to connect to. username/password are never read off
+// info/the CSP driver: CB-Spider cannot reliably identify the actual master account for several
+// CSPs (see RDBMSManager.go's redactRDBMSMasterCredentials), so the caller must supply both, the
+// same credentials set at instance creation.
+func openDBConnection(info *cres.RDBMSInfo, username, password, dbNameOverride string) (*sql.DB, string, error) {
 	engine := strings.ToLower(info.DBEngine)
 	endpoint := info.Endpoint
-	user := info.MasterUserName
+	user := username
 	dbName := dbNameOverride
 	// Treat "NA" as no database specified (some drivers return "NA" as placeholder)
 	if strings.EqualFold(dbName, "NA") {
@@ -168,12 +171,14 @@ func openDBConnection(info *cres.RDBMSInfo, password, dbNameOverride string) (*s
 
 type rdbmsQueryRequest struct {
 	ConnectionName string `json:"ConnectionName"`
+	UserName       string `json:"UserName"`
 	Password       string `json:"Password"`
 	DatabaseName   string `json:"DatabaseName,omitempty"`
 }
 
 type createTableRequest struct {
 	ConnectionName string       `json:"ConnectionName"`
+	UserName       string       `json:"UserName"`
 	Password       string       `json:"Password"`
 	DatabaseName   string       `json:"DatabaseName,omitempty"`
 	TableName      string       `json:"TableName"`
@@ -189,6 +194,7 @@ type columnInfo struct {
 
 type insertRowRequest struct {
 	ConnectionName string            `json:"ConnectionName"`
+	UserName       string            `json:"UserName"`
 	Password       string            `json:"Password"`
 	DatabaseName   string            `json:"DatabaseName,omitempty"`
 	Values         map[string]string `json:"Values"`
@@ -196,6 +202,7 @@ type insertRowRequest struct {
 
 type deleteRowRequest struct {
 	ConnectionName string            `json:"ConnectionName"`
+	UserName       string            `json:"UserName"`
 	Password       string            `json:"Password"`
 	DatabaseName   string            `json:"DatabaseName,omitempty"`
 	Where          map[string]string `json:"Where"`
@@ -215,17 +222,19 @@ func RDBMSSecureTransportStatus(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 
 	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/secure-transport" +
-		"?ConnectionName=" + neturl.QueryEscape(req.ConnectionName) + "&MasterUserPassword=" + neturl.QueryEscape(req.Password)
+		"?ConnectionName=" + neturl.QueryEscape(req.ConnectionName)
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	request.Header.Set("X-Master-User-Name", req.UserName)
+	request.Header.Set("X-Master-User-Password", req.Password)
 	setBasicAuthIfConfigured(request)
 
 	// Generous timeout: the core endpoint's CA certificate probe retries once on its own
@@ -253,8 +262,8 @@ func RDBMSTestConnection(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 
 	info, err := fetchRDBMSInfo(req.ConnectionName, rdbmsName)
@@ -262,7 +271,7 @@ func RDBMSTestConnection(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, _, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, _, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -611,7 +620,7 @@ func trySpiderDatabaseDeleteAPI(connName, rdbmsName, dbName string) (notSupporte
 }
 
 // RDBMSListDatabases lists all databases via the Spider REST API.
-// For CSPs without CSP-native API (AWS, IBM), the caller supplies MasterUserPassword.
+// For CSPs without CSP-native API (AWS, IBM), the caller supplies MasterUserName/MasterUserPassword.
 func RDBMSListDatabases(c echo.Context) error {
 	rdbmsName := c.Param("Name")
 
@@ -623,10 +632,11 @@ func RDBMSListDatabases(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName is required"})
 	}
 
-	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases"
-	body, _ := json.Marshal(map[string]string{"ConnectionName": req.ConnectionName, "MasterUserPassword": req.Password})
-	httpReq, _ := http.NewRequest("GET", url, strings.NewReader(string(body)))
-	httpReq.Header.Set("Content-Type", "application/json")
+	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases" +
+		"?ConnectionName=" + neturl.QueryEscape(req.ConnectionName)
+	httpReq, _ := http.NewRequest("GET", url, nil)
+	httpReq.Header.Set("X-Master-User-Name", req.UserName)
+	httpReq.Header.Set("X-Master-User-Password", req.Password)
 	setBasicAuthIfConfigured(httpReq)
 
 	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(httpReq)
@@ -659,14 +669,22 @@ func RDBMSListDatabases(c echo.Context) error {
 }
 
 // RDBMSCreateDatabase creates a new database via the Spider REST API.
-// For CSPs without CSP-native API (AWS, IBM), Password is forwarded as MasterUserPassword.
+// For CSPs without CSP-native API (AWS, IBM), UserName/Password are forwarded as
+// MasterUserName/MasterUserPassword.
 func RDBMSCreateDatabase(c echo.Context) error {
 	rdbmsName := c.Param("Name")
 
 	var req struct {
 		ConnectionName string `json:"ConnectionName"`
+		UserName       string `json:"UserName"`
 		Password       string `json:"Password"`
 		DatabaseName   string `json:"DatabaseName"`
+		// Charset/Collation: optional, mysql/mariadb only. AdminWeb does not interpret these --
+		// it only checks they're safe identifiers and forwards them as-is to the Spider REST API
+		// (see RDBMSRest.go's RDBMSDatabaseRequest), which is the layer that knows which CSPs
+		// support them and returns a clear error for the ones that don't.
+		Charset   string `json:"Charset"`
+		Collation string `json:"Collation"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
@@ -677,9 +695,22 @@ func RDBMSCreateDatabase(c echo.Context) error {
 	if !isValidIdentifier(req.DatabaseName) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid database name. Use only letters, numbers, and underscores."})
 	}
+	if req.Charset != "" && !isValidIdentifier(req.Charset) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid charset. Use only letters, numbers, and underscores."})
+	}
+	if req.Collation != "" && !isValidIdentifier(req.Collation) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid collation. Use only letters, numbers, and underscores."})
+	}
 
 	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases"
-	body, _ := json.Marshal(map[string]string{"ConnectionName": req.ConnectionName, "DatabaseName": req.DatabaseName, "MasterUserPassword": req.Password})
+	bodyFields := map[string]string{"ConnectionName": req.ConnectionName, "DatabaseName": req.DatabaseName, "MasterUserName": req.UserName, "MasterUserPassword": req.Password}
+	if req.Charset != "" {
+		bodyFields["Charset"] = req.Charset
+	}
+	if req.Collation != "" {
+		bodyFields["Collation"] = req.Collation
+	}
+	body, _ := json.Marshal(bodyFields)
 	httpReq, _ := http.NewRequest("POST", url, strings.NewReader(string(body)))
 	httpReq.Header.Set("Content-Type", "application/json")
 	setBasicAuthIfConfigured(httpReq)
@@ -703,7 +734,8 @@ func RDBMSCreateDatabase(c echo.Context) error {
 }
 
 // RDBMSDropDatabase drops a database via the Spider REST API.
-// For CSPs without CSP-native API (AWS, IBM), Password is forwarded as MasterUserPassword.
+// For CSPs without CSP-native API (AWS, IBM), UserName/Password are forwarded as
+// MasterUserName/MasterUserPassword.
 func RDBMSDropDatabase(c echo.Context) error {
 	rdbmsName := c.Param("Name")
 	dbName := c.Param("DBName")
@@ -720,7 +752,7 @@ func RDBMSDropDatabase(c echo.Context) error {
 	}
 
 	url := "http://localhost" + cr.ServerPort + "/spider/rdbms/" + rdbmsName + "/databases/" + dbName
-	body, _ := json.Marshal(map[string]string{"ConnectionName": req.ConnectionName, "MasterUserPassword": req.Password})
+	body, _ := json.Marshal(map[string]string{"ConnectionName": req.ConnectionName, "MasterUserName": req.UserName, "MasterUserPassword": req.Password})
 	httpReq, _ := http.NewRequest("DELETE", url, strings.NewReader(string(body)))
 	httpReq.Header.Set("Content-Type", "application/json")
 	setBasicAuthIfConfigured(httpReq)
@@ -751,8 +783,8 @@ func RDBMSListTables(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 
 	info, err := fetchRDBMSInfo(req.ConnectionName, rdbmsName)
@@ -760,7 +792,7 @@ func RDBMSListTables(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, driverName, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, driverName, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -808,8 +840,8 @@ func RDBMSDescribeTable(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 
 	info, err := fetchRDBMSInfo(req.ConnectionName, rdbmsName)
@@ -817,7 +849,7 @@ func RDBMSDescribeTable(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, driverName, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, driverName, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -902,8 +934,8 @@ func RDBMSListRows(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 
 	info, err := fetchRDBMSInfo(req.ConnectionName, rdbmsName)
@@ -911,7 +943,7 @@ func RDBMSListRows(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, driverName, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, driverName, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -982,8 +1014,8 @@ func RDBMSCreateTable(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 	if !isValidIdentifier(req.TableName) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid table name (use alphanumeric and underscore only)"})
@@ -1004,7 +1036,7 @@ func RDBMSCreateTable(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, driverName, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, driverName, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -1049,8 +1081,8 @@ func RDBMSDropTable(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 
 	info, err := fetchRDBMSInfo(req.ConnectionName, rdbmsName)
@@ -1058,7 +1090,7 @@ func RDBMSDropTable(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, driverName, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, driverName, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -1085,8 +1117,8 @@ func RDBMSInsertRow(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 	if len(req.Values) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Values are required"})
@@ -1104,7 +1136,7 @@ func RDBMSInsertRow(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, driverName, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, driverName, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -1151,8 +1183,8 @@ func RDBMSDeleteRow(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
-	if req.ConnectionName == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName and Password are required"})
+	if req.ConnectionName == "" || req.UserName == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ConnectionName, UserName and Password are required"})
 	}
 	if len(req.Where) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "WHERE conditions are required"})
@@ -1170,7 +1202,7 @@ func RDBMSDeleteRow(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	db, driverName, err := openDBConnection(info, req.Password, req.DatabaseName)
+	db, driverName, err := openDBConnection(info, req.UserName, req.Password, req.DatabaseName)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}

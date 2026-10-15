@@ -4,6 +4,7 @@
 export CSP_NAME="TENCENT"
 export CONNECTION_NAME="tencent-beijing3-config"
 export RDBMS_NAME="cb-spider-mysql-test"
+export MASTER_USER_NAME="root"
 export MASTER_USER_PASSWORD="Password123!"
 export RESULT_FILE="${RESULT_DIR:-/tmp/rdbms_tls_results}/result_tencent.txt"
 

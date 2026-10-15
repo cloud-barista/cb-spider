@@ -791,19 +791,6 @@ func (handler *AlibabaRDBMSHandler) getDBInstanceAttribute(dbInstanceId string) 
 		}
 	}
 
-	// Retrieve master username via DescribeAccounts
-	acctReq := rds.CreateDescribeAccountsRequest()
-	acctReq.DBInstanceId = dbInstanceId
-	acctResp, acctErr := handler.Client.DescribeAccounts(acctReq)
-	if acctErr == nil && acctResp != nil {
-		for _, acct := range acctResp.Accounts.DBInstanceAccount {
-			if acct.AccountName != "" {
-				rdbmsInfo.MasterUserName = acct.AccountName
-				break
-			}
-		}
-	}
-
 	// Retrieve backup policy via DescribeBackupPolicy
 	backupReq := rds.CreateDescribeBackupPolicyRequest()
 	backupReq.DBInstanceId = dbInstanceId
@@ -835,7 +822,6 @@ func (handler *AlibabaRDBMSHandler) convertAttributeToRDBMSInfo(attr *rds.DBInst
 	rdbmsInfo.StorageType = attr.DBInstanceStorageType
 	rdbmsInfo.StorageSize = strconv.Itoa(attr.DBInstanceStorage)
 	rdbmsInfo.Endpoint = attr.ConnectionString
-	rdbmsInfo.MasterUserName = "" // Retrieved via DescribeAccounts in getDBInstanceAttribute
 
 	// VPC
 	rdbmsInfo.VpcIID = irs.IID{SystemId: attr.VpcId}
@@ -901,7 +887,6 @@ func (handler *AlibabaRDBMSHandler) convertListItemToRDBMSInfo(db *rds.DBInstanc
 	rdbmsInfo.DBSpec = db.DBInstanceClass
 	rdbmsInfo.StorageType = db.DBInstanceStorageType
 	rdbmsInfo.Endpoint = db.ConnectionString
-	rdbmsInfo.MasterUserName = "NA"
 	rdbmsInfo.StorageSize = "NA"
 	rdbmsInfo.BackupTime = "NA"
 
@@ -977,10 +962,42 @@ func (handler *AlibabaRDBMSHandler) waitForDBInstanceStatus(dbInstanceId string,
 
 // CreateDatabase creates a database in an Alibaba Cloud RDS instance.
 func (handler *AlibabaRDBMSHandler) CreateDatabase(rdbmsSystemId, dbEngine, dbName string) error {
+	return handler.CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, "", "")
+}
+
+// CreateDatabaseWithOptions creates a database in an Alibaba Cloud RDS instance, optionally with an
+// explicit charset and/or collation. Charset defaults to utf8mb4 when not specified, preserving
+// CB-Spider's prior default. CB-Spider only checks that the value is safe to use as a SQL identifier
+// (see RDBMSManager.go) and otherwise passes it through unvalidated -- Alibaba RDS itself rejects
+// anything it doesn't recognize.
+//
+// CollationName has no typed field on this version of the Alibaba Go SDK's CreateDatabaseRequest
+// even though the underlying RDS CreateDatabase API accepts it, so it's added to the request's raw
+// query parameters instead. Alibaba's docs describe CollationName as MySQL-only; behavior when
+// dbEngine is mariadb is unverified -- let the API's own response be the source of truth.
+func (handler *AlibabaRDBMSHandler) CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, charset, collation string) error {
+	// Alibaba's RDS CreateDatabase API documents CollationName as "MySQL instances only" -- and
+	// empirically (see test/rdbms-mariadb-test/collation-test), a MariaDB instance accepts the
+	// request without error but silently keeps its own default collation instead, discarding the
+	// requested value. Reject this combination explicitly rather than let the caller believe their
+	// collation was applied when it wasn't.
+	if collation != "" && strings.EqualFold(dbEngine, "mariadb") {
+		return fmt.Errorf("Alibaba CreateDatabase: Collation is not supported on MariaDB instances (Alibaba's API documents CollationName as MySQL-only, and a MariaDB instance silently ignores it rather than erroring) -- omit Collation and specify only Charset")
+	}
+
 	req := rds.CreateCreateDatabaseRequest()
 	req.DBInstanceId = rdbmsSystemId
 	req.DBName = dbName
-	req.CharacterSetName = "utf8mb4"
+	if charset == "" {
+		charset = "utf8mb4"
+	}
+	req.CharacterSetName = charset
+	if collation != "" {
+		if req.QueryParams == nil {
+			req.QueryParams = map[string]string{}
+		}
+		req.QueryParams["CollationName"] = collation
+	}
 	if _, err := handler.Client.CreateDatabase(req); err != nil {
 		return fmt.Errorf("Alibaba CreateDatabase: %w", err)
 	}

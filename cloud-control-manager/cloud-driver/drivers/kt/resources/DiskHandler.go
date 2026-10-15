@@ -62,7 +62,7 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 	reqDiskSize := diskReqInfo.DiskSize // 10~2000(GB)
 
 	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
-		reqDiskType = "HDD" // In case, Volume Type is not specified.
+		reqDiskType = "SSD" // Default to SSD
 	} else if strings.EqualFold(reqDiskType, "HDD") {
 		reqDiskType = "HDD"
 	} else if strings.EqualFold(reqDiskType, "SSD") {
@@ -141,7 +141,7 @@ func (diskHandler *KTVpcDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "ListDisk()", "ListDisk()")
 
 	listOpts := volumes2.ListOpts{}
-	start := call.Start()	
+	start := call.Start()
 	allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume list!! : [%v] ", err)
@@ -157,7 +157,7 @@ func (diskHandler *KTVpcDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
-	}	
+	}
 	// spew.Dump(ktVolumeList)
 
 	var volumeInfoList []*irs.DiskInfo
@@ -234,7 +234,7 @@ func (diskHandler *KTVpcDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	// 	loggingError(callLogInfo, newErr)
 	// 	return false, newErr
 	// }
-	
+
 	delOpts := volumes2.DeleteOpts{
 		Cascade: true, // Delete all snapshots of this volume as well.
 	}
@@ -535,7 +535,7 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 		Status:      convertDiskStatus(volume.Status),
 		CreatedTime: convertedTime,
 
-		KeyValueList:   irs.StructToKeyValueList(volume),
+		KeyValueList: irs.StructToKeyValueList(volume),
 	}
 
 	if strings.EqualFold(volume.Name, "") { // Bootable disk
@@ -669,28 +669,28 @@ func (diskHandler *KTVpcDiskHandler) ListIID() ([]*irs.IID, error) {
 
 	listOpts := volumes2.ListOpts{}
 	start := call.Start()
-    allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
-    if err != nil {
-        newErr := fmt.Errorf("Failed to Get KT Cloud Volume list!! : [%v] ", err)
-        cblogger.Error(newErr.Error())
-        return nil, newErr
-    }
+	allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get KT Cloud Volume list!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
 	loggingInfo(callLogInfo, start)
 
-    ktVolumeList, err := volumes2.ExtractVolumes(allPages)
-    if err != nil {
-        newErr := fmt.Errorf("Failed to Extract KT Cloud Volume list!! : [%v] ", err)
-        cblogger.Error(newErr.Error())
-        return nil, newErr
-    }
+	ktVolumeList, err := volumes2.ExtractVolumes(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Extract KT Cloud Volume list!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
 
-    if len(ktVolumeList) < 1 {
-        cblogger.Info("### There is No Disk!!")
-        return nil, nil
-    }
+	if len(ktVolumeList) < 1 {
+		cblogger.Info("### There is No Disk!!")
+		return nil, nil
+	}
 
-    var iidList []*irs.IID
-    for _, volume := range ktVolumeList {
+	var iidList []*irs.IID
+	for _, volume := range ktVolumeList {
 		iid := &irs.IID{}
 		if strings.EqualFold(volume.Name, "") { // Bootable disk
 			iid = &irs.IID{
@@ -703,7 +703,7 @@ func (diskHandler *KTVpcDiskHandler) ListIID() ([]*irs.IID, error) {
 				SystemId: volume.ID,
 			}
 		}
-        iidList = append(iidList, iid)
-    }
-    return iidList, nil
+		iidList = append(iidList, iid)
+	}
+	return iidList, nil
 }

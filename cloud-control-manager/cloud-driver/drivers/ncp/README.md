@@ -180,7 +180,22 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
     - CB-Spider는 shared filesystem volume protocol type으로 NFS만을 지원하고, MS Windows VM을 지원하는 CIFS protocol type은 지원하지 않음
    - Linux 계열 VM에서 mount 시 아래의 guide 문서 참고
     - https://guide.ncloud-docs.com/docs/nas-use-linux-vpc
-    
+
+  O NCP VPC driver를 이용해 Kubernetes Cluster(NKS) 생성시 다음 사항을 참고
+   - NKS cluster는 KVM hypervisor로만 생성함. (NCP 기준 K8s 1.35 이상은 KVM 전용이며, XEN은 1.34만 지원)
+     - Cluster type은 KVM용 'SVR.VNKS.STAND.C004.M016.G003'(최대 250 node)으로 고정되며, KeyValueList의 'ClusterType'에 다른 값을 지정하면 error를 return함.
+     - 기존 XEN cluster의 조회, 삭제, node 수 변경은 가능하나, XEN cluster에 NodeGroup 추가는 지원하지 않음.
+     - GetCluster() 결과의 KeyValueList에 'HypervisorCode'와 'ClusterType'이 포함됨.
+   - NodeGroup의 VMSpec은 NKS가 KVM node pool에 허용하는 spec만 지정 가능함.
+     - 예) s4-g3(Intel), s4-g3a(AMD), c4-g3, m8-g3 등. XEN spec(예: c4-g2-h50)과 'ci' spec(예: ci4-g3)은 지원하지 않음.
+     - 허용되지 않는 spec을 지정하면, 해당 zone에서 사용 가능한 spec 목록을 포함한 error를 return함.
+   - NodeGroup의 Image를 지정하지 않거나 'default'로 지정하면 'ubuntu-22.04-nksw' image를 사용함.
+     - Image를 지정할 경우 image 이름 전체가 일치해야 함. (예: ubuntu-24.04-nksw, ubuntu-22.04-nks-gpu)
+   - NodeGroup의 RootDiskSize는 100 ~ 2000(GB) 범위로 지정 가능하며, 지정하지 않으면 100GB로 생성됨. 범위를 벗어나면 error를 return함.
+   - NKS 지원 버전, image, spec 목록 조회 API 및 cluster type 정보 참고
+     - https://api.ncloud-docs.com/docs/nks-viewk8sversion
+     - https://api.ncloud-docs.com/docs/nks-createcluster
+
 ​	O NCP CSP 정책상, 생성되는 public IP 개수가 VM instance 수를 초과할 수 없으므로 다음 사항을 주의
    - 만약, NCP VPC console에서 수동으로 VM을 반납(termination) 할 경우에는 반드시 public IP도 반납하는것으로 체크 후 반납 필요
      - Public IP를 반납하지 않으면, NCP VPC driver를 통해 VM instance 신규 생성 요청시, driver에서 public IP를 추가 생성할때 public IP 수가 instance 개수보다 많게 되어 error를 return 하게됨.

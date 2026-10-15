@@ -537,22 +537,6 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	return resultImage, err
 }
 
-// Image 정보에서 image size(GB) return
-func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
-	if !reflect.ValueOf(ec2Image.BlockDeviceMappings).IsNil() {
-		if !reflect.ValueOf(ec2Image.BlockDeviceMappings[0].Ebs).IsNil() {
-			isize := aws.Int64(*ec2Image.BlockDeviceMappings[0].Ebs.VolumeSize)
-			return *isize, nil
-		} else {
-			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
-			return -1, errors.New("Ebs information not found in BlockDeviceMappings")
-		}
-	} else {
-		cblogger.Error("BlockDeviceMappings information not found.")
-		return -1, errors.New("BlockDeviceMappings information not found")
-	}
-}
-
 // Image 정보에서 Snapshot Id return
 //
 //	func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) (string, error) {

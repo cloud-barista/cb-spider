@@ -77,13 +77,16 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		Client: vmHandler.VpcClient,
 	}
 
-	subnetInfo, err := GetSubnet(vpcHandler.Client, vmReqInfo.SubnetIID.SystemId, zoneId)
-	if err != nil {
-		return irs.VMInfo{}, errors.New("there is no available subnet")
-	}
-	cblogger.Info("subnetInfo response : ", subnetInfo)
-	if subnetInfo.Zone != "" {
-		zoneId = subnetInfo.Zone
+	if vmHandler.Region.TargetZone != "" { // zone resolved by the common-runtime from the subnet's metadb record
+		zoneId = vmHandler.Region.TargetZone
+	} else {
+		subnetInfo, err := GetSubnet(vpcHandler.Client, vmReqInfo.SubnetIID.SystemId, zoneId)
+		if err != nil {
+			return irs.VMInfo{}, errors.New("there is no available subnet")
+		}
+		if subnetInfo.Zone != "" {
+			zoneId = subnetInfo.Zone
+		}
 	}
 	cblogger.Debugf("Zone : %s", zoneId)
 	if zoneId == "" {
@@ -140,18 +143,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Debug(userDataBase64)
 	*/
 
-	vmImage, err := DescribeImageByImageId(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID, false)
-	if err != nil {
-		cblogger.Error(err)
-		errMsg := "We cannot retrieve information for the requested image." + err.Error()
-		return irs.VMInfo{}, errors.New(errMsg)
-	}
-
-	isWindows := false
-	osType := GetOsType(vmImage) //"OSType": "windows"
-	if osType == "windows" {
-		isWindows = true
-
+	isWindows := vmReqInfo.WindowsType
+	if isWindows {
 		err := cdcom.ValidateWindowsPassword(vmReqInfo.VMUserPasswd)
 		if err != nil {
 			return irs.VMInfo{}, err
@@ -254,40 +247,29 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// instance 사용 가능 검사
 	//=============================
 
-	// availableResourceResp, err := DescribeAvailableResource(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "instance", "InstanceType", vmReqInfo.VMSpecName)
-	availableResourceResp, err := DescribeAvailableResource(vmHandler.Client, vmHandler.Region.Region, zoneId, "instance", "InstanceType", vmReqInfo.VMSpecName)
-	if err != nil {
-		cblogger.Error(err)
-	}
-	if len(availableResourceResp.AvailableZone) == 0 {
-		return irs.VMInfo{}, errors.New("No AvailableInstanceType in the request region")
-	}
+	// InstanceType availability is validated by RunInstances itself (no pre-check call).
 
 	//=============================
 	// Root Disk Type 설정
 	//=============================
 
 	// 인스턴스 타입 별로 가능한 목록 불러오기
-	// availableSystemDisksResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
-	availableSystemDisksResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, zoneId, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
-	if err != nil {
-		cblogger.Error(err)
-	}
-	if len(availableSystemDisksResp.AvailableZone) == 0 {
-		return irs.VMInfo{}, errors.New("No AvailableSystemDisk for that instance type in the request region")
-	}
-
-	var supportedDiskTypes []string
-
-	for _, zone := range availableSystemDisksResp.AvailableZone {
-		for _, resource := range zone.AvailableResources.AvailableResource {
-			for _, supportedResource := range resource.SupportedResources.SupportedResource {
-				supportedDiskTypes = append(supportedDiskTypes, supportedResource.Value)
+	if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+		availableSystemDisksResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, zoneId, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		if len(availableSystemDisksResp.AvailableZone) == 0 {
+			return irs.VMInfo{}, errors.New("No AvailableSystemDisk for that instance type in the request region")
+		}
+		var supportedDiskTypes []string
+		for _, zone := range availableSystemDisksResp.AvailableZone {
+			for _, resource := range zone.AvailableResources.AvailableResource {
+				for _, supportedResource := range resource.SupportedResources.SupportedResource {
+					supportedDiskTypes = append(supportedDiskTypes, supportedResource.Value)
+				}
 			}
 		}
-	}
-
-	if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
 		// get Alibaba's Meta Info
 		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
 		if err != nil {
@@ -318,30 +300,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			request.SystemDiskCategory = supportedDiskTypes[0]
 		}
 	} else {
-		// default가 아닐 때
-		// vmReqInfo.RootDiskType와 비교
-		// 들어온 값이 가능 목록에 있는지 체크
-		// 있으면 set
-		// 없으면 에러 리턴
-		// InstanceType 별로 가능한 DiskType목록에 있는지 확인
-		// 있으면 Set, 없으면 err return
-
-		found := false
-		useDiskType := ""
-
-		for _, availableDiskType := range supportedDiskTypes {
-			if vmReqInfo.RootDiskType == availableDiskType {
-				found = true
-				useDiskType = vmReqInfo.RootDiskType
-				break
-			}
-		}
-
-		if !found {
-			cblogger.Warnf("RootDiskType [%s] is not in the zone's reported list %v; passing through.", vmReqInfo.RootDiskType, supportedDiskTypes)
-			useDiskType = vmReqInfo.RootDiskType
-		}
-
+		// Explicit RootDiskType is passed through; Alibaba validates it on RunInstances.
+		useDiskType := vmReqInfo.RootDiskType
 		request.SystemDiskCategory = useDiskType
 	}
 	//=============================
@@ -439,21 +399,21 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	// VM을 삭제해도 DataDisk는 삭제되지 않도록 Attribute 설정
-	diskRequest := ecs.CreateModifyDiskAttributeRequest()
-	diskRequest.Scheme = "https"
-	diskRequest.DeleteWithInstance = requests.NewBoolean(false)
-
-	diskIds := []string{}
-
-	for _, dataDiskId := range vmInfo.DataDiskIIDs {
-		diskIds = append(diskIds, dataDiskId.SystemId)
-	}
-
-	diskRequest.DiskIds = &diskIds
-
-	_, diskErr := vmHandler.Client.ModifyDiskAttribute(diskRequest)
-	if err != nil {
-		return irs.VMInfo{}, errors.New("Instance created but modifying disk attributes failed " + diskErr.Error())
+	if len(vmInfo.DataDiskIIDs) > 0 {
+		diskRequest := ecs.CreateModifyDiskAttributeRequest()
+		diskRequest.Scheme = "https"
+		diskRequest.DeleteWithInstance = requests.NewBoolean(false)
+		diskIds := []string{}
+		for _, dataDiskId := range vmInfo.DataDiskIIDs {
+			diskIds = append(diskIds, dataDiskId.SystemId)
+		}
+		diskRequest.DiskIds = &diskIds
+		if _, diskErr := vmHandler.Client.ModifyDiskAttribute(diskRequest); diskErr != nil {
+			if _, cleanupErr := vmHandler.TerminateVM(newVmIID); cleanupErr != nil {
+				return irs.VMInfo{}, fmt.Errorf("modifying disk attributes failed: %v, and cleanup also failed: %v. VM may remain in cloud", diskErr, cleanupErr)
+			}
+			return irs.VMInfo{}, errors.New("Instance creation rolled back: modifying disk attributes failed " + diskErr.Error())
+		}
 	}
 
 	vmInfo.IId.NameId = vmReqInfo.IId.NameId

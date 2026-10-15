@@ -699,7 +699,9 @@ func (handler *AwsRDBMSHandler) convertDBInstanceToRDBMSInfo(dbInstance *rds.DBI
 
 	// Port
 	// Authentication
-	rdbmsInfo.MasterUserName = aws.StringValue(dbInstance.MasterUsername)
+	// MasterUserName is intentionally left unset: the API layer strips it from
+	// GetRDBMS/ListRDBMS/RegisterRDBMS responses anyway, so reporting it here
+	// (often an unreliable guess) is dead weight.
 	// MasterUserPassword is never returned by AWS API
 
 	// High Availability

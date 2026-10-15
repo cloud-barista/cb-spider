@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -48,6 +49,16 @@ func init() {
 	}
 	db.AutoMigrate(&RDBMSIIDInfo{})
 	infostore.Close(db)
+}
+
+// redactRDBMSMasterCredentials clears MasterUserName/MasterUserPassword on a response about to be
+// returned from RegisterRDBMS/ListRDBMS/GetRDBMS (only a successful CreateRDBMS response still
+// carries these). Drivers no longer populate either field outside of CreateRDBMS, so this is a
+// safety net, not a live correction — it keeps this function the one place that guarantees no
+// credential ever leaves CB-Spider via Get/List/Register, even if a future driver regresses.
+func redactRDBMSMasterCredentials(info *cres.RDBMSInfo) {
+	info.MasterUserName = ""
+	info.MasterUserPassword = ""
 }
 
 //================ RDBMS Handler
@@ -333,6 +344,10 @@ func RegisterRDBMS(connectionName string, vpcUserID string, userIID cres.IID) (*
 		return nil, err
 	}
 	getInfo.VpcIID = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+	// RegisterRDBMS only attaches an existing CSP DB engine; it is not a CB-Spider deployment,
+	// so the master credentials are redacted like any other Get/List response.
+	redactRDBMSMasterCredentials(&getInfo)
 
 	return &getInfo, nil
 }
@@ -709,6 +724,8 @@ func ListRDBMS(connectionName string, rsType string) ([]*cres.RDBMSInfo, error) 
 		// set SecurityGroupIIDs UserIID
 		setRDBMSSGUserIID(connectionName, vpcIIDInfo, &info)
 
+		redactRDBMSMasterCredentials(&info)
+
 		infoList2 = append(infoList2, &info)
 	}
 
@@ -817,6 +834,8 @@ func GetRDBMS(connectionName string, rsType string, nameID string) (*cres.RDBMSI
 	setRDBMSSubnetUserIID(connectionName, vpcIIDInfo, &info)
 	// set SecurityGroupIIDs UserIID
 	setRDBMSSGUserIID(connectionName, vpcIIDInfo, &info)
+
+	redactRDBMSMasterCredentials(&info)
 
 	return &info, nil
 }
@@ -945,10 +964,13 @@ func CountRDBMSByConnection(connectionName string) (int64, error) {
 // the rdbmsDatabaseManager interface.
 var ErrRDBMSDatabaseMgrNotSupported = fmt.Errorf("driver does not support CSP-native database management")
 
-// openRDBMSSQLConn opens a direct SQL connection to the RDBMS instance using endpoint/port/user from info
-// and the supplied masterUserPassword. Returns the *sql.DB and the driver name ("mysql"/"postgres").
-func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB, string, error) {
-	if masterUserPassword == "" {
+// openRDBMSSQLConn opens a direct SQL connection to the RDBMS instance using endpoint/port from info
+// and the caller-supplied masterUserName/masterUserPassword. The master username is never read off
+// info/the CSP driver: CB-Spider cannot reliably identify the actual master account for several CSPs
+// (see redactRDBMSMasterCredentials), so callers must supply the credentials they set at deploy time,
+// same as the password. Returns the *sql.DB and the driver name ("mysql"/"postgres").
+func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserName, masterUserPassword string) (*sql.DB, string, error) {
+	if masterUserName == "" || masterUserPassword == "" {
 		return nil, "", ErrRDBMSDatabaseMgrNotSupported
 	}
 	if info.Endpoint == "" {
@@ -957,7 +979,7 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 
 	engine := strings.ToLower(string(info.DBEngine))
 	host, port := splitRDBMSEndpoint(info.Endpoint)
-	user := info.MasterUserName
+	user := masterUserName
 
 	var driverName, dsn string
 	switch {
@@ -994,6 +1016,41 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 	return db, driverName, nil
 }
 
+// lookupDefaultCollation connects directly to the instance (mysql/mariadb only -- callers must
+// enforce this) and asks the engine itself what collation it considers the default for charset,
+// via information_schema.CHARACTER_SETS. This is deliberately a live query rather than a hardcoded
+// table: a charset's default collation can differ by engine version (e.g. MySQL 5.7's default for
+// utf8mb4 is utf8mb4_general_ci; MySQL 8.0+'s is utf8mb4_0900_ai_ci; MariaDB 11.4.2+'s is
+// utf8mb4_uca1400_ai_ci) and CB-Spider has no reliable way to know which version a given instance
+// is actually running without asking it.
+//
+// This requires masterUserName/masterUserPassword even on CSPs that otherwise don't need them for
+// CreateDatabase (e.g. Azure, which creates the database via its own native API, not SQL) --
+// there's no other way to query information_schema. Called only when the caller supplied a charset
+// but no collation; passing both explicitly skips this lookup entirely.
+func lookupDefaultCollation(info *cres.RDBMSInfo, masterUserName, masterUserPassword, charset string) (string, error) {
+	if masterUserName == "" || masterUserPassword == "" {
+		return "", fmt.Errorf("resolving the default collation for charset %q requires MasterUserName/MasterUserPassword (used once, read-only, to query information_schema.CHARACTER_SETS on the instance) -- pass Collation explicitly to skip this lookup", charset)
+	}
+	db, _, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
+	if err != nil {
+		return "", fmt.Errorf("connecting to look up the default collation for charset %q: %w", charset, err)
+	}
+	defer db.Close()
+
+	var collation string
+	err = db.QueryRow(
+		"SELECT DEFAULT_COLLATE_NAME FROM information_schema.CHARACTER_SETS WHERE CHARACTER_SET_NAME = ?", charset,
+	).Scan(&collation)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("charset %q is not a character set this instance recognizes", charset)
+	}
+	if err != nil {
+		return "", fmt.Errorf("querying default collation for charset %q: %w", charset, err)
+	}
+	return collation, nil
+}
+
 // splitRDBMSEndpoint splits an RDBMSInfo.Endpoint value into host and port. The port is
 // returned empty when Endpoint has no ":port" suffix (or that suffix isn't numeric) — callers
 // apply their own engine-specific default in that case.
@@ -1020,6 +1077,15 @@ type RDBMSPgHbaRule struct {
 	Address    string `json:"Address,omitempty"`
 	AuthMethod string `json:"AuthMethod"`
 }
+
+// RDBMS SSL modes recommended via RDBMSSecureTransportInfo.RecommendedSSLMode, named after the
+// standard MySQL ssl-mode values (PostgreSQL clients should map VERIFY_CA/VERIFY_IDENTITY to
+// their own sslmode=verify-ca/verify-full).
+const (
+	RDBMSSSLModeDisabled       = "DISABLED"
+	RDBMSSSLModeVerifyCA       = "VERIFY_CA"
+	RDBMSSSLModeVerifyIdentity = "VERIFY_IDENTITY"
+)
 
 // RDBMSSecureTransportInfo reports whether an RDBMS instance enforces encrypted (TLS/SSL)
 // client connections, determined via standard SQL against the engine itself (CSP-agnostic).
@@ -1052,6 +1118,22 @@ type RDBMSSecureTransportInfo struct {
 	// transient network/handshake timeout on this separate probe connection) — set only in that
 	// case, so callers don't have to dig through server logs to tell "not attempted" from "failed".
 	CACertificateError string `json:"CACertificateError,omitempty"`
+
+	// RecommendedSSLMode is the strongest of RDBMSSSLModeDisabled/VerifyCA/VerifyIdentity a
+	// client can actually use against this instance, derived empirically rather than from CSP
+	// metadata (no CSP exposes this directly):
+	//   - DISABLED: TLSInUse=false — the server offers no TLS at all (e.g. Alibaba/Tencent/NCP
+	//     with TLS turned off).
+	//   - VERIFY_CA: TLSInUse=true, but the server's certificate has no Subject Alternative Name
+	//     at all, so hostname verification (VERIFY_IDENTITY) will always fail regardless of
+	//     client config — e.g. MySQL's own auto-generated certs on OpenStack Trove/NHN Cloud
+	//     (see test/rdbms-mysql-test/tls-test/README.md's Known Caveats). Chain-only
+	//     verification against CACertificate above still works.
+	//   - VERIFY_IDENTITY: TLSInUse=true and the certificate carries a usable SAN (e.g. AWS,
+	//     Azure, GCP, IBM) — the strongest mode is safe to use.
+	// Empty when TLSInUse=true but the certificate probe itself failed (see CACertificateError):
+	// there's then no basis to tell VERIFY_CA and VERIFY_IDENTITY apart.
+	RecommendedSSLMode string `json:"RecommendedSSLMode,omitempty"`
 }
 
 // GetRDBMSSecureTransportStatus connects to the RDBMS instance with standard SQL and reports
@@ -1061,7 +1143,7 @@ type RDBMSSecureTransportInfo struct {
 //
 // This works uniformly across every CSP because it queries the engine itself rather than
 // each CSP's own (inconsistently available) management API.
-func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword string) (*RDBMSSecureTransportInfo, error) {
+func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserName, masterUserPassword string) (*RDBMSSecureTransportInfo, error) {
 	cblog.Info("call GetRDBMSSecureTransportStatus()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1095,7 +1177,7 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 		return nil, err
 	}
 
-	db, driverName, err := openRDBMSSQLConn(&info, masterUserPassword)
+	db, driverName, err := openRDBMSSQLConn(&info, masterUserName, masterUserPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -1176,7 +1258,9 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 	// isn't competing with an already-open connection to the same instance — a second concurrent
 	// connection attempt right after the first is a plausible source of the transient handshake
 	// timeouts this probe can hit in practice.
-	if result.TLSInUse {
+	if !result.TLSInUse {
+		result.RecommendedSSLMode = RDBMSSSLModeDisabled
+	} else {
 		db.Close()
 		host, port := splitRDBMSEndpoint(info.Endpoint)
 		if port == "" {
@@ -1186,11 +1270,16 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 				port = "5432"
 			}
 		}
-		if cert, err := fetchRDBMSCACertificate(string(info.DBEngine), host, port); err != nil {
+		if cert, hasSAN, err := fetchRDBMSCACertificate(string(info.DBEngine), host, port); err != nil {
 			cblog.Warnf("GetRDBMSSecureTransportStatus: CA certificate probe failed for %s: %v", rdbmsName, err)
 			result.CACertificateError = err.Error()
 		} else {
 			result.CACertificate = cert
+			if hasSAN {
+				result.RecommendedSSLMode = RDBMSSSLModeVerifyIdentity
+			} else {
+				result.RecommendedSSLMode = RDBMSSSLModeVerifyCA
+			}
 		}
 	}
 
@@ -1198,8 +1287,17 @@ func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword
 }
 
 // createDatabaseSQL creates a database via direct SQL (CREATE DATABASE).
-func createDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) error {
-	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+// charset/collation are optional (empty string = engine default) and, when the target is
+// mysql/mariadb, are appended as a CHARACTER SET/COLLATE clause. CB-Spider does not validate
+// these against a list of known charset/collation names -- MySQL and MariaDB each add new ones
+// in almost every release, and the two engines don't even share a naming scheme for their newest
+// ones (MySQL's "_0900_*" vs MariaDB's "_uca1400_*") -- it passes the caller's value straight to
+// the engine and lets the engine itself reject anything it doesn't recognize. The caller
+// (CreateRDBMSDatabase) is responsible for restricting dbName/charset/collation to safe identifier
+// characters before calling this function, since none of these three values can be passed as a
+// bound query parameter in this position and are concatenated into the statement text as-is.
+func createDatabaseSQL(info *cres.RDBMSInfo, masterUserName, masterUserPassword, dbName, charset, collation string) error {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
 	if err != nil {
 		return err
 	}
@@ -1207,9 +1305,19 @@ func createDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) 
 
 	var stmt string
 	if driverName == "postgres" {
+		// Charset/collation are rejected before reaching here for postgres (see
+		// CreateRDBMSDatabase) -- Postgres' CREATE DATABASE ENCODING/LC_COLLATE semantics (template
+		// database matching, locale availability) are different enough from MySQL/MariaDB's
+		// CHARACTER SET/COLLATE that supporting them is out of scope for now.
 		stmt = `CREATE DATABASE "` + dbName + `"`
 	} else {
 		stmt = "CREATE DATABASE `" + dbName + "`"
+		if charset != "" {
+			stmt += " CHARACTER SET `" + charset + "`"
+		}
+		if collation != "" {
+			stmt += " COLLATE `" + collation + "`"
+		}
 	}
 	if _, err := db.Exec(stmt); err != nil {
 		return fmt.Errorf("CREATE DATABASE %q: %w", dbName, err)
@@ -1217,9 +1325,27 @@ func createDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) 
 	return nil
 }
 
+// execSQLStatement opens a direct SQL connection and executes a single statement. Used by
+// CSP-specific paths that need something other than a plain CREATE DATABASE: NCP's
+// rdbmsDatabaseSQLStatementBuilder (a stored-procedure call the driver itself builds) and
+// Tencent's rdbmsDatabaseCharsetManager (a follow-up ALTER DATABASE to apply a collation its
+// native API has no field for). Callers are responsible for ensuring stmt only contains values
+// already validated by validateSQLSafeValue -- it is executed as-is, with no parameter binding.
+func execSQLStatement(info *cres.RDBMSInfo, masterUserName, masterUserPassword, stmt string) error {
+	db, _, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if _, err := db.Exec(stmt); err != nil {
+		return fmt.Errorf("executing %q: %w", stmt, err)
+	}
+	return nil
+}
+
 // listDatabasesSQL lists databases via direct SQL.
-func listDatabasesSQL(info *cres.RDBMSInfo, masterUserPassword string) ([]string, error) {
-	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+func listDatabasesSQL(info *cres.RDBMSInfo, masterUserName, masterUserPassword string) ([]string, error) {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -1250,8 +1376,8 @@ func listDatabasesSQL(info *cres.RDBMSInfo, masterUserPassword string) ([]string
 }
 
 // deleteDatabaseSQL drops a database via direct SQL (DROP DATABASE).
-func deleteDatabaseSQL(info *cres.RDBMSInfo, masterUserPassword, dbName string) error {
-	db, driverName, err := openRDBMSSQLConn(info, masterUserPassword)
+func deleteDatabaseSQL(info *cres.RDBMSInfo, masterUserName, masterUserPassword, dbName string) error {
+	db, driverName, err := openRDBMSSQLConn(info, masterUserName, masterUserPassword)
 	if err != nil {
 		return err
 	}
@@ -1279,6 +1405,91 @@ type rdbmsDatabaseManager interface {
 	DeleteDatabase(rdbmsSystemId, dbEngine, dbName string) error
 }
 
+// rdbmsDatabaseOptionsManager is an additional, separately-checked interface for drivers whose
+// CSP-native "create database" API can accept an explicit charset and/or collation (Azure, GCP,
+// OpenStack, and Alibaba -- see the CB-Spider RDBMS charset/collation support survey).
+// It is intentionally a distinct interface from rdbmsDatabaseManager, not an extra parameter on
+// CreateDatabase, so that drivers which don't support charset/collation at all need no signature
+// change. Checked first: it's the only path that can honor both charset and collation using a
+// single native API call.
+type rdbmsDatabaseOptionsManager interface {
+	CreateDatabaseWithOptions(rdbmsSystemId, dbEngine, dbName, charset, collation string) error
+}
+
+// rdbmsDatabaseRequiresPairedCollation marks a rdbmsDatabaseOptionsManager driver whose CSP-native
+// "create database" call silently drops a Charset-only request -- falling back to the server's own
+// default charset entirely, with no error -- unless Collation is also given in the same call.
+// Confirmed on Azure MySQL Flexible Server; confirmed NOT needed on GCP, OpenStack, or Alibaba (all
+// three apply a Charset-only request correctly on their own, per the charset/collation test
+// suites' very first run, before this auto-resolution existed at all).
+//
+// This must stay a separate, narrowly-scoped interface rather than something CreateRDBMSDatabase
+// does unconditionally for every rdbmsDatabaseOptionsManager driver: Alibaba is also one, and its
+// CreateDatabaseWithOptions explicitly rejects a non-empty Collation on MariaDB (see its own
+// comment) -- auto-filling a collation there for a plain Charset-only request would turn a request
+// that used to work (and should keep working) into a guaranteed, confusing rejection for something
+// the caller never asked for. Only query/pair collation where it's actually known to be needed.
+type rdbmsDatabaseRequiresPairedCollation interface {
+	RequiresCollationPairedWithCharset() bool
+}
+
+// rdbmsDatabaseCharsetManager is for drivers whose CSP-native "create database" API accepts a
+// charset but has no field for collation at all (Tencent's CDB CreateDatabase -- its request
+// struct has exactly three fields: InstanceId, DBName, CharacterSetName). When collation is also
+// requested, CreateRDBMSDatabase applies it with a follow-up ALTER DATABASE over direct SQL, using
+// the caller-supplied master credentials -- see execSQLStatement.
+type rdbmsDatabaseCharsetManager interface {
+	CreateDatabaseWithCharset(rdbmsSystemId, dbEngine, dbName, charset string) error
+}
+
+// rdbmsDatabaseSQLStatementBuilder is for drivers whose CSP has no charset/collation support in
+// its native "create database" API, and whose normal SQL privileges don't allow a plain CREATE
+// DATABASE either, but does expose some other SQL-callable mechanism that can -- a stored
+// procedure, concretely (NCP's `sys.ncp_create_db('name','charset','collation')`, which the NCP
+// console/docs document as the sanctioned way around its master account's lack of a global CREATE
+// grant). The driver only builds the SQL text (it knows the exact procedure name/signature for its
+// CSP); CreateRDBMSDatabase executes it via execSQLStatement. dbName/charset/collation are
+// guaranteed already validated by validateSQLSafeValue by the time this is called, so building the
+// statement by string concatenation is safe.
+type rdbmsDatabaseSQLStatementBuilder interface {
+	BuildCreateDatabaseSQL(dbEngine, dbName, charset, collation string) (string, error)
+}
+
+// rdbmsDatabaseSQLFallbackEligible marks a rdbmsDatabaseManager driver whose CSP, unlike Tencent or
+// NCP, allows a direct SQL connection sufficient for a plain CREATE DATABASE ... CHARACTER SET ...
+// COLLATE ... -- but only after an instance-level opt-in CB-Spider has no way to verify or enable
+// itself (NHN Cloud's "DB 스키마 & 사용자 직접 제어" / "Direct Control" toggle, set in the NHN
+// console; see NHN's RDBMSHandler.go). When the driver implements this and the caller requests
+// charset/collation, CreateRDBMSDatabase uses the generic SQL path (createDatabaseSQL) instead of
+// returning the usual "not supported" error. If the opt-in hasn't actually been enabled on the
+// instance, the SQL engine's own permission error surfaces to the caller as-is, which already
+// states the problem (a privilege error) clearly enough without CB-Spider editorializing on it.
+type rdbmsDatabaseSQLFallbackEligible interface {
+	IsSQLFallbackEligibleForCharsetCollation() bool
+}
+
+// sqlIdentifierPattern restricts a value to letters, digits, and underscores -- enough to cover
+// every official MySQL/MariaDB charset and collation name (e.g. "utf8mb4_de_pb_0900_as_cs"), and
+// safe to concatenate into a backtick-quoted SQL identifier.
+var sqlIdentifierPattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
+// dbNamePattern additionally allows '-', which is common in cloud resource naming conventions and
+// carries no SQL-injection risk once backtick-quoted.
+var dbNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// validateSQLSafeValue rejects a dbName/charset/collation value that isn't a plain run of safe
+// identifier characters. CB-Spider does not maintain an enum of valid charset/collation names (see
+// rdbmsDatabaseOptionsManager/createDatabaseSQL) and passes whatever the caller supplies straight
+// through to the SQL engine or CSP API -- but dbName/charset/collation are concatenated directly
+// into a CREATE DATABASE statement in the SQL-fallback path (they can't be bound as query
+// parameters in this position), so the format must still be restricted to prevent SQL injection.
+func validateSQLSafeValue(fieldName, value string, pattern *regexp.Regexp) error {
+	if !pattern.MatchString(value) {
+		return fmt.Errorf("%s %q contains characters that are not allowed by CB-Spider (letters, digits, and underscores only; dbName may also contain '-')", fieldName, value)
+	}
+	return nil
+}
+
 func getRDBMSSystemId(connectionName, rdbmsName string) (string, string, error) {
 	var iidInfo RDBMSIIDInfo
 	err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, rdbmsName)
@@ -1288,10 +1499,24 @@ func getRDBMSSystemId(connectionName, rdbmsName string) (string, string, error) 
 	return iidInfo.SystemId, iidInfo.NameId, nil
 }
 
-// CreateRDBMSDatabase creates a database in the named RDBMS instance.
-// If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
-// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
-func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword string) error {
+// CreateRDBMSDatabase creates a database in the named RDBMS instance, optionally with an explicit
+// charset and/or collation (both may be left empty to get the engine/CSP default).
+//
+// Routing, in priority order:
+//  1. If the driver implements rdbmsDatabaseOptionsManager, it is always used (it accepts charset/
+//     collation even when both are empty, so this is just the native per-database create call).
+//  2. Else, if the driver implements rdbmsDatabaseManager but charset/collation were requested,
+//     CB-Spider returns a clear error rather than silently creating the database with the wrong
+//     charset/collation -- that driver's CSP-native API has no field for it (see the charset/
+//     collation support survey; Tencent, NCP, and NHN are in this bucket today).
+//  3. Else (no CSP-native API at all, e.g. AWS, IBM), a direct SQL connection is used, with charset/
+//     collation appended as a CHARACTER SET/COLLATE clause (mysql/mariadb only -- see
+//     createDatabaseSQL).
+//
+// CB-Spider does not validate charset/collation against a list of known names (see
+// rdbmsDatabaseOptionsManager); it only checks that dbName/charset/collation are safe to embed in
+// SQL/identifiers and otherwise passes them through unchanged.
+func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserName, masterUserPassword, charset, collation string) error {
 	cblog.Info("call CreateRDBMSDatabase()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1305,6 +1530,22 @@ func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword s
 	dbName, err = EmptyCheckAndTrim("dbName", dbName)
 	if err != nil {
 		return err
+	}
+	if err := validateSQLSafeValue("dbName", dbName, dbNamePattern); err != nil {
+		return err
+	}
+
+	charset = strings.TrimSpace(charset)
+	if charset != "" {
+		if err := validateSQLSafeValue("charset", charset, sqlIdentifierPattern); err != nil {
+			return err
+		}
+	}
+	collation = strings.TrimSpace(collation)
+	if collation != "" {
+		if err := validateSQLSafeValue("collation", collation, sqlIdentifierPattern); err != nil {
+			return err
+		}
 	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -1329,18 +1570,94 @@ func CreateRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword s
 		return err
 	}
 
+	engine := strings.ToLower(string(info.DBEngine))
+	if (charset != "" || collation != "") && engine != "mysql" && engine != "mariadb" {
+		return fmt.Errorf("charset/collation is only supported for mysql/mariadb RDBMS instances, not %q", info.DBEngine)
+	}
+
+	if optMgr, ok := handler.(rdbmsDatabaseOptionsManager); ok {
+		// A charset given without a collation is resolved to that charset's actual default
+		// collation on this specific instance (queried live, not guessed) before calling the
+		// driver -- but only for drivers that actually need this (see
+		// rdbmsDatabaseRequiresPairedCollation). Doing this unconditionally for every
+		// rdbmsDatabaseOptionsManager driver would be wrong, not just unnecessary: Alibaba also
+		// implements this interface, and its driver explicitly rejects a non-empty Collation on
+		// MariaDB -- auto-filling one here for a plain Charset-only request would turn a
+		// previously-working call into a confusing rejection for something the caller never asked
+		// for (this was caught by test/rdbms-mariadb-test/charset-test regressing after that
+		// Alibaba check was added).
+		if charset != "" && collation == "" {
+			if needsPaired, ok := handler.(rdbmsDatabaseRequiresPairedCollation); ok && needsPaired.RequiresCollationPairedWithCharset() {
+				resolved, err := lookupDefaultCollation(&info, masterUserName, masterUserPassword, charset)
+				if err != nil {
+					return fmt.Errorf("CreateRDBMSDatabase: %w", err)
+				}
+				collation = resolved
+			}
+		}
+		return optMgr.CreateDatabaseWithOptions(driverIId.SystemId, string(info.DBEngine), dbName, charset, collation)
+	}
+
+	if charsetMgr, ok := handler.(rdbmsDatabaseCharsetManager); ok {
+		// Tencent: charset goes through the native API as usual. Collation has no field in that
+		// API at all, so if requested, it's applied with a follow-up ALTER DATABASE over direct
+		// SQL. If that ALTER fails, the database now exists with the wrong (default) collation --
+		// worse than not existing at all, since it looks like success -- so best-effort roll it
+		// back via DeleteDatabase (Tencent also implements rdbmsDatabaseManager) rather than leave
+		// a silently-mis-configured database behind.
+		if err := charsetMgr.CreateDatabaseWithCharset(driverIId.SystemId, string(info.DBEngine), dbName, charset); err != nil {
+			return err
+		}
+		if collation != "" {
+			stmt := "ALTER DATABASE `" + dbName + "` COLLATE `" + collation + "`"
+			if err := execSQLStatement(&info, masterUserName, masterUserPassword, stmt); err != nil {
+				if dbMgr, ok := handler.(rdbmsDatabaseManager); ok {
+					if delErr := dbMgr.DeleteDatabase(driverIId.SystemId, string(info.DBEngine), dbName); delErr != nil {
+						return fmt.Errorf("CreateRDBMSDatabase: created database but failed to apply collation: %w (and cleanup also failed: %v)", err, delErr)
+					}
+				}
+				return fmt.Errorf("CreateRDBMSDatabase: created database but failed to apply collation (database was rolled back): %w", err)
+			}
+		}
+		return nil
+	}
+
+	if sqlBuilder, ok := handler.(rdbmsDatabaseSQLStatementBuilder); ok {
+		// NCP: only route through the driver-built SQL statement (its sys.ncp_create_db stored
+		// procedure) when charset/collation is actually requested -- otherwise fall through to the
+		// plain rdbmsDatabaseManager case below, preserving existing behavior (and not demanding
+		// master credentials) for callers who don't need either.
+		if charset != "" || collation != "" {
+			stmt, err := sqlBuilder.BuildCreateDatabaseSQL(string(info.DBEngine), dbName, charset, collation)
+			if err != nil {
+				return fmt.Errorf("CreateRDBMSDatabase: %w", err)
+			}
+			return execSQLStatement(&info, masterUserName, masterUserPassword, stmt)
+		}
+	}
+
 	if dbMgr, ok := handler.(rdbmsDatabaseManager); ok {
+		if charset != "" || collation != "" {
+			// NHN is the only current rdbmsDatabaseManager-only driver whose CSP allows a direct
+			// SQL CREATE DATABASE at all (after an instance-level opt-in CB-Spider can't verify --
+			// see rdbmsDatabaseSQLFallbackEligible). Anything else landing here (none today) has no
+			// charset/collation path whatsoever.
+			if sqlEligible, ok := handler.(rdbmsDatabaseSQLFallbackEligible); ok && sqlEligible.IsSQLFallbackEligibleForCharsetCollation() {
+				return createDatabaseSQL(&info, masterUserName, masterUserPassword, dbName, charset, collation)
+			}
+			return fmt.Errorf("charset/collation is not supported for database creation on this CSP's driver; omit both or create the database without them")
+		}
 		return dbMgr.CreateDatabase(driverIId.SystemId, string(info.DBEngine), dbName)
 	}
 
 	// SQL fallback (for drivers without CSP-native DB management API, e.g. AWS, IBM)
-	return createDatabaseSQL(&info, masterUserPassword, dbName)
+	return createDatabaseSQL(&info, masterUserName, masterUserPassword, dbName, charset, collation)
 }
 
 // ListRDBMSDatabases lists databases in the named RDBMS instance.
 // If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
-// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
-func ListRDBMSDatabases(connectionName, rdbmsName, masterUserPassword string) ([]string, error) {
+// Otherwise, if masterUserName/masterUserPassword are provided, a direct SQL connection is attempted.
+func ListRDBMSDatabases(connectionName, rdbmsName, masterUserName, masterUserPassword string) ([]string, error) {
 	cblog.Info("call ListRDBMSDatabases()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1379,13 +1696,13 @@ func ListRDBMSDatabases(connectionName, rdbmsName, masterUserPassword string) ([
 	}
 
 	// SQL fallback
-	return listDatabasesSQL(&info, masterUserPassword)
+	return listDatabasesSQL(&info, masterUserName, masterUserPassword)
 }
 
 // DeleteRDBMSDatabase drops a database from the named RDBMS instance.
 // If the driver supports the CSP-native rdbmsDatabaseManager interface, it is used.
-// Otherwise, if masterUserPassword is provided, a direct SQL connection is attempted.
-func DeleteRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword string) error {
+// Otherwise, if masterUserName/masterUserPassword are provided, a direct SQL connection is attempted.
+func DeleteRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserName, masterUserPassword string) error {
 	cblog.Info("call DeleteRDBMSDatabase()")
 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
@@ -1428,5 +1745,5 @@ func DeleteRDBMSDatabase(connectionName, rdbmsName, dbName, masterUserPassword s
 	}
 
 	// SQL fallback
-	return deleteDatabaseSQL(&info, masterUserPassword, dbName)
+	return deleteDatabaseSQL(&info, masterUserName, masterUserPassword, dbName)
 }

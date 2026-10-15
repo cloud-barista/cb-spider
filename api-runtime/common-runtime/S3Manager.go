@@ -7,8 +7,10 @@ package commonruntime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -31,6 +33,8 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 )
+
+const TENCENT_S3_TLS_HANDSHAKE_TIMEOUT = 30 * time.Second
 
 type S3BucketIIDInfo struct {
 	ConnectionName string `gorm:"primaryKey"`
@@ -296,6 +300,12 @@ func NewS3Client(connInfo *S3ConnectionInfo) (*minio.Client, error) {
 	if connInfo.ProviderName == "TENCENT" {
 		options.BucketLookup = minio.BucketLookupDNS
 		options.Region = connInfo.Region
+		transport, err := minio.DefaultTransport(connInfo.UseSSL)
+		if err != nil {
+			return nil, fmt.Errorf("create Tencent S3 transport: %w", err)
+		}
+		transport.TLSHandshakeTimeout = TENCENT_S3_TLS_HANDSHAKE_TIMEOUT
+		options.Transport = transport
 	}
 
 	return minio.New(connInfo.Endpoint, options)
@@ -318,9 +328,51 @@ func NewS3ClientForBucketCreation(connInfo *S3ConnectionInfo) (*minio.Client, er
 	if connInfo.ProviderName == "TENCENT" {
 		options.BucketLookup = minio.BucketLookupPath
 		options.Region = connInfo.Region
+		transport, err := minio.DefaultTransport(connInfo.UseSSL)
+		if err != nil {
+			return nil, fmt.Errorf("create Tencent S3 bucket transport: %w", err)
+		}
+		transport.TLSHandshakeTimeout = TENCENT_S3_TLS_HANDSHAKE_TIMEOUT
+		options.Transport = transport
 	}
 
 	return minio.New(connInfo.Endpoint, options)
+}
+
+func bucketExistsWithLocationRetry(ctx context.Context, client *minio.Client, bucketName string) (bool, error) {
+	const maxAttempts = 3
+	retryInterval := 2 * time.Second
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		exists, err := client.BucketExists(ctx, bucketName)
+		if err == nil {
+			return exists, nil
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
+		}
+		var requestErr *url.Error
+		var networkErr net.Error
+		if attempt == maxAttempts || !errors.As(err, &requestErr) || !strings.EqualFold(requestErr.Op, "GET") || !errors.As(err, &networkErr) || (!networkErr.Timeout() && !networkErr.Temporary()) {
+			return false, err
+		}
+		requestURL, parseErr := url.Parse(requestErr.URL)
+		if parseErr != nil || !requestURL.Query().Has("location") {
+			return false, err
+		}
+		cblog.Warnf("S3 bucket location lookup attempt %d/%d failed with a transient network error; retrying", attempt, maxAttempts)
+		timer := time.NewTimer(retryInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false, ctx.Err()
+		case <-timer.C:
+		}
+		retryInterval *= 2
+	}
+	return false, fmt.Errorf("S3 bucket location lookup retry limit reached")
 }
 
 func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error) {
@@ -393,7 +445,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
-	exists, err := client.BucketExists(ctx, bucketName)
+	exists, err := bucketExistsWithLocationRetry(ctx, client, bucketName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
