@@ -47,7 +47,7 @@ func rootDeviceNameForAmiType(amiType string) string {
 
 // createNodeGroupLaunchTemplate creates the Launch Template used by a spider-managed EKS NodeGroup.
 // RemoteAccess and DiskSize cannot be combined with a Launch Template, so the key pair, security groups
-// and root disk size move into the template. Security groups set in a Launch Template replace the
+// and root disk size move into the template (EKS default size when not given). Security groups set in a Launch Template replace the
 // EKS default, so the cluster security group is included explicitly.
 func (ClusterHandler *AwsClusterHandler) createNodeGroupLaunchTemplate(clusterName, nodeGroupName, amiType, keyName string,
 	nodeSecurityGroupList []*string, rootDiskSize int64) (*string, error) {
@@ -74,16 +74,21 @@ func (ClusterHandler *AwsClusterHandler) createNodeGroupLaunchTemplate(clusterNa
 	if keyName != "" {
 		templateData.KeyName = aws.String(keyName)
 	}
-	if rootDiskSize > 0 {
-		templateData.BlockDeviceMappings = []*ec2.LaunchTemplateBlockDeviceMappingRequest{{
-			DeviceName: aws.String(rootDeviceNameForAmiType(amiType)),
-			Ebs: &ec2.LaunchTemplateEbsBlockDeviceRequest{
-				VolumeSize:          aws.Int64(rootDiskSize),
-				VolumeType:          aws.String(ec2.VolumeTypeGp3),
-				DeleteOnTermination: aws.Bool(true),
-			},
-		}}
+	if rootDiskSize <= 0 {
+		// Same as the EKS default DiskSize when no Launch Template is used (20 GiB Linux, 50 GiB Windows).
+		rootDiskSize = 20
+		if strings.HasPrefix(amiType, "WINDOWS") {
+			rootDiskSize = 50
+		}
 	}
+	templateData.BlockDeviceMappings = []*ec2.LaunchTemplateBlockDeviceMappingRequest{{
+		DeviceName: aws.String(rootDeviceNameForAmiType(amiType)),
+		Ebs: &ec2.LaunchTemplateEbsBlockDeviceRequest{
+			VolumeSize:          aws.Int64(rootDiskSize),
+			VolumeType:          aws.String(ec2.VolumeTypeGp3),
+			DeleteOnTermination: aws.Bool(true),
+		},
+	}}
 
 	templateName := nodeGroupLaunchTemplateName(clusterName, nodeGroupName)
 	input := &ec2.CreateLaunchTemplateInput{
