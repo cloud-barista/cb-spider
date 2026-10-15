@@ -104,6 +104,20 @@ type AddonsInfo struct {
 	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
+// ClusterToken is a short-lived credential issued by the CSP for cluster access.
+// It is a CSP domain value: the REST layer maps it into a Kubernetes ExecCredential
+// (client.authentication.k8s.io/v1), so this type intentionally carries no
+// Kubernetes-specific wire format.
+// @description Short-lived Cluster Access Token
+type ClusterToken struct {
+	Token string `json:"Token" example:"k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA..."`
+
+	// ExpiresAt is when the token stops being accepted.
+	// Zero means the CSP provides no expiry information; callers must treat it as unknown
+	// rather than as "already expired" or "never expires".
+	ExpiresAt time.Time `json:"ExpiresAt,omitempty" example:"2026-09-02T05:15:00Z"`
+}
+
 // -------- Cluster API
 type ClusterHandler interface {
 
@@ -115,7 +129,7 @@ type ClusterHandler interface {
 	DeleteCluster(clusterIID IID) (bool, error)
 
 	//------ Token Management
-	GenerateClusterToken(clusterIID IID) (string, error)
+	GenerateClusterToken(clusterIID IID) (ClusterToken, error)
 
 	//------ NodeGroup Management
 	AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)

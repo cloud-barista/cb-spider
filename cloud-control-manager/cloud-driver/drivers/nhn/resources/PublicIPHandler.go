@@ -408,3 +408,56 @@ func (h *NhnCloudPublicIPHandler) getVMPortID(vmIID irs.IID) (string, error) {
 	}
 	return portList[0].ID, nil
 }
+
+// RemoveDefaultPublicIP removes whatever FloatingIP is currently attached to
+// the VM's port, discovered live via Neutron (regardless of whether it was
+// ever tracked as a separate CB-Spider PublicIP resource): disassociate
+// (PortID -> nil) then delete. Works on a running VM - NHN's own docs state a
+// floating IP can be connected/disconnected regardless of instance status.
+func (h *NhnCloudPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := getCallLogScheme(h.RegionInfo.Zone, calllog.PUBLICIP, vmIID.NameId, "RemoveDefaultPublicIP()")
+	start := calllog.Start()
+
+	portID, err := h.getVMPortID(vmIID)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	allPages, err := floatingips.List(h.NetworkClient, floatingips.ListOpts{PortID: portID}).AllPages()
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	fipList, err := floatingips.ExtractFloatingIPs(allPages)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if len(fipList) == 0 {
+		err := fmt.Errorf("no FloatingIP found attached to VM %s", vmIID.NameId)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	for _, fip := range fipList {
+		emptyPort := ""
+		if _, err := floatingips.Update(h.NetworkClient, fip.ID, floatingips.UpdateOpts{PortID: &emptyPort}).Extract(); err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+		if err := floatingips.Delete(h.NetworkClient, fip.ID).ExtractErr(); err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+	}
+	hiscallInfo.ElapsedTime = calllog.Elapsed(start)
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}

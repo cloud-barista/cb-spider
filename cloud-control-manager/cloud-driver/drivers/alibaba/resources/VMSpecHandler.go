@@ -110,14 +110,37 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	return vmSpecInfo
 }
 
+// describeAllInstanceTypes fetches every instance type for a region, following
+// the DescribeInstanceTypes NextToken cursor until it's exhausted.
+func describeAllInstanceTypes(client *ecs.Client, region string) ([]ecs.InstanceType, error) {
+	var allTypes []ecs.InstanceType
+	nextToken := ""
+	for {
+		request := ecs.CreateDescribeInstanceTypesRequest()
+		request.Scheme = "https"
+		request.RegionId = region
+		if nextToken != "" {
+			request.NextToken = nextToken
+		}
+
+		resp, err := client.DescribeInstanceTypes(request)
+		if err != nil {
+			return nil, err
+		}
+
+		allTypes = append(allTypes, resp.InstanceTypes.InstanceType...)
+		if resp.NextToken == "" {
+			break
+		}
+		nextToken = resp.NextToken
+	}
+	return allTypes, nil
+}
+
 func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start ListVMSpec(Session Region:[%s])", Region)
 	var vMSpecInfoList []*irs.VMSpecInfo
-
-	request := ecs.CreateDescribeInstanceTypesRequest()
-	request.Scheme = "https"
-	request.RegionId = Region
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -132,9 +155,8 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	}
 
 	callLogStart := call.Start()
-	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	instanceTypes, err := describeAllInstanceTypes(vmSpecHandler.Client, Region)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Debug(resp)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -145,25 +167,18 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	//cblogger.Debug(resp)
-	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
-	for _, curInstance := range resp.InstanceTypes.InstanceType {
+	cblogger.Info("Number of Retrieved Instance Types : ", len(instanceTypes))
+	for _, curInstance := range instanceTypes {
 		cblogger.Infof("[%s] VM Retrieve Specification Information", curInstance.InstanceTypeFamily)
 		vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
 		vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
 	}
-	//cblogger.Debug(vMSpecInfoList)
 	return vMSpecInfoList, nil
 }
 
 func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start GetVMSpec(Session Region:[%s], Name:[%s])", Region, Name)
-
-	request := ecs.CreateDescribeInstanceTypesRequest()
-	request.Scheme = "https"
-	request.RegionId = Region
-	//request.InstanceTypeFamily = Name
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -178,9 +193,8 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	}
 
 	callLogStart := call.Start()
-	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	instanceTypes, err := describeAllInstanceTypes(vmSpecHandler.Client, Region)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Debug(resp)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -191,17 +205,16 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
-	//	cblogger.Debug(resp)
+	cblogger.Info("Number of Retrieved Instance Types : ", len(instanceTypes))
 
-	if len(resp.InstanceTypes.InstanceType) < 1 {
+	if len(instanceTypes) < 1 {
 		return irs.VMSpecInfo{}, errors.New("Notfound: '" + Name + "'Cannot find Spec information for the specified item.")
 	}
 
 	var vMSpecInfo irs.VMSpecInfo
 	//인스턴스 타입으로 필터가 안되기 때문에 직접 처리함.
 	//속도를 고려하면 조회 대상을 전체로 설정하지 말고 InstanceTypeFamily을 이용해서 패밀리 그룹을 제한할 수는 있음.
-	for _, curInstance := range resp.InstanceTypes.InstanceType {
+	for _, curInstance := range instanceTypes {
 		cblogger.Debugf("[%s]", curInstance.InstanceTypeId)
 		if Name == curInstance.InstanceTypeId {
 			cblogger.Debugf("===> [%s]", curInstance.InstanceTypeId)
@@ -219,10 +232,6 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec() (string, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start ListOrgVMSpec(Session Region:[%s])", Region)
 
-	request := ecs.CreateDescribeInstanceTypesRequest()
-	request.Scheme = "https"
-	request.RegionId = Region
-
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -236,9 +245,8 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec() (string, error) {
 	}
 
 	callLogStart := call.Start()
-	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	instanceTypes, err := describeAllInstanceTypes(vmSpecHandler.Client, Region)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Debug(resp)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -249,8 +257,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec() (string, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	//jsonString, errJson := ConvertJsonString(resp.InstanceTypes.InstanceType)
-	jsonString, errJson := ConvertJsonString(resp.InstanceTypes)
+	jsonString, errJson := ConvertJsonString(ecs.InstanceTypesInDescribeInstanceTypes{InstanceType: instanceTypes})
 	if errJson != nil {
 		cblogger.Error(errJson)
 	}
@@ -260,9 +267,6 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListOrgVMSpec() (string, error) {
 func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, error) {
 	Region := vmSpecHandler.Region.Region
 	cblogger.Infof("Start GetOrgVMSpec(Session Region:[%s], Name:[%s])", Region, Name)
-	request := ecs.CreateDescribeInstanceTypesRequest()
-	request.Scheme = "https"
-	request.RegionId = Region
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -277,9 +281,8 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	}
 
 	callLogStart := call.Start()
-	resp, err := vmSpecHandler.Client.DescribeInstanceTypes(request)
+	instanceTypes, err := describeAllInstanceTypes(vmSpecHandler.Client, Region)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Debug(resp)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -290,10 +293,9 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
-	//	cblogger.Debug(resp)
+	cblogger.Info("Number of Retrieved Instance Types : ", len(instanceTypes))
 
-	if len(resp.InstanceTypes.InstanceType) < 1 {
+	if len(instanceTypes) < 1 {
 		return "", errors.New(Name + "Cannot find Spec information for the specified item.")
 	}
 
@@ -301,7 +303,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	var errJson error
 	//인스턴스 타입으로 필터가 안되기 때문에 직접 처리함.
 	//속도를 고려하면 조회 대상을 전체로 설정하지 말고 InstanceTypeFamily을 이용해서 패밀리 그룹을 제한할 수는 있음.
-	for _, curInstance := range resp.InstanceTypes.InstanceType {
+	for _, curInstance := range instanceTypes {
 		cblogger.Debugf("[%s]", curInstance.InstanceTypeId)
 		if Name == curInstance.InstanceTypeId {
 			cblogger.Debugf("===> [%s]", curInstance.InstanceTypeId)

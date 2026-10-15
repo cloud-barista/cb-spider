@@ -10,7 +10,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -131,22 +130,23 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 		for _, zoneItem := range regionZoneInfo.ZoneList {
 			// get Disks by Zone
 			hiscallInfo.ElapsedTime = call.Elapsed(start)
-			diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()
+			err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Pages(DiskHandler.Ctx, func(diskList *compute.DiskList) error {
+				for _, disk := range diskList.Items {
+					diskInfo, err := convertDiskInfo(disk)
+					if err != nil {
+						cblogger.Error(err)
+						return err
+					}
+					diskInfoList = append(diskInfoList, &diskInfo)
+				}
+				return nil
+			})
 			if err != nil {
 				cblogger.Error(err)
 				LoggingError(hiscallInfo, err)
 				return nil, err
 			}
 			calllogger.Info(call.String(hiscallInfo))
-
-			for _, disk := range diskList.Items {
-				diskInfo, err := convertDiskInfo(disk)
-				if err != nil {
-					cblogger.Error(err)
-					return nil, err
-				}
-				diskInfoList = append(diskInfoList, &diskInfo)
-			}
 		}
 
 	}
@@ -365,115 +365,27 @@ func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 }
 
 func validateDiskSize(diskInfo irs.DiskInfo) error {
-	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP")
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-
-	diskSize, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64)
-	if err != nil {
+	if _, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64); err != nil {
 		cblogger.Error(err)
 		return err
 	}
-
-	type diskSizeModel struct {
-		diskType    string
-		diskMinSize int64
-		diskMaxSize int64
-		unit        string
-	}
-
-	diskSizeValue := diskSizeModel{}
-	isExists := false
-
-	for _, diskSizeInfo := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(diskSizeInfo, "|")
-		if strings.EqualFold(diskInfo.DiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-			isExists = true
-		}
-	}
-
-	if !isExists {
-		return errors.New("Invalid Disk Type : " + diskInfo.DiskType)
-	}
-
-	if diskSize < diskSizeValue.diskMinSize {
-		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be at least the minimum size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
-	}
-
-	if diskSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-	}
-
 	return nil
 }
 
 func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
-	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("GCP")
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-
 	diskSize, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64)
 	if err != nil {
 		cblogger.Error(err)
 		return err
 	}
-
 	newDiskSize, err := strconv.ParseInt(newSize, 10, 64)
 	if err != nil {
 		cblogger.Error(err)
 		return err
 	}
-
 	if diskSize >= newDiskSize {
 		return errors.New("Target Disk Size: " + newSize + " must be larger than existing Disk Size " + diskInfo.DiskSize)
 	}
-
-	type diskSizeModel struct {
-		diskType    string
-		diskMinSize int64
-		diskMaxSize int64
-		unit        string
-	}
-
-	diskSizeValue := diskSizeModel{}
-
-	for _, diskSizeInfo := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(diskSizeInfo, "|")
-		if strings.EqualFold(diskInfo.DiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-		}
-	}
-
-	if newDiskSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-	}
-
 	return nil
 }
 
@@ -567,17 +479,18 @@ func (DiskHandler *GCPDiskHandler) ListIID() ([]*irs.IID, error) {
 	var iidList []*irs.IID
 
 	for _, zoneItem := range regionZoneInfo.ZoneList {
-		diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()
+		err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Pages(DiskHandler.Ctx, func(diskList *compute.DiskList) error {
+			for _, disk := range diskList.Items {
+				iid := irs.IID{NameId: disk.Name, SystemId: disk.Name}
+				iidList = append(iidList, &iid)
+			}
+			return nil
+		})
 
 		if err != nil {
 			cblogger.Error(err)
 			LoggingError(hiscallInfo, err)
 			return nil, err
-		}
-
-		for _, disk := range diskList.Items {
-			iid := irs.IID{NameId: disk.Name, SystemId: disk.Name}
-			iidList = append(iidList, &iid)
 		}
 	}
 

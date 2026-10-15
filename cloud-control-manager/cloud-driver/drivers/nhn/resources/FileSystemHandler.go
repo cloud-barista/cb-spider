@@ -43,6 +43,56 @@ func getTokenFromCredential(cred idrv.CredentialInfo) (string, error) {
 	return provider.TokenID, nil
 }
 
+// nhnListAllNASVolumes fetches every NAS volume in the region, following the
+// NHN NAS API's page-based pagination (limit/page request params, paging.totalCount
+// response field). See: https://docs.nhncloud.com/en/Storage/NAS/en/api-guide/
+func nhnListAllNASVolumes(authToken, region string) ([]map[string]interface{}, error) {
+	const pageSize = 100
+	var allVolumes []map[string]interface{}
+	page := 1
+
+	for {
+		url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes?limit=%d&page=%d", region, pageSize, page)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %v", err)
+		}
+		req.Header.Add("X-Auth-Token", authToken)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch NAS list: %v", err)
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read NAS list response: %v", readErr)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to list NAS volumes [%d]: %s", resp.StatusCode, string(body))
+		}
+
+		var result struct {
+			Volumes []map[string]interface{} `json:"volumes"`
+			Paging  struct {
+				TotalCount int `json:"totalCount"`
+			} `json:"paging"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, fmt.Errorf("failed to parse NAS response: %w", err)
+		}
+
+		allVolumes = append(allVolumes, result.Volumes...)
+		if len(result.Volumes) == 0 || len(allVolumes) >= result.Paging.TotalCount {
+			break
+		}
+		page++
+	}
+
+	return allVolumes, nil
+}
+
 func (nf *NhnCloudFileSystemHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()")
 
@@ -57,41 +107,17 @@ func (nf *NhnCloudFileSystemHandler) ListIID() ([]*irs.IID, error) {
 	}
 
 	region := strings.ToLower(nf.RegionInfo.Region)
-	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes", region)
-
-	req, err := http.NewRequest("GET", url, nil)
+	volumes, err := nhnListAllNASVolumes(authToken, region)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
-	}
-	req.Header.Add("X-Auth-Token", authToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch NAS list: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to parse NAS response [%d]: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("failed to list NAS volumes: %w", err)
 	}
 
-	var result struct {
-		Volumes []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"volumes"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		cblogger.Errorf("Failed to parse NAS response: %v", err)
-		return nil, fmt.Errorf("failed to parse NAS response: %w", err)
-	}
-
-	for _, vol := range result.Volumes {
+	for _, vol := range volumes {
+		id, _ := vol["id"].(string)
+		name, _ := vol["name"].(string)
 		iidList = append(iidList, &irs.IID{
-			NameId:   vol.Name,
-			SystemId: vol.ID,
+			NameId:   name,
+			SystemId: id,
 		})
 	}
 
@@ -142,46 +168,13 @@ func (nf *NhnCloudFileSystemHandler) getRawFileSystem(nameId string) (map[string
 	}
 
 	region := strings.ToLower(nf.RegionInfo.Region)
-	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes", region)
-	req, err := http.NewRequest("GET", url, nil)
+	volumes, err := nhnListAllNASVolumes(authToken, region)
 	if err != nil {
-		cblogger.Errorf("Failed to create HTTP request: %v", err)
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-	req.Header.Add("X-Auth-Token", authToken)
-
-	client := http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		cblogger.Errorf("Failed to query NAS list: %v", err)
-		return nil, fmt.Errorf("failed to query NAS list: %w", err)
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			cblogger.Errorf("Error closing response body: %v", closeErr)
-		}
-	}()
-
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		cblogger.Errorf("Failed to read NAS list response body: %v", readErr)
-		return nil, fmt.Errorf("failed to read NAS list response body: %w", readErr)
+		cblogger.Errorf("Failed to list NAS volumes: %v", err)
+		return nil, fmt.Errorf("failed to list NAS volumes: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		cblogger.Errorf("NAS list API failed with status [%d]: %s", resp.StatusCode, string(body))
-		return nil, fmt.Errorf("NAS list API failed with status [%d]: %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Volumes []map[string]interface{} `json:"volumes"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		cblogger.Errorf("Failed to parse JSON response: %v", err)
-		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
-	}
-
-	for _, vol := range result.Volumes {
+	for _, vol := range volumes {
 		if name, ok := vol["name"].(string); ok && name == nameId {
 			cblogger.Infof("Found raw FileSystem for NameId '%s'.", nameId)
 			return vol, nil
@@ -345,35 +338,14 @@ func (nf *NhnCloudFileSystemHandler) ListFileSystem() ([]*irs.FileSystemInfo, er
 	}
 
 	region := strings.ToLower(nf.RegionInfo.Region)
-	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes", region)
-
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Add("X-Auth-Token", authToken)
-
-	client := http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	volumes, err := nhnListAllNASVolumes(authToken, region)
 	if err != nil {
-		cblogger.Errorf("Failed to request NAS list: %v", err)
-		return nil, fmt.Errorf("failed to request NAS list: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != 200 {
-		cblogger.Errorf("Failed to get NAS list: %s", string(body))
-		return nil, fmt.Errorf("failed to get NAS list (status: %d): %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Volumes []map[string]interface{} `json:"volumes"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		cblogger.Errorf("Failed to parse NAS list response: %v", err)
-		return nil, fmt.Errorf("failed to parse NAS list response: %v", err)
+		cblogger.Errorf("Failed to list NAS volumes: %v", err)
+		return nil, fmt.Errorf("failed to list NAS volumes: %w", err)
 	}
 
 	var fsList []*irs.FileSystemInfo
-	for _, raw := range result.Volumes {
+	for _, raw := range volumes {
 		fs, err := nf.setterFileSystemInfo(raw)
 		if err != nil {
 			cblogger.Warnf("Failed to convert NAS entry (skipped): %v", err)
@@ -483,41 +455,15 @@ func (nf *NhnCloudFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error)
 	}
 
 	region := strings.ToLower(nf.RegionInfo.Region)
-	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes", region)
-
-	req, err := http.NewRequest("GET", url, nil)
+	volumes, err := nhnListAllNASVolumes(authToken, region)
 	if err != nil {
-		return false, fmt.Errorf("failed to create list request: %v", err)
-	}
-	req.Header.Add("X-Auth-Token", authToken)
-	req.Header.Add("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, fmt.Errorf("failed to send list request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return false, fmt.Errorf("failed to list NAS volumes: %s", string(body))
-	}
-
-	var result struct {
-		Volumes []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"volumes"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false, fmt.Errorf("failed to decode NAS list response: %v", err)
+		return false, fmt.Errorf("failed to list NAS volumes: %w", err)
 	}
 
 	var volumeID string
-	for _, v := range result.Volumes {
-		if v.Name == iid.NameId {
-			volumeID = v.ID
+	for _, v := range volumes {
+		if name, ok := v["name"].(string); ok && name == iid.NameId {
+			volumeID, _ = v["id"].(string)
 			break
 		}
 	}
@@ -525,6 +471,7 @@ func (nf *NhnCloudFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error)
 		return false, fmt.Errorf("NAS not found with name: %s", iid.NameId)
 	}
 
+	client := &http.Client{}
 	deleteURL := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes/%s", region, volumeID)
 	deleteReq, err := http.NewRequest("DELETE", deleteURL, nil)
 	if err != nil {

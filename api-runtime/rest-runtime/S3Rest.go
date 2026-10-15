@@ -951,7 +951,7 @@ func listObjectVersions(c echo.Context) error {
 	// JSON response: use IID format for bucket name
 	if isJSONResponse(c) {
 		jsonResp := ListVersionsResultJSON{
-			IId:           BucketIID{NameId: bucketName, SystemId: bucketName},
+			IId:           BucketIID{NameId: bucketName, SystemId: cmrt.GetS3BucketSystemId(conn, bucketName)},
 			Prefix:        prefix,
 			MaxKeys:       1000,
 			IsTruncated:   false,
@@ -1488,7 +1488,7 @@ func GetS3BucketUsage(c echo.Context) error {
 	// JSON response: use IID format for bucket name
 	if isJSONResponse(c) {
 		jsonResp := BucketUsageJSON{
-			IId:                 BucketIID{NameId: bucketName, SystemId: bucketName},
+			IId:                 BucketIID{NameId: bucketName, SystemId: cmrt.GetS3BucketSystemId(conn, bucketName)},
 			CurrentSize:         currentSize,
 			DeletedVersionsSize: deletedVersionsSize,
 			TotalSize:           currentSize + deletedVersionsSize,
@@ -1806,7 +1806,7 @@ func ListS3Objects(c echo.Context) error {
 				cpJSON = append(cpJSON, CommonPrefixJSON{Prefix: cp.Prefix})
 			}
 			jsonResp := ListBucketResultWithPrefixJSON{
-				IId:            BucketIID{NameId: bucket, SystemId: bucket},
+				IId:            BucketIID{NameId: bucket, SystemId: cmrt.GetS3BucketSystemId(conn, bucket)},
 				Prefix:         prefix,
 				Delimiter:      delimiter,
 				Marker:         "",
@@ -1864,7 +1864,7 @@ func ListS3Objects(c echo.Context) error {
 	// JSON response: use IID format for bucket name
 	if isJSONResponse(c) {
 		jsonResp := ListBucketResultJSON{
-			IId:         BucketIID{NameId: bucket, SystemId: bucket},
+			IId:         BucketIID{NameId: bucket, SystemId: cmrt.GetS3BucketSystemId(conn, bucket)},
 			Prefix:      prefix,
 			Marker:      "",
 			MaxKeys:     1000,
@@ -2489,7 +2489,7 @@ func initiateMultipartUpload(c echo.Context) error {
 	// JSON response: use IID format for bucket name
 	if isJSONResponse(c) {
 		jsonResp := InitiateMultipartUploadResultJSON{
-			IId:      BucketIID{NameId: bucket, SystemId: bucket},
+			IId:      BucketIID{NameId: bucket, SystemId: cmrt.GetS3BucketSystemId(conn, bucket)},
 			Key:      decodedKey,
 			UploadId: uploadID,
 		}
@@ -2589,7 +2589,7 @@ func completeMultipartUpload(c echo.Context) error {
 	if isJSONResponse(c) {
 		jsonResp := CompleteMultipartUploadResultJSON{
 			Location: location,
-			IId:      BucketIID{NameId: bucket, SystemId: bucket},
+			IId:      BucketIID{NameId: bucket, SystemId: cmrt.GetS3BucketSystemId(conn, bucket)},
 			Key:      decodedKey,
 			ETag:     etag,
 		}
@@ -2875,7 +2875,7 @@ func postObject(c echo.Context) error {
 			Key string    `json:"Key"`
 		}
 		return c.JSON(http.StatusOK, UploadResultJSON{
-			IId: BucketIID{NameId: bucket, SystemId: bucket},
+			IId: BucketIID{NameId: bucket, SystemId: cmrt.GetS3BucketSystemId(conn, bucket)},
 			Key: key,
 		})
 	}
@@ -3429,7 +3429,7 @@ func listParts(c echo.Context) error {
 			})
 		}
 		jsonResp := ListPartsResultJSON{
-			IId:                  BucketIID{NameId: result.Bucket, SystemId: result.Bucket},
+			IId:                  BucketIID{NameId: result.Bucket, SystemId: cmrt.GetS3BucketSystemId(conn, result.Bucket)},
 			Key:                  result.Key,
 			UploadID:             result.UploadID,
 			PartNumberMarker:     result.PartNumberMarker,
@@ -3498,7 +3498,7 @@ func listMultipartUploads(c echo.Context) error {
 			})
 		}
 		jsonResp := ListMultipartUploadsResultJSON{
-			IId:                BucketIID{NameId: result.Bucket, SystemId: result.Bucket},
+			IId:                BucketIID{NameId: result.Bucket, SystemId: cmrt.GetS3BucketSystemId(conn, result.Bucket)},
 			KeyMarker:          result.KeyMarker,
 			UploadIDMarker:     result.UploadIDMarker,
 			NextKeyMarker:      result.NextKeyMarker,

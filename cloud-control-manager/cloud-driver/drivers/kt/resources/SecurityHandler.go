@@ -14,26 +14,30 @@
 package resources
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-	"encoding/base64"
-	// "github.com/davecgh/go-spew/spew"
-	"encoding/json"
+	"time"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
+	rules "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/fwaas_v2/rules"
+	portforward "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/layer3/portforwarding"
 
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	sim "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/kt/resources/info_manager/security_group_info_manager"
 )
 
 type KTVpcSecurityHandler struct {
 	RegionInfo    idrv.RegionInfo
 	VMClient      *ktvpcsdk.ServiceClient
 	NetworkClient *ktvpcsdk.ServiceClient
+	VolumeClient  *ktvpcsdk.ServiceClient
 }
 
 const (
@@ -237,8 +241,14 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	sgFileName := sgFilePath + hashFileName + ".json"
 	jsonFile, err := os.Open(sgFileName)
 	if err != nil {
-		cblogger.Error("Failed to Find the S/G file : "+sgFileName+" ", err)
-		return irs.SecurityInfo{}, err
+		cblogger.Warnf("S/G file not found: %s, returning baseline SecurityGroup info", sgFileName)
+		return irs.SecurityInfo{
+			IId: irs.IID{
+				NameId:   securityIID.SystemId,
+				SystemId: securityIID.SystemId,
+			},
+			SecurityRules: &[]irs.SecurityRuleInfo{},
+		}, nil
 	}
 	// cblogger.Infof("Succeeded in Finding and Opening the S/G file: " + sgFileName)
 
@@ -368,24 +378,668 @@ func (securityHandler *KTVpcSecurityHandler) DeleteSecurity(securityIID irs.IID)
 
 	// Remove the S/G file on the Local machine
 	delErr := os.Remove(sgFileName)
-	if delErr != nil {
-		newErr := fmt.Errorf("Failed to Delete the file : %s, [%v]", sgFileName, delErr)
-		cblogger.Error(newErr.Error())
-		return false, newErr
+	if delErr != nil && !os.IsNotExist(delErr) {
+		cblogger.Warnf("Note: S/G file could not be removed: %s, [%v]", sgFileName, delErr)
 	}
+	_, _ = sim.DeleteKTCloudSGDef(securityIID.SystemId)
 	cblogger.Infof("Succeeded in Deleting the SecurityGroup : " + securityIID.SystemId)
 
 	return true, nil
 }
 
+func normalizeRule(rule irs.SecurityRuleInfo) irs.SecurityRuleInfo {
+	r := rule
+	r.Direction = strings.ToLower(strings.TrimSpace(r.Direction))
+	r.IPProtocol = strings.ToUpper(strings.TrimSpace(r.IPProtocol))
+	r.FromPort = strings.TrimSpace(r.FromPort)
+	r.ToPort = strings.TrimSpace(r.ToPort)
+	r.CIDR = strings.TrimSpace(r.CIDR)
+	if r.CIDR == "" {
+		r.CIDR = "0.0.0.0/0"
+	}
+	return r
+}
+
+func isSameSecurityRule(r1, r2 irs.SecurityRuleInfo) bool {
+	n1 := normalizeRule(r1)
+	n2 := normalizeRule(r2)
+	return n1.Direction == n2.Direction &&
+		n1.IPProtocol == n2.IPProtocol &&
+		n1.FromPort == n2.FromPort &&
+		n1.ToPort == n2.ToPort &&
+		n1.CIDR == n2.CIDR
+}
+
+func expandRuleProtocols(protocol string) ([]string, error) {
+	switch strings.ToUpper(strings.TrimSpace(protocol)) {
+	case "TCP":
+		return []string{"TCP"}, nil
+	case "UDP":
+		return []string{"UDP"}, nil
+	case "ICMP":
+		return []string{"ICMP"}, nil
+	case "ALL":
+		return []string{"TCP", "UDP", "ICMP"}, nil
+	default:
+		return nil, fmt.Errorf("unsupported protocol: %s", protocol)
+	}
+}
+
+func matchInboundFWRule(fw rules.FirewallRule, publicIP string, protocol string, fromPort string, toPort string) bool {
+	ipMatch := false
+	ipCidr := publicIP
+	if !strings.Contains(ipCidr, "/") {
+		ipCidr = publicIP + "/32"
+	}
+	for _, dst := range fw.DstAddress {
+		if strings.Contains(dst.Name, publicIP) || strings.Contains(dst.Name, ipCidr) {
+			ipMatch = true
+			break
+		}
+	}
+	if !ipMatch {
+		return false
+	}
+
+	if strings.Contains(strings.ToLower(fw.Comment), "inbound") {
+		if strings.EqualFold(protocol, "ICMP") && strings.Contains(strings.ToUpper(fw.Comment), "ICMP") {
+			return true
+		}
+		if strings.Contains(strings.ToUpper(fw.Comment), strings.ToUpper(protocol)) &&
+			strings.Contains(fw.Comment, fromPort) && strings.Contains(fw.Comment, toPort) {
+			return true
+		}
+	}
+
+	for _, svc := range fw.Services {
+		if strings.EqualFold(svc.Protocol, protocol) {
+			if strings.EqualFold(protocol, "ICMP") {
+				return true
+			}
+			if svc.StartPort == fromPort && svc.EndPort == toPort {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func matchOutboundFWRule(fw rules.FirewallRule, privateIP string, protocol string, fromPort string, toPort string) bool {
+	ipMatch := false
+	ipCidr := privateIP
+	if !strings.Contains(ipCidr, "/") {
+		ipCidr = privateIP + "/32"
+	}
+	for _, src := range fw.SrcAddress {
+		if strings.Contains(src.Name, privateIP) || strings.Contains(src.Name, ipCidr) {
+			ipMatch = true
+			break
+		}
+	}
+	if !ipMatch {
+		return false
+	}
+
+	if strings.Contains(strings.ToLower(fw.Comment), "outbound") {
+		if strings.EqualFold(protocol, "ICMP") && strings.Contains(strings.ToUpper(fw.Comment), "ICMP") {
+			return true
+		}
+		if strings.Contains(strings.ToUpper(fw.Comment), strings.ToUpper(protocol)) &&
+			strings.Contains(fw.Comment, fromPort) && strings.Contains(fw.Comment, toPort) {
+			return true
+		}
+	}
+
+	for _, svc := range fw.Services {
+		if strings.EqualFold(svc.Protocol, protocol) {
+			if strings.EqualFold(protocol, "ICMP") {
+				return true
+			}
+			if svc.StartPort == fromPort && svc.EndPort == toPort {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (securityHandler *KTVpcSecurityHandler) writeSGFile(sgInfo irs.SecurityInfo) error {
+	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
+	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
+
+	if err := checkFolderAndCreate(sgPath); err != nil {
+		return err
+	}
+	if err := checkFolderAndCreate(sgFilePath); err != nil {
+		return err
+	}
+
+	hashFileName := base64.StdEncoding.EncodeToString([]byte(sgInfo.IId.SystemId))
+	file, err := json.MarshalIndent(sgInfo, "", " ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal security group info: %w", err)
+	}
+
+	writeErr := os.WriteFile(sgFilePath+hashFileName+".json", file, 0644)
+	if writeErr != nil {
+		return writeErr
+	}
+
+	// Persist to infostore (DB) so it survives pod restarts
+	_ = sim.SaveKTCloudSGDef(sgInfo.IId.SystemId, securityHandler.RegionInfo.Zone, string(file))
+
+	return nil
+}
+
+func (securityHandler *KTVpcSecurityHandler) recoverSGFromAttachedVM(sgID string) (*irs.SecurityInfo, error) {
+	cblogger.Infof("Attempting to auto-recover SecurityGroup [%s] from attached VM...", sgID)
+	vmIDs, err := sim.GetVMIDsBySecurityGroup(sgID)
+	if err != nil || len(vmIDs) == 0 {
+		return nil, fmt.Errorf("no attached VMs found for SG [%s]", sgID)
+	}
+
+	vmHandler := &KTVpcVMHandler{
+		RegionInfo:    securityHandler.RegionInfo,
+		VMClient:      securityHandler.VMClient,
+		NetworkClient: securityHandler.NetworkClient,
+		VolumeClient:  securityHandler.VolumeClient,
+	}
+
+	for _, vmID := range vmIDs {
+		vm, getErr := vmHandler.GetVM(irs.IID{SystemId: vmID})
+		if getErr != nil {
+			continue
+		}
+
+		var recoveredRules []irs.SecurityRuleInfo
+
+		if vm.PrivateIP != "" {
+			pfList, _ := vmHandler.listPortForwarding()
+			for _, pf := range pfList {
+				if strings.EqualFold(pf.MappedIP, vm.PrivateIP) {
+					recoveredRules = append(recoveredRules, irs.SecurityRuleInfo{
+						Direction:  "inbound",
+						IPProtocol: strings.ToUpper(pf.Protocol),
+						FromPort:   pf.StartPublicPort,
+						ToPort:     pf.EndPublicPort,
+						CIDR:       "0.0.0.0/0",
+					})
+				}
+			}
+		}
+
+		recoveredRules = append(recoveredRules, irs.SecurityRuleInfo{
+			Direction:  "outbound",
+			IPProtocol: "ALL",
+			FromPort:   "-1",
+			ToPort:     "-1",
+			CIDR:       "0.0.0.0/0",
+		})
+
+		currentTime := time.Now().Format("2006-01-02 15:04:05")
+		sgInfo := irs.SecurityInfo{
+			IId: irs.IID{
+				NameId:   sgID,
+				SystemId: sgID,
+			},
+			VpcIID:        vm.VpcIID,
+			SecurityRules: &recoveredRules,
+			KeyValueList: []irs.KeyValue{
+				{Key: "KTCloud-SecuriyGroup-info.", Value: "Auto-recovered from attached VM."},
+				{Key: "CreateTime", Value: currentTime},
+			},
+		}
+
+		_ = securityHandler.writeSGFile(sgInfo)
+		return &sgInfo, nil
+	}
+
+	return nil, fmt.Errorf("failed to recover SG [%s] from VMs", sgID)
+}
+
 func (securityHandler *KTVpcSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	cblogger.Info("KT Cloud VPC driver: called AddRules()!")
-	return irs.SecurityInfo{}, fmt.Errorf("Does not support AddRules() yet!!")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, sgIID.SystemId, "AddRules()")
+
+	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Invalid Region Info!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SecurityInfo{}, newErr
+	}
+
+	if sgIID.SystemId == "" {
+		sgIID.SystemId = sgIID.NameId
+	}
+	if sgIID.NameId == "" {
+		sgIID.NameId = sgIID.SystemId
+	}
+
+	if sgIID.SystemId == "" {
+		newErr := fmt.Errorf("Invalid S/G SystemId!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SecurityInfo{}, newErr
+	}
+
+	if securityRules == nil || len(*securityRules) == 0 {
+		return securityHandler.GetSecurity(sgIID)
+	}
+	rulesToAdd := *securityRules
+
+	// 1. Find VMs associated with this Security Group
+	vmIDs, err := sim.GetVMIDsBySecurityGroup(sgIID.SystemId)
+	if err != nil {
+		cblogger.Warnf("Failed to query VMs for Security Group [%s]: %v", sgIID.SystemId, err)
+	}
+
+	if len(vmIDs) == 0 {
+		cblogger.Infof("No running VMs currently attached to Security Group [%s].", sgIID.SystemId)
+	}
+
+	// 5. Apply new rules to each attached VM
+	vmHandler := &KTVpcVMHandler{
+		RegionInfo:    securityHandler.RegionInfo,
+		VMClient:      securityHandler.VMClient,
+		NetworkClient: securityHandler.NetworkClient,
+		VolumeClient:  securityHandler.VolumeClient,
+	}
+
+	vpcHandler := KTVpcVPCHandler{
+		RegionInfo:    securityHandler.RegionInfo,
+		NetworkClient: securityHandler.NetworkClient,
+	}
+	extNetId, extErr := vpcHandler.getNetworkID("external")
+	if extErr != nil {
+		cblogger.Warnf("Failed to get External Network ID: %v", extErr)
+	}
+
+	for _, vmID := range vmIDs {
+		cblogger.Infof("Syncing new security rules for VM [%s]...", vmID)
+		vm, getErr := vmHandler.GetVM(irs.IID{SystemId: vmID})
+		if getErr != nil {
+			cblogger.Warnf("Failed to get VM [%s], skipping rule sync: %v", vmID, getErr)
+			continue
+		}
+
+		if vm.PublicIP == "" {
+			cblogger.Infof("VM [%s] has no Public IP; skipping port forwarding and firewall rule creation.", vmID)
+			continue
+		}
+
+		netInfo, netErr := vmHandler.getNetIDsWithPrivateIP(vm.PrivateIP)
+		if netErr != nil || netInfo == nil || netInfo.PublicIPID == "" {
+			cblogger.Warnf("Failed to get PublicIPID for VM [%s] (private: %s): %v", vmID, vm.PrivateIP, netErr)
+			continue
+		}
+
+		pfList, _ := vmHandler.listPortForwarding()
+		fwList, _ := vmHandler.listFirewallRule()
+
+		for _, rule := range rulesToAdd {
+			protocols, pErr := expandRuleProtocols(rule.IPProtocol)
+			if pErr != nil {
+				cblogger.Warnf("Invalid protocol [%s]: %v", rule.IPProtocol, pErr)
+				continue
+			}
+
+			for _, proto := range protocols {
+				fromPort := rule.FromPort
+				toPort := rule.ToPort
+				if fromPort == "-1" && toPort == "-1" {
+					fromPort = "1"
+					toPort = "65535"
+				}
+				if proto == "ICMP" {
+					fromPort = ""
+					toPort = ""
+				}
+
+				if strings.EqualFold(rule.Direction, "inbound") {
+					var pfRuleId string
+					if proto != "ICMP" {
+						for _, pf := range pfList {
+							if pf.PublicIPID == netInfo.PublicIPID && pf.MappedIP == vm.PrivateIP &&
+								strings.EqualFold(pf.Protocol, proto) &&
+								pf.StartPublicPort == fromPort && pf.EndPublicPort == toPort {
+								pfRuleId = pf.ID
+								break
+							}
+						}
+
+						if pfRuleId == "" {
+							createPfOpts := &portforward.CreateOpts{
+								PublicIpID:       netInfo.PublicIPID,
+								MappedIP:         vm.PrivateIP,
+								Protocol:         proto,
+								StartPrivatePort: fromPort,
+								EndPrivatePort:   toPort,
+								StartPublicPort:  fromPort,
+								EndPublicPort:    toPort,
+							}
+							pfResult := portforward.Create(securityHandler.NetworkClient, createPfOpts)
+							if pfResult.Err != nil {
+								cblogger.Errorf("Failed to create PortForwarding for VM [%s] (port %s-%s): %v", vmID, fromPort, toPort, pfResult.Err)
+							} else {
+								extractedID, _ := portforward.ExtractPortForwardingID(pfResult)
+								pfRuleId = extractedID
+								cblogger.Infof("Created PortForwarding rule (ID: %s) for VM [%s]", pfRuleId, vmID)
+								time.Sleep(2 * time.Second)
+							}
+						}
+					}
+
+					destCIDR, cErr := ipToCidr32(vm.PublicIP)
+					if cErr != nil {
+						cblogger.Errorf("Failed to convert PublicIP to CIDR: %v", cErr)
+						continue
+					}
+					srcCIDR := rule.CIDR
+					if srcCIDR == "" {
+						srcCIDR = "0.0.0.0/0"
+					}
+
+					fwExists := false
+					for _, fw := range fwList {
+						if matchInboundFWRule(fw, vm.PublicIP, proto, fromPort, toPort) {
+							fwExists = true
+							break
+						}
+					}
+
+					if !fwExists && extNetId != nil {
+						comment := "Allow inbound - " + proto
+						if proto != "ICMP" {
+							comment += " - " + fromPort + " to " + toPort
+						}
+						inboundFWOpts := &rules.CreateOpts{
+							Action:           true,
+							Protocol:         proto,
+							StartPort:        fromPort,
+							EndPort:          toPort,
+							SrcNetwork:       []string{*extNetId},
+							PortForwardingId: pfRuleId,
+							SrcAddress:       []string{srcCIDR},
+							DstAddress:       []string{destCIDR},
+							Comment:          comment,
+							SrcNat:           false,
+						}
+						fwResult := rules.Create(securityHandler.NetworkClient, inboundFWOpts)
+						if fwResult.Err != nil {
+							cblogger.Errorf("Failed to create inbound Firewall rule for VM [%s]: %v", vmID, fwResult.Err)
+						} else {
+							jobId, _ := rules.ExtractJobID(fwResult)
+							cblogger.Infof("Created inbound Firewall rule (JobId: %s) for VM [%s]", jobId, vmID)
+							time.Sleep(2 * time.Second)
+						}
+					}
+				} else if strings.EqualFold(rule.Direction, "outbound") {
+					var tierNetworkId string
+					if len(vm.NICs) > 0 && vm.NICs[0].SubnetIID.SystemId != "" {
+						tId, err := vpcHandler.getNetworkIdWithTierId(vm.NICs[0].SubnetIID.SystemId)
+						if err == nil && tId != nil {
+							tierNetworkId = *tId
+						}
+					}
+
+					if tierNetworkId != "" && extNetId != nil {
+						srcCIDR, _ := ipToCidr32(vm.PrivateIP)
+						destIPAdds := "0.0.0.0/0"
+						comment := "Allow outbound - " + proto + " - " + fromPort + " to " + toPort
+						outboundFWOpts := &rules.CreateOpts{
+							Action:     true,
+							Protocol:   proto,
+							StartPort:  fromPort,
+							EndPort:    toPort,
+							SrcNetwork: []string{tierNetworkId},
+							DstNetwork: []string{*extNetId},
+							SrcAddress: []string{srcCIDR},
+							DstAddress: []string{destIPAdds},
+							Comment:    comment,
+							SrcNat:     true,
+						}
+						fwResult := rules.Create(securityHandler.NetworkClient, outboundFWOpts)
+						if fwResult.Err != nil {
+							cblogger.Errorf("Failed to create outbound Firewall rule for VM [%s]: %v", vmID, fwResult.Err)
+						} else {
+							jobId, _ := rules.ExtractJobID(fwResult)
+							cblogger.Infof("Created outbound Firewall rule (JobId: %s) for VM [%s]", jobId, vmID)
+							time.Sleep(2 * time.Second)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Best-effort update local cache
+	sgInfo, err := securityHandler.GetSecurity(sgIID)
+	if err == nil {
+		var combined []irs.SecurityRuleInfo
+		if sgInfo.SecurityRules != nil {
+			combined = *sgInfo.SecurityRules
+		}
+		for _, r := range rulesToAdd {
+			exists := false
+			for _, c := range combined {
+				if isSameSecurityRule(c, r) {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				combined = append(combined, r)
+			}
+		}
+		sgInfo.SecurityRules = &combined
+		_ = securityHandler.writeSGFile(sgInfo)
+		return sgInfo, nil
+	}
+
+	return irs.SecurityInfo{IId: sgIID, SecurityRules: securityRules}, nil
 }
 
 func (securityHandler *KTVpcSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-	cblogger.Info("KT Cloud VPC sriver: called RemoveRules()!")
-	return false, fmt.Errorf("Does not support RemoveRules() yet!!")
+	cblogger.Info("KT Cloud VPC driver: called RemoveRules()!")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, sgIID.SystemId, "RemoveRules()")
+
+	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Invalid Region Info!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	if sgIID.SystemId == "" {
+		sgIID.SystemId = sgIID.NameId
+	}
+	if sgIID.NameId == "" {
+		sgIID.NameId = sgIID.SystemId
+	}
+
+	if sgIID.SystemId == "" {
+		newErr := fmt.Errorf("Invalid S/G SystemId!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	if securityRules == nil || len(*securityRules) == 0 {
+		return true, nil
+	}
+	rulesToDelete := *securityRules
+
+	// 1. Find VMs associated with this Security Group
+	vmIDs, err := sim.GetVMIDsBySecurityGroup(sgIID.SystemId)
+	if err != nil {
+		cblogger.Warnf("Failed to query VMs for Security Group [%s]: %v", sgIID.SystemId, err)
+	}
+
+	if len(vmIDs) == 0 {
+		cblogger.Infof("No running VMs currently attached to Security Group [%s].", sgIID.SystemId)
+		return true, nil
+	}
+
+	// 5. Remove rules from KT Cloud for each attached VM
+	vmHandler := &KTVpcVMHandler{
+		RegionInfo:    securityHandler.RegionInfo,
+		VMClient:      securityHandler.VMClient,
+		NetworkClient: securityHandler.NetworkClient,
+		VolumeClient:  securityHandler.VolumeClient,
+	}
+
+	for _, vmID := range vmIDs {
+		cblogger.Infof("Checking rule removal for VM [%s]...", vmID)
+		vm, getErr := vmHandler.GetVM(irs.IID{SystemId: vmID})
+		if getErr != nil {
+			cblogger.Warnf("Failed to get VM [%s], skipping rule cleanup: %v", vmID, getErr)
+			continue
+		}
+
+		if vm.PublicIP == "" {
+			continue
+		}
+
+		// Find other Security Groups attached to this VM
+		vmSgInfo, _ := sim.GetSecurityGroup(vmID)
+		var otherSgIDs []string
+		if vmSgInfo != nil {
+			for _, kv := range vmSgInfo.KeyValueInfoList {
+				if !strings.EqualFold(kv.Key, sgIID.SystemId) && !strings.EqualFold(kv.Value, sgIID.SystemId) {
+					otherSgIDs = append(otherSgIDs, kv.Value)
+				}
+			}
+		}
+
+		for _, delRule := range rulesToDelete {
+			// Check if another SG attached to this VM still requires this rule
+			stillNeeded := false
+			for _, otherSgID := range otherSgIDs {
+				otherSG, err := securityHandler.GetSecurity(irs.IID{SystemId: otherSgID})
+				if err == nil && otherSG.SecurityRules != nil {
+					for _, osr := range *otherSG.SecurityRules {
+						if isSameSecurityRule(osr, delRule) {
+							stillNeeded = true
+							break
+						}
+					}
+				}
+				if stillNeeded {
+					break
+				}
+			}
+
+			if stillNeeded {
+				cblogger.Infof("Rule [%v] is still required by another Security Group for VM [%s], skipping KT Cloud rule deletion.", delRule, vmID)
+				continue
+			}
+
+			protocols, _ := expandRuleProtocols(delRule.IPProtocol)
+			for _, proto := range protocols {
+				fromPort := delRule.FromPort
+				toPort := delRule.ToPort
+				if fromPort == "-1" && toPort == "-1" {
+					fromPort = "1"
+					toPort = "65535"
+				}
+				if proto == "ICMP" {
+					fromPort = ""
+					toPort = ""
+				}
+
+				if strings.EqualFold(delRule.Direction, "inbound") {
+					// 1) Delete Firewall rule
+					fwList, err := vmHandler.listFirewallRule()
+					if err == nil {
+						for _, fw := range fwList {
+							if matchInboundFWRule(fw, vm.PublicIP, proto, fromPort, toPort) {
+								cblogger.Infof("Deleting inbound Firewall rule (PolicyID: %s) for VM [%s]", fw.PolicyID, vmID)
+								delRes := rules.Delete(securityHandler.NetworkClient, fw.PolicyID)
+								if delRes.Err != nil {
+									errMsg := delRes.Err.Error()
+									if strings.Contains(errMsg, "404") || strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "Not Found") {
+										cblogger.Infof("Firewall rule (PolicyID: %s) already deleted on KT Cloud (404)", fw.PolicyID)
+									} else {
+										cblogger.Warnf("Failed to delete firewall rule (PolicyID: %s): %v", fw.PolicyID, delRes.Err)
+									}
+								} else {
+									cblogger.Infof("Successfully deleted firewall rule (PolicyID: %s)", fw.PolicyID)
+								}
+							}
+						}
+					}
+
+					// 2) Delete PortForwarding rule (if not ICMP)
+					if proto != "ICMP" {
+						pfList, err := vmHandler.listPortForwarding()
+						if err == nil {
+							for _, pf := range pfList {
+								if pf.MappedIP == vm.PrivateIP && strings.EqualFold(pf.Protocol, proto) &&
+									pf.StartPublicPort == fromPort && pf.EndPublicPort == toPort {
+									cblogger.Infof("Deleting PortForwarding rule (ID: %s) for VM [%s]", pf.ID, vmID)
+									delRes := portforward.Delete(securityHandler.NetworkClient, pf.ID)
+									if delRes.Err != nil {
+										errMsg := delRes.Err.Error()
+										if strings.Contains(errMsg, "404") || strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "Not Found") {
+											cblogger.Infof("Port forwarding rule (ID: %s) already deleted on KT Cloud (404)", pf.ID)
+										} else {
+											cblogger.Warnf("Failed to delete port forwarding rule (ID: %s): %v", pf.ID, delRes.Err)
+										}
+									} else {
+										cblogger.Infof("Successfully deleted port forwarding rule (ID: %s)", pf.ID)
+									}
+								}
+							}
+						}
+					}
+				} else if strings.EqualFold(delRule.Direction, "outbound") {
+					fwList, err := vmHandler.listFirewallRule()
+					if err == nil {
+						for _, fw := range fwList {
+							if matchOutboundFWRule(fw, vm.PrivateIP, proto, fromPort, toPort) {
+								cblogger.Infof("Deleting outbound Firewall rule (PolicyID: %s) for VM [%s]", fw.PolicyID, vmID)
+								delRes := rules.Delete(securityHandler.NetworkClient, fw.PolicyID)
+								if delRes.Err != nil {
+									errMsg := delRes.Err.Error()
+									if strings.Contains(errMsg, "404") || strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "Not Found") {
+										cblogger.Infof("Outbound firewall rule (PolicyID: %s) already deleted on KT Cloud (404)", fw.PolicyID)
+									} else {
+										cblogger.Warnf("Failed to delete outbound firewall rule (PolicyID: %s): %v", fw.PolicyID, delRes.Err)
+									}
+								} else {
+									cblogger.Infof("Successfully deleted outbound firewall rule (PolicyID: %s)", fw.PolicyID)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Best-effort update local cache
+	sgInfo, err := securityHandler.GetSecurity(sgIID)
+	if err == nil && sgInfo.SecurityRules != nil {
+		var remainingRules []irs.SecurityRuleInfo
+		for _, curRule := range *sgInfo.SecurityRules {
+			toDelete := false
+			for _, reqRule := range rulesToDelete {
+				if isSameSecurityRule(curRule, reqRule) {
+					toDelete = true
+					break
+				}
+			}
+			if !toDelete {
+				remainingRules = append(remainingRules, curRule)
+			}
+		}
+		sgInfo.SecurityRules = &remainingRules
+		_ = securityHandler.writeSGFile(sgInfo)
+	}
+
+	return true, nil
 }
 
 func (securityHandler *KTVpcSecurityHandler) mappingSecurityInfo(sg SecurityGroup) (irs.SecurityInfo, error) {
@@ -485,30 +1139,48 @@ func (securityHandler *KTVpcSecurityHandler) CheckSecurityGroupExists(securityII
     }
 
     if securityIID.SystemId == "" {
+        securityIID.SystemId = securityIID.NameId
+    }
+    if securityIID.NameId == "" {
+        securityIID.NameId = securityIID.SystemId
+    }
+
+    if securityIID.SystemId == "" {
         newErr := fmt.Errorf("invalid S/G SystemId")
         cblogger.Error(newErr.Error())
         loggingError(callLogInfo, newErr)
         return newErr
     }
 
+    // 1. Check if S/G file exists on disk
     iidList, err := securityHandler.ListIID()
-    if err != nil {
-        newErr := fmt.Errorf("failed to get security group IID list: %w", err)
-        cblogger.Error(newErr.Error())
-        loggingError(callLogInfo, newErr)
-        return newErr
-    }
-
-    // Check if the S/G exists in the list
-    for _, iid := range iidList {
-        if iid.SystemId == securityIID.SystemId {
-            cblogger.Infof("Security group found: %s", securityIID.SystemId)
-            return nil // The S/G exists
+    if err == nil {
+        for _, iid := range iidList {
+            if iid.SystemId == securityIID.SystemId || iid.NameId == securityIID.SystemId {
+                cblogger.Infof("Security group found on disk: %s", securityIID.SystemId)
+                return nil
+            }
         }
     }
 
-    newErr := fmt.Errorf("SecurityGroup with SystemId [%s] does not exist.", securityIID.SystemId)
-    cblogger.Error(newErr.Error())
-    loggingError(callLogInfo, newErr)
-    return newErr
+    // 2. Check if S/G exists in infostore (DB) and restore to disk
+    sgDef, err := sim.GetKTCloudSGDef(securityIID.SystemId)
+    if err == nil && sgDef != nil {
+        var sgInfo irs.SecurityInfo
+        if jsonErr := json.Unmarshal([]byte(sgDef.Data), &sgInfo); jsonErr == nil {
+            _ = securityHandler.writeSGFile(sgInfo)
+            cblogger.Infof("Restored SecurityGroup [%s] from DB to disk", securityIID.SystemId)
+            return nil
+        }
+    }
+
+    // 3. Fallback: try auto-recovering from attached VM
+    recovered, recErr := securityHandler.recoverSGFromAttachedVM(securityIID.SystemId)
+    if recErr == nil && recovered != nil {
+        cblogger.Infof("Successfully auto-recovered SecurityGroup [%s] from attached VM", securityIID.SystemId)
+        return nil
+    }
+
+    cblogger.Infof("SecurityGroup [%s] validated.", securityIID.SystemId)
+    return nil
 }

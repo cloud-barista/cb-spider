@@ -12,6 +12,7 @@ package resources
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -45,11 +46,11 @@ const (
 // Use GetMetaInfo() to discover what each CSP supports before creating an RDBMS instance.
 // @description RDBMS Meta Information for CSP-specific capabilities
 type RDBMSMetaInfo struct {
-	DBEngine              string           `json:"DBEngine" example:"mysql"`                                    // Requested DB engine name. e.g., mysql, mariadb, postgresql
-	SupportedVersions     []string         `json:"SupportedVersions" example:"8.0,8.4"`                         // Supported versions for the requested DB engine
-	DBInstanceSpecOptions []string         `json:"DBInstanceSpecOptions,omitempty" example:"db.t3.medium,1000"` // Available DBInstanceSpec values for the requested DB engine. "NA" if CSP does not provide spec list API.
-	StorageTypeOptions    []string         `json:"StorageTypeOptions,omitempty" example:"gp2,gp3,io1"`          // Available storage types for the requested DB engine
-	StorageSizeRange      StorageSizeRange `json:"StorageSizeRange,omitempty"`                                  // Min/Max storage size in GB for the requested DB engine
+	DBEngine           string           `json:"DBEngine" example:"mysql"`                            // Requested DB engine name. e.g., mysql, mariadb, postgresql
+	SupportedVersions  []string         `json:"SupportedVersions" example:"8.0,8.4"`                 // Supported versions for the requested DB engine
+	DBSpecOptions      []string         `json:"DBSpecOptions,omitempty" example:"db.t3.medium,1000"` // Available DBSpec values for the requested DB engine. "NA" if CSP does not provide spec list API.
+	StorageTypeOptions []string         `json:"StorageTypeOptions,omitempty" example:"gp2,gp3,io1"`  // Available storage types for the requested DB engine
+	StorageSizeRangeGB StorageSizeRange `json:"StorageSizeRangeGB,omitempty"`                        // Min/Max storage size in decimal GB (10^9 bytes) for the requested DB engine. Converted from the CSP's native unit when that unit is objectively known (see GiBToGB); left unconverted, with a DataSourceNotes caveat, when the native unit cannot be confirmed.
 
 	SupportsHighAvailability   bool   `json:"SupportsHighAvailability"`       // true if HA/Multi-AZ can be configured
 	SupportsBackup             bool   `json:"SupportsBackup"`                 // true if managed automatic backup is supported
@@ -58,7 +59,7 @@ type RDBMSMetaInfo struct {
 	SupportsDeletionProtection bool   `json:"SupportsDeletionProtection"`     // true if deletion protection is available
 	SupportsEncryption         bool   `json:"SupportsEncryption"`             // true if storage encryption is available
 
-	SupportsStorageTypeSelection    bool `json:"SupportsStorageTypeSelection"`    // true if user can specify StorageType at creation; false if CSP sets it automatically (e.g., Azure, NCP)
+	SupportsStorageTypeSelection     bool `json:"SupportsStorageTypeSelection"`     // true if user can specify StorageType at creation; false if CSP sets it automatically (e.g., Azure, NCP)
 	SupportsStorageSizeConfiguration bool `json:"SupportsStorageSizeConfiguration"` // true if user can specify StorageSize at creation; false if CSP manages size automatically (e.g., NCP)
 
 	RequiresSubnet        bool `json:"RequiresSubnet"`        // true if SubnetNames is required at creation
@@ -66,8 +67,8 @@ type RDBMSMetaInfo struct {
 
 	SupportsTag bool `json:"SupportsTag"` // true if tagging is supported for RDBMS resources on this CSP
 
-	// DataSource records, per field name (e.g. "StorageTypeOptions", "StorageSizeRange",
-	// or "StorageSizeRange.Min"/"StorageSizeRange.Max" for a partially-static range),
+	// DataSource records, per field name (e.g. "StorageTypeOptions", "StorageSizeRangeGB",
+	// or "StorageSizeRangeGB.Min"/"StorageSizeRangeGB.Max" for a partially-static range),
 	// whether that field's value above was obtained live from the CSP API ("API") or is
 	// a fixed value ("Static") for this response. A field with no entry here is "API".
 	DataSource map[string]RDBMSDataSource `json:"DataSource,omitempty"`
@@ -78,7 +79,7 @@ type RDBMSMetaInfo struct {
 }
 
 // MarkStatic records that the given metadata field (e.g. "StorageTypeOptions",
-// "StorageSizeRange", or a sub-path like "StorageSizeRange.Min") is a fixed value
+// "StorageSizeRangeGB", or a sub-path like "StorageSizeRangeGB.Min") is a fixed value
 // for this response rather than a live CSP API result, with an optional
 // human-readable explanation.
 func (m *RDBMSMetaInfo) MarkStatic(field string, note string) {
@@ -104,7 +105,7 @@ func NormalizeRDBMSEngine(dbEngine string) (string, error) {
 	}
 }
 
-func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbInstanceSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup, supportsStorageTypeSelection, supportsStorageSizeConfiguration bool, supportsTag bool) (RDBMSMetaInfo, error) {
+func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, dbSpecOptions map[string][]string, storageTypeOptions map[string][]string, storageSizeRange StorageSizeRange, supportsHighAvailability, supportsBackup, supportsPublicAccess, supportsDeletionProtection, supportsEncryption bool, backupRetentionRange string, requiresSubnet, requiresSecurityGroup, supportsStorageTypeSelection, supportsStorageSizeConfiguration bool, supportsTag bool) (RDBMSMetaInfo, error) {
 	normalizedEngine, err := NormalizeRDBMSEngine(dbEngine)
 	if err != nil {
 		return RDBMSMetaInfo{}, err
@@ -115,25 +116,25 @@ func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, d
 		return RDBMSMetaInfo{}, fmt.Errorf("DBEngine '%s' is not supported", normalizedEngine)
 	}
 
-	instanceSpecs := append([]string(nil), dbInstanceSpecOptions[normalizedEngine]...)
+	instanceSpecs := append([]string(nil), dbSpecOptions[normalizedEngine]...)
 	storageTypes := append([]string(nil), storageTypeOptions[normalizedEngine]...)
 	return RDBMSMetaInfo{
-		DBEngine:                   normalizedEngine,
-		SupportedVersions:          versions,
-		DBInstanceSpecOptions:      instanceSpecs,
-		StorageTypeOptions:         storageTypes,
-		StorageSizeRange:           storageSizeRange,
-		SupportsHighAvailability:   supportsHighAvailability,
-		SupportsBackup:             supportsBackup,
-		BackupRetentionRange:       backupRetentionRange,
-		SupportsPublicAccess:       supportsPublicAccess,
-		SupportsDeletionProtection: supportsDeletionProtection,
-		SupportsEncryption:         supportsEncryption,
-		SupportsStorageTypeSelection:    supportsStorageTypeSelection,
+		DBEngine:                         normalizedEngine,
+		SupportedVersions:                versions,
+		DBSpecOptions:                    instanceSpecs,
+		StorageTypeOptions:               storageTypes,
+		StorageSizeRangeGB:               storageSizeRange,
+		SupportsHighAvailability:         supportsHighAvailability,
+		SupportsBackup:                   supportsBackup,
+		BackupRetentionRange:             backupRetentionRange,
+		SupportsPublicAccess:             supportsPublicAccess,
+		SupportsDeletionProtection:       supportsDeletionProtection,
+		SupportsEncryption:               supportsEncryption,
+		SupportsStorageTypeSelection:     supportsStorageTypeSelection,
 		SupportsStorageSizeConfiguration: supportsStorageSizeConfiguration,
-		RequiresSubnet:             requiresSubnet,
-		RequiresSecurityGroup:      requiresSecurityGroup,
-		SupportsTag:                supportsTag,
+		RequiresSubnet:                   requiresSubnet,
+		RequiresSecurityGroup:            requiresSecurityGroup,
+		SupportsTag:                      supportsTag,
 	}, nil
 }
 
@@ -141,6 +142,28 @@ func BuildRDBMSMetaInfo(dbEngine string, supportedEngines map[string][]string, d
 type StorageSizeRange struct {
 	Min int64 `json:"Min" example:"20"`    // Minimum storage in GB
 	Max int64 `json:"Max" example:"65536"` // Maximum storage in GB
+}
+
+// gibToGBFactor is 2^30 / 10^9: the ratio to convert a gibibyte (binary,
+// 1024-based) quantity into decimal gigabytes (1000-based).
+const gibToGBFactor = 1073741824.0 / 1000000000.0
+
+// GiBToGB converts a gibibyte (2^30 bytes) quantity to the nearest whole
+// decimal gigabyte (10^9 bytes), rounding to the nearest integer.
+//
+// Use this ONLY when the input is objectively known to be in GiB (or a
+// binary-based unit convertible to GiB, e.g. MiB/1024) — for example AWS RDS
+// storage sizes, or Azure/IBM values derived from documented MiB-based
+// fields. Do NOT apply it to values whose native unit is unconfirmed
+// (e.g. Alibaba's storage range) or that are not a real unit at all
+// (e.g. a hardcoded approximation, or an OpenStack Cinder account quota) —
+// those should be left unconverted and flagged via MarkStatic/DataSourceNotes
+// instead.
+func GiBToGB(gib int64) int64 {
+	if gib <= 0 {
+		return gib
+	}
+	return int64(math.Round(float64(gib) * gibToGBFactor))
 }
 
 // -------- Info Structure
@@ -156,8 +179,8 @@ type RDBMSInfo struct {
 	DBEngineVersion string `json:"DBEngineVersion" validate:"required" example:"8.0"` // e.g., "8.0", "10.6", "15"
 
 	// Instance Spec
-	DBInstanceSpec string `json:"DBInstanceSpec" validate:"required" example:"db.t3.medium"` // CSP instance class/type
-	DBInstanceType string `json:"DBInstanceType,omitempty" example:"Primary"`                // Primary | ReadReplica (for response)
+	DBSpec         string `json:"DBSpec" validate:"required" example:"db.t3.medium"` // CSP instance class/type
+	DBInstanceType string `json:"DBInstanceType,omitempty" example:"Primary"`        // Primary | ReadReplica (for response)
 
 	// Storage
 	// StorageType: storage volume type for the RDBMS instance.
@@ -188,6 +211,17 @@ type RDBMSInfo struct {
 	// Access
 	PublicAccess bool   `json:"PublicAccess,omitempty" default:"false"` // Whether publicly accessible
 	Endpoint     string `json:"Endpoint,omitempty"`                     // Connection endpoint (for response)
+
+	// NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with
+	// PublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN
+	// Cloud RDS DB Security Group, attaches it at creation, and deletes it
+	// automatically when the instance is deleted. Ignored by every other CSP.
+	// SecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at
+	// all: NHN Cloud RDS DB Security Groups are a resource type separate from
+	// the VPC/Neutron security group CB-Spider manages, so when this flag is
+	// false (the default), you must create one yourself via the NHN Cloud
+	// console or API and attach it to the instance for external SQL access.
+	NHNAutoOpenDBSecurityGroup bool `json:"NHNAutoOpenDBSecurityGroup,omitempty" default:"false"`
 
 	// Encryption - read-only, CSP-managed. Not configurable at creation via Spider.
 	Encryption bool `json:"Encryption,omitempty" default:"false"` // Storage encryption enabled (CSP default)

@@ -213,7 +213,7 @@
 
     <div class="content">
         <div class="header-with-progress">
-            <button onclick="showBucketCreateOverlay()" class="add-button">+ Bucket</button>
+            <button onclick="showBucketCreateOverlay()" class="add-button" {{if .ErrorMessage}}disabled title="S3 is not available for this connection"{{end}}>+ Bucket</button>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
                 <span id="timeDisplay"></span>
@@ -224,15 +224,6 @@
                 <button onclick="deleteSelectedBuckets()" style="margin-left: 10px;">Delete</button>
             </div>
         </div>
-
-        {{if .ErrorMessage}}
-        <script>
-            // Show error popup when page loads
-            window.addEventListener('DOMContentLoaded', function() {
-                alert('⚠️ S3 Connection Error:\n\n{{.ErrorMessage}}');
-            });
-        </script>
-        {{end}}
 
         <table id="bucket-table">
             <thead>
@@ -295,6 +286,12 @@
                 {{end}}
             </tbody>
         </table>
+
+        {{if .ErrorMessage}}
+        <div style="margin: 12px 0; padding: 10px; background:#fdf0f0; border:1px solid #e0a0a0; color:#a02020; font-size:13px;">
+            S3 is not available for this connection: {{.ErrorMessage}}
+        </div>
+        {{end}}
 
         <div id="object-panel" style="display:none; border-top: 2px solid #ccc; margin-top: 20px; padding-top: 20px;">
             <div class="object-panel-header" style="margin-bottom: 5px;">
@@ -914,14 +911,6 @@ function deleteBucket(name, forceDelete = false) {
                             }
                             return;
                         } else if (errorCode === 'NoSuchBucket') {
-                            // Check if this is a metadata-only bucket
-                            if (errorMessage.includes('metadata exists') || errorMessage.includes('Use force=true')) {
-                                hideProgressBar();
-                                if (confirm(`Bucket "${name}" not found in CSP, but metadata exists.\n\nDo you want to force delete the metadata only?`)) {
-                                    deleteBucket(name, true);
-                                }
-                                return;
-                            }
                             throw new Error(`Bucket "${name}" does not exist.`);
                         } else if (errorCode === 'AccessDenied') {
                             throw new Error(`Access denied: You don't have permission to delete bucket "${name}".`);
@@ -1143,10 +1132,6 @@ function deleteSelectedBuckets() {
                     if (errorText.includes('BucketNotEmpty')) {
                         return { bucket: bucketName, error: 'Bucket is not empty' };
                     } else if (errorText.includes('NoSuchBucket')) {
-                        // Check if metadata exists
-                        if (errorText.includes('metadata exists') || errorText.includes('Use force=true')) {
-                            return { bucket: bucketName, error: 'Not found in CSP', needsForce: true };
-                        }
                         return { bucket: bucketName, error: 'Bucket does not exist' };
                     } else if (errorText.includes('AccessDenied')) {
                         return { bucket: bucketName, error: 'Access denied' };
@@ -1166,7 +1151,6 @@ function deleteSelectedBuckets() {
         
         const successes = results.filter(r => r.success);
         const failures = results.filter(r => r.error);
-        const needsForce = results.filter(r => r.needsForce);
         
         if (failures.length > 0) {
             let message = `Deletion completed:\n\n`;
@@ -1178,29 +1162,6 @@ function deleteSelectedBuckets() {
                 message += `- ${f.bucket}: ${f.error}\n`;
             });
             alert(message);
-            
-            // Handle buckets that need force delete
-            if (needsForce.length > 0) {
-                const forceList = needsForce.map(f => f.bucket).join(', ');
-                if (confirm(`The following bucket(s) not found in CSP but metadata exists:\n${forceList}\n\nDo you want to force delete the metadata?`)) {
-                    showProgressBar();
-                    const forceDeletePromises = needsForce.map(item => {
-                        return fetch(`/spider/s3/${item.bucket}?force=true&ConnectionName=${connConfig}`, {
-                            method: 'DELETE',
-                            headers: { 'X-Connection-Name': connConfig }
-                        });
-                    });
-                    Promise.all(forceDeletePromises).then(() => {
-                        hideProgressBar();
-                        location.reload();
-                    }).catch(e => {
-                        hideProgressBar();
-                        alert('Error during force deletion: ' + e.message);
-                        location.reload();
-                    });
-                    return;
-                }
-            }
         }
         
         location.reload();
@@ -3160,7 +3121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     function formatTimeSimple(originalTime) {
-        if (!originalTime) return '';
+        if (!originalTime) return 'NA';
         const parts = originalTime.split(" ");
         const date = parts[0];
         const time = parts[1] ? parts[1].slice(0, 5) : '';

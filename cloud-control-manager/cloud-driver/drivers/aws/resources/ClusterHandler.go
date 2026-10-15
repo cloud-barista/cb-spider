@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"reflect"
 	"strconv"
@@ -614,7 +615,7 @@ func (ClusterHandler *AwsClusterHandler) getStaticKubeConfig(clusterDesc *eks.De
 	cluster := clusterDesc.Cluster
 
 	// create kubeconfig with EKS token
-	token, err := ClusterHandler.generateEKSToken(*cluster.Name)
+	token, _, err := ClusterHandler.generateEKSToken(*cluster.Name)
 	if err != nil {
 		cblogger.Errorf("Failed to generate EKS token: %v", err)
 		// empty token when error occurs
@@ -686,9 +687,20 @@ users:
 }
 
 // create EKS token using AWS STS
-func (ClusterHandler *AwsClusterHandler) generateEKSToken(clusterName string) (string, error) {
+// generateEKSToken returns the EKS bearer token and the time it stops being accepted.
+//
+// The expiry is derived from the presigned URL itself (X-Amz-Date + X-Amz-Expires) rather
+// than from time.Now(), so it tracks the value STS actually enforces even if the duration
+// constant changes. One minute is subtracted for cushion, mirroring the official
+// aws-iam-authenticator, so that a request started just before the boundary does not
+// arrive after it (clock skew, network latency, signing-time drift).
+// Ref: kubernetes-sigs/aws-iam-authenticator pkg/token/token.go
+//
+// A zero expiry is returned when it cannot be determined; callers must treat that as
+// "unknown" rather than "expired".
+func (ClusterHandler *AwsClusterHandler) generateEKSToken(clusterName string) (string, time.Time, error) {
 	if ClusterHandler.StsClient == nil {
-		return "", fmt.Errorf("STS client not available")
+		return "", time.Time{}, fmt.Errorf("STS client not available")
 	}
 
 	// create request for GetCallerIdentity
@@ -702,7 +714,7 @@ func (ClusterHandler *AwsClusterHandler) generateEKSToken(clusterName string) (s
 	presignedURL, err := req.Presign(duration)
 	if err != nil {
 		cblogger.Errorf("Failed to create presigned URL: %v", err)
-		return "", fmt.Errorf("failed to create presigned URL: %w", err)
+		return "", time.Time{}, fmt.Errorf("failed to create presigned URL: %w", err)
 	}
 
 	encodedURL := base64.RawURLEncoding.EncodeToString([]byte(presignedURL))
@@ -710,12 +722,50 @@ func (ClusterHandler *AwsClusterHandler) generateEKSToken(clusterName string) (s
 	// prepend "k8s-aws-v1." to the encoded URL
 	token := "k8s-aws-v1." + encodedURL
 
-	return token, nil
+	return token, eksTokenExpiry(presignedURL), nil
+}
+
+// eksTokenExpiryCushion is subtracted from the presigned URL expiry so that a request
+// started just before the boundary is not rejected on arrival. The official
+// aws-iam-authenticator uses the same one-minute cushion.
+const eksTokenExpiryCushion = 1 * time.Minute
+
+// eksTokenExpiry reads X-Amz-Date and X-Amz-Expires from a presigned STS URL and returns
+// when the derived token stops being usable. It returns the zero time when the URL cannot
+// be parsed, which callers treat as "expiry unknown".
+func eksTokenExpiry(presignedURL string) time.Time {
+	u, err := url.Parse(presignedURL)
+	if err != nil {
+		cblogger.Errorf("Failed to parse presigned URL for token expiry: %v", err)
+		return time.Time{}
+	}
+
+	q := u.Query()
+	// X-Amz-Date is the signing time in the SigV4 basic format (e.g. 20260902T051500Z).
+	signedAt, err := time.Parse("20060102T150405Z", q.Get("X-Amz-Date"))
+	if err != nil {
+		cblogger.Errorf("Failed to parse X-Amz-Date for token expiry: %v", err)
+		return time.Time{}
+	}
+
+	secs, err := strconv.ParseInt(q.Get("X-Amz-Expires"), 10, 64)
+	if err != nil || secs <= 0 {
+		cblogger.Errorf("Failed to parse X-Amz-Expires for token expiry: %v", err)
+		return time.Time{}
+	}
+
+	expiresAt := signedAt.Add(time.Duration(secs) * time.Second).Add(-eksTokenExpiryCushion)
+	if !expiresAt.After(signedAt) {
+		// Duration shorter than the cushion; reporting a past time would be worse than
+		// reporting nothing, so treat it as unknown.
+		return time.Time{}
+	}
+	return expiresAt
 }
 
 // GenerateClusterToken generates a token for cluster authentication
 // This implements the ClusterHandler interface
-func (ClusterHandler *AwsClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+func (ClusterHandler *AwsClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
 	cblogger.Info("call GenerateClusterToken()")
 
 	// For EKS, we need the cluster name to generate token
@@ -725,17 +775,17 @@ func (ClusterHandler *AwsClusterHandler) GenerateClusterToken(clusterIID irs.IID
 	}
 
 	if clusterName == "" {
-		return "", fmt.Errorf("cluster name is required for token generation")
+		return irs.ClusterToken{}, fmt.Errorf("cluster name is required for token generation")
 	}
 
 	// Generate EKS token using existing function
-	token, err := ClusterHandler.generateEKSToken(clusterName)
+	token, expiresAt, err := ClusterHandler.generateEKSToken(clusterName)
 	if err != nil {
 		cblogger.Errorf("Failed to generate cluster token: %v", err)
-		return "", fmt.Errorf("failed to generate cluster token: %w", err)
+		return irs.ClusterToken{}, fmt.Errorf("failed to generate cluster token: %w", err)
 	}
 
-	return token, nil
+	return irs.ClusterToken{Token: token, ExpiresAt: expiresAt}, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
@@ -971,6 +1021,15 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	// validation check
 	if nodeGroupReqInfo.MaxNodeSize < 1 { // MaxNodeSize must be at least 1
 		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The MaxNodeSize value must be greater than or equal to 1.", nil)
+	}
+	// AWS EKS cannot create a managed node group with autoscaling disabled.
+	// Reject it explicitly rather than silently ignoring the requested value.
+	// https://github.com/cloud-barista/cb-spider/issues/1496
+	if !nodeGroupReqInfo.OnAutoScaling {
+		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST,
+			"OnAutoScaling=false is not supported in AWS EKS. "+
+				"A managed node group is always backed by an Auto Scaling group. "+
+				"Please set OnAutoScaling=true and use Min/Max/Desired node size to control the node count.", nil)
 	}
 
 	// get or create Role Arn
@@ -1366,10 +1425,29 @@ func (ClusterHandler *AwsClusterHandler) GetAutoScalingGroups(autoScalingGroupNa
 }
 
 /*
-There is a separate menu for AutoScaling.
+AWS EKS has no API to enable/disable autoscaling for a managed node group:
+a managed node group is always backed by an Auto Scaling group, and
+NodegroupScalingConfig carries only desiredSize/minSize/maxSize.
+
+Therefore an "on" request is a no-op success, and an "off" request is rejected
+with an explicit error so that the caller is made aware of the AWS behavior
+instead of receiving a silent (false, nil).
+https://github.com/cloud-barista/cb-spider/issues/1496
 */
 func (ClusterHandler *AwsClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
-	return false, nil
+	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s] / OnAutoScaling : [%t]", clusterIID.SystemId, nodeGroupIID.SystemId, on)
+
+	if !on {
+		err := awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST,
+			"Disabling autoscaling is not supported in AWS EKS. "+
+				"A managed node group is always backed by an Auto Scaling group. "+
+				"Please use the ChangeNodeGroupScaling API to adjust Min/Max/Desired node size instead.", nil)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	// Already on; nothing to change.
+	return true, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID,
@@ -2055,6 +2133,15 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	nodeGroupInfo.DesiredNodeSize = int(*scalingConfig.DesiredSize)
 	nodeGroupInfo.MinNodeSize = int(*scalingConfig.MinSize)
 	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
+
+	// AWS EKS: a managed node group is always backed by an Auto Scaling group.
+	// EKS exposes no API to toggle autoscaling on/off -- NodegroupScalingConfig
+	// carries only desiredSize/minSize/maxSize -- so this is always reported as true.
+	// https://github.com/cloud-barista/cb-spider/issues/1496
+	//
+	// Note: "true" means the node group is ASG-backed and scalable within Min/Max,
+	// not that a Cluster Autoscaler is currently running in the cluster.
+	nodeGroupInfo.OnAutoScaling = true
 
 	if nodeGroupTagList == nil {
 		nodeGroupTagList = make(map[string]*string)     // initialize after nil check

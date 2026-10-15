@@ -3793,6 +3793,252 @@ const docTemplate = `{
                 }
             }
         },
+        "/dborgspec": {
+            "get": {
+                "description": "Retrieve a list of Original Database instance specs for a specific DB engine, associated with a specific connection. \u003cbr\u003e The response structure may vary depending on the requested CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "List Original Database Instance Specs",
+                "operationId": "list-org-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dynamic JSON structure representing the list of Original Database instance specs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalDBSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dborgspec/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Original Database instance spec.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "Get Original Database Instance Spec",
+                "operationId": "get-org-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the DB instance spec to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Original Database instance spec",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalDBSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dbspec": {
+            "get": {
+                "description": "Retrieve a list of Database instance specs (vCPU/Memory/StorageSize details) for a specific DB engine, associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "List Database Instance Specs",
+                "operationId": "list-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list DB instance specs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Database instance specs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DBSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dbspec/{Name}": {
+            "get": {
+                "description": "Retrieve details (vCPU/Memory/StorageSize) of a specific Database instance spec.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] DB Spec"
+                ],
+                "summary": "Get Database Instance Spec",
+                "operationId": "get-db-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "DB engine name: mysql, mariadb, or postgresql",
+                        "name": "DBEngine",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the DB instance spec to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Database instance spec",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DBSpecInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/destroy": {
             "delete": {
                 "description": "Deletes all resources associated with a specific cloud connection. This action is irreversible.",
@@ -8127,6 +8373,110 @@ const docTemplate = `{
                 }
             }
         },
+        "/rdbms/{Name}/secure-transport": {
+            "get": {
+                "description": "Report whether an RDBMS instance enforces encrypted (TLS/SSL) client connections, whether TLS is actually available, and its CA certificate. \u003cbr\u003e Determined uniformly across every CSP via standard SQL and protocol handshakes against the engine itself, not each CSP's own (inconsistently available) management API: \u003cbr\u003e MySQL/MariaDB: ` + "`" + `SHOW VARIABLES LIKE 'require_secure_transport'` + "`" + `. \u003cbr\u003e PostgreSQL: ` + "`" + `pg_hba_file_rules` + "`" + `. \u003cbr\u003e TLS availability and the server's certificate are captured live from the connection/handshake itself — see the response fields below.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "Get RDBMS Secure Transport Status",
+                "operationId": "get-rdbms-secure-transport",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the RDBMS instance",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The master user password, used to connect and run the SQL check",
+                        "name": "MasterUserPassword",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Secure transport status",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSSecureTransportInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/rdbmsengine": {
+            "get": {
+                "description": "Retrieve the list of RDBMS engines (e.g., mysql, mariadb, postgresql) that the CSP supports for a specific connection, derived from the connection's driver capability information (GET /driver/capability).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[RDBMS Management]"
+                ],
+                "summary": "List RDBMS Engines",
+                "operationId": "list-rdbms-engine",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list supported RDBMS engines for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of RDBMS engines supported by the CSP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RDBMSEngineListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/rdbmsmetainfo": {
             "get": {
                 "description": "Retrieve CSP-specific RDBMS capability information (supported engines, features, storage options).",
@@ -11379,7 +11729,7 @@ const docTemplate = `{
         },
         "/tag": {
             "get": {
-                "description": "Retrieve a list of tags for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Retrieve a list of tags for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
@@ -11445,7 +11795,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Add a tag to a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Add a tag to a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
@@ -11498,7 +11848,7 @@ const docTemplate = `{
         },
         "/tag/{Key}": {
             "get": {
-                "description": "Retrieve a specific tag for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Retrieve a specific tag for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
@@ -11568,7 +11918,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Remove a specific tag from a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "description": "Remove a specific tag from a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
                 "consumes": [
                     "application/json"
                 ],
@@ -12418,6 +12768,208 @@ const docTemplate = `{
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vm/{Name}/publicip": {
+            "post": {
+                "description": "Create a new PublicIP and attach it to the VM's default NIC (nic0) - the same effect as creating the VM with AssignPublicIP=true. Fails if the VM already has a default PublicIP. 🕷️",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Assign Default PublicIP to a VM",
+                "operationId": "assign-vm-default-publicip",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VM",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for assigning a default PublicIP",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the assigned PublicIP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Disassociate and DELETE the PublicIP that was assigned via AssignVMDefaultPublicIP. Fails if the VM has no default PublicIP assigned. 🕷️",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Unassign Default PublicIP from a VM",
+                "operationId": "unassign-vm-default-publicip",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VM",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for unassigning the default PublicIP",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unassign operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vm/{Name}/publicip/{PublicIPName}": {
+            "put": {
+                "description": "Attach a PublicIP that was previously created via the PublicIP Manager (POST /publicip) to the VM's default NIC (nic0). Fails if the VM already has a default PublicIP. 🕷️",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Attach an existing PublicIP to a VM",
+                "operationId": "attach-vm-publicip",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VM",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the existing PublicIP to attach",
+                        "name": "PublicIPName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for attaching the PublicIP",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the attached PublicIP",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PublicIPInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Detach a PublicIP previously attached via AttachVMPublicIP, WITHOUT deleting the PublicIP resource itself (it belongs to the user). Fails if the VM has no default PublicIP assigned. 🕷️",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "Detach a PublicIP from a VM",
+                "operationId": "detach-vm-publicip",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VM",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the PublicIP to detach",
+                        "name": "PublicIPName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for detaching the PublicIP",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the detach operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
                         }
                     },
                     "500": {
@@ -13452,6 +14004,93 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.RDBMSCACertInfo": {
+            "type": "object",
+            "properties": {
+                "IsSelfSigned": {
+                    "description": "IsSelfSigned is true only when this certificate's signature cryptographically verifies\nagainst its own public key (i.e. it's an actual root CA), not merely Subject == Issuer.\nfalse means it's an intermediate CA — still usable as ssl-ca/sslrootcert (the server will\nkeep presenting it in the chain), but it isn't the ultimate trust anchor.",
+                    "type": "boolean"
+                },
+                "Issuer": {
+                    "type": "string"
+                },
+                "NotAfter": {
+                    "description": "RFC3339",
+                    "type": "string"
+                },
+                "PEM": {
+                    "description": "PEM is the certificate in PEM format — usable directly as a client's ssl-ca / sslrootcert file.\nCaveat: this is the TOP-MOST certificate the server presented during the handshake, which is\noften an intermediate CA rather than the ultimate self-signed root (well-behaved servers don't\nsend the root — clients are expected to already trust it independently). In practice this is\nwhat most \"grab the CA off the server\" workflows use, but a CSP-published root, when one is\ndocumented, is more authoritative.",
+                    "type": "string"
+                },
+                "Subject": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.RDBMSPgHbaRule": {
+            "type": "object",
+            "properties": {
+                "Address": {
+                    "type": "string"
+                },
+                "AuthMethod": {
+                    "type": "string"
+                },
+                "Database": {
+                    "type": "string"
+                },
+                "Type": {
+                    "type": "string"
+                },
+                "UserName": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.RDBMSSecureTransportInfo": {
+            "type": "object",
+            "properties": {
+                "CACertificate": {
+                    "description": "CACertificate is captured via a separate, live TLS handshake against the endpoint (not\nsourced from any CSP API/doc — see RDBMSCACertInfo). nil when TLSInUse=false, or when the\nprobe itself failed; this is best-effort and never fails the overall request.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RDBMSCACertInfo"
+                        }
+                    ]
+                },
+                "CACertificateError": {
+                    "description": "CACertificateError explains why CACertificate is absent despite TLSInUse=true (e.g. a\ntransient network/handshake timeout on this separate probe connection) — set only in that\ncase, so callers don't have to dig through server logs to tell \"not attempted\" from \"failed\".",
+                    "type": "string"
+                },
+                "Enforced": {
+                    "description": "PostgreSQL: best-effort verdict derived from pg_hba_file_rules — true only if every\nmatching TCP rule requires SSL (no plain \"host\" rule accepts a non-rejected connection).",
+                    "type": "boolean"
+                },
+                "Engine": {
+                    "description": "\"mysql\", \"mariadb\", or \"postgres\"",
+                    "type": "string"
+                },
+                "RequireSecureTransport": {
+                    "description": "MySQL/MariaDB: raw value of the require_secure_transport system variable (\"ON\" or \"OFF\").",
+                    "type": "string"
+                },
+                "Rules": {
+                    "description": "PostgreSQL: the raw pg_hba_file_rules rows the verdict above was derived from, for transparency.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.RDBMSPgHbaRule"
+                    }
+                },
+                "TLSCipher": {
+                    "description": "TLSCipher: negotiated cipher suite name when TLSInUse=true, e.g. \"ECDHE-RSA-AES128-GCM-SHA256\"\n(TLS 1.2) or \"TLS_AES_256_GCM_SHA384\" (TLS 1.3); empty when TLSInUse=false.",
+                    "type": "string"
+                },
+                "TLSInUse": {
+                    "description": "TLSInUse is empirical, not config-derived: this diagnostic connection itself was opened\nwith tls=preferred (TLS attempted first, plaintext only as fallback), so TLSInUse=false\nmeans the server doesn't offer TLS at all — independent of RequireSecureTransport/Enforced,\nwhich only say whether TLS is mandatory, not whether it's available.",
+                    "type": "boolean"
+                }
+            }
+        },
         "spider.RemainedErrorInfo": {
             "type": "object",
             "required": [
@@ -13897,6 +14536,68 @@ const docTemplate = `{
                     "description": "1-12, *",
                     "type": "string",
                     "default": "*"
+                }
+            }
+        },
+        "spider.DBSpecInfo": {
+            "description": "Database Instance Spec Information for CSP-specific DBSpec values",
+            "type": "object",
+            "properties": {
+                "DBEngine": {
+                    "description": "mysql | mariadb | postgresql — engine this spec applies to",
+                    "type": "string",
+                    "example": "mysql"
+                },
+                "DataSource": {
+                    "description": "DataSource records, per field name, whether that field's value was obtained live\nfrom the CSP API (\"API\") or is a fixed/unconvertible value (\"Static\") for this\nresponse. A field with no entry here is \"API\". Same convention as RDBMSMetaInfo.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/spider.RDBMSDataSource"
+                    }
+                },
+                "DataSourceNotes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "KeyValueList": {
+                    "description": "CSP-specific extras (e.g. raw source value/unit, IOPS, architecture, reference price)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "MemSizeMiB": {
+                    "description": "Memory size in MiB. \"-1\" when the CSP's native unit cannot be objectively confirmed (see DataSourceNotes)",
+                    "type": "string",
+                    "example": "4096"
+                },
+                "Name": {
+                    "description": "CSP original spec/class/flavor name",
+                    "type": "string",
+                    "example": "db.t3.medium"
+                },
+                "Region": {
+                    "description": "Region where this spec is orderable",
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "StorageSizeRangeGB": {
+                    "description": "StorageSizeRangeGB is the valid StorageSize range (GB) the caller may request for\nTHIS spec when creating a database instance — NOT a disk built into the spec.\n{-1,-1} means \"no per-spec constraint known\" (falls back to RDBMSMetaInfo.StorageSizeRangeGB).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.StorageSizeRange"
+                        }
+                    ]
+                },
+                "VCpu": {
+                    "description": "CPU details. Count is \"-1\" when the CSP does not expose it and no objective cross-service basis exists to derive it",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.VCpuInfo"
+                        }
+                    ]
                 }
             }
         },
@@ -15263,7 +15964,7 @@ const docTemplate = `{
             "required": [
                 "DBEngine",
                 "DBEngineVersion",
-                "DBInstanceSpec",
+                "DBSpec",
                 "IId",
                 "MasterUserName",
                 "Status",
@@ -15294,15 +15995,15 @@ const docTemplate = `{
                     "type": "string",
                     "example": "8.0"
                 },
-                "DBInstanceSpec": {
-                    "description": "Instance Spec",
-                    "type": "string",
-                    "example": "db.t3.medium"
-                },
                 "DBInstanceType": {
                     "description": "Primary | ReadReplica (for response)",
                     "type": "string",
                     "example": "Primary"
+                },
+                "DBSpec": {
+                    "description": "Instance Spec",
+                    "type": "string",
+                    "example": "db.t3.medium"
                 },
                 "DeletionProtection": {
                     "description": "Protection",
@@ -15350,6 +16051,11 @@ const docTemplate = `{
                 "MasterUserPassword": {
                     "description": "Master user password (for Create request only)",
                     "type": "string"
+                },
+                "NHNAutoOpenDBSecurityGroup": {
+                    "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with\nPublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN\nCloud RDS DB Security Group, attaches it at creation, and deletes it\nautomatically when the instance is deleted. Ignored by every other CSP.\nSecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at\nall: NHN Cloud RDS DB Security Groups are a resource type separate from\nthe VPC/Neutron security group CB-Spider manages, so when this flag is\nfalse (the default), you must create one yourself via the NHN Cloud\nconsole or API and attach it to the instance for external SQL access.",
+                    "type": "boolean",
+                    "default": false
                 },
                 "PublicAccess": {
                     "description": "Access",
@@ -15418,8 +16124,8 @@ const docTemplate = `{
                     "type": "string",
                     "example": "mysql"
                 },
-                "DBInstanceSpecOptions": {
-                    "description": "Available DBInstanceSpec values for the requested DB engine. \"NA\" if CSP does not provide spec list API.",
+                "DBSpecOptions": {
+                    "description": "Available DBSpec values for the requested DB engine. \"NA\" if CSP does not provide spec list API.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -15430,7 +16136,7 @@ const docTemplate = `{
                     ]
                 },
                 "DataSource": {
-                    "description": "DataSource records, per field name (e.g. \"StorageTypeOptions\", \"StorageSizeRange\",\nor \"StorageSizeRange.Min\"/\"StorageSizeRange.Max\" for a partially-static range),\nwhether that field's value above was obtained live from the CSP API (\"API\") or is\na fixed value (\"Static\") for this response. A field with no entry here is \"API\".",
+                    "description": "DataSource records, per field name (e.g. \"StorageTypeOptions\", \"StorageSizeRangeGB\",\nor \"StorageSizeRangeGB.Min\"/\"StorageSizeRangeGB.Max\" for a partially-static range),\nwhether that field's value above was obtained live from the CSP API (\"API\") or is\na fixed value (\"Static\") for this response. A field with no entry here is \"API\".",
                     "type": "object",
                     "additionalProperties": {
                         "$ref": "#/definitions/spider.RDBMSDataSource"
@@ -15451,8 +16157,8 @@ const docTemplate = `{
                     "description": "true if SubnetNames is required at creation",
                     "type": "boolean"
                 },
-                "StorageSizeRange": {
-                    "description": "Min/Max storage size in GB for the requested DB engine",
+                "StorageSizeRangeGB": {
+                    "description": "Min/Max storage size in decimal GB (10^9 bytes) for the requested DB engine. Converted from the CSP's native unit when that unit is objectively known (see GiBToGB); left unconverted, with a DataSourceNotes caveat, when the native unit cannot be confirmed.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.StorageSizeRange"
@@ -17069,6 +17775,11 @@ const docTemplate = `{
         "spider.ClusterTokenStatus": {
             "type": "object",
             "properties": {
+                "expirationTimestamp": {
+                    "description": "ExpirationTimestamp is when the token stops being accepted, in RFC3339.\nIt is omitted when the CSP provides no expiry information, which the spec allows:\nclients then keep the credential until a 401 forces a refresh.",
+                    "type": "string",
+                    "example": "2026-09-02T05:15:00Z"
+                },
                 "token": {
                     "type": "string",
                     "example": "k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA..."
@@ -17121,6 +17832,20 @@ const docTemplate = `{
                 "count": {
                     "type": "integer",
                     "example": 5
+                }
+            }
+        },
+        "spider.DBSpecListResponse": {
+            "type": "object",
+            "required": [
+                "dbspec"
+            ],
+            "properties": {
+                "dbspec": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.DBSpecInfo"
+                    }
                 }
             }
         },
@@ -17309,6 +18034,10 @@ const docTemplate = `{
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
+                "dbspecHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
                 "diskHandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
@@ -17354,6 +18083,18 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "rdbmshandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "rdbmsmariaDBHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "rdbmsmySQLHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "rdbmspostgreSQLHandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
@@ -18320,6 +19061,19 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.OriginalDBSpecListResponse": {
+            "type": "object",
+            "required": [
+                "DBSpecInfo"
+            ],
+            "properties": {
+                "DBSpecInfo": {
+                    "description": "CSP-specific JSON format",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
         "spider.OriginalRegionListResponse": {
             "type": "object",
             "required": [
@@ -18629,7 +19383,7 @@ const docTemplate = `{
                     "required": [
                         "DBEngine",
                         "DBEngineVersion",
-                        "DBInstanceSpec",
+                        "DBSpec",
                         "MasterUserName",
                         "MasterUserPassword",
                         "Name",
@@ -18650,7 +19404,7 @@ const docTemplate = `{
                             "type": "string",
                             "example": "8.0"
                         },
-                        "DBInstanceSpec": {
+                        "DBSpec": {
                             "type": "string",
                             "example": "db.t3.medium"
                         },
@@ -18674,6 +19428,11 @@ const docTemplate = `{
                         "MasterUserPassword": {
                             "type": "string",
                             "example": "password123!"
+                        },
+                        "NHNAutoOpenDBSecurityGroup": {
+                            "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.\nWhen true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)\nNHN Cloud RDS DB Security Group, and deletes it automatically when the\ninstance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does\nnot use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup\ninstead); if this flag is false (default), create and attach a DB\nSecurity Group yourself via the NHN Cloud console/API for external\nSQL access.",
+                            "type": "boolean",
+                            "default": false
                         },
                         "Name": {
                             "type": "string",
@@ -18755,6 +19514,20 @@ const docTemplate = `{
                     "description": "required when driver uses SQL (e.g. AWS, IBM)",
                     "type": "string",
                     "example": "P@ssw0rd"
+                }
+            }
+        },
+        "spider.RDBMSEngineListResponse": {
+            "type": "object",
+            "required": [
+                "rdbmsengine"
+            ],
+            "properties": {
+                "rdbmsengine": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -19498,6 +20271,11 @@ const docTemplate = `{
                         "VPCName"
                     ],
                     "properties": {
+                        "AssignPublicIP": {
+                            "description": "nil or true: assign a Public IP at creation (default, current behavior). false: do not assign.",
+                            "type": "boolean",
+                            "example": true
+                        },
                         "DataDiskNames": {
                             "description": "Data disks in the same zone as this VM",
                             "type": "array",

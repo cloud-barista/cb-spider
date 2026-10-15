@@ -68,6 +68,91 @@ definitions:
       totalSpace:
         type: string
     type: object
+  spider.RDBMSCACertInfo:
+    properties:
+      IsSelfSigned:
+        description: |-
+          IsSelfSigned is true only when this certificate's signature cryptographically verifies
+          against its own public key (i.e. it's an actual root CA), not merely Subject == Issuer.
+          false means it's an intermediate CA — still usable as ssl-ca/sslrootcert (the server will
+          keep presenting it in the chain), but it isn't the ultimate trust anchor.
+        type: boolean
+      Issuer:
+        type: string
+      NotAfter:
+        description: RFC3339
+        type: string
+      PEM:
+        description: |-
+          PEM is the certificate in PEM format — usable directly as a client's ssl-ca / sslrootcert file.
+          Caveat: this is the TOP-MOST certificate the server presented during the handshake, which is
+          often an intermediate CA rather than the ultimate self-signed root (well-behaved servers don't
+          send the root — clients are expected to already trust it independently). In practice this is
+          what most "grab the CA off the server" workflows use, but a CSP-published root, when one is
+          documented, is more authoritative.
+        type: string
+      Subject:
+        type: string
+    type: object
+  spider.RDBMSPgHbaRule:
+    properties:
+      Address:
+        type: string
+      AuthMethod:
+        type: string
+      Database:
+        type: string
+      Type:
+        type: string
+      UserName:
+        type: string
+    type: object
+  spider.RDBMSSecureTransportInfo:
+    properties:
+      CACertificate:
+        allOf:
+        - $ref: '#/definitions/spider.RDBMSCACertInfo'
+        description: |-
+          CACertificate is captured via a separate, live TLS handshake against the endpoint (not
+          sourced from any CSP API/doc — see RDBMSCACertInfo). nil when TLSInUse=false, or when the
+          probe itself failed; this is best-effort and never fails the overall request.
+      CACertificateError:
+        description: |-
+          CACertificateError explains why CACertificate is absent despite TLSInUse=true (e.g. a
+          transient network/handshake timeout on this separate probe connection) — set only in that
+          case, so callers don't have to dig through server logs to tell "not attempted" from "failed".
+        type: string
+      Enforced:
+        description: |-
+          PostgreSQL: best-effort verdict derived from pg_hba_file_rules — true only if every
+          matching TCP rule requires SSL (no plain "host" rule accepts a non-rejected connection).
+        type: boolean
+      Engine:
+        description: '"mysql", "mariadb", or "postgres"'
+        type: string
+      RequireSecureTransport:
+        description: 'MySQL/MariaDB: raw value of the require_secure_transport system
+          variable ("ON" or "OFF").'
+        type: string
+      Rules:
+        description: 'PostgreSQL: the raw pg_hba_file_rules rows the verdict above
+          was derived from, for transparency.'
+        items:
+          $ref: '#/definitions/spider.RDBMSPgHbaRule'
+        type: array
+      TLSCipher:
+        description: |-
+          TLSCipher: negotiated cipher suite name when TLSInUse=true, e.g. "ECDHE-RSA-AES128-GCM-SHA256"
+          (TLS 1.2) or "TLS_AES_256_GCM_SHA384" (TLS 1.3); empty when TLSInUse=false.
+        type: string
+      TLSInUse:
+        description: |-
+          TLSInUse is empirical, not config-derived: this diagnostic connection itself was opened
+          with tls=preferred (TLS attempted first, plaintext only as fallback), so TLSInUse=false
+          means the server doesn't offer TLS at all — independent of RequireSecureTransport/Enforced,
+          which only say whether TLS is mandatory, not whether it's available.
+        type: boolean
+    type: object
   spider.RemainedErrorInfo:
     properties:
       ErrorMsg:
@@ -390,6 +475,57 @@ definitions:
         default: '*'
         description: 1-12, *
         type: string
+    type: object
+  spider.DBSpecInfo:
+    description: Database Instance Spec Information for CSP-specific DBSpec values
+    properties:
+      DBEngine:
+        description: mysql | mariadb | postgresql — engine this spec applies to
+        example: mysql
+        type: string
+      DataSource:
+        additionalProperties:
+          $ref: '#/definitions/spider.RDBMSDataSource'
+        description: |-
+          DataSource records, per field name, whether that field's value was obtained live
+          from the CSP API ("API") or is a fixed/unconvertible value ("Static") for this
+          response. A field with no entry here is "API". Same convention as RDBMSMetaInfo.
+        type: object
+      DataSourceNotes:
+        additionalProperties:
+          type: string
+        type: object
+      KeyValueList:
+        description: CSP-specific extras (e.g. raw source value/unit, IOPS, architecture,
+          reference price)
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MemSizeMiB:
+        description: Memory size in MiB. "-1" when the CSP's native unit cannot be
+          objectively confirmed (see DataSourceNotes)
+        example: "4096"
+        type: string
+      Name:
+        description: CSP original spec/class/flavor name
+        example: db.t3.medium
+        type: string
+      Region:
+        description: Region where this spec is orderable
+        example: us-east-1
+        type: string
+      StorageSizeRangeGB:
+        allOf:
+        - $ref: '#/definitions/spider.StorageSizeRange'
+        description: |-
+          StorageSizeRangeGB is the valid StorageSize range (GB) the caller may request for
+          THIS spec when creating a database instance — NOT a disk built into the spec.
+          {-1,-1} means "no per-spec constraint known" (falls back to RDBMSMetaInfo.StorageSizeRangeGB).
+      VCpu:
+        allOf:
+        - $ref: '#/definitions/spider.VCpuInfo'
+        description: CPU details. Count is "-1" when the CSP does not expose it and
+          no objective cross-service basis exists to derive it
     type: object
   spider.DiskInfo:
     properties:
@@ -1385,13 +1521,13 @@ definitions:
         description: e.g., "8.0", "10.6", "15"
         example: "8.0"
         type: string
-      DBInstanceSpec:
-        description: Instance Spec
-        example: db.t3.medium
-        type: string
       DBInstanceType:
         description: Primary | ReadReplica (for response)
         example: Primary
+        type: string
+      DBSpec:
+        description: Instance Spec
+        example: db.t3.medium
         type: string
       DeletionProtection:
         default: false
@@ -1431,6 +1567,19 @@ definitions:
       MasterUserPassword:
         description: Master user password (for Create request only)
         type: string
+      NHNAutoOpenDBSecurityGroup:
+        default: false
+        description: |-
+          NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true together with
+          PublicAccess=true, CB-Spider auto-creates a fully-open (0.0.0.0/0) NHN
+          Cloud RDS DB Security Group, attaches it at creation, and deletes it
+          automatically when the instance is deleted. Ignored by every other CSP.
+          SecurityGroupNames/SecurityGroupIIDs is not used for NHN Cloud RDBMS at
+          all: NHN Cloud RDS DB Security Groups are a resource type separate from
+          the VPC/Neutron security group CB-Spider manages, so when this flag is
+          false (the default), you must create one yourself via the NHN Cloud
+          console or API and attach it to the instance for external SQL access.
+        type: boolean
       PublicAccess:
         default: false
         description: Access
@@ -1473,7 +1622,7 @@ definitions:
     required:
     - DBEngine
     - DBEngineVersion
-    - DBInstanceSpec
+    - DBSpec
     - IId
     - MasterUserName
     - Status
@@ -1491,9 +1640,9 @@ definitions:
         description: Requested DB engine name. e.g., mysql, mariadb, postgresql
         example: mysql
         type: string
-      DBInstanceSpecOptions:
-        description: Available DBInstanceSpec values for the requested DB engine.
-          "NA" if CSP does not provide spec list API.
+      DBSpecOptions:
+        description: Available DBSpec values for the requested DB engine. "NA" if
+          CSP does not provide spec list API.
         example:
         - db.t3.medium
         - "1000"
@@ -1504,8 +1653,8 @@ definitions:
         additionalProperties:
           $ref: '#/definitions/spider.RDBMSDataSource'
         description: |-
-          DataSource records, per field name (e.g. "StorageTypeOptions", "StorageSizeRange",
-          or "StorageSizeRange.Min"/"StorageSizeRange.Max" for a partially-static range),
+          DataSource records, per field name (e.g. "StorageTypeOptions", "StorageSizeRangeGB",
+          or "StorageSizeRangeGB.Min"/"StorageSizeRangeGB.Max" for a partially-static range),
           whether that field's value above was obtained live from the CSP API ("API") or is
           a fixed value ("Static") for this response. A field with no entry here is "API".
         type: object
@@ -1523,10 +1672,13 @@ definitions:
       RequiresSubnet:
         description: true if SubnetNames is required at creation
         type: boolean
-      StorageSizeRange:
+      StorageSizeRangeGB:
         allOf:
         - $ref: '#/definitions/spider.StorageSizeRange'
-        description: Min/Max storage size in GB for the requested DB engine
+        description: Min/Max storage size in decimal GB (10^9 bytes) for the requested
+          DB engine. Converted from the CSP's native unit when that unit is objectively
+          known (see GiBToGB); left unconverted, with a DataSourceNotes caveat, when
+          the native unit cannot be confirmed.
       StorageTypeOptions:
         description: Available storage types for the requested DB engine
         example:
@@ -2688,6 +2840,13 @@ definitions:
     type: object
   spider.ClusterTokenStatus:
     properties:
+      expirationTimestamp:
+        description: |-
+          ExpirationTimestamp is when the token stops being accepted, in RFC3339.
+          It is omitted when the CSP provides no expiry information, which the spec allows:
+          clients then keep the credential until a 401 forces a refresh.
+        example: "2026-09-02T05:15:00Z"
+        type: string
       token:
         example: k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA...
         type: string
@@ -2724,6 +2883,15 @@ definitions:
         type: integer
     required:
     - count
+    type: object
+  spider.DBSpecListResponse:
+    properties:
+      dbspec:
+        items:
+          $ref: '#/definitions/spider.DBSpecInfo'
+        type: array
+    required:
+    - dbspec
     type: object
   spider.DiskAttachRequest:
     properties:
@@ -2857,6 +3025,9 @@ definitions:
       clusterHandler:
         description: 'support: true, do not support: false'
         type: boolean
+      dbspecHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
       diskHandler:
         description: 'support: true, do not support: false'
         type: boolean
@@ -2891,6 +3062,15 @@ definitions:
         description: 'support: true, do not support: false'
         type: boolean
       rdbmshandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      rdbmsmariaDBHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      rdbmsmySQLHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      rdbmspostgreSQLHandler:
         description: 'support: true, do not support: false'
         type: boolean
       regionZoneHandler:
@@ -3571,6 +3751,15 @@ definitions:
     - Port
     - Protocol
     type: object
+  spider.OriginalDBSpecListResponse:
+    properties:
+      DBSpecInfo:
+        additionalProperties: true
+        description: CSP-specific JSON format
+        type: object
+    required:
+    - DBSpecInfo
+    type: object
   spider.OriginalRegionListResponse:
     properties:
       RegionInfo:
@@ -3796,7 +3985,7 @@ definitions:
           DBEngineVersion:
             example: "8.0"
             type: string
-          DBInstanceSpec:
+          DBSpec:
             example: db.t3.medium
             type: string
           DeletionProtection:
@@ -3818,6 +4007,18 @@ definitions:
           MasterUserPassword:
             example: password123!
             type: string
+          NHNAutoOpenDBSecurityGroup:
+            default: false
+            description: |-
+              NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.
+              When true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)
+              NHN Cloud RDS DB Security Group, and deletes it automatically when the
+              instance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does
+              not use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup
+              instead); if this flag is false (default), create and attach a DB
+              Security Group yourself via the NHN Cloud console/API for external
+              SQL access.
+            type: boolean
           Name:
             example: rdbms-01
             type: string
@@ -3856,7 +4057,7 @@ definitions:
         required:
         - DBEngine
         - DBEngineVersion
-        - DBInstanceSpec
+        - DBSpec
         - MasterUserName
         - MasterUserPassword
         - Name
@@ -3889,6 +4090,15 @@ definitions:
         type: string
     required:
     - ConnectionName
+    type: object
+  spider.RDBMSEngineListResponse:
+    properties:
+      rdbmsengine:
+        items:
+          type: string
+        type: array
+    required:
+    - rdbmsengine
     type: object
   spider.RDBMSListResponse:
     properties:
@@ -4397,6 +4607,11 @@ definitions:
         type: string
       ReqInfo:
         properties:
+          AssignPublicIP:
+            description: 'nil or true: assign a Public IP at creation (default, current
+              behavior). false: do not assign.'
+            example: true
+            type: boolean
           DataDiskNames:
             description: Data disks in the same zone as this VM
             example:
@@ -7280,6 +7495,177 @@ paths:
       summary: Delete CSP VPC
       tags:
       - '[VPC Management]'
+  /dborgspec:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Original Database instance specs for a specific
+        DB engine, associated with a specific connection. <br> The response structure
+        may vary depending on the requested CSP.
+      operationId: list-org-db-spec
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Dynamic JSON structure representing the list of Original Database
+            instance specs
+          schema:
+            $ref: '#/definitions/spider.OriginalDBSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Original Database Instance Specs
+      tags:
+      - '[Cloud Metadata] DB Spec'
+  /dborgspec/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Original Database instance spec.
+      operationId: get-org-db-spec
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      - description: The name of the DB instance spec to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Original Database instance spec
+          schema:
+            $ref: '#/definitions/spider.OriginalDBSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Original Database Instance Spec
+      tags:
+      - '[Cloud Metadata] DB Spec'
+  /dbspec:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Database instance specs (vCPU/Memory/StorageSize
+        details) for a specific DB engine, associated with a specific connection.
+      operationId: list-db-spec
+      parameters:
+      - description: The name of the Connection to list DB instance specs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Database instance specs
+          schema:
+            $ref: '#/definitions/spider.DBSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Database Instance Specs
+      tags:
+      - '[Cloud Metadata] DB Spec'
+  /dbspec/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details (vCPU/Memory/StorageSize) of a specific Database
+        instance spec.
+      operationId: get-db-spec
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: 'DB engine name: mysql, mariadb, or postgresql'
+        in: query
+        name: DBEngine
+        required: true
+        type: string
+      - description: The name of the DB instance spec to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Database instance spec
+          schema:
+            $ref: '#/definitions/spider.DBSpecInfo'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Database Instance Spec
+      tags:
+      - '[Cloud Metadata] DB Spec'
   /destroy:
     delete:
       consumes:
@@ -10240,6 +10626,85 @@ paths:
       summary: Delete Database in RDBMS
       tags:
       - '[RDBMS Management]'
+  /rdbms/{Name}/secure-transport:
+    get:
+      consumes:
+      - application/json
+      description: 'Report whether an RDBMS instance enforces encrypted (TLS/SSL)
+        client connections, whether TLS is actually available, and its CA certificate.
+        <br> Determined uniformly across every CSP via standard SQL and protocol handshakes
+        against the engine itself, not each CSP''s own (inconsistently available)
+        management API: <br> MySQL/MariaDB: `SHOW VARIABLES LIKE ''require_secure_transport''`.
+        <br> PostgreSQL: `pg_hba_file_rules`. <br> TLS availability and the server''s
+        certificate are captured live from the connection/handshake itself — see the
+        response fields below.'
+      operationId: get-rdbms-secure-transport
+      parameters:
+      - description: The name of the RDBMS instance
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The master user password, used to connect and run the SQL check
+        in: query
+        name: MasterUserPassword
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Secure transport status
+          schema:
+            $ref: '#/definitions/spider.RDBMSSecureTransportInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get RDBMS Secure Transport Status
+      tags:
+      - '[RDBMS Management]'
+  /rdbmsengine:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the list of RDBMS engines (e.g., mysql, mariadb, postgresql)
+        that the CSP supports for a specific connection, derived from the connection's
+        driver capability information (GET /driver/capability).
+      operationId: list-rdbms-engine
+      parameters:
+      - description: The name of the Connection to list supported RDBMS engines for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of RDBMS engines supported by the CSP
+          schema:
+            $ref: '#/definitions/spider.RDBMSEngineListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List RDBMS Engines
+      tags:
+      - '[RDBMS Management]'
   /rdbmsmetainfo:
     get:
       consumes:
@@ -12618,7 +13083,8 @@ paths:
       - application/json
       description: |-
         Retrieve a list of tags for a specified resource.
-        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+        ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
       operationId: list-tag
       parameters:
       - description: Connection Name. ex) aws-connection
@@ -12666,7 +13132,8 @@ paths:
       - application/json
       description: |-
         Add a tag to a specified resource.
-        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+        ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
       operationId: add-tag
       parameters:
       - description: Request body for adding a tag
@@ -12704,7 +13171,8 @@ paths:
       - application/json
       description: |-
         Remove a specific tag from a specified resource.
-        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+        ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
       operationId: remove-tag
       parameters:
       - description: Request body for removing a specific tag
@@ -12746,7 +13214,8 @@ paths:
       - application/json
       description: |-
         Retrieve a specific tag for a specified resource.
-        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS
+        ※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use
       operationId: get-tag
       parameters:
       - description: Connection Name. ex) aws-connection
@@ -13054,6 +13523,149 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get VM
+      tags:
+      - '[VM Management]'
+  /vm/{Name}/publicip:
+    delete:
+      consumes:
+      - application/json
+      description: "Disassociate and DELETE the PublicIP that was assigned via AssignVMDefaultPublicIP.
+        Fails if the VM has no default PublicIP assigned. \U0001F577️"
+      operationId: unassign-vm-default-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for unassigning the default PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unassign operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unassign Default PublicIP from a VM
+      tags:
+      - '[VM Management]'
+    post:
+      consumes:
+      - application/json
+      description: "Create a new PublicIP and attach it to the VM's default NIC (nic0)
+        - the same effect as creating the VM with AssignPublicIP=true. Fails if the
+        VM already has a default PublicIP. \U0001F577️"
+      operationId: assign-vm-default-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for assigning a default PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the assigned PublicIP
+          schema:
+            $ref: '#/definitions/spider.PublicIPInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Assign Default PublicIP to a VM
+      tags:
+      - '[VM Management]'
+  /vm/{Name}/publicip/{PublicIPName}:
+    delete:
+      consumes:
+      - application/json
+      description: "Detach a PublicIP previously attached via AttachVMPublicIP, WITHOUT
+        deleting the PublicIP resource itself (it belongs to the user). Fails if the
+        VM has no default PublicIP assigned. \U0001F577️"
+      operationId: detach-vm-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the PublicIP to detach
+        in: path
+        name: PublicIPName
+        required: true
+        type: string
+      - description: Request body for detaching the PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the detach operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Detach a PublicIP from a VM
+      tags:
+      - '[VM Management]'
+    put:
+      consumes:
+      - application/json
+      description: "Attach a PublicIP that was previously created via the PublicIP
+        Manager (POST /publicip) to the VM's default NIC (nic0). Fails if the VM already
+        has a default PublicIP. \U0001F577️"
+      operationId: attach-vm-publicip
+      parameters:
+      - description: The name of the VM
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the existing PublicIP to attach
+        in: path
+        name: PublicIPName
+        required: true
+        type: string
+      - description: Request body for attaching the PublicIP
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the attached PublicIP
+          schema:
+            $ref: '#/definitions/spider.PublicIPInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Attach an existing PublicIP to a VM
       tags:
       - '[VM Management]'
   /vm/imagespecfavorite:

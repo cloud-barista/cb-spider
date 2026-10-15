@@ -689,10 +689,12 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 	callLogStart := call.Start()
 
-	result, err := NLBHandler.Client.DescribeLoadBalancers(input)
+	var loadBalancers []*elbv2.LoadBalancer
+	err := NLBHandler.Client.DescribeLoadBalancersPages(input, func(page *elbv2.DescribeLoadBalancersOutput, lastPage bool) bool {
+		loadBalancers = append(loadBalancers, page.LoadBalancers...)
+		return !lastPage
+	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-
-	cblogger.Debug(result)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -715,7 +717,7 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	callogger.Info(call.String(callLogInfo))
 
 	var results []*irs.NLBInfo
-	for _, curNLB := range result.LoadBalancers {
+	for _, curNLB := range loadBalancers {
 		if !strings.EqualFold(*curNLB.Type, "network") {
 			cblogger.Infof("%s Load balancer is not under management, so it is skipped - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
 			continue
@@ -1796,7 +1798,18 @@ func (NLBHandler *AwsNLBHandler) ListIID() ([]*irs.IID, error) {
 	callLogInfo := GetCallLogScheme(NLBHandler.Region, call.NLB, "ListIID", "DescribeLoadBalancers()")
 	start := call.Start()
 
-	result, err := NLBHandler.Client.DescribeLoadBalancers(input)
+	err := NLBHandler.Client.DescribeLoadBalancersPages(input, func(page *elbv2.DescribeLoadBalancersOutput, lastPage bool) bool {
+		for _, curNLB := range page.LoadBalancers {
+			// if !strings.EqualFold(*curNLB.Type, "network") {
+			// 	cblogger.Infof("%s Load balancer is not under management, so it is skipped - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
+			// 	continue
+			// }
+
+			iid := irs.IID{SystemId: *curNLB.LoadBalancerArn}
+			iidList = append(iidList, &iid)
+		}
+		return !lastPage
+	})
 	callLogInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -1805,16 +1818,6 @@ func (NLBHandler *AwsNLBHandler) ListIID() ([]*irs.IID, error) {
 		return nil, err
 	}
 	calllogger.Info(call.String(callLogInfo))
-
-	for _, curNLB := range result.LoadBalancers {
-		// if !strings.EqualFold(*curNLB.Type, "network") {
-		// 	cblogger.Infof("%s Load balancer is not under management, so it is skipped - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
-		// 	continue
-		// }
-
-		iid := irs.IID{SystemId: *curNLB.LoadBalancerArn}
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

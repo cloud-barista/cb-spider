@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,6 +19,30 @@ import (
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
 )
+
+// driverCapabilityCluster is the subset of DriverCapabilityInfo needed to tell whether this
+// connection's CSP driver supports Cluster at all (e.g. KT does not).
+type driverCapabilityCluster struct {
+	ClusterHandler bool `json:"ClusterHandler"`
+}
+
+// isClusterSupported reports whether connConfig's CSP driver supports Cluster, so the Cluster
+// Management page can say so up front instead of silently showing an empty list that looks
+// the same as "no cluster created yet". Fails open (true) if the capability lookup itself
+// fails, so a hiccup there doesn't hide the page's real content.
+func isClusterSupported(connConfig string) bool {
+	resBody, err := getResourceList_JsonByte("driver/capability?ConnectionName=" + url.QueryEscape(connConfig))
+	if err != nil {
+		cblog.Warnf("ClusterManagement: failed to load driver capability for %s: %v", connConfig, err)
+		return true
+	}
+	var capability driverCapabilityCluster
+	if err := json.Unmarshal(resBody, &capability); err != nil {
+		cblog.Warnf("ClusterManagement: failed to parse driver capability for %s: %v", connConfig, err)
+		return true
+	}
+	return capability.ClusterHandler
+}
 
 func fetchClusters(connConfig string) ([]*cres.ClusterInfo, error) {
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "cluster")
@@ -63,6 +88,11 @@ func ClusterManagement(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	providerName, err := getProviderName(connConfig)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
 	clusters, err := fetchClusters(connConfig)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -71,15 +101,19 @@ func ClusterManagement(c echo.Context) error {
 	data := struct {
 		ConnectionConfig string
 		RegionName       string
+		ProviderName     string
 		Clusters         []*cres.ClusterInfo
 		APIUsername      string
 		APIPassword      string
+		ClusterSupported bool
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
+		ProviderName:     providerName,
 		Clusters:         clusters,
 		APIUsername:      os.Getenv("SPIDER_USERNAME"),
 		APIPassword:      os.Getenv("SPIDER_PASSWORD"),
+		ClusterSupported: isClusterSupported(connConfig),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/cluster.html")

@@ -377,3 +377,57 @@ func (h *OpenStackPublicIPHandler) getVMPortID(vmIID irs.IID) (string, error) {
 	}
 	return portList[0].ID, nil
 }
+
+// RemoveDefaultPublicIP removes whatever FloatingIP is currently attached to
+// the VM's port, discovered live via Neutron (regardless of whether it was
+// ever tracked as a separate CB-Spider PublicIP resource): disassociate
+// (PortID -> nil) then delete. Mirrors the same discovery+cleanup logic
+// vmCleaner uses on termination, minus the VM deletion itself. Works on a
+// running VM - no stop/restart required.
+func (h *OpenStackPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.NetworkClient.IdentityEndpoint, call.PUBLICIP, vmIID.NameId, "RemoveDefaultPublicIP()")
+	start := call.Start()
+
+	portID, err := h.getVMPortID(vmIID)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	pager, err := layer3floatingips.List(h.NetworkClient, layer3floatingips.ListOpts{PortID: portID}).AllPages(context.TODO())
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	fipList, err := layer3floatingips.ExtractFloatingIPs(pager)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if len(fipList) == 0 {
+		err := fmt.Errorf("no FloatingIP found attached to VM %s", vmIID.NameId)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	for _, fip := range fipList {
+		emptyPort := ""
+		if _, err := layer3floatingips.Update(context.TODO(), h.NetworkClient, fip.ID, layer3floatingips.UpdateOpts{PortID: &emptyPort}).Extract(); err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+		if err := layer3floatingips.Delete(context.TODO(), h.NetworkClient, fip.ID).ExtractErr(); err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return false, err
+		}
+	}
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}

@@ -62,6 +62,8 @@ type VMReqInfo struct {
 	VMUserPasswd string
 	WindowsType  bool
 
+	AssignPublicIP *bool // nil or true: assign a Public IP at creation (default, current behavior). false: do not assign.
+
 	TagList []KeyValue
 }
 

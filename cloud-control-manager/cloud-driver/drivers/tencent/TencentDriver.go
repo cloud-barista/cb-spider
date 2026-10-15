@@ -69,6 +69,10 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPC_CIDR = true
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.DBSpecHandler = true
+	drvCapabilityInfo.RDBMSMySQLHandler = true
+	drvCapabilityInfo.RDBMSMariaDBHandler = false    // not implemented: Tencent CDB API rejects mariadb
+	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // not implemented
 	drvCapabilityInfo.PublicIPHandler = true
 
 	return drvCapabilityInfo

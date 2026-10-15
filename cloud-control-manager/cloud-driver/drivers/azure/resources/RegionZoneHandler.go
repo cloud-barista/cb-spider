@@ -83,6 +83,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.Region
 					if err != nil {
 						zoneErrorOccurred = true
 						wait.Done()
+						return
 					}
 
 					for _, sku := range page.Value {

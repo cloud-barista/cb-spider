@@ -5,7 +5,7 @@
 #       Its Global Catalog plans ("standard" / "standard-gen2") select the
 #       Gen1 vs Gen2 platform generation, not a storage type - IBM Cloud
 #       Databases only lets you configure disk SIZE and host_flavor
-#       (DBInstanceSpec), never the underlying storage media/type.
+#       (DBSpec), never the underlying storage media/type.
 #       CB-Spider only provisions Gen1 ("standard").
 #       SupportsStorageTypeSelection=false in GetMetaInfo.
 

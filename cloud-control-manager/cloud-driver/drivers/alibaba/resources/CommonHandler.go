@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -391,6 +392,8 @@ func DescribeInstances(client *ecs.Client, regionInfo idrv.RegionInfo, vmIIDs []
 		}
 		request.InstanceIds = string(vmsJson)
 	}
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(100)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -404,12 +407,29 @@ func DescribeInstances(client *ecs.Client, regionInfo idrv.RegionInfo, vmIIDs []
 		ErrorMSG:     "",
 	}
 
+	var instances []ecs.Instance
+	curPage := 1
 	callLogStart := call.Start()
-	response, err := client.DescribeInstances(request)
+	for {
+		response, err := client.DescribeInstances(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			return nil, err
+		}
+
+		instances = append(instances, response.Instances.Instance...)
+		if len(instances) >= response.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
-	return response.Instances.Instance, err
+	return instances, nil
 }
 
 /*
@@ -497,15 +517,26 @@ func DescribeImages(client *ecs.Client, regionInfo idrv.RegionInfo, imageIIDs []
 	if isMyImage {
 		request.ImageOwnerAlias = "self"
 	}
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(100)
 
-	//cblogger.Debug(request)
-	result, err := client.DescribeImages(request)
-	if err != nil {
-		return nil, err
+	var images []ecs.Image
+	curPage := 1
+	for {
+		result, err := client.DescribeImages(request)
+		if err != nil {
+			return nil, err
+		}
+
+		images = append(images, result.Images.Image...)
+		if len(images) >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
 	}
 
-	//cblogger.Debug(result)
-	return result.Images.Image, nil
+	return images, nil
 }
 
 func DescribeImagesIdOnly(client *ecs.Client, regionInfo idrv.RegionInfo, isMyImage bool) ([]*irs.IID, error) {
@@ -1581,26 +1612,37 @@ func aliEcsTagList(Client *ecs.Client, regionInfo idrv.RegionInfo, alibabaResour
 	if keyword != "" {
 		queryParams["Tag.1.Key"] = keyword
 	}
+	queryParams["PageSize"] = "50"
 
+	var aliTagResources []AliTagResource
+	pageNumber := 1
 	start := call.Start()
-	response, err := CallEcsRequest(resType, Client, regionInfo, "DescribeResourceByTags", queryParams)
+	for {
+		queryParams["PageNumber"] = strconv.Itoa(pageNumber)
+		response, err := CallEcsRequest(resType, Client, regionInfo, "DescribeResourceByTags", queryParams)
+		if err != nil {
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			break
+		}
+		cblogger.Debug(response.GetHttpContentString())
+		resResources := AliTagResourcesResponse{}
+
+		tagResponseStr := response.GetHttpContentString()
+		if err := json.Unmarshal([]byte(tagResponseStr), &resResources); err != nil {
+			cblogger.Error(err.Error())
+			break
+		}
+
+		aliTagResources = append(aliTagResources, resResources.AliTagResources.Resources...)
+		if len(aliTagResources) >= resResources.TotalCount {
+			break
+		}
+		pageNumber++
+	}
 	LoggingInfo(hiscallInfo, start)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-	}
-	cblogger.Debug(response.GetHttpContentString())
-	resResources := AliTagResourcesResponse{}
 
-	tagResponseStr := response.GetHttpContentString()
-	err = json.Unmarshal([]byte(tagResponseStr), &resResources)
-
-	if err != nil {
-		cblogger.Error(err.Error())
-		return tagInfo, nil
-	}
-
-	for _, aliTagResource := range resResources.AliTagResources.Resources {
+	for _, aliTagResource := range aliTagResources {
 
 		cblogger.Debug("aliTagResource ", aliTagResource)
 		aTagInfo, err := ExtractTagResourceInfo(&aliTagResource)
@@ -1662,27 +1704,37 @@ func aliVpcTagList(VpcClient *vpc.Client, regionInfo idrv.RegionInfo, alibabaRes
 	queryParams := map[string]string{}
 	queryParams["RegionId"] = regionID
 	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
+	queryParams["PageSize"] = "50"
 
+	var vpcs []Vpc
+	pageNumber := 1
 	start := call.Start()
+	for {
+		queryParams["PageNumber"] = strconv.Itoa(pageNumber)
+		response, err := CallVpcRequest(resType, VpcClient, regionInfo, "DescribeVpcs", queryParams)
+		if err != nil {
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			break
+		}
+		cblogger.Debug(response.GetHttpContentString())
+		resResources := DescribeVpcsResponse{}
 
-	response, err := CallVpcRequest(resType, VpcClient, regionInfo, "DescribeVpcs", queryParams)
+		tagResponseStr := response.GetHttpContentString()
+		if err := json.Unmarshal([]byte(tagResponseStr), &resResources); err != nil {
+			cblogger.Error(err.Error())
+			break
+		}
+
+		vpcs = append(vpcs, resResources.Vpcs.Vpc...)
+		if len(vpcs) >= resResources.TotalCount {
+			break
+		}
+		pageNumber++
+	}
 	LoggingInfo(hiscallInfo, start)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-	}
-	cblogger.Debug(response.GetHttpContentString())
-	resResources := DescribeVpcsResponse{}
 
-	tagResponseStr := response.GetHttpContentString()
-	err = json.Unmarshal([]byte(tagResponseStr), &resResources)
-
-	if err != nil {
-		cblogger.Error(err.Error())
-		return tagInfo, nil
-	}
-
-	for _, vpc := range resResources.Vpcs.Vpc {
+	for _, vpc := range vpcs {
 		for _, tag := range vpc.Tags.Tag {
 			aliTagResource := AliTagResource{
 				ResourceType: "VPC",
@@ -1709,25 +1761,37 @@ func aliSubnetTagList(VpcClient *vpc.Client, regionInfo idrv.RegionInfo, alibaba
 	queryParams := map[string]string{}
 	queryParams["RegionId"] = regionID
 	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
+	queryParams["PageSize"] = "50"
 
+	var vswitches []VSwitch
+	pageNumber := 1
 	start := call.Start()
-	response, err := CallVpcRequest(resType, VpcClient, regionInfo, "DescribeVSwitches", queryParams)
+	for {
+		queryParams["PageNumber"] = strconv.Itoa(pageNumber)
+		response, err := CallVpcRequest(resType, VpcClient, regionInfo, "DescribeVSwitches", queryParams)
+		if err != nil {
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			break
+		}
+		cblogger.Debug(response.GetHttpContentString())
+		resResources := DescribeVSwitchesResponse{}
+
+		tagResponseStr := response.GetHttpContentString()
+		if err := json.Unmarshal([]byte(tagResponseStr), &resResources); err != nil {
+			cblogger.Error("Failed to unmarshal response: ", err)
+			break
+		}
+
+		vswitches = append(vswitches, resResources.VSwitches.VSwitch...)
+		if len(vswitches) >= resResources.TotalCount {
+			break
+		}
+		pageNumber++
+	}
 	LoggingInfo(hiscallInfo, start)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-	}
-	cblogger.Debug(response.GetHttpContentString())
-	resResources := DescribeVSwitchesResponse{}
 
-	tagResponseStr := response.GetHttpContentString()
-	err = json.Unmarshal([]byte(tagResponseStr), &resResources)
-
-	if err != nil {
-		cblogger.Error("Failed to unmarshal response: ", err)
-	}
-
-	for _, vswitch := range resResources.VSwitches.VSwitch {
+	for _, vswitch := range vswitches {
 		if len(vswitch.Tags.Tag) == 0 {
 			continue
 		}

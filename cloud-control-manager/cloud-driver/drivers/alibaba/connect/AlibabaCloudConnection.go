@@ -225,8 +225,13 @@ func (cloudConn *AlibabaCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler,
 	return &rdbmsHandler, nil
 }
 
+func (cloudConn *AlibabaCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := alirs.AlibabaRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient}
+	return &handler, nil
+}
+
 func (cloudConn *AlibabaCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreatePublicIPHandler()!")
-	handler := alirs.AlibabaPublicIPHandler{Region: cloudConn.Region, VpcClient: cloudConn.VpcClient}
+	handler := alirs.AlibabaPublicIPHandler{Region: cloudConn.Region, VpcClient: cloudConn.VpcClient, EcsClient: cloudConn.VMClient}
 	return &handler, nil
 }

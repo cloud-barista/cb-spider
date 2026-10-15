@@ -79,6 +79,10 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.FileSystemHandler = true
 	drvCapabilityInfo.QuotaInfoHandler = true
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.DBSpecHandler = true
+	drvCapabilityInfo.RDBMSMySQLHandler = true
+	drvCapabilityInfo.RDBMSMariaDBHandler = true
+	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = true
 
 	drvCapabilityInfo.TagHandler = true

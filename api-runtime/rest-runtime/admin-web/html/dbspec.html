@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DBSpec List</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        padding-top: 42px; /* to avoid content being hidden behind the fixed search bar */
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 0;
+        font-size: 12px;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 4px 8px;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .column-specname {
+        width: 18%;
+        text-align: center;
+    }
+    .column-vcpuinfo {
+        width: 10%;
+        text-align: left;
+        padding-left: 0.2cm;
+    }
+    .column-meminfo {
+        width: 10%;
+        text-align: center;
+    }
+    .column-storageinfo {
+        width: 12%;
+        text-align: center;
+    }
+    .column-Misc {
+        width: 45%;
+        text-align: left;
+    }
+
+    #searchInputWrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        padding: 10px 10px;
+        border-bottom: 1px solid #ccc;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+    }
+
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+
+    #dbEngineSelect {
+        margin-left: 20px;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        padding: 3px 6px;
+    }
+
+    /* Same error popup style/behavior as quota-info.html, for a consistent UX when a CSP
+       doesn't support DBSpecHandler (or the requested engine) at all. */
+    .error-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.35);
+        z-index: 3000;
+        justify-content: center;
+        align-items: center;
+    }
+    .error-modal.active {
+        display: flex;
+    }
+    .error-modal-content {
+        width: min(680px, calc(100% - 40px));
+        max-height: 70vh;
+        background: #fff;
+        border: 1px solid #666;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        padding: 16px;
+        overflow: auto;
+    }
+    .error-modal-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #b00020;
+    }
+    .error-modal-message {
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.5;
+    }
+    .error-modal-actions {
+        margin-top: 14px;
+        text-align: right;
+    }
+    .error-modal-actions button {
+        padding: 4px 12px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+</style>
+<script>
+    function onDBEngineChange(sel) {
+        // This page lives inside main.html's body_frame iframe. main.html already shows a
+        // progress bar on the initial top-menu click (selectMainMenu()) and hides it via the
+        // iframe's onload handler, but that handler is only ARMED by that initial click — it
+        // isn't re-triggered just because this page navigates itself. Ask the parent to show
+        // the bar again here; the existing onload handler still fires (and hides it) once
+        // this navigation completes, however long the CSP call behind it takes.
+        if (window.parent) {
+            window.parent.postMessage({ type: 'showProgressBar' }, '*');
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.set('DBEngine', sel.value);
+        window.location.href = url.toString();
+    }
+
+    function searchKeyword() {
+        var input, filter, table, tr, td, i, j, txtValue;
+        input = document.getElementById("searchInput");
+        filter = input.value.toUpperCase();
+        table = document.getElementsByTagName("table")[0];
+        if (!table) { return; }
+        tr = table.getElementsByTagName("tr");
+
+        for (i = 1; i < tr.length; i++) {
+            tr[i].style.display = "none";
+            td = tr[i].getElementsByTagName("td");
+            for (j = 0; j < td.length; j++) {
+                if (td[j]) {
+                    txtValue = td[j].textContent || td[j].innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        searchKeyword();
+    }
+
+    function showErrorModal(title, message) {
+        document.getElementById("errorModalTitle").textContent = title || "Error";
+        document.getElementById("errorModalMessage").textContent = message || "Unknown error";
+        document.getElementById("errorModal").classList.add("active");
+    }
+
+    function hideErrorModal() {
+        document.getElementById("errorModal").classList.remove("active");
+    }
+
+    // The Go handler already renders this page server-side (no AJAX round-trip like
+    // Quota's), so any error is already baked into the HTML by the time this script runs.
+    // Like Quota, the error is surfaced only through this popup — the table area underneath
+    // stays empty rather than also repeating the message inline.
+    var dbSpecHasError = {{if .ErrMessage}}true{{else}}false{{end}};
+    var dbSpecErrMessage = "{{.ErrMessage}}";
+    var dbSpecDBEngine = "{{.DBEngine}}";
+    document.addEventListener("DOMContentLoaded", function() {
+        if (dbSpecHasError) {
+            showErrorModal("DBSpec not available", "DBEngine \"" + dbSpecDBEngine + "\": " + dbSpecErrMessage);
+        }
+    });
+</script>
+</head>
+<body>
+<div id="searchInputWrapper">
+    <div class="searchContainer">
+        <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+        <button id="clearSearch" onclick="clearSearchInput()">X</button>
+    </div>
+    <select id="dbEngineSelect" onchange="onDBEngineChange(this)">
+        <option value="mysql" {{if eq .DBEngine "mysql"}}selected{{end}} {{if not (index .EngineSupport "mysql")}}disabled{{end}}>mysql</option>
+        <option value="mariadb" {{if eq .DBEngine "mariadb"}}selected{{end}} {{if not (index .EngineSupport "mariadb")}}disabled{{end}}>mariadb</option>
+        <option value="postgresql" {{if eq .DBEngine "postgresql"}}selected{{end}} {{if not (index .EngineSupport "postgresql")}}disabled{{end}}>postgresql</option>
+    </select>
+</div>
+
+<div id="errorModal" class="error-modal" onclick="hideErrorModal()">
+    <div class="error-modal-content" onclick="event.stopPropagation()">
+        <div id="errorModalTitle" class="error-modal-title">Error</div>
+        <div id="errorModalMessage" class="error-modal-message"></div>
+        <div class="error-modal-actions">
+            <button type="button" onclick="hideErrorModal()">OK</button>
+        </div>
+    </div>
+</div>
+
+{{if not .ErrMessage}}
+<table>
+    <tr>
+        <th class="column-num">#</th>
+        <th class="column-specname">DBSpec Name</th>
+        <th>VCPU</th>
+        <th class="column-meminfo">Memory (MiB)</th>
+        <th class="column-storageinfo">StorageSize (GB)</th>
+        <th class="th-column-Misc">Misc</th>
+    </tr>
+    {{range $index, $spec := .DBSpecs}}
+    <tr>
+        <td class="column-num">{{$index | inc}}</td>
+        <td class="column-specname">{{$spec.Name}}</td>
+        <td class="column-vcpuinfo">
+            &nbsp;* Count: {{$spec.VCpu.Count}}<br>
+            &nbsp;* Clock: {{$spec.VCpu.ClockGHz}} GHz<br>
+        </td>
+        <td class="column-meminfo">{{$spec.MemSizeMiB}} MiB</td>
+        <td class="column-storageinfo">
+            {{if or (gt $spec.StorageSizeRangeGB.Min 0) (gt $spec.StorageSizeRangeGB.Max 0)}}
+                {{$spec.StorageSizeRangeGB.Min}} ~ {{$spec.StorageSizeRangeGB.Max}}
+            {{else}}
+                -
+            {{end}}
+        </td>
+        <td class="column-Misc">
+            {{range $kv := $spec.KeyValueList}}
+                &nbsp;* {{$kv.Key}}: {{$kv.Value}}<br>
+            {{end}}
+            {{range $field, $note := $spec.DataSourceNotes}}
+                &nbsp;* [Static: {{$field}}] {{$note}}<br>
+            {{end}}
+        </td>
+    </tr>
+    {{end}}
+</table>
+{{end}}
+</body>
+</html>

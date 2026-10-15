@@ -766,6 +766,9 @@
     .db-connect-status.error {
         color: #721c24;
     }
+    .db-connect-status.warn {
+        color: #856404;
+    }
     #db-table-panel, #db-row-panel {
         margin-top: 10px;
     }
@@ -894,6 +897,14 @@
         vertical-align: middle;
     }
 
+    /* Disabled state for Subnets/Security Groups dropdowns (CSPs that don't use them) */
+    .sg-custom-select.disabled .sg-selected-display {
+        background-color: #eee;
+        color: #999;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
     /* MetaInfo Reference Panel */
     #metaInfoPanel {
         background-color: #f0f7ff;
@@ -912,6 +923,16 @@
         grid-template-columns: 1fr 1fr;
         gap: 8px;
         font-size: 11px;
+    }
+    .metainfo-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #cfe2f3;
+        border-top: 2px solid #1a5276;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: middle;
     }
     .metainfo-item {
         background: white;
@@ -988,7 +1009,7 @@
 
     <div class="content">
         <div class="header-with-progress">
-            <button class="add-button" onclick="showOverlay()">+ RDBMS</button>
+            <button class="add-button" onclick="showOverlay()" {{if not .RDBMSSupported}}disabled title="This CSP does not support RDBMS"{{end}}>+ RDBMS</button>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
                 <span id="timeDisplay"></span>
@@ -1056,7 +1077,7 @@
                     <table class="inner-table">
                         <tr>
                             <th>Spec</th>
-                            <td>{{$rdbms.DBInstanceSpec}}</td>
+                            <td>{{$rdbms.DBSpec}}</td>
                         </tr>
                         <tr>
                             <th>Type</th>
@@ -1096,6 +1117,12 @@
                             <th>Public</th>
                             <td>{{if $rdbms.PublicAccess}}Yes{{else}}No{{end}}</td>
                         </tr>
+                        {{if eq $.ProviderName "NHN"}}
+                        <tr>
+                            <th>Auto-open DB SG</th>
+                            <td>{{if $rdbms.NHNAutoOpenDBSecurityGroup}}Yes{{else}}No{{end}}</td>
+                        </tr>
+                        {{end}}
                     </table>
                 </td>
 
@@ -1151,10 +1178,16 @@
             {{end}}
             {{if not .RDBMSs}}
             <tr>
-                <td colspan="11" class="center-align">No RDBMSs found for this connection.</td>
+                <td colspan="12" class="center-align">No RDBMSs found for this connection.</td>
             </tr>
             {{end}}
         </table>
+
+        {{if not .RDBMSSupported}}
+        <div style="margin: 12px 0; padding: 10px; background:#fdf0f0; border:1px solid #e0a0a0; color:#a02020; font-size:13px;">
+            The current CSP ({{.ProviderName}}) does not support RDBMS.
+        </div>
+        {{end}}
 
         <!-- DB Detail Panel (like S3 Object Panel) -->
         <div id="db-panel" style="display:none; border-top: 2px solid #ccc; margin-top: 20px; padding-top: 20px;">
@@ -1173,6 +1206,8 @@
                 <button id="dbConnectBtn" onclick="connectToDB()">Connect</button>
                 <button onclick="disconnectDB()">Disconnect</button>
                 <span id="dbConnectStatus" class="db-connect-status"></span>
+                <span id="dbSecureTransportStatus" class="db-connect-status"></span>
+                <a href="#" id="dbSecureTransportDetailsLink" style="display:none; margin-left:8px; font-size:11px;" onclick="showSecureTransportOverlay(); return false;">Details</a>
             </div>
 
             <!-- Database List Panel -->
@@ -1311,6 +1346,15 @@
         </div>
     </div>
 
+    <!-- Overlay: Secure Transport Details -->
+    <div id="secureTransportOverlay" class="overlay">
+        <div class="overlay-content" style="width: 640px;">
+            <button type="button" class="overlay-close-btn" onclick="hideSecureTransportOverlay()">X</button>
+            <h2>Secure Transport Details</h2>
+            <div id="stDetailBody" style="font-size: 12px; line-height: 1.7;"></div>
+        </div>
+    </div>
+
     <!-- Overlay: Add New RDBMS -->
     <div id="overlay" class="overlay">
         <div class="overlay-content" style="width: 520px;">
@@ -1340,7 +1384,12 @@
 
                 <!-- DB Engine -->
                 <fieldset class="info-group">
-                    <legend>DB Engine:</legend>
+                    <legend>DB Engine:
+                        <span id="dbEngineApplyingIndicator" style="display:none; font-weight: normal; font-size: 11px; color: #888; margin-left: 6px;">
+                            <span class="metainfo-spinner" style="width:10px; height:10px; border-width:2px;"></span>
+                            <span id="dbEngineApplyingText">Loading settings...</span>
+                        </span>
+                    </legend>
                     <div class="form-group">
                         <label for="dbEngine">Engine:</label>
                         <select id="dbEngine" name="dbEngine" required style="background-color: #E6E6FA; width: 65%;" onchange="loadRDBMSMetaInfo()">
@@ -1351,7 +1400,7 @@
                     </div>
                     <div class="form-group">
                         <label for="dbEngineVersion">Version:</label>
-                        <select id="dbEngineVersion" name="dbEngineVersion" required style="background-color: #F5F5DC; width: 65%;">
+                        <select id="dbEngineVersion" name="dbEngineVersion" required style="background-color: #F5F5DC; width: 65%;" onchange="syncMetaInfoTagSelection('version', 'dbEngineVersion')">
                             <option value="">Loading...</option>
                         </select>
                     </div>
@@ -1361,8 +1410,8 @@
                 <fieldset class="info-group">
                     <legend>Instance Spec:</legend>
                     <div class="form-group">
-                        <label for="dbInstanceSpec">Instance Spec:</label>
-                        <select id="dbInstanceSpec" name="dbInstanceSpec" required style="width: 65%;">
+                        <label for="dbSpec">Instance Spec:</label>
+                        <select id="dbSpec" name="dbSpec" required style="width: 65%;" onchange="syncMetaInfoTagSelection('spec', 'dbSpec')">
                             <option value="">Loading...</option>
                         </select>
                     </div>
@@ -1373,7 +1422,7 @@
                     </div>
                     <div class="form-group">
                         <label for="storageType">Storage Type:</label>
-                        <select id="storageType" name="storageType" style="width: 65%;">
+                        <select id="storageType" name="storageType" style="width: 65%;" onchange="syncMetaInfoTagSelection('storage', 'storageType')">
                             <option value="">Loading...</option>
                         </select>
                     </div>
@@ -1400,6 +1449,19 @@
                                 <span class="sg-dropdown-arrow">v</span>
                             </div>
                             <div class="sg-dropdown-list" id="sgDropdownList"></div>
+                        </div>
+                    </div>
+                    <div id="nhnAutoOpenDBSecurityGroupGroup" style="display:none;">
+                        <div class="form-group">
+                            <label for="nhnAutoOpenDBSecurityGroup">Auto-open DB SG:</label>
+                            <select id="nhnAutoOpenDBSecurityGroup" name="nhnAutoOpenDBSecurityGroup" style="background-color: #E6E6FA; width: 65%;">
+                                <option value="false">No</option>
+                                <option value="true" selected>Yes</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: -6px;">
+                            <label></label>
+                            <small style="flex: 2; text-align: left; color: #666;">NHN only. Requires Public Access = Yes. Auto-creates a fully-open (0.0.0.0/0) DB Security Group and deletes it automatically when the instance is deleted.</small>
                         </div>
                     </div>
                 </fieldset>
@@ -1429,7 +1491,7 @@
                     </div>
                     <div class="form-group">
                         <label for="publicAccess">Public Access:</label>
-                        <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;">
+                        <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;" onchange="updateSubnetFieldAvailability(); updateNHNAutoOpenSGAvailability()">
                             <option value="false">No</option>
                             <option value="true" selected>Yes</option>
                         </select>
@@ -1459,7 +1521,7 @@
                 <div class="form-group">
                     <label for="rdbms-tag-container">Tags:</label>
                     <div id="rdbms-tag-container"></div>
-                    <button type="button" onclick="addRDBMSTagField()">+</button>
+                    <button type="button" id="addRdbmsTagBtn" onclick="addRDBMSTagField()">+</button>
                 </div>
                 <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
                     <button type="submit">Add RDBMS</button>
@@ -1483,6 +1545,10 @@
             <span style="color:white; font-size:13px; font-weight:bold;">&#128203; RDBMS MetaInfo</span>
             <div style="display:flex; align-items:center; gap:8px;">
                 <span id="metaInfoSubtitle" style="color:#aed6f1; font-size:10px;"></span>
+                <span id="metaInfoCacheBadge" title="Showing cached data — click Refresh to re-fetch from the CSP"
+                    style="display:none; background:#f4d03f; color:#5d4600; border-radius:3px; padding:1px 5px; font-size:9px; font-weight:bold;">CACHED</span>
+                <button type="button" id="metaInfoRefreshBtn" onclick="refreshRDBMSMetaInfo()" title="Re-fetch MetaInfo, bypassing the cache"
+                    style="background:#2874a6; color:white; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:12px; font-weight:bold; line-height:1.4;">&#8635;</button>
                 <button type="button" onclick="hideMetaInfoOverlay()"
                     style="background:#c0392b; color:white; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:12px; font-weight:bold; line-height:1.4;">X</button>
             </div>
@@ -1528,6 +1594,10 @@
 
     let currentRequiresSubnet = false;
     let currentRequiresSecurityGroup = false;
+    // RequiresSubnet from the last-applied RDBMSMetaInfo, kept around so the
+    // Subnet field's disabled/required state can be recomputed on demand
+    // (e.g. when Public Access changes for Azure) without re-fetching MetaInfo.
+    let lastMetaInfoRequiresSubnet = false;
 
     // Helper function to create fetch options with Basic Auth if credentials are set
     function createFetchOptions(options = {}) {
@@ -1696,12 +1766,12 @@
         const vpcName = document.getElementById('vpcName').value.trim();
         const dbEngine = document.getElementById('dbEngine').value.trim();
         const dbEngineVersion = document.getElementById('dbEngineVersion').value.trim();
-        const dbInstanceSpec = document.getElementById('dbInstanceSpec').value.trim();
+        const dbSpec = document.getElementById('dbSpec').value.trim();
         const storageSize = document.getElementById('storageSize').value.trim();
         const masterUserName = document.getElementById('masterUserName').value.trim();
         const masterUserPassword = document.getElementById('masterUserPassword').value.trim();
 
-        if (!rdbmsName || !vpcName || !dbEngine || !dbEngineVersion || !dbInstanceSpec || !storageSize || !masterUserName || !masterUserPassword) {
+        if (!rdbmsName || !vpcName || !dbEngine || !dbEngineVersion || !dbSpec || !storageSize || !masterUserName || !masterUserPassword) {
             alert("Please fill in all required fields.");
             return false;
         }
@@ -1722,6 +1792,15 @@
             }
         }
 
+        const nhnAutoOpenDBSecurityGroupEl = document.getElementById('nhnAutoOpenDBSecurityGroup');
+        if (isNHNProvider() && nhnAutoOpenDBSecurityGroupEl && nhnAutoOpenDBSecurityGroupEl.value === 'true') {
+            const publicAccess = document.getElementById('publicAccess').value === 'true';
+            if (!publicAccess) {
+                alert("Auto-open DB Security Group requires Public Access = Yes.");
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -1735,7 +1814,7 @@
         const vpcName = document.getElementById('vpcName').value;
         const dbEngine = document.getElementById('dbEngine').value;
         const dbEngineVersion = document.getElementById('dbEngineVersion').value;
-        const dbInstanceSpec = document.getElementById('dbInstanceSpec').value;
+        const dbSpec = document.getElementById('dbSpec').value;
         const storageSizeInput = document.getElementById('storageSize');
         const storageSize = storageSizeInput.disabled ? undefined : storageSizeInput.value;
         const storageType = document.getElementById('storageType').value.trim();
@@ -1763,6 +1842,10 @@
             Value: tagInput.querySelector('.rdbms-tag-value').value
         }));
 
+        // NHN-only convenience option (hidden/reset to false for all other providers)
+        const nhnAutoOpenDBSecurityGroupEl = document.getElementById('nhnAutoOpenDBSecurityGroup');
+        const nhnAutoOpenDBSecurityGroup = !!nhnAutoOpenDBSecurityGroupEl && nhnAutoOpenDBSecurityGroupEl.value === 'true';
+
         const data = {
             ConnectionName: connConfig,
             ReqInfo: {
@@ -1770,7 +1853,7 @@
                 VPCName: vpcName,
                 DBEngine: dbEngine,
                 DBEngineVersion: dbEngineVersion,
-                DBInstanceSpec: dbInstanceSpec,
+                DBSpec: dbSpec,
                 StorageSize: storageSize,
                 StorageType: storageType || undefined,
                 SubnetNames: selectedSubnets.length > 0 ? selectedSubnets : undefined,
@@ -1779,6 +1862,7 @@
                 MasterUserPassword: masterUserPassword,
                 HighAvailability: highAvailability,
                 PublicAccess: publicAccess,
+                NHNAutoOpenDBSecurityGroup: nhnAutoOpenDBSecurityGroup || undefined,
                 Encryption: encryption,
                 DeletionProtection: deletionProtection,
                 BackupRetentionDays: backupRetentionDays,
@@ -1826,7 +1910,11 @@
 
     function showOverlay() {
         showProgressBar();
-        Promise.all([loadVPCs(), loadRDBMSMetaInfo(), setDefaultMasterUser()]).then(() => {
+        // Resolve which DB Engines this connection's CSP supports first, so the engine
+        // select's default value is already valid before loadRDBMSMetaInfo() reads it.
+        loadDBEngineCapability().then(() => {
+            return Promise.all([loadVPCs(), loadRDBMSMetaInfo(), setDefaultMasterUser()]);
+        }).then(() => {
             const region = '{{.RegionName}}';
             const rdbmsNameInput = document.getElementById('rdbmsName');
             rdbmsNameInput.value = `${region}-rdbms-${Math.random().toString(36).substring(2, 5)}`;
@@ -1849,7 +1937,7 @@
         // Reset MetaInfo-driven selects
         const versionSelect = document.getElementById('dbEngineVersion');
         versionSelect.innerHTML = '<option value="">Loading...</option>';
-        const specSelect = document.getElementById('dbInstanceSpec');
+        const specSelect = document.getElementById('dbSpec');
         specSelect.innerHTML = '<option value="">Loading...</option>';
         const storageTypeSelect = document.getElementById('storageType');
         storageTypeSelect.innerHTML = '<option value="">Loading...</option>';
@@ -2000,20 +2088,30 @@
         TENCENT:   { version: '8.0',        spec: '8000', storage: 50 }
     };
 
+    // Values verified to work by test/rdbms-mariadb-test/*.sh for each CSP
+    const CSP_MARIADB_TEST_DEFAULTS = {
+        AWS:       { version: '10.6',           spec: 'db.t3.medium', storage: 100 },
+        ALIBABA:   { version: '10.6',           spec: 'rds.mariadb.s4.large', storage: 20 },
+        NHN:       { version: 'MARIADB_V101118', spec: 'm2.c2m4', storage: 20 },
+        OPENSTACK: { version: '10.4',           spec: 'm1.small', storage: 20 }
+    };
+
     function applyCSPRDBMSTestDefaults() {
         const providerName = (document.getElementById('currentProviderName').value || '').toUpperCase();
-        const key = Object.keys(CSP_RDBMS_TEST_DEFAULTS).find(k => providerName.includes(k));
+        const dbEngine = (document.getElementById('dbEngine').value || '').toLowerCase();
+        const defaultsTable = dbEngine === 'mariadb' ? CSP_MARIADB_TEST_DEFAULTS : CSP_RDBMS_TEST_DEFAULTS;
+        const key = Object.keys(defaultsTable).find(k => providerName.includes(k));
         if (!key) {
             return;
         }
-        const defaults = CSP_RDBMS_TEST_DEFAULTS[key];
+        const defaults = defaultsTable[key];
 
         const versionSelect = document.getElementById('dbEngineVersion');
         if (defaults.version && Array.from(versionSelect.options).some(o => o.value === defaults.version)) {
             versionSelect.value = defaults.version;
         }
 
-        const specSelect = document.getElementById('dbInstanceSpec');
+        const specSelect = document.getElementById('dbSpec');
         if (defaults.spec && Array.from(specSelect.options).some(o => o.value === defaults.spec)) {
             specSelect.value = defaults.spec;
         }
@@ -2023,44 +2121,156 @@
         }
     }
 
-    function loadRDBMSMetaInfo() {
-        const connConfig = document.getElementById('connConfig').value;
-        const dbEngine = document.getElementById('dbEngine').value;
-        const url = `/spider/rdbmsmetainfo?DBEngine=${encodeURIComponent(dbEngine)}&ConnectionName=${encodeURIComponent(connConfig)}`;
+    // Grays out (disables) <option>s in the DB Engine select that this connection's CSP
+    // driver does not support, using the per-engine flags from GetDriverCapability, so the
+    // user can't pick an engine that would only fail later after a MetaInfo round-trip.
+    function applyDBEngineCapability(capability) {
+        const engineFlags = {
+            mysql: !!(capability && capability.RDBMSMySQLHandler),
+            mariadb: !!(capability && capability.RDBMSMariaDBHandler),
+            postgresql: !!(capability && capability.RDBMSPostgreSQLHandler)
+        };
+        const dbEngineSelect = document.getElementById('dbEngine');
+        if (!dbEngineSelect) return;
 
-        return fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
+        let selectedIsSupported = false;
+        Array.from(dbEngineSelect.options).forEach(option => {
+            const supported = engineFlags[option.value];
+            option.disabled = !supported;
+            option.style.color = supported ? '' : '#aaa';
+            option.title = supported ? '' : 'Not supported by this connection\'s CSP';
+            if (option.value === dbEngineSelect.value && supported) {
+                selectedIsSupported = true;
             }
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json()
-                    .catch(() => ({}))
-                    .then(body => {
-                        throw new Error(body.message || `MetaInfo API returned status ${response.status}`);
-                    });
+        });
+
+        // If the currently selected engine (default: mysql) turned out to be unsupported,
+        // fall back to the first engine this CSP does support.
+        if (!selectedIsSupported) {
+            const firstSupported = Array.from(dbEngineSelect.options).find(o => !o.disabled);
+            if (firstSupported) {
+                dbEngineSelect.value = firstSupported.value;
             }
-            return response.json();
-        })
-        .then(metaInfo => {
+        }
+    }
+
+    function loadDBEngineCapability() {
+        const connConfig = document.getElementById('connConfig').value;
+        return fetch(`/spider/driver/capability?ConnectionName=${encodeURIComponent(connConfig)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Driver capability API returned status ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(capability => applyDBEngineCapability(capability))
+            .catch(error => {
+                // Fail open: if capability can't be determined, leave every engine option
+                // enabled rather than blocking the Add RDBMS form entirely.
+                console.error('Error loading driver capability:', error);
+            });
+    }
+
+    let metaInfoRequestSeq = 0;
+
+    // Version/Spec/Storage Type (and the CSP-specific defaults derived from them) only
+    // get applied once the MetaInfo fetch resolves, so without an explicit loading state
+    // these fields silently keep showing the previous engine's values in the meantime —
+    // this makes that wait visible instead of letting it look like nothing happened.
+    function setEngineDependentFieldsLoading(isLoading, dbEngine) {
+        const indicator = document.getElementById('dbEngineApplyingIndicator');
+        if (indicator) {
+            indicator.style.display = isLoading ? '' : 'none';
+        }
+        const indicatorText = document.getElementById('dbEngineApplyingText');
+        if (indicatorText && isLoading && dbEngine) {
+            indicatorText.textContent = `Applying ${dbEngine} settings...`;
+        }
+        ['dbEngineVersion', 'dbSpec', 'storageType', 'storageSize'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = isLoading;
+        });
+        if (isLoading) {
+            document.getElementById('dbEngineVersion').innerHTML = '<option value="">Loading...</option>';
+            document.getElementById('dbSpec').innerHTML = '<option value="">Loading...</option>';
+            document.getElementById('storageType').innerHTML = '<option value="">Loading...</option>';
+        }
+    }
+
+    function showMetaInfoLoading(dbEngine, connConfig) {
+        setEngineDependentFieldsLoading(true, dbEngine);
+
+        const content = document.getElementById('metaInfoContent');
+        if (content) {
+            content.innerHTML = '<div style="display:flex; align-items:center; gap:8px; color:#888; font-size:11px; padding:8px 0;">' +
+                '<span class="metainfo-spinner"></span><span>Loading MetaInfo for ' + escapeHtml(dbEngine) + '...</span></div>';
+        }
+        const subtitle = document.getElementById('metaInfoSubtitle');
+        if (subtitle) {
+            subtitle.textContent = `Engine: ${dbEngine}  |  Connection: ${connConfig}  (loading...)`;
+        }
+        const badge = document.getElementById('metaInfoCacheBadge');
+        if (badge) badge.style.display = 'none';
+    }
+
+    function showMetaInfoError(error) {
+        const content = document.getElementById('metaInfoContent');
+        if (content) {
+            content.innerHTML = '<div style="color:#c0392b; font-size:11px; padding:8px 0;">Failed to load MetaInfo: ' +
+                escapeHtml(error && error.message ? error.message : 'unknown error') + '</div>';
+        }
+    }
+
+    // RDBMSMetaInfo rarely changes for a given (connection, DB engine) pair, so once fetched
+    // it is kept here and reused instantly on subsequent DB Engine switches — no re-fetch
+    // until the page is reloaded or a not-yet-seen connection/engine combination is picked.
+    const metaInfoCache = {};
+
+    function applyRDBMSMetaInfo(metaInfo, isCached) {
+            setEngineDependentFieldsLoading(false);
+
+            const cacheBadge = document.getElementById('metaInfoCacheBadge');
+            if (cacheBadge) cacheBadge.style.display = isCached ? '' : 'none';
+
             // Update Subnet/SG label required status
-            const subnetLabel = document.getElementById('subnetLabel');
             const sgLabel = document.getElementById('sgLabel');
-            if (metaInfo.RequiresSubnet) {
-                subnetLabel.innerHTML = 'Subnets: <span style="color: red;">*</span>';
-                currentRequiresSubnet = true;
-            } else {
-                subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(optional)</span>';
-                currentRequiresSubnet = false;
-            }
-            if (metaInfo.RequiresSecurityGroup) {
-                sgLabel.innerHTML = 'Security Groups: <span style="color: red;">*</span>';
-                currentRequiresSecurityGroup = true;
-            } else {
-                sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(optional)</span>';
+
+            lastMetaInfoRequiresSubnet = !!metaInfo.RequiresSubnet;
+            updateSubnetFieldAvailability();
+
+            const sgWrapper = document.getElementById('securityGroupSelectWrapper');
+            if (isSecurityGroupUnusedProvider()) {
+                // SecurityGroupNames has no effect on this CSP's RDBMS create
+                // API — the driver never reads it, so disable the field
+                // instead of letting users interact with an input that does
+                // nothing.
+                if (sgWrapper) sgWrapper.classList.add('disabled');
+                document.getElementById('sgSelectedText').textContent = 'Not used by this CSP';
+                document.getElementById('sgDropdownList').innerHTML = '';
+                sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(not used)</span>';
                 currentRequiresSecurityGroup = false;
+            } else {
+                if (sgWrapper) sgWrapper.classList.remove('disabled');
+                if (metaInfo.RequiresSecurityGroup) {
+                    sgLabel.innerHTML = 'Security Groups: <span style="color: red;">*</span>';
+                    currentRequiresSecurityGroup = true;
+                } else {
+                    sgLabel.innerHTML = 'Security Groups: <span style="color: #999;">(optional)</span>';
+                    currentRequiresSecurityGroup = false;
+                }
+            }
+
+            // NHN-only convenience option: auto-create/attach a fully-open
+            // DB Security Group (see RDBMSInfo.NHNAutoOpenDBSecurityGroup).
+            const nhnSGGroup = document.getElementById('nhnAutoOpenDBSecurityGroupGroup');
+            if (nhnSGGroup) {
+                if (isNHNProvider()) {
+                    nhnSGGroup.style.display = '';
+                    updateNHNAutoOpenSGAvailability();
+                } else {
+                    nhnSGGroup.style.display = 'none';
+                    document.getElementById('nhnAutoOpenDBSecurityGroup').value = 'false';
+                }
             }
 
             // Populate Version select
@@ -2078,10 +2288,10 @@
             }
 
             // Populate Instance Spec select
-            const specSelect = document.getElementById('dbInstanceSpec');
+            const specSelect = document.getElementById('dbSpec');
             specSelect.innerHTML = '';
-            if (metaInfo.DBInstanceSpecOptions && metaInfo.DBInstanceSpecOptions.length > 0) {
-                metaInfo.DBInstanceSpecOptions.forEach((spec, index) => {
+            if (metaInfo.DBSpecOptions && metaInfo.DBSpecOptions.length > 0) {
+                metaInfo.DBSpecOptions.forEach((spec, index) => {
                     const option = document.createElement('option');
                     option.value = spec;
                     option.text = spec;
@@ -2100,7 +2310,7 @@
                 emptyOption.value = '';
                 emptyOption.text = '(optional)';
                 storageTypeSelect.appendChild(emptyOption);
-                
+
                 metaInfo.StorageTypeOptions.forEach((storageType, index) => {
                     const option = document.createElement('option');
                     option.value = storageType;
@@ -2129,9 +2339,9 @@
             // Update Storage Size hint
             const storageSizeHint = document.getElementById('storageSizeHint');
             const storageSizeInput = document.getElementById('storageSize');
-            if (metaInfo.StorageSizeRange) {
-                const min = metaInfo.StorageSizeRange.Min;
-                const max = metaInfo.StorageSizeRange.Max;
+            if (metaInfo.StorageSizeRangeGB) {
+                const min = metaInfo.StorageSizeRangeGB.Min;
+                const max = metaInfo.StorageSizeRangeGB.Max;
                 storageSizeInput.min = min;
                 // Some CSPs report no upper quota limit as Max <= 0 ("unlimited");
                 // don't set a max attribute in that case, or the browser rejects
@@ -2190,21 +2400,101 @@
                 backupRetentionHint.textContent = '';
                 backupRetentionInput.placeholder = '(optional)';
             }
+            backupRetentionInput.disabled = metaInfo.SupportsBackup === false;
+            if (backupRetentionInput.disabled) {
+                backupRetentionInput.value = '';
+            }
+
+            // Disable Advanced Options controls this CSP/engine doesn't support (per
+            // MetaInfo's Supports* flags), forcing them back to "No"/off rather than
+            // leaving them clickable only to fail at creation time.
+            [
+                ['highAvailability', metaInfo.SupportsHighAvailability],
+                ['publicAccess', metaInfo.SupportsPublicAccess],
+                ['encryption', metaInfo.SupportsEncryption],
+                ['deletionProtection', metaInfo.SupportsDeletionProtection]
+            ].forEach(([id, supported]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const disabled = supported === false;
+                el.disabled = disabled;
+                if (disabled) {
+                    el.value = 'false';
+                }
+            });
+
+            const addTagBtn = document.getElementById('addRdbmsTagBtn');
+            if (addTagBtn) {
+                addTagBtn.disabled = metaInfo.SupportsTag === false;
+            }
 
             // Pre-select CSP-specific values known to succeed (see test/rdbms-mysql-test/*.sh)
             applyCSPRDBMSTestDefaults();
 
             // Populate MetaInfo Reference Panel
             populateMetaInfoPanel(metaInfo);
+    }
+
+    function loadRDBMSMetaInfo(forceRefresh) {
+        const connConfig = document.getElementById('connConfig').value;
+        const dbEngine = document.getElementById('dbEngine').value;
+        const cacheKey = connConfig + '::' + dbEngine;
+        const cached = metaInfoCache[cacheKey];
+        if (cached && !forceRefresh) {
+            // Served from cache — bump the sequence so any still in-flight fetch from a
+            // previous selection is ignored if it resolves after this.
+            ++metaInfoRequestSeq;
+            applyRDBMSMetaInfo(cached, true);
+            return Promise.resolve();
+        }
+
+        const requestSeq = ++metaInfoRequestSeq;
+        showMetaInfoLoading(dbEngine, connConfig);
+        const url = `/spider/rdbmsmetainfo?DBEngine=${encodeURIComponent(dbEngine)}&ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json()
+                    .catch(() => ({}))
+                    .then(body => {
+                        throw new Error(body.message || `MetaInfo API returned status ${response.status}`);
+                    });
+            }
+            return response.json();
+        })
+        .then(metaInfo => {
+            if (requestSeq !== metaInfoRequestSeq) {
+                // A newer DB Engine switch already superseded this response; discard it so
+                // stale data can never overwrite what the user is currently looking at.
+                return;
+            }
+            metaInfoCache[cacheKey] = metaInfo;
+            applyRDBMSMetaInfo(metaInfo, false);
         })
         .catch(error => {
-            console.error('Error loading RDBMS MetaInfo:', error);
-            // Set error states
-            document.getElementById('dbEngineVersion').innerHTML = '<option value="">Error loading versions</option>';
-            document.getElementById('dbInstanceSpec').innerHTML = '<option value="">Error loading specs</option>';
-            document.getElementById('storageType').innerHTML = '<option value="">Error loading types</option>';
+            if (requestSeq === metaInfoRequestSeq) {
+                console.error('Error loading RDBMS MetaInfo:', error);
+                setEngineDependentFieldsLoading(false);
+                // Set error states
+                document.getElementById('dbEngineVersion').innerHTML = '<option value="">Error loading versions</option>';
+                document.getElementById('dbSpec').innerHTML = '<option value="">Error loading specs</option>';
+                document.getElementById('storageType').innerHTML = '<option value="">Error loading types</option>';
+                showMetaInfoError(error);
+            }
             throw error;
         });
+    }
+
+    // Bound to the MetaInfo panel's refresh (⟳) button — forces a live re-fetch, bypassing
+    // metaInfoCache, and replaces the cached entry with the fresh result.
+    function refreshRDBMSMetaInfo() {
+        loadRDBMSMetaInfo(true);
     }
 
     function applyMetaInfoBadge(el) {
@@ -2212,7 +2502,7 @@
         const value = el.dataset.value;
 
         // Map field type to form select id
-        const selectId = { version: 'dbEngineVersion', spec: 'dbInstanceSpec', storage: 'storageType' }[field];
+        const selectId = { version: 'dbEngineVersion', spec: 'dbSpec', storage: 'storageType' }[field];
         if (!selectId) return;
 
         const select = document.getElementById(selectId);
@@ -2230,6 +2520,21 @@
         const siblings = el.closest('.metainfo-tags').querySelectorAll('.metainfo-tag[data-field="' + field + '"]');
         siblings.forEach(s => s.classList.remove('selected'));
         el.classList.add('selected');
+    }
+
+    // Reverse direction of applyMetaInfoBadge: when the user changes the Add New RDBMS
+    // form's Version/Instance Spec/Storage Type select directly (rather than clicking a
+    // MetaInfo panel badge), highlight the matching badge in the MetaInfo panel and clear
+    // any previously-selected one for that field, so the two stay in sync either way.
+    function syncMetaInfoTagSelection(field, selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const value = select.value;
+
+        const tags = document.querySelectorAll('.metainfo-tag[data-field="' + field + '"]');
+        tags.forEach(tag => {
+            tag.classList.toggle('selected', tag.dataset.value === value);
+        });
     }
 
     function showMetaInfoOverlay() {
@@ -2304,7 +2609,7 @@
             // Clickable badges: read current value from form to mark selected
             let currentVal = '';
             if (fieldType === 'version') currentVal = (document.getElementById('dbEngineVersion') || {}).value || '';
-            if (fieldType === 'spec')    currentVal = (document.getElementById('dbInstanceSpec')   || {}).value || '';
+            if (fieldType === 'spec')    currentVal = (document.getElementById('dbSpec')   || {}).value || '';
             if (fieldType === 'storage') currentVal = (document.getElementById('storageType')      || {}).value || '';
             return '<div class="metainfo-tags">' + arr.map(v => {
                 const sel = v === currentVal ? ' selected' : '';
@@ -2312,8 +2617,8 @@
             }).join('') + '</div>';
         }
 
-        const storageSizeText = metaInfo.StorageSizeRange
-            ? `Min: ${metaInfo.StorageSizeRange.Min} GB, Max: ${metaInfo.StorageSizeRange.Max > 0 ? metaInfo.StorageSizeRange.Max + ' GB' : 'Unlimited'}`
+        const storageSizeText = metaInfo.StorageSizeRangeGB
+            ? `Min: ${metaInfo.StorageSizeRangeGB.Min} GB, Max: ${metaInfo.StorageSizeRangeGB.Max > 0 ? metaInfo.StorageSizeRangeGB.Max + ' GB' : 'Unlimited'}`
             : '<span style="color:#888;">N/A</span>';
 
         content.innerHTML = `
@@ -2323,7 +2628,7 @@
             </div>
             <div class="metainfo-item metainfo-full-width">
                 <div class="metainfo-label">Instance Spec Options <span style="font-weight:normal;color:#888;font-size:10px;">(click to select)</span></div>
-                <div class="metainfo-value">${tagsHtml(metaInfo.DBInstanceSpecOptions, 'spec')}</div>
+                <div class="metainfo-value">${tagsHtml(metaInfo.DBSpecOptions, 'spec')}</div>
             </div>
             <div class="metainfo-item metainfo-full-width">
                 <div class="metainfo-label">Storage Type Options <span style="font-weight:normal;color:#888;font-size:10px;">(click to select)</span></div>
@@ -2394,9 +2699,14 @@
         const vpcSelect = document.getElementById('vpcName');
         const subnetDropdownList = document.getElementById('subnetDropdownList');
         const subnetSelectedText = document.getElementById('subnetSelectedText');
-        
+
         subnetDropdownList.innerHTML = '';
-        
+
+        if (isSubnetUnusedProvider()) {
+            subnetSelectedText.textContent = 'Not used by this CSP';
+            return;
+        }
+
         if (!vpcSelect.value) {
             subnetSelectedText.textContent = 'Select VPC first';
             return;
@@ -2471,7 +2781,13 @@
         const sgDropdownList = document.getElementById('sgDropdownList');
         const sgSelectedText = document.getElementById('sgSelectedText');
         const vpcSelect = document.getElementById('vpcName');
-        
+
+        if (isSecurityGroupUnusedProvider()) {
+            sgDropdownList.innerHTML = '';
+            sgSelectedText.textContent = 'Not used by this CSP';
+            return;
+        }
+
         if (!vpcSelect.value) {
             sgSelectedText.textContent = 'Select VPC first';
             sgDropdownList.innerHTML = '';
@@ -2849,10 +3165,112 @@
     let currentDBName = null;
     let currentTable = null;
     let currentTableColumns = [];
+    let currentSecureTransportData = null;
 
     // CSPs that manage databases via CSP-native API (DB create/list/drop uses CSP API, not SQL)
     // SQL password is still needed for table/row operations on all CSPs.
     const CSP_NATIVE_DB_PROVIDERS = ['NCP', 'NHN', 'GCP', 'ALIBABA', 'TENCENT', 'OPENSTACK', 'KT', 'AZURE'];
+
+    // CSPs whose RDBMS create API never reads SecurityGroupNames — the field
+    // is silently ignored. The Add-RDBMS form keeps it visible but disables
+    // it for these providers, instead of hiding it or letting users interact
+    // with an input that does nothing. AWS requires a Security Group;
+    // Tencent optionally uses one (shares the VM's SG) — both stay enabled.
+    const RDBMS_SG_UNUSED_PROVIDERS = ['ALIBABA', 'AZURE', 'GCP', 'IBM', 'NCP', 'OPENSTACK', 'NHN'];
+
+    // CSPs whose RDBMS create API never reads SubnetNames, under any
+    // PublicAccess setting. AWS/Alibaba/Tencent/NCP/NHN require a subnet and
+    // stay enabled. Azure is NOT in this static list — it's handled
+    // dynamically in isSubnetUnusedProvider() since it only uses SubnetIIDs
+    // for its VPC-private mode (PublicAccess=false).
+    const RDBMS_SUBNET_UNUSED_PROVIDERS = ['GCP', 'IBM', 'OPENSTACK'];
+
+    function isSecurityGroupUnusedProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return RDBMS_SG_UNUSED_PROVIDERS.indexOf(provider) >= 0;
+    }
+
+    function isSubnetUnusedProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        if (provider === 'AZURE') {
+            // Azure only uses SubnetIIDs for its VPC-private mode
+            // (PublicAccess=false); with PublicAccess=true (the default) the
+            // field has no effect. Re-evaluated live via updateSubnetFieldAvailability().
+            const publicAccessEl = document.getElementById('publicAccess');
+            return !publicAccessEl || publicAccessEl.value !== 'false';
+        }
+        return RDBMS_SUBNET_UNUSED_PROVIDERS.indexOf(provider) >= 0;
+    }
+
+    // Recomputes the Subnets field's disabled/required state. Called on
+    // MetaInfo load and whenever Public Access changes (Azure's Subnet usage
+    // depends on it — see isSubnetUnusedProvider). Re-populates the dropdown
+    // if the field just became enabled and a VPC is already selected.
+    function updateSubnetFieldAvailability() {
+        const subnetLabel = document.getElementById('subnetLabel');
+        const subnetWrapper = document.getElementById('subnetSelectWrapper');
+        const wasDisabled = !!(subnetWrapper && subnetWrapper.classList.contains('disabled'));
+
+        if (isSubnetUnusedProvider()) {
+            if (subnetWrapper) subnetWrapper.classList.add('disabled');
+            document.getElementById('subnetSelectedText').textContent = 'Not used by this CSP';
+            document.getElementById('subnetDropdownList').innerHTML = '';
+            subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(not used)</span>';
+            currentRequiresSubnet = false;
+            return;
+        }
+
+        if (subnetWrapper) subnetWrapper.classList.remove('disabled');
+
+        // Azure's requirement is dynamic (only required in VPC-private mode)
+        // and isn't reflected in the static RequiresSubnet MetaInfo flag.
+        const azurePrivateModeRequiresSubnet = isAzureProvider() &&
+            document.getElementById('publicAccess').value === 'false';
+
+        if (lastMetaInfoRequiresSubnet || azurePrivateModeRequiresSubnet) {
+            subnetLabel.innerHTML = 'Subnets: <span style="color: red;">*</span>';
+            currentRequiresSubnet = true;
+        } else {
+            subnetLabel.innerHTML = 'Subnets: <span style="color: #999;">(optional)</span>';
+            currentRequiresSubnet = false;
+        }
+
+        // The dropdown was cleared while disabled — repopulate it now that
+        // it's usable again (no-ops if no VPC is selected yet).
+        if (wasDisabled) {
+            updateSubnets();
+        }
+    }
+
+    function isAzureProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return provider === 'AZURE';
+    }
+
+    function isNHNProvider() {
+        const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
+        return provider === 'NHN';
+    }
+
+    // NHNAutoOpenDBSecurityGroup requires PublicAccess=true (enforced by the
+    // backend too — see validateForm()). Keep the control in sync with
+    // Public Access so users can't set an invalid combination in the first
+    // place: force it to No and lock it while Public Access=No, and hand
+    // control back (defaulting to Yes again) once Public Access=Yes.
+    function updateNHNAutoOpenSGAvailability() {
+        if (!isNHNProvider()) return;
+        const select = document.getElementById('nhnAutoOpenDBSecurityGroup');
+        if (!select) return;
+
+        const publicAccess = document.getElementById('publicAccess').value === 'true';
+        if (publicAccess) {
+            select.disabled = false;
+            select.value = 'true';
+        } else {
+            select.disabled = true;
+            select.value = 'false';
+        }
+    }
 
     function isNativeDBProvider() {
         const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
@@ -2892,6 +3310,10 @@
         document.getElementById('dbPassword').value = '';
         document.getElementById('dbConnectStatus').textContent = '';
         document.getElementById('dbConnectStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportStatus').textContent = '';
+        document.getElementById('dbSecureTransportStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportDetailsLink').style.display = 'none';
+        currentSecureTransportData = null;
         document.getElementById('db-database-panel').style.display = 'none';
         document.getElementById('db-table-panel').style.display = 'none';
         document.getElementById('db-row-panel').style.display = 'none';
@@ -2930,20 +3352,11 @@
             return;
         }
 
-        // For CSP-native providers, skip SQL connect test (DB management uses CSP API).
-        // Password is still stored for table/row SQL operations.
-        if (isNativeDBProvider()) {
-            currentDBPassword = password;
-            currentDBName = null;
-            statusEl.textContent = '✓ Connected — Select a database below';
-            statusEl.className = 'db-connect-status connected';
-            document.getElementById('db-database-panel').style.display = 'block';
-            document.getElementById('db-table-panel').style.display = 'none';
-            document.getElementById('db-row-panel').style.display = 'none';
-            loadDatabases();
-            return;
-        }
-
+        // Always verify the password with a real SQL connection before
+        // proceeding, on every CSP (including CSP-native DB-management
+        // providers) — Table browsing needs a real SQL connection regardless
+        // of provider, so a wrong password should fail here, not silently
+        // succeed and only surface an error later when opening a table.
         statusEl.textContent = 'Connecting...';
         statusEl.className = 'db-connect-status';
 
@@ -2971,7 +3384,11 @@
             document.getElementById('db-database-panel').style.display = 'block';
             document.getElementById('db-table-panel').style.display = 'none';
             document.getElementById('db-row-panel').style.display = 'none';
-            loadDatabases();
+            // Sequenced, not concurrent: firing both at once means two near-simultaneous SQL
+            // connections to the same RDBMS instance (loadDatabases uses SQL fallback on CSPs
+            // like AWS), which has been observed to cause the secure-transport check's separate
+            // CA-certificate probe connection to time out under that contention.
+            loadDatabases().finally(() => checkSecureTransport(connConfig, password));
         })
         .catch(error => {
             hideLoading();
@@ -2980,12 +3397,153 @@
         });
     }
 
+    // checkSecureTransport queries whether the DB engine enforces encrypted (TLS/SSL)
+    // client connections, via standard SQL against the engine itself (CSP-agnostic):
+    //   MySQL/MariaDB: SHOW VARIABLES LIKE 'require_secure_transport'
+    //   PostgreSQL:    pg_hba_file_rules
+    function checkSecureTransport(connConfig, password) {
+        const el = document.getElementById('dbSecureTransportStatus');
+        const detailsLink = document.getElementById('dbSecureTransportDetailsLink');
+        el.textContent = 'Checking TLS enforcement...';
+        el.className = 'db-connect-status';
+        detailsLink.style.display = 'none';
+        currentSecureTransportData = null;
+
+        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/security/secure-transport`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig, Password: password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) { // echo.HTTPError body shape: {"message": "..."}
+                el.textContent = 'TLS check failed: ' + data.message;
+                el.className = 'db-connect-status error';
+                return;
+            }
+
+            currentSecureTransportData = data;
+
+            // Inline badge shows ON/OFF only — click "Details" for TLS cipher, CA certificate,
+            // pg_hba rules, etc. Branch on which field the response carries (MySQL/MariaDB vs
+            // PostgreSQL), not on the exact Engine string — DBEngine varies by CSP ("mysql",
+            // "mariadb", "postgresql", "postgres", ...).
+            if (data.RequireSecureTransport !== undefined) {
+                const on = data.RequireSecureTransport === 'ON';
+                el.textContent = `[${data.Engine}] ` + (on ? '🔒 ON' : '⚠️ OFF');
+                el.className = 'db-connect-status ' + (on ? 'connected' : 'warn');
+                detailsLink.style.display = 'inline';
+            } else if (data.Enforced !== undefined) {
+                el.textContent = `[${data.Engine}] ` + (data.Enforced ? '🔒 ON' : '⚠️ OFF');
+                el.className = 'db-connect-status ' + (data.Enforced ? 'connected' : 'warn');
+                detailsLink.style.display = 'inline';
+            } else {
+                el.textContent = '';
+            }
+        })
+        .catch(error => {
+            el.textContent = 'TLS check failed: ' + error.message;
+            el.className = 'db-connect-status error';
+        });
+    }
+
+    // showSecureTransportOverlay renders the full secure-transport check result (TLS cipher,
+    // CA certificate with a copy button, pg_hba rules) from the data already fetched by
+    // checkSecureTransport — no extra request needed.
+    function showSecureTransportOverlay() {
+        const data = currentSecureTransportData;
+        if (!data) return;
+
+        const rows = [];
+        rows.push(`<div><b>Engine:</b> ${escapeHtml(data.Engine || '')}</div>`);
+
+        if (data.RequireSecureTransport !== undefined) {
+            rows.push(`<div><b>require_secure_transport:</b> ${escapeHtml(data.RequireSecureTransport)}</div>`);
+        }
+        if (data.Enforced !== undefined) {
+            rows.push(`<div><b>pg_hba enforced (SSL-only):</b> ${data.Enforced ? 'Yes' : 'No'}</div>`);
+        }
+
+        const tlsLine = data.TLSInUse
+            ? `Yes (cipher: ${escapeHtml(data.TLSCipher || 'unknown')})`
+            : 'No (server does not offer TLS at all)';
+        rows.push(`<div><b>TLS in use (this check):</b> ${tlsLine}</div>`);
+
+        if (data.Rules && data.Rules.length > 0) {
+            let table = '<table style="width:100%; border-collapse:collapse; margin-top:4px;" border="1" cellpadding="4">' +
+                '<thead><tr><th>Type</th><th>Database</th><th>User</th><th>Address</th><th>Auth Method</th></tr></thead><tbody>';
+            data.Rules.forEach(r => {
+                table += `<tr><td>${escapeHtml(r.Type)}</td><td>${escapeHtml(r.Database)}</td>` +
+                    `<td>${escapeHtml(r.UserName)}</td><td>${escapeHtml(r.Address || '')}</td><td>${escapeHtml(r.AuthMethod)}</td></tr>`;
+            });
+            table += '</tbody></table>';
+            rows.push(`<div style="margin-top:8px;"><b>pg_hba_file_rules:</b>${table}</div>`);
+        }
+
+        if (data.CACertificate) {
+            const c = data.CACertificate;
+            const rootBadge = c.IsSelfSigned ? '✅ root CA' : '⚠️ intermediate CA (not the ultimate root)';
+            rows.push(`
+                <div style="margin-top:10px; border-top:1px solid #ddd; padding-top:8px;">
+                    <b>CA Certificate</b> — ${rootBadge}<br>
+                    Subject: ${escapeHtml(c.Subject)}<br>
+                    Issuer: ${escapeHtml(c.Issuer)}<br>
+                    Not After: ${escapeHtml(c.NotAfter)}
+                    <div style="margin-top:6px;">
+                        <button type="button" onclick="copyCACertPEM()">📋 Copy PEM</button>
+                        <span id="stCopyStatus" style="margin-left:6px; font-size:11px; color:#388e3c;"></span>
+                    </div>
+                    <textarea id="stCACertPEM" readonly rows="8" style="width:100%; font-family:monospace; font-size:11px; margin-top:6px;">${escapeHtml(c.PEM)}</textarea>
+                    <div style="font-size:11px; color:#888; margin-top:2px;">
+                        Top-of-chain certificate as presented by the server. Use as ssl-ca / sslrootcert in your SQL client.
+                    </div>
+                </div>`);
+        } else if (data.CACertificateError) {
+            rows.push(`<div style="margin-top:10px; color:#856404;">⚠️ CA certificate probe failed: ${escapeHtml(data.CACertificateError)}</div>`);
+        }
+
+        document.getElementById('stDetailBody').innerHTML = rows.join('\n');
+        document.getElementById('secureTransportOverlay').style.display = 'flex';
+    }
+
+    function hideSecureTransportOverlay() {
+        document.getElementById('secureTransportOverlay').style.display = 'none';
+    }
+
+    function copyCACertPEM() {
+        const pem = document.getElementById('stCACertPEM').value;
+        const status = document.getElementById('stCopyStatus');
+        const showCopied = () => { status.textContent = '✓ Copied'; setTimeout(() => { status.textContent = ''; }, 2000); };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(pem).then(showCopied).catch(() => fallbackCopyPEM(pem, showCopied));
+        } else {
+            fallbackCopyPEM(pem, showCopied);
+        }
+    }
+
+    function fallbackCopyPEM(pem, onSuccess) {
+        const ta = document.getElementById('stCACertPEM');
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy');
+            onSuccess();
+        } catch (e) {
+            document.getElementById('stCopyStatus').textContent = 'Copy failed — select manually';
+        }
+    }
+
     function disconnectDB() {
         currentDBPassword = null;
         currentDBName = null;
         currentTable = null;
         document.getElementById('dbConnectStatus').textContent = 'Disconnected';
         document.getElementById('dbConnectStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportStatus').textContent = '';
+        document.getElementById('dbSecureTransportStatus').className = 'db-connect-status';
+        document.getElementById('dbSecureTransportDetailsLink').style.display = 'none';
+        currentSecureTransportData = null;
         document.getElementById('db-database-panel').style.display = 'none';
         document.getElementById('db-table-panel').style.display = 'none';
         document.getElementById('db-row-panel').style.display = 'none';
@@ -3000,7 +3558,7 @@
             `<span style="font-weight: bold;">Databases</span>`;
 
         showLoading();
-        fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases`, {
+        return fetch(`/spider/adminweb/rdbms/${encodeURIComponent(currentRDBMS)}/sql/databases`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ConnectionName: connConfig, Password: currentDBPassword, DatabaseName: '' })

@@ -299,8 +299,8 @@ func (ac *AzureClusterHandler) GetCluster(clusterIID irs.IID) (info irs.ClusterI
 
 // GenerateClusterToken generates a token for cluster authentication
 // Azure AKS uses different authentication method, this is not supported yet
-func (ac *AzureClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
-	return "", errors.New("GenerateClusterToken is not supported for Azure AKS clusters yet")
+func (ac *AzureClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
+	return irs.ClusterToken{}, errors.New("GenerateClusterToken is not supported for Azure AKS clusters yet")
 }
 
 func (ac *AzureClusterHandler) DeleteCluster(clusterIID irs.IID) (deleteResult bool, delErr error) {

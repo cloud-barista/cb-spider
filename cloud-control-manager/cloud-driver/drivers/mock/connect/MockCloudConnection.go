@@ -140,6 +140,10 @@ func (cloudConn *MockConnection) CreateRDBMSHandler() (irs.RDBMSHandler, error) 
 	return nil, fmt.Errorf("Mock Driver: RDBMSHandler not supported")
 }
 
+func (cloudConn *MockConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	return nil, fmt.Errorf("Mock Driver: DBSpecHandler not supported")
+}
+
 func (cloudConn *MockConnection) CreateNICHandler() (irs.NICHandler, error) {
 	return nil, fmt.Errorf("Mock Driver: NICHandler not supported")
 }

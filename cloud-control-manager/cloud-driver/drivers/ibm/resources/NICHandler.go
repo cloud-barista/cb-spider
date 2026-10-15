@@ -209,22 +209,13 @@ func (h *IbmNICHandler) CreateNIC(nicReqInfo irs.NICReqInfo) (irs.NICInfo, error
 	// Resolve subnet SystemId if not provided
 	subnetID := nicReqInfo.SubnetIID.SystemId
 	if subnetID == "" {
-		subnets, _, err := h.VpcService.ListSubnetsWithContext(h.Ctx, &vpcv1.ListSubnetsOptions{})
+		subnet, err := getRawSubnet(irs.IID{NameId: nicReqInfo.SubnetIID.NameId}, h.VpcService, h.Ctx)
 		if err != nil {
-			LoggingError(hiscallInfo, err)
-			return irs.NICInfo{}, fmt.Errorf("failed to list subnets: %w", err)
-		}
-		for _, sn := range subnets.Subnets {
-			if sn.Name != nil && *sn.Name == nicReqInfo.SubnetIID.NameId {
-				subnetID = *sn.ID
-				break
-			}
-		}
-		if subnetID == "" {
 			err := fmt.Errorf("subnet not found: %s", nicReqInfo.SubnetIID.NameId)
 			LoggingError(hiscallInfo, err)
 			return irs.NICInfo{}, err
 		}
+		subnetID = *subnet.ID
 	}
 
 	createOpts := &vpcv1.CreateVirtualNetworkInterfaceOptions{
@@ -243,22 +234,13 @@ func (h *IbmNICHandler) CreateNIC(nicReqInfo irs.NICReqInfo) (irs.NICInfo, error
 			sgID := sgIID.SystemId
 			if sgID == "" {
 				// lookup by name
-				sgs, _, err := h.VpcService.ListSecurityGroupsWithContext(h.Ctx, &vpcv1.ListSecurityGroupsOptions{})
+				sg, err := getRawSecurityGroup(irs.IID{NameId: sgIID.NameId}, h.VpcService, h.Ctx)
 				if err != nil {
-					LoggingError(hiscallInfo, err)
-					return irs.NICInfo{}, fmt.Errorf("failed to list security groups: %w", err)
-				}
-				for _, sg := range sgs.SecurityGroups {
-					if sg.Name != nil && *sg.Name == sgIID.NameId {
-						sgID = *sg.ID
-						break
-					}
-				}
-				if sgID == "" {
 					err := fmt.Errorf("security group not found: %s", sgIID.NameId)
 					LoggingError(hiscallInfo, err)
 					return irs.NICInfo{}, err
 				}
+				sgID = *sg.ID
 			}
 			sgIdentities = append(sgIdentities, &vpcv1.SecurityGroupIdentityByID{ID: core.StringPtr(sgID)})
 		}

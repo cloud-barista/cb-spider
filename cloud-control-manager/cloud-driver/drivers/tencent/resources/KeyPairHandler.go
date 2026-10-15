@@ -33,24 +33,37 @@ func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		ErrorMSG:     "",
 	}
 
-	request := cvm.NewDescribeKeyPairsRequest()
+	var keyPairSet []*cvm.KeyPair
+	var offset int64 = 0
+	limit := int64(100)
 
 	callLogStart := call.Start()
-	response, err := keyPairHandler.Client.DescribeKeyPairs(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	for {
+		request := cvm.NewDescribeKeyPairsRequest()
+		request.Offset = &offset
+		request.Limit = &limit
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		response, err := keyPairHandler.Client.DescribeKeyPairs(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-		cblogger.Error(err)
-		return nil, err
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug(response.ToJsonString())
+
+		keyPairSet = append(keyPairSet, response.Response.KeyPairSet...)
+		if response.Response.TotalCount == nil || int64(len(keyPairSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
-	//cblogger.Debug(response)
-	cblogger.Debug(response.ToJsonString())
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
-	for _, pair := range response.Response.KeyPairSet {
+	for _, pair := range keyPairSet {
 		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(pair)
 		if errKeyPair != nil {
 			// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
@@ -441,23 +454,37 @@ func (keyPairHandler *TencentKeyPairHandler) ListIID() ([]*irs.IID, error) {
 
 	callLogInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, "ListIID", "DescribeKeyPairs()")
 
-	request := cvm.NewDescribeKeyPairsRequest()
+	var offset int64 = 0
+	limit := int64(100)
 
 	start := call.Start()
-	response, err := keyPairHandler.Client.DescribeKeyPairs(request)
+	for {
+		request := cvm.NewDescribeKeyPairsRequest()
+		request.Offset = &offset
+		request.Limit = &limit
+
+		response, err := keyPairHandler.Client.DescribeKeyPairs(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(start)
+			callLogInfo.ErrorMSG = err.Error()
+			calllogger.Error(call.String(callLogInfo))
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug("keyPair Count : ", *response.Response.TotalCount)
+
+		for _, pair := range response.Response.KeyPairSet {
+			iid := irs.IID{SystemId: *pair.KeyId}
+			iidList = append(iidList, &iid)
+		}
+
+		if response.Response.TotalCount == nil || int64(len(iidList)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
+	}
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-		cblogger.Error(err)
-		return nil, err
-	}
 	calllogger.Debug(call.String(callLogInfo))
-	cblogger.Debug("keyPair Count : ", *response.Response.TotalCount)
-	for _, pair := range response.Response.KeyPairSet {
-		iid := irs.IID{SystemId: *pair.KeyId}
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

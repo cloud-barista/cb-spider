@@ -29,6 +29,12 @@ type SecurityGroupInfo struct {
 	KeyValueInfoList  	infostore.KVList 	`gorm:"type:text"`
 }
 
+type KTCloudSecurityGroupDef struct {
+	SgID string `gorm:"primaryKey"`
+	Zone string `gorm:"index"`
+	Data string `gorm:"type:text"`
+}
+
 var cblogger *logrus.Logger
 func init() {
 	cblogger = cblog.GetLogger("CB-SPIDER")
@@ -36,7 +42,7 @@ func init() {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	db.AutoMigrate(&SecurityGroupInfo{})
+	db.AutoMigrate(&SecurityGroupInfo{}, &KTCloudSecurityGroupDef{})
 	infostore.Close(db)
 }
 
@@ -116,4 +122,93 @@ func UnRegisterSecurityGroup(vmID string) (bool, error) {
 	}
 
 	return result, nil
+}
+
+// GetVMIDsBySecurityGroup returns all VM IDs that are associated with the given security group ID or name.
+func GetVMIDsBySecurityGroup(sgID string) ([]string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called GetVMIDsBySecurityGroup()")
+
+	if strings.TrimSpace(sgID) == "" {
+		return nil, fmt.Errorf("sgID is empty!")
+	}
+
+	var sgInfoList []SecurityGroupInfo
+	err := infostore.List(&sgInfoList)
+	if err != nil {
+		cblogger.Errorf("Failed to list SecurityGroupInfo from store: %v", err)
+		return nil, err
+	}
+
+	var vmIDs []string
+	seen := make(map[string]bool)
+	for _, info := range sgInfoList {
+		for _, kv := range info.KeyValueInfoList {
+			if strings.EqualFold(kv.Key, sgID) || strings.EqualFold(kv.Value, sgID) {
+				if !seen[info.VmID] {
+					seen[info.VmID] = true
+					vmIDs = append(vmIDs, info.VmID)
+				}
+				break
+			}
+		}
+	}
+
+	return vmIDs, nil
+}
+
+// SaveKTCloudSGDef persists the full SecurityGroup definition into infostore (DB)
+func SaveKTCloudSGDef(sgID string, zone string, sgInfoJSON string) error {
+	cblogger.Info("KT Cloud VPC Driver: called SaveKTCloudSGDef()")
+	if strings.TrimSpace(sgID) == "" {
+		return fmt.Errorf("sgID is empty")
+	}
+	sgDef := KTCloudSecurityGroupDef{
+		SgID: strings.TrimSpace(sgID),
+		Zone: strings.TrimSpace(zone),
+		Data: sgInfoJSON,
+	}
+	return infostore.Insert(&sgDef)
+}
+
+// GetKTCloudSGDef retrieves the SecurityGroup definition from infostore (DB)
+func GetKTCloudSGDef(sgID string) (*KTCloudSecurityGroupDef, error) {
+	cblogger.Info("KT Cloud VPC Driver: called GetKTCloudSGDef()")
+	if strings.TrimSpace(sgID) == "" {
+		return nil, fmt.Errorf("sgID is empty")
+	}
+	var sgDef KTCloudSecurityGroupDef
+	err := infostore.Get(&sgDef, "sg_id", strings.TrimSpace(sgID))
+	if err != nil {
+		return nil, err
+	}
+	return &sgDef, nil
+}
+
+// DeleteKTCloudSGDef removes the SecurityGroup definition from infostore (DB)
+func DeleteKTCloudSGDef(sgID string) (bool, error) {
+	cblogger.Info("KT Cloud VPC Driver: called DeleteKTCloudSGDef()")
+	if strings.TrimSpace(sgID) == "" {
+		return false, fmt.Errorf("sgID is empty")
+	}
+	return infostore.Delete(&KTCloudSecurityGroupDef{}, "sg_id", strings.TrimSpace(sgID))
+}
+
+// ListKTCloudSGDefs lists all SecurityGroup definitions from infostore (DB)
+func ListKTCloudSGDefs(zone string) ([]KTCloudSecurityGroupDef, error) {
+	cblogger.Info("KT Cloud VPC Driver: called ListKTCloudSGDefs()")
+	var allDefs []KTCloudSecurityGroupDef
+	err := infostore.List(&allDefs)
+	if err != nil {
+		return nil, err
+	}
+	if zone == "" {
+		return allDefs, nil
+	}
+	var filtered []KTCloudSecurityGroupDef
+	for _, d := range allDefs {
+		if strings.EqualFold(d.Zone, zone) {
+			filtered = append(filtered, d)
+		}
+	}
+	return filtered, nil
 }

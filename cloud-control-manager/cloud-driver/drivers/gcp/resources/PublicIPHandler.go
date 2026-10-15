@@ -310,6 +310,32 @@ func (h *GCPPublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool, er
 	return true, nil
 }
 
+// RemoveDefaultPublicIP removes the CSP-native ephemeral external IP from the
+// VM's default network interface (nic0) via instances.deleteAccessConfig -
+// the exact same call AssociatePublicIP/DisassociatePublicIP use, but invoked
+// directly against the VM without requiring a CB-Spider-tracked PublicIP IID
+// (an ephemeral external IP is not a reserved Address resource, so it never
+// shows up in ListIID/GetPublicIP). Works on a running instance.
+func (h *GCPPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.Region, call.PUBLICIP, vmIID.NameId, "deleteAccessConfig()")
+	start := call.Start()
+
+	projectID := h.Credential.ProjectID
+	op, err := h.Client.Instances.DeleteAccessConfig(projectID, h.Region.Zone, vmIID.NameId, "External NAT", "nic0").Context(h.Ctx).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if err := WaitForGCPZoneOperation(h.Client, h.Ctx, projectID, h.Region.Zone, op.Name); err != nil {
+		return false, err
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}
+
 // WaitForGCPZoneOperation waits for a zone-level GCP operation to complete.
 func WaitForGCPZoneOperation(client *compute.Service, ctx context.Context, project, zone, opName string) error {
 	for {

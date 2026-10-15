@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/IBM/go-sdk-core/v5/core"
-	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
-	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -81,18 +83,84 @@ func (filesystemHandler *IbmFileSystemHandler) GetMetaInfo() (irs.FileSystemMeta
 	return metaInfo, nil
 }
 
+// getShareNextHref extracts the "start" cursor from a share list page's Next link.
+func getShareNextHref(next *vpcv1.PageLink) (string, error) {
+	if next != nil {
+		href := *next.Href
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", err
+		}
+		paramMap, _ := url.ParseQuery(u.RawQuery)
+		if paramMap != nil {
+			safe := paramMap["start"]
+			if safe != nil && len(safe) > 0 {
+				return safe[0], nil
+			}
+		}
+	}
+	return "", errors.New("NOT NEXT")
+}
+
+// getAllShares fetches every file share in the account, following pagination.
+func getAllShares(vpcService *vpcv1.VpcV1, ctx context.Context) ([]vpcv1.Share, error) {
+	options := &vpcv1.ListSharesOptions{}
+	result, _, err := vpcService.ListSharesWithContext(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	var allShares []vpcv1.Share
+	for {
+		allShares = append(allShares, result.Shares...)
+		nextstr, _ := getShareNextHref(result.Next)
+		if nextstr == "" {
+			break
+		}
+		options := &vpcv1.ListSharesOptions{Start: core.StringPtr(nextstr)}
+		result, _, err = vpcService.ListSharesWithContext(ctx, options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list shares during pagination: %w", err)
+		}
+	}
+	return allShares, nil
+}
+
+// getAllSubnets fetches every subnet in the account, following pagination.
+func getAllSubnets(vpcService *vpcv1.VpcV1, ctx context.Context) ([]vpcv1.Subnet, error) {
+	options := &vpcv1.ListSubnetsOptions{}
+	result, _, err := vpcService.ListSubnetsWithContext(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	var allSubnets []vpcv1.Subnet
+	for {
+		allSubnets = append(allSubnets, result.Subnets...)
+		nextstr, _ := getSubnetNextHref(result.Next)
+		if nextstr == "" {
+			break
+		}
+		options := &vpcv1.ListSubnetsOptions{Start: core.StringPtr(nextstr)}
+		result, _, err = vpcService.ListSubnetsWithContext(ctx, options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list subnets during pagination: %w", err)
+		}
+	}
+	return allSubnets, nil
+}
+
 func (filesystemHandler *IbmFileSystemHandler) ListIID() ([]*irs.IID, error) {
 	hiscallInfo := GetCallLogScheme(filesystemHandler.Region, call.FILESYSTEM, "FILESYSTEM", "ListIID()")
 	start := call.Start()
 
-	options := &vpcv1.ListSharesOptions{}
-	res, _, err := filesystemHandler.VpcService.ListSharesWithContext(filesystemHandler.Ctx, options)
+	shares, err := getAllShares(filesystemHandler.VpcService, filesystemHandler.Ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var iidList []*irs.IID
-	for _, share := range res.Shares {
+	for _, share := range shares {
 		if share.Zone != nil && share.Zone.Name != nil && *share.Zone.Name == filesystemHandler.Region.Zone {
 			iid := &irs.IID{
 				NameId:   *share.Name,
@@ -107,11 +175,11 @@ func (filesystemHandler *IbmFileSystemHandler) ListIID() ([]*irs.IID, error) {
 }
 
 func (filesystemHandler *IbmFileSystemHandler) findSubnetIDByName(name string) (string, error) {
-	subnets, _, err := filesystemHandler.VpcService.ListSubnetsWithContext(filesystemHandler.Ctx, &vpcv1.ListSubnetsOptions{})
+	subnets, err := getAllSubnets(filesystemHandler.VpcService, filesystemHandler.Ctx)
 	if err != nil {
 		return "", err
 	}
-	for _, subnet := range subnets.Subnets {
+	for _, subnet := range subnets {
 		if subnet.Name != nil && *subnet.Name == name {
 			return *subnet.ID, nil
 		}
@@ -120,13 +188,13 @@ func (filesystemHandler *IbmFileSystemHandler) findSubnetIDByName(name string) (
 }
 
 func (filesystemHandler *IbmFileSystemHandler) findSubnetsByVPC(vpcIID irs.IID) ([]irs.IID, error) {
-	subnets, _, err := filesystemHandler.VpcService.ListSubnetsWithContext(filesystemHandler.Ctx, &vpcv1.ListSubnetsOptions{})
+	subnets, err := getAllSubnets(filesystemHandler.VpcService, filesystemHandler.Ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var subnetList []irs.IID
-	for _, subnet := range subnets.Subnets {
+	for _, subnet := range subnets {
 		if subnet.VPC != nil {
 			vpcMatch := false
 			if vpcIID.SystemId != "" && subnet.VPC.ID != nil && *subnet.VPC.ID == vpcIID.SystemId {
@@ -205,12 +273,12 @@ func (filesystemHandler *IbmFileSystemHandler) getSubnetCIDR(subnetID string) (s
 }
 
 func (filesystemHandler *IbmFileSystemHandler) findSubnetByCIDR(cidr string) (*irs.IID, error) {
-	subnets, _, err := filesystemHandler.VpcService.ListSubnetsWithContext(filesystemHandler.Ctx, &vpcv1.ListSubnetsOptions{})
+	subnets, err := getAllSubnets(filesystemHandler.VpcService, filesystemHandler.Ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, subnet := range subnets.Subnets {
+	for _, subnet := range subnets {
 		if subnet.Ipv4CIDRBlock != nil && *subnet.Ipv4CIDRBlock == cidr {
 			subnetIID := &irs.IID{}
 			if subnet.Name != nil {
@@ -460,14 +528,13 @@ func (filesystemHandler *IbmFileSystemHandler) ListFileSystem() ([]*irs.FileSyst
 	hiscallInfo := GetCallLogScheme(filesystemHandler.Region, call.FILESYSTEM, filesystemHandler.Region.Region, "ListFileSystem()")
 	start := call.Start()
 
-	options := &vpcv1.ListSharesOptions{}
-	res, _, err := filesystemHandler.VpcService.ListSharesWithContext(filesystemHandler.Ctx, options)
+	shares, err := getAllShares(filesystemHandler.VpcService, filesystemHandler.Ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var list []*irs.FileSystemInfo
-	for _, share := range res.Shares {
+	for _, share := range shares {
 		if share.Zone != nil && share.Zone.Name != nil && *share.Zone.Name == filesystemHandler.Region.Zone {
 			info, err := filesystemHandler.setterFileSystemInfo(&share)
 			if err != nil {
@@ -490,13 +557,13 @@ func (filesystemHandler *IbmFileSystemHandler) GetFileSystem(iid irs.IID) (irs.F
 	if iid.SystemId != "" {
 		shareID = iid.SystemId
 	} else if iid.NameId != "" {
-		shares, _, err := filesystemHandler.VpcService.ListSharesWithContext(filesystemHandler.Ctx, &vpcv1.ListSharesOptions{})
+		shares, err := getAllShares(filesystemHandler.VpcService, filesystemHandler.Ctx)
 		if err != nil {
 			LoggingError(hiscallInfo, err)
 			return irs.FileSystemInfo{}, fmt.Errorf("failed to list shares: %v", err)
 		}
 
-		for _, share := range shares.Shares {
+		for _, share := range shares {
 			if *share.Name == iid.NameId {
 				shareID = *share.ID
 				break
@@ -632,12 +699,12 @@ func (filesystemHandler *IbmFileSystemHandler) setterFileSystemInfo(share *vpcv1
 func (filesystemHandler *IbmFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error) {
 	shareID := iid.SystemId
 	if shareID == "" && iid.NameId != "" {
-		shares, _, err := filesystemHandler.VpcService.ListSharesWithContext(filesystemHandler.Ctx, &vpcv1.ListSharesOptions{})
+		shares, err := getAllShares(filesystemHandler.VpcService, filesystemHandler.Ctx)
 		if err != nil {
 			return false, fmt.Errorf("failed to list shares: %v", err)
 		}
 
-		for _, share := range shares.Shares {
+		for _, share := range shares {
 			if *share.Name == iid.NameId {
 				shareID = *share.ID
 				break

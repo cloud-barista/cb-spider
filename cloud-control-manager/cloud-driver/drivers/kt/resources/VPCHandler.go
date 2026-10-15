@@ -258,16 +258,15 @@ func (vpcHandler *KTVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.II
 
 	// ### Need NetworkId, not TierId.
 	delErr := subnets.Delete(vpcHandler.NetworkClient, *networkId).ExtractErr()
-	if err != nil {
+	if delErr != nil {
 		newErr := fmt.Errorf("Failed to Remove the Subnet : [%v]", delErr)
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 	cblogger.Infof("\n### Waiting for Deleting the Subnet!! Subnet NetworkId: %s", *networkId)
-	vpcHandler.waitForSubnetDeletion(*networkId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to wait for the subnet creation: %v", err)
+	if waitErr := vpcHandler.waitForSubnetDeletion(*networkId); waitErr != nil {
+		newErr := fmt.Errorf("Failed to wait for the subnet deletion: %v", waitErr)
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return false, newErr

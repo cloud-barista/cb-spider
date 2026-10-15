@@ -13,8 +13,10 @@ package resources
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -50,10 +52,13 @@ func (myImageHandler *NcpVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 
 	// Note) CreateMemberServerImageInstance() : For XEN/RHV
 	// Note) CreateServerImage() : For XEN/RHV/KVM
+	// NCP VPC ServerImage API does not return source VM info; store it in description for later retrieval.
+	sourceVMDesc := "sourceVMId:" + snapshotReqInfo.SourceVM.SystemId
 	snapshotReq := vserver.CreateServerImageRequest{ // Not CreateBlockStorageSnapshotInstanceRequest{}
-		RegionCode:         &myImageHandler.RegionInfo.Region,
-		ServerInstanceNo:   &snapshotReqInfo.SourceVM.SystemId,
-		ServerImageName: 	&snapshotReqInfo.IId.NameId,
+		RegionCode:             &myImageHandler.RegionInfo.Region,
+		ServerInstanceNo:       &snapshotReqInfo.SourceVM.SystemId,
+		ServerImageName:        &snapshotReqInfo.IId.NameId,
+		ServerImageDescription: &sourceVMDesc,
 	}
 	callLogStart := call.Start()
 	result, err := myImageHandler.VMClient.V2Api.CreateServerImage(&snapshotReq) // Not CreateBlockStorageSnapshotInstance
@@ -64,7 +69,6 @@ func (myImageHandler *NcpVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 		return irs.MyImageInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-
 
 	// cblogger.Info("\n\n### result.ServerImageList : ")
 	// spew.Dump(result.ServerImageList)
@@ -107,8 +111,8 @@ func (myImageHandler *NcpVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListMyImage()", "ListMyImage()")
 
 	imageListReq := vserver.GetServerImageListRequest{ // Not GetBlockStorageSnapshotInstanceListRequest
-		RegionCode: 				&myImageHandler.RegionInfo.Region,
-		ServerImageTypeCodeList: 	[]*string{ncloud.String("SELF")}, // Caution) Options: SELF | NCP
+		RegionCode:              &myImageHandler.RegionInfo.Region,
+		ServerImageTypeCodeList: []*string{ncloud.String("SELF")}, // Caution) Options: SELF | NCP
 	}
 	callLogStart := call.Start()
 	result, err := myImageHandler.VMClient.V2Api.GetServerImageList(&imageListReq) // Caution : Not GetBlockStorageSnapshotInstanceList()
@@ -225,6 +229,29 @@ func (myImageHandler *NcpVpcMyImageHandler) CheckWindowsImage(myImageIID irs.IID
 	return isWindowsImage, nil
 }
 
+// isKvmMyImage returns true when the MyImage was created from a KVM-based VM.
+// BlockStorageMappingList in CreateServerInstances is only supported for KVM.
+func (myImageHandler *NcpVpcMyImageHandler) isKvmMyImage(myImageIID irs.IID) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called isKvmMyImage()")
+
+	if strings.EqualFold(myImageIID.SystemId, "") {
+		return false, fmt.Errorf("Invalid SystemId")
+	}
+
+	myImageInfo, err := myImageHandler.GetMyImage(myImageIID)
+	if err != nil {
+		return false, fmt.Errorf("Failed to Get MyImage Info: [%v]", err)
+	}
+
+	for _, keyInfo := range myImageInfo.KeyValueList {
+		if keyInfo.Key == "HypervisorType" {
+			cblogger.Infof("\n### HypervisorType : [%s]", keyInfo.Value)
+			return strings.Contains(strings.ToUpper(keyInfo.Value), "KVM"), nil
+		}
+	}
+	return false, nil
+}
+
 func (myImageHandler *NcpVpcMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called DeleteMyImage()")
 	InitLog()
@@ -258,8 +285,32 @@ func (myImageHandler *NcpVpcMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	} else {
-		cblogger.Info("Succeeded in Deleting the Snapshot Image.")
+	}
+	// totalRows == 0 means the image was not found or not deleted on the CSP side.
+	if ncloud.Int32Value(result.TotalRows) < 1 {
+		newErr := fmt.Errorf("DeleteServerImage returned success but no image was deleted (ServerImageNo: %s)", myImageIID.SystemId)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+	cblogger.Info("Succeeded in Deleting the Snapshot Image.")
+
+	// deleteServerImage does not auto-delete the underlying block storage snapshots; delete them explicitly.
+	for _, bsm := range result.ServerImageList[0].BlockStorageMappingList {
+		if bsm.BlockStorageSnapshotInstanceNo == nil {
+			continue
+		}
+		snapshotNoStr := strconv.Itoa(int(ncloud.Int32Value(bsm.BlockStorageSnapshotInstanceNo)))
+		delSnapReq := vserver.DeleteBlockStorageSnapshotInstancesRequest{
+			RegionCode:                         ncloud.String(myImageHandler.RegionInfo.Region),
+			BlockStorageSnapshotInstanceNoList: []*string{ncloud.String(snapshotNoStr)},
+		}
+		_, snapErr := myImageHandler.VMClient.V2Api.DeleteBlockStorageSnapshotInstances(&delSnapReq)
+		if snapErr != nil {
+			cblogger.Warnf("Failed to Delete BlockStorageSnapshot [%s] for MyImage [%s]: [%v]", snapshotNoStr, myImageIID.SystemId, snapErr)
+		} else {
+			cblogger.Infof("Deleted BlockStorageSnapshot [%s] for MyImage [%s]", snapshotNoStr, myImageIID.SystemId)
+		}
 	}
 
 	return true, nil
@@ -319,8 +370,8 @@ func (myImageHandler *NcpVpcMyImageHandler) GetImageStatus(myImageIID irs.IID) (
 	}
 
 	imageReq := vserver.GetServerImageDetailRequest{ // Not GetBlockStorageSnapshotInstanceDetailRequest{}
-		RegionCode:     &myImageHandler.RegionInfo.Region,
-		ServerImageNo: 	&myImageIID.SystemId,
+		RegionCode:    &myImageHandler.RegionInfo.Region,
+		ServerImageNo: &myImageIID.SystemId,
 	}
 	callLogStart := call.Start()
 	result, err := myImageHandler.VMClient.V2Api.GetServerImageDetail(&imageReq) // Caution : Not GetBlockStorageSnapshotInstanceDetail()
@@ -368,22 +419,31 @@ func (myImageHandler *NcpVpcMyImageHandler) mappingMyImageInfo(myImage *vserver.
 	// spew.Dump(myImage)
 	// cblogger.Info("\n")
 
-	// convertedTime, err := convertTimeFormat(*myImage.CreateDate)
-	// if err != nil {
-	// 	newErr := fmt.Errorf("Failed to Convert the Time Format!!")
-	// 	cblogger.Error(newErr.Error())
-	// 	return nil, newErr
-	// }
+	var createdTime time.Time
+	if myImage.CreateDate != nil {
+		// NCP VPC returns createDate as "2006-01-02T15:04:05+0900" (no colon in offset).
+		if t, err := time.Parse("2006-01-02T15:04:05-0700", *myImage.CreateDate); err == nil {
+			createdTime = t.UTC()
+		} else {
+			cblogger.Warnf("Failed to parse CreateDate [%s]: %v", *myImage.CreateDate, err)
+		}
+	}
 
 	myImageInfo := &irs.MyImageInfo{
 		IId: irs.IID{
-			NameId:   	*myImage.ServerImageName,
-			SystemId: 	*myImage.ServerImageNo,
+			NameId:   *myImage.ServerImageName,
+			SystemId: *myImage.ServerImageNo,
 		},
-		// SourceVM:    	irs.IID{SystemId: *myImage.OriginalServerInstanceNo},
-		Status:      	convertImageStatus(*myImage.ServerImageStatus.Code),
-		// CreatedTime: 	convertedTime,
-		KeyValueList:   irs.StructToKeyValueList(myImage),
+		Status:       convertImageStatus(*myImage.ServerImageStatus.Code),
+		CreatedTime:  createdTime,
+		KeyValueList: irs.StructToKeyValueList(myImage),
+	}
+
+	// Parse source VM SystemId encoded in description (NCP VPC API does not return this natively).
+	if myImage.ServerImageDescription != nil {
+		if strings.HasPrefix(*myImage.ServerImageDescription, "sourceVMId:") {
+			myImageInfo.SourceVM = irs.IID{SystemId: strings.TrimPrefix(*myImage.ServerImageDescription, "sourceVMId:")}
+		}
 	}
 	return myImageInfo, nil
 }
@@ -411,7 +471,7 @@ func (myImageHandler *NcpVpcMyImageHandler) getOriginImageOSPlatform(myImageIID 
 	var originalImageProductCode string
 	// Use Key/Value info of the myImageInfo.
 	for _, keyInfo := range myImageInfo.KeyValueList {
-		if keyInfo.Key == "osType" {
+		if keyInfo.Key == "OsType" {
 			originalImageProductCode = keyInfo.Value
 			break
 		}
@@ -419,13 +479,13 @@ func (myImageHandler *NcpVpcMyImageHandler) getOriginImageOSPlatform(myImageIID 
 	// cblogger.Infof("\n### OriginalServerImageProductCode : [%s]", originalImageProductCode)
 
 	var originImagePlatform string
-	if strings.Contains(strings.ToUpper(originalImageProductCode), "UBNTU") {
+	if strings.Contains(strings.ToUpper(originalImageProductCode), "UBUNTU") {
 		originImagePlatform = "UBUNTU"
-	} else if strings.Contains(strings.ToUpper(originalImageProductCode), "CNTOS") {
+	} else if strings.Contains(strings.ToUpper(originalImageProductCode), "CENTOS") {
 		originImagePlatform = "CENTOS"
 	} else if strings.Contains(strings.ToUpper(originalImageProductCode), "ROCKY") {
 		originImagePlatform = "ROCKY"
-	} else if strings.Contains(strings.ToUpper(originalImageProductCode), "WND") {
+	} else if strings.Contains(strings.ToUpper(originalImageProductCode), "WIN") {
 		originImagePlatform = "WINDOWS"
 	} else {
 		newErr := fmt.Errorf("Failed to Get OriginImageOSPlatform of the MyImage!!")

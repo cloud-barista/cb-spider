@@ -55,7 +55,7 @@ while IFS= read -r storage_type; do
     \"VPCName\": \"vpc-01\",
     \"DBEngine\": \"mysql\",
     \"DBEngineVersion\": \"5.7.29\",
-    \"DBInstanceSpec\": \"m1.small\",
+    \"DBSpec\": \"m1.small\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"20\",
     \"MasterUserName\": \"myadmin\",

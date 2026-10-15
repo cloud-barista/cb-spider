@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -27,6 +28,7 @@ type AzurePublicIPHandler struct {
 	Ctx            context.Context
 	PublicIPClient *armnetwork.PublicIPAddressesClient
 	NicClient      *armnetwork.InterfacesClient
+	VMClient       *armcompute.VirtualMachinesClient
 }
 
 func (h *AzurePublicIPHandler) ListIID() ([]*irs.IID, error) {
@@ -457,6 +459,82 @@ func (h *AzurePublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool, 
 	if _, err = poller.PollUntilDone(h.Ctx, nil); err != nil {
 		return false, err
 	}
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}
+
+// RemoveDefaultPublicIP removes whatever Public IP is currently attached to
+// the VM's primary NIC (the one auto-created and attached during VM creation,
+// which is never tracked as a separate CB-Spider PublicIP resource). It
+// detaches the PublicIP from the NIC's IP configuration and then deletes the
+// PublicIP resource itself, so nothing is left orphaned/billed. Works on a
+// running VM - no stop/restart required.
+func (h *AzurePublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.Region, call.PUBLICIP, vmIID.NameId, "RemoveDefaultPublicIP()")
+	start := call.Start()
+
+	vm, err := h.VMClient.Get(h.Ctx, h.Region.Region, vmIID.NameId, nil)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if vm.Properties == nil || vm.Properties.NetworkProfile == nil || len(vm.Properties.NetworkProfile.NetworkInterfaces) == 0 {
+		return false, fmt.Errorf("VM %s has no network interfaces", vmIID.NameId)
+	}
+	niRef := vm.Properties.NetworkProfile.NetworkInterfaces[0]
+	if niRef.ID == nil {
+		return false, fmt.Errorf("VM %s's primary NIC has no ID", vmIID.NameId)
+	}
+	nicIdArr := strings.Split(*niRef.ID, "/")
+	vmNicName := nicIdArr[len(nicIdArr)-1]
+
+	nic, err := h.NicClient.Get(h.Ctx, h.Region.Region, vmNicName, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to get NIC %s: %w", vmNicName, err)
+	}
+	if nic.Properties == nil || len(nic.Properties.IPConfigurations) == 0 {
+		return false, fmt.Errorf("NIC %s has no IP configurations", vmNicName)
+	}
+
+	// Capture the currently-attached PublicIP resource name (if any) so it can
+	// be deleted after being detached from the NIC.
+	var publicIPResourceName string
+	for _, cfg := range nic.Properties.IPConfigurations {
+		if cfg == nil || cfg.Properties == nil || cfg.Properties.PublicIPAddress == nil {
+			continue
+		}
+		if cfg.Properties.PublicIPAddress.ID != nil {
+			parts := strings.Split(*cfg.Properties.PublicIPAddress.ID, "/")
+			publicIPResourceName = parts[len(parts)-1]
+		}
+		cfg.Properties.PublicIPAddress = nil
+	}
+	if publicIPResourceName == "" {
+		return false, fmt.Errorf("VM %s has no PublicIP attached to its primary NIC", vmIID.NameId)
+	}
+
+	poller, err := h.NicClient.BeginCreateOrUpdate(h.Ctx, h.Region.Region, vmNicName, nic.Interface, nil)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if _, err = poller.PollUntilDone(h.Ctx, nil); err != nil {
+		return false, err
+	}
+
+	delPoller, err := h.PublicIPClient.BeginDelete(h.Ctx, h.Region.Region, publicIPResourceName, nil)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if _, err = delPoller.PollUntilDone(h.Ctx, nil); err != nil {
+		return false, err
+	}
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	LoggingInfo(hiscallInfo, start)
 
 	return true, nil

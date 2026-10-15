@@ -171,10 +171,20 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	request.InstanceChargeType = common.StringPtr("POSTPAID_BY_HOUR")
 
-	request.InternetAccessible = &cvm.InternetAccessible{
-		// 	InternetChargeType: common.StringPtr("TRAFFIC_POSTPAID_BY_HOUR"),
-		PublicIpAssigned:        common.BoolPtr(true),
-		InternetMaxBandwidthOut: common.Int64Ptr(1), //Public Ip를 할당하려면 The maximum outbound bandwidth of the public network가 1Mbps이상이어야 함.
+	assignPublicIP := vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP
+	if assignPublicIP {
+		request.InternetAccessible = &cvm.InternetAccessible{
+			// 	InternetChargeType: common.StringPtr("TRAFFIC_POSTPAID_BY_HOUR"),
+			PublicIpAssigned:        common.BoolPtr(true),
+			InternetMaxBandwidthOut: common.Int64Ptr(1), //Public Ip를 할당하려면 The maximum outbound bandwidth of the public network가 1Mbps이상이어야 함.
+		}
+	} else {
+		// Tencent rejects InternetMaxBandwidthOut when PublicIpAssigned is false
+		// ("does not support set bandwidth without public ip address"), so omit
+		// InternetAccessible entirely rather than setting a zero/unused bandwidth.
+		request.InternetAccessible = &cvm.InternetAccessible{
+			PublicIpAssigned: common.BoolPtr(false),
+		}
 	}
 
 	request.InstanceName = common.StringPtr(vmReqInfo.IId.NameId)
@@ -330,10 +340,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			imageSize := *imageInfo.ImageSize
 			cblogger.Info("image : ", imageSize)
 
-			if rootDiskSize < imageSize {
-				cblogger.Error("Disk Size Error!!: ", rootDiskSize, imageSize)
-				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
-			}
+			cblogger.Infof("Requested root disk size %dGB (image %dGB); validation is delegated to Tencent.", rootDiskSize, imageSize)
 
 			cblogger.Info("rootDiskSize : ", rootDiskSize)
 			cblogger.Info("rootDiskSize : ", common.Int64Ptr(rootDiskSize))
@@ -785,11 +792,18 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		allPublicIPs = append(allPublicIPs, nic.PublicIPs...)
 	}
 	// Set primary PrivateIP from primary NIC (DeviceIndex == 0).
-	// PublicIP is already set from DescribeInstances above (authoritative) — do not override.
+	// PublicIP from DescribeInstances above is authoritative when present, but an
+	// EIP bound at the ENI level (AssociateAddress with NetworkInterfaceId, as
+	// used by AssignVMDefaultPublicIP) doesn't show up in curVm.PublicIpAddresses -
+	// only in the NIC's own PrivateIpAddressSet - so fall back to the primary
+	// NIC's public IP when the instance-level field left it empty.
 	for _, nic := range vmInfo.NICs {
 		if nic.DeviceIndex == 0 {
 			if len(nic.PrivateIPs) > 0 {
 				vmInfo.PrivateIP = nic.PrivateIPs[0]
+			}
+			if vmInfo.PublicIP == "" && len(nic.PublicIPs) > 0 && nic.PublicIPs[0] != "" {
+				vmInfo.PublicIP = nic.PublicIPs[0]
 			}
 			if nic.IId.NameId != "" {
 				vmInfo.NetworkInterface = nic.IId.NameId
@@ -1006,26 +1020,38 @@ func (vmHandler *TencentVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		ErrorMSG:     "",
 	}
 
-	request := cvm.NewDescribeInstancesRequest()
-	request.Limit = common.Int64Ptr(100)
+	var instanceSet []*cvm.Instance
+	var offset int64 = 0
+	limit := int64(100)
 
 	callLogStart := call.Start()
-	response, err := vmHandler.Client.DescribeInstances(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	for {
+		request := cvm.NewDescribeInstancesRequest()
+		request.Offset = &offset
+		request.Limit = &limit
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		response, err := vmHandler.Client.DescribeInstances(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-		cblogger.Error(err)
-		return nil, err
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug(response.ToJsonString())
+
+		instanceSet = append(instanceSet, response.Response.InstanceSet...)
+		if response.Response.TotalCount == nil || int64(len(instanceSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
-
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
-	cblogger.Debug(response.ToJsonString())
 
 	var vmInfoList []*irs.VMInfo
-	for _, curVm := range response.Response.InstanceSet {
+	for _, curVm := range instanceSet {
 		vmInfo, _ := vmHandler.GetVM(irs.IID{SystemId: *curVm.InstanceId})
 		vmInfoList = append(vmInfoList, &vmInfo)
 	}
@@ -1087,25 +1113,38 @@ func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		ErrorMSG:     "",
 	}
 
-	request := cvm.NewDescribeInstancesStatusRequest()
-	request.Limit = common.Int64Ptr(100)
+	var instanceStatusSet []*cvm.InstanceStatus
+	var offset int64 = 0
+	limit := int64(100)
 
 	callLogStart := call.Start()
-	response, err := vmHandler.Client.DescribeInstancesStatus(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	for {
+		request := cvm.NewDescribeInstancesStatusRequest()
+		request.Offset = &offset
+		request.Limit = &limit
 
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Error(call.String(callLogInfo))
+		response, err := vmHandler.Client.DescribeInstancesStatus(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
 
-		cblogger.Error(err)
-		return nil, err
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug(response.ToJsonString())
+
+		instanceStatusSet = append(instanceStatusSet, response.Response.InstanceStatusSet...)
+		if response.Response.TotalCount == nil || int64(len(instanceStatusSet)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
-	cblogger.Debug(response.ToJsonString())
 
 	var vmStatusList []*irs.VMStatusInfo
-	for _, curVm := range response.Response.InstanceStatusSet {
+	for _, curVm := range instanceStatusSet {
 		vmStatus, _ := ConvertVMStatusString(*curVm.InstanceState)
 
 		vmStatusInfo := irs.VMStatusInfo{
@@ -1409,26 +1448,38 @@ func (vmHandler *TencentVMHandler) ListIID() ([]*irs.IID, error) {
 
 	callLogInfo := GetCallLogScheme(vmHandler.Region, call.VMKEYPAIR, "ListIID", "DescribeInstances()")
 
-	request := cvm.NewDescribeInstancesRequest()
-	request.Limit = common.Int64Ptr(100)
+	var offset int64 = 0
+	limit := int64(100)
 
 	start := call.Start()
-	response, err := vmHandler.Client.DescribeInstances(request)
+	for {
+		request := cvm.NewDescribeInstancesRequest()
+		request.Offset = &offset
+		request.Limit = &limit
+
+		response, err := vmHandler.Client.DescribeInstances(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(start)
+			callLogInfo.ErrorMSG = err.Error()
+			calllogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			return nil, err
+		}
+		cblogger.Debug("VM Count : ", *response.Response.TotalCount)
+
+		for _, curVm := range response.Response.InstanceSet {
+			iid := irs.IID{SystemId: *curVm.InstanceId}
+			iidList = append(iidList, &iid)
+		}
+
+		if response.Response.TotalCount == nil || int64(len(iidList)) >= *response.Response.TotalCount {
+			break
+		}
+		offset += limit
+	}
 	callLogInfo.ElapsedTime = call.Elapsed(start)
-
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		calllogger.Error(call.String(callLogInfo))
-
-		cblogger.Error(err)
-		return nil, err
-	}
 	calllogger.Debug(call.String(callLogInfo))
-	cblogger.Debug("VM Count : ", *response.Response.TotalCount)
-	for _, curVm := range response.Response.InstanceSet {
-		iid := irs.IID{SystemId: *curVm.InstanceId}
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

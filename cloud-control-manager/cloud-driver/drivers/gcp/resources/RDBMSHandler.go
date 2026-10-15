@@ -57,13 +57,17 @@ func (handler *GCPRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("fetch Cloud SQL instance options failed: %w", err)
 	}
+	// Max is derived from Tiers.List()'s DiskQuota (bytes), already divided down to GiB
+	// by fetchCloudSQLInstanceOptions; convert to decimal GB. Min is a hardcoded constant
+	// with no confirmed native unit, so it is left unconverted (see MarkStatic below).
+	storageSizeRange.Max = irs.GiBToGB(storageSizeRange.Max)
 
 	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "1-7", false, false, true, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
-	metaInfo.MarkStatic("StorageSizeRange", "Minimum storage size is a fixed constant; only the maximum is derived from the live Cloud SQL Tiers API.")
-	metaInfo.MarkStatic("StorageSizeRange.Min", "GCP Cloud SQL Admin API does not expose a minimum disk size; fixed at 10GB.")
+	metaInfo.MarkStatic("StorageSizeRangeGB", "Minimum storage size is a fixed constant; only the maximum is derived from the live Cloud SQL Tiers API.")
+	metaInfo.MarkStatic("StorageSizeRangeGB.Min", "GCP Cloud SQL Admin API does not expose a minimum disk size; fixed at 10GB (unit not independently confirmed, left unconverted).")
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	calllogger.Info(call.String(hiscallInfo))
@@ -280,7 +284,17 @@ func (handler *GCPRDBMSHandler) ListIID() ([]*irs.IID, error) {
 	// In CB-Spider, the ProjectID is often stored in the credential
 	projectId = handler.getProjectId()
 
-	resp, err := handler.Client.Instances.List(projectId).Do()
+	var iidList []*irs.IID
+	err := handler.Client.Instances.List(projectId).Pages(context.Background(), func(resp *sqladmin.InstancesListResponse) error {
+		for _, instance := range resp.Items {
+			iid := &irs.IID{
+				NameId:   instance.Name,
+				SystemId: instance.Name,
+			}
+			iidList = append(iidList, iid)
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -288,15 +302,6 @@ func (handler *GCPRDBMSHandler) ListIID() ([]*irs.IID, error) {
 		return nil, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
-
-	var iidList []*irs.IID
-	for _, instance := range resp.Items {
-		iid := &irs.IID{
-			NameId:   instance.Name,
-			SystemId: instance.Name,
-		}
-		iidList = append(iidList, iid)
-	}
 
 	return iidList, nil
 }
@@ -315,8 +320,8 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	if rdbmsReqInfo.DBEngineVersion == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required")
 	}
 	if rdbmsReqInfo.MasterUserName == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
@@ -343,7 +348,7 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	//   HYPERDISK_BALANCED  | db-c4a-highmem-*        | Enterprise Plus
 	//   HYPERDISK_BALANCED  | db-custom-N4-*          | Enterprise
 	if rdbmsReqInfo.StorageType != "" {
-		spec := rdbmsReqInfo.DBInstanceSpec
+		spec := rdbmsReqInfo.DBSpec
 		st := rdbmsReqInfo.StorageType
 		const storageMapping = "\n\n  StorageType mapping:\n" +
 			"    PD_SSD (fixed)     : db-perf-optimized-N-* (Enterprise Plus)\n" +
@@ -386,14 +391,14 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 
 	// Build settings
 	settings := &sqladmin.Settings{
-		Tier:           rdbmsReqInfo.DBInstanceSpec, // e.g., "db-custom-2-7680"
+		Tier:           rdbmsReqInfo.DBSpec, // e.g., "db-custom-2-7680"
 		DataDiskSizeGb: storageSizeGB,
 	}
 
 	// Edition: N2 (db-perf-optimized-N-*) and C4A (db-c4a-highmem-*) require ENTERPRISE_PLUS.
 	// N4 (db-custom-N4-*) and Shared/Dedicated core (db-custom-*) use ENTERPRISE (default).
-	if strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-perf-optimized") ||
-		strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-c4a") {
+	if strings.HasPrefix(rdbmsReqInfo.DBSpec, "db-perf-optimized") ||
+		strings.HasPrefix(rdbmsReqInfo.DBSpec, "db-c4a") {
 		settings.Edition = "ENTERPRISE_PLUS"
 	}
 
@@ -402,7 +407,7 @@ func (handler *GCPRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	// - HYPERDISK_BALANCED: auto-assigned for C4A and N4 machine series; do not set DataDiskType.
 	// - Shared/Dedicated core (db-custom-*): PD_SSD or PD_HDD can be selected; set DataDiskType.
 	if rdbmsReqInfo.StorageType != "" &&
-		!strings.HasPrefix(rdbmsReqInfo.DBInstanceSpec, "db-perf-optimized") &&
+		!strings.HasPrefix(rdbmsReqInfo.DBSpec, "db-perf-optimized") &&
 		rdbmsReqInfo.StorageType != "HYPERDISK_BALANCED" {
 		settings.DataDiskType = rdbmsReqInfo.StorageType
 	}
@@ -548,7 +553,14 @@ func (handler *GCPRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 	start := call.Start()
 
 	projectId := handler.getProjectId()
-	resp, err := handler.Client.Instances.List(projectId).Do()
+	var rdbmsList []*irs.RDBMSInfo
+	err := handler.Client.Instances.List(projectId).Pages(context.Background(), func(resp *sqladmin.InstancesListResponse) error {
+		for _, instance := range resp.Items {
+			rdbmsInfo := handler.convertToRDBMSInfo(instance)
+			rdbmsList = append(rdbmsList, &rdbmsInfo)
+		}
+		return nil
+	})
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -556,12 +568,6 @@ func (handler *GCPRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
 		return nil, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
-
-	var rdbmsList []*irs.RDBMSInfo
-	for _, instance := range resp.Items {
-		rdbmsInfo := handler.convertToRDBMSInfo(instance)
-		rdbmsList = append(rdbmsList, &rdbmsInfo)
-	}
 
 	return rdbmsList, nil
 }
@@ -702,7 +708,7 @@ func (handler *GCPRDBMSHandler) convertToRDBMSInfo(instance *sqladmin.DatabaseIn
 
 	// Instance Spec
 	if instance.Settings != nil {
-		rdbmsInfo.DBInstanceSpec = instance.Settings.Tier
+		rdbmsInfo.DBSpec = instance.Settings.Tier
 
 		// Storage
 		rdbmsInfo.StorageSize = strconv.FormatInt(instance.Settings.DataDiskSizeGb, 10)
@@ -876,18 +882,19 @@ func (handler *GCPRDBMSHandler) DeleteDatabase(rdbmsSystemId, dbEngine, dbName s
 // This is used to determine if a Service Networking Peering can be safely deleted (only when no instances remain).
 func (handler *GCPRDBMSHandler) listInstancesInVPC(vpcNetwork string) ([]*sqladmin.DatabaseInstance, error) {
 	projectId := handler.getProjectId()
-	resp, err := handler.Client.Instances.List(projectId).Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list Cloud SQL instances: %w", err)
-	}
-
 	var instances []*sqladmin.DatabaseInstance
-	for _, instance := range resp.Items {
-		if instance.Settings != nil && instance.Settings.IpConfiguration != nil {
-			if instance.Settings.IpConfiguration.PrivateNetwork == vpcNetwork {
-				instances = append(instances, instance)
+	err := handler.Client.Instances.List(projectId).Pages(context.Background(), func(resp *sqladmin.InstancesListResponse) error {
+		for _, instance := range resp.Items {
+			if instance.Settings != nil && instance.Settings.IpConfiguration != nil {
+				if instance.Settings.IpConfiguration.PrivateNetwork == vpcNetwork {
+					instances = append(instances, instance)
+				}
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Cloud SQL instances: %w", err)
 	}
 	return instances, nil
 }

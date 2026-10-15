@@ -255,8 +255,14 @@ func (cloudConn *AwsCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, err
 	return &handler, nil
 }
 
+func (cloudConn *AwsCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.RDSClient, EC2Client: cloudConn.VNetworkClient, TagHandler: &tagHandler}
+	return &handler, nil
+}
+
 func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	tagHandler := cloudConn.CreateAwsTagHandler()
-	handler := ars.AwsPublicIPHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, TagHandler: &tagHandler}
+	handler := ars.AwsPublicIPHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, TagHandler: &tagHandler, CredentialInfo: cloudConn.CredentialInfo}
 	return &handler, nil
 }

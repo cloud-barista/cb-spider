@@ -508,264 +508,46 @@ Throughput
 	Valid Range: Minimum value of 125. Maximum value of 1000.
 */
 func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
-	// VolumeType
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
-	arrDiskType := cloudOSMetaInfo.DiskType
-	arrRootDiskType := cloudOSMetaInfo.RootDiskType
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-
-	cblogger.Debug(arrDiskType)
-	reqDiskType := diskReqInfo.DiskType
-	reqDiskSize := diskReqInfo.DiskSize
-	if reqDiskType == "" || reqDiskType == "default" {
-		reqDiskType = arrRootDiskType[0]
-		diskReqInfo.DiskType = arrRootDiskType[0]
+	if err != nil {
+		cblogger.Error(err)
+		return err
 	}
-
-	// 정의된 type인지
-	if !ContainString(arrDiskType, reqDiskType) {
-		return errors.New("Disktype : " + reqDiskType + " is not valid")
+	if diskReqInfo.DiskType == "" || diskReqInfo.DiskType == "default" {
+		if len(cloudOSMetaInfo.RootDiskType) > 0 {
+			diskReqInfo.DiskType = cloudOSMetaInfo.RootDiskType[0]
+		}
 	}
-
-	if reqDiskSize == "" || reqDiskSize == "default" {
-		for _, diskSizeInfo := range arrDiskSizeOfType {
+	if diskReqInfo.DiskSize == "" || diskReqInfo.DiskSize == "default" {
+		diskReqInfo.DiskSize = "50"
+		for _, diskSizeInfo := range cloudOSMetaInfo.DiskSize {
 			diskSizeArr := strings.Split(diskSizeInfo, "|")
-			if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
-				diskMinSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return err
-				}
-
-				// default size를 50GB로 정하였으나,
-				// st1, sc1 type의 경우 minimum size가 50GB보다 큰 125GB이므로, 이 경우에는 minimum size를 default size로 사용함
-				if diskMinSize < 50 {
-					reqDiskSize = "50"
-					diskReqInfo.DiskSize = "50"
-				} else {
-					reqDiskSize = diskSizeArr[1]
-					diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+			if strings.EqualFold(diskReqInfo.DiskType, diskSizeArr[0]) {
+				if diskMinSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64); err == nil && diskMinSize > 50 {
+					diskReqInfo.DiskSize = diskSizeArr[1]
 				}
 				break
 			}
 		}
-
 	}
-
-	// volume Size
-	volumeSize, err := strconv.ParseInt(reqDiskSize, 10, 64)
-	if err != nil {
+	if _, err := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64); err != nil {
 		return err
 	}
-
-	type diskSizeModel struct {
-		diskType    string
-		diskMinSize int64
-		diskMaxSize int64
-		unit        string
-	}
-
-	diskSizeValue := diskSizeModel{}
-	isExists := false
-	for idx, _ := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-		if strings.EqualFold(diskReqInfo.DiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-			isExists = true
-		}
-	}
-	if !isExists {
-		return errors.New("Invalid Root Disk Type : " + diskReqInfo.DiskType)
-	}
-
-	if volumeSize < diskSizeValue.diskMinSize {
-		cblogger.Error("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
-	}
-
-	if volumeSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-	}
-
-	//switch diskReqInfo.DiskType {
-	//case "standard":
-	//	if volumeSize < 1 || volumeSize > 1024 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 1024")
-	//	}
-	//case "gp2":
-	//	if volumeSize < 1 || volumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
-	//	}
-	//case "gp3":
-	//	if volumeSize < 1 || volumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
-	//	}
-	//
-	//	//throughput, err := strconv.ParseInt(diskReqInfo., 10, 64)
-	//	// min :125, max :  1000
-	//case "io1":
-	//	if volumeSize < 4 || volumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-	//	}
-	//case "io2":
-	//	if volumeSize < 4 || volumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-	//	}
-	//case "st1":
-	//	if volumeSize < 125 || volumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 125 to 16384")
-	//	}
-	//case "sc1":
-	//	if volumeSize < 125 || volumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 125 to 16384")
-	//	}
-	//default:
-	//	return errors.New("Invalid DiskType : " + diskReqInfo.DiskType)
-	//}
-
-	// IOPS : gp3, io1, io2
-	//iopsSize, err := strconv.ParseInt(diskReqInfo.IOPS, 10, 64)
-	//if err != nil { return err }
-	//switch diskReqInfo.DiskType {
-	//gp3: 3,000-16,000 IOPS
-	//
-	//io1: 100-64,000 IOPS
-	//
-	//io2: 100-64,000 IOPS
-	//case "gp2":
-	//case "gp3":
-	//	if iopsSize < 3000 || iopsSize > 16000 {
-	//		return errors.New("IOPS : " + iopsSize + "' supports 3,000 to 16,000")
-	//	}
-	//
-	//case "io1":
-	//	if iopsSize < 100 || iopsSize > 64000 {
-	//		return errors.New("IOPS : " + iopsSize + "' supports 100 to 64000")
-	//	}
-	//case "io2":
-	//	if iopsSize < 100 || iopsSize > 64000 {
-	//		return errors.New("IOPS : " + iopsSize + "' supports 100 to 64000")
-	//	}
-	//}
-
-	// encryption 이 true 면 KmsKeyId set 해야 함
-
-	// MultiAttachEnabled
 	return nil
 }
 
 func validateModifyDisk(diskReqInfo irs.DiskInfo, diskSize string) error {
-
-	// volume Size
 	orgVolumeSize, err := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64)
 	if err != nil {
 		return err
 	}
-
 	targetVolumeSize, err := strconv.ParseInt(diskSize, 10, 64)
 	if err != nil {
 		return err
 	}
-
-	if orgVolumeSize < targetVolumeSize {
-	} else {
+	if orgVolumeSize >= targetVolumeSize {
 		return errors.New("Target DiskSize : " + diskSize + " must be greater than Original DiskSize " + diskReqInfo.DiskSize)
 	}
-
-	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("AWS")
-	arrDiskType := cloudOSMetaInfo.DiskType
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-
-	// 정의된 type인지
-	if !ContainString(arrDiskType, diskReqInfo.DiskType) {
-		return errors.New("Disktype : " + diskReqInfo.DiskType + " is not valid")
-	}
-
-	type diskSizeModel struct {
-		diskType    string
-		diskMinSize int64
-		diskMaxSize int64
-		unit        string
-	}
-
-	diskSizeValue := diskSizeModel{}
-	isExists := false
-	for idx, _ := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-		if strings.EqualFold(diskReqInfo.DiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-			isExists = true
-		}
-	}
-	if !isExists {
-		return errors.New("Invalid Root Disk Type : " + diskReqInfo.DiskType)
-	}
-
-	if targetVolumeSize < diskSizeValue.diskMinSize {
-		cblogger.Error("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
-	}
-
-	if targetVolumeSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-	}
-
-	// VolumeType
-	// valid type : standard | io1 | io2 | gp2 | sc1 | st1 | gp3
-	//if !ContainString(arrDiskSizeOfType, diskReqInfo.DiskType) {
-	//	return errors.New("Disktype : " + diskReqInfo.DiskType + "' is not valid")
-	//}
-	//
-	//switch diskReqInfo.DiskType {
-	//case "gp3":
-	//	if targetVolumeSize < 1 || targetVolumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 1 to 16384")
-	//	}
-	//case "io1":
-	//	if targetVolumeSize < 4 || targetVolumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-	//	}
-	//case "io2":
-	//	if targetVolumeSize < 4 || targetVolumeSize > 16384 {
-	//		return errors.New("Disktype : " + diskReqInfo.DiskType + "' supports 4 to 16384")
-	//	}
-	//default:
-	//	return errors.New("Invalid DiskType : " + diskReqInfo.DiskType)
-	//}
-
-	// MultiAttachEnabled
-
-	// Throughput : gp3 only, min 125, max 1000, default 125
-	//switch diskReqInfo.DiskType {
-	//case "gp3":
-	//
-	//}
 	return nil
 }
 

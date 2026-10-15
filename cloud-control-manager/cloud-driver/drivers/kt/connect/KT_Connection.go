@@ -69,7 +69,12 @@ func (cloudConn *KTCloudVpcConnection) CreateKeyPairHandler() (irs.KeyPairHandle
 
 func (cloudConn KTCloudVpcConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("KT Cloud VPC Driver: called CreateSecurityHandler()!")
-	securityHandler := ktvpcrs.KTVpcSecurityHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, NetworkClient: cloudConn.NetworkClient}
+	securityHandler := ktvpcrs.KTVpcSecurityHandler{
+		RegionInfo:    cloudConn.RegionInfo,
+		VMClient:      cloudConn.VMClient,
+		NetworkClient: cloudConn.NetworkClient,
+		VolumeClient:  cloudConn.VolumeClient,
+	}
 	return &securityHandler, nil
 }
 
@@ -153,6 +158,10 @@ func (cloudConn *KTCloudVpcConnection) CreateRDBMSHandler() (irs.RDBMSHandler, e
 	return nil, fmt.Errorf("KT Cloud VPC Driver does not support RDBMSHandler: KT Cloud DBaaS can only be created and managed through the KT Cloud Console and does not provide a public REST API.")
 }
 
+func (cloudConn *KTCloudVpcConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	return nil, fmt.Errorf("KT Cloud VPC Driver does not support DBSpecHandler: KT Cloud DBaaS can only be created and managed through the KT Cloud Console and does not provide a public REST API.")
+}
+
 func (cloudConn *KTCloudVpcConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := ktvpcrs.KTVpcNICHandler{RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient, VMClient: cloudConn.VMClient}
 	return &handler, nil
@@ -161,9 +170,12 @@ func (cloudConn *KTCloudVpcConnection) CreateNICHandler() (irs.NICHandler, error
 func (cloudConn *KTCloudVpcConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
 	cblogger.Info("KT Cloud VPC Driver: called CreatePublicIPHandler()!")
 	handler := ktvpcrs.KTVpcPublicIPHandler{
-		RegionInfo:    cloudConn.RegionInfo,
-		NetworkClient: cloudConn.NetworkClient,
-		VMClient:      cloudConn.VMClient,
+		CredentialInfo: cloudConn.CredentialInfo,
+		RegionInfo:     cloudConn.RegionInfo,
+		NetworkClient:  cloudConn.NetworkClient,
+		VMClient:       cloudConn.VMClient,
+		ImageClient:    cloudConn.ImageClient,
+		VolumeClient:   cloudConn.VolumeClient,
 	}
 	return &handler, nil
 }

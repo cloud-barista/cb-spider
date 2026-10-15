@@ -529,7 +529,26 @@ func (vpcHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID ir
 	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
 
 	start := call.Start()
-	err := subnets.Delete(context.TODO(), vpcHandler.NetworkClient, subnetIID.SystemId).ExtractErr()
+
+	// Detach the subnet from the VPC's router before deleting it.
+	// Otherwise the delete fails with 409 SubnetInUse, since the router
+	// interface still holds an IP allocation from the subnet.
+	routerId, err := vpcHandler.GetRouter(vpcIID.NameId)
+	if err == nil {
+		if _, ifaceErr := vpcHandler.DeleteInterface(subnetIID.SystemId, *routerId); ifaceErr != nil {
+			cblogger.Warn(fmt.Sprintf("Failed to detach router interface for subnet %s: %s", subnetIID.SystemId, ifaceErr.Error()))
+		}
+	} else if err.Error() != ResourceNotFound {
+		cblogger.Warn(fmt.Sprintf("Failed to get router for VPC %s: %s", vpcIID.NameId, err.Error()))
+	}
+
+	// Remove any remaining non-VM ports (e.g. DHCP) still holding an IP
+	// allocation from this subnet, which would also block the delete.
+	if err := vpcHandler.cleanupSubnetPorts(vpcIID.SystemId, subnetIID.SystemId); err != nil {
+		cblogger.Warn(fmt.Sprintf("Failed to cleanup remaining ports on subnet %s: %s", subnetIID.SystemId, err.Error()))
+	}
+
+	err = subnets.Delete(context.TODO(), vpcHandler.NetworkClient, subnetIID.SystemId).ExtractErr()
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
@@ -580,6 +599,34 @@ func (vpcHandler *OpenStackVPCHandler) cleanupNetworkPorts(networkID string) err
 		err = ports.Delete(context.TODO(), vpcHandler.NetworkClient, p.ID).ExtractErr()
 		if err != nil {
 			cblogger.Warn(fmt.Sprintf("Failed to delete port %s (device_owner=%s): %v", p.ID, p.DeviceOwner, err))
+		}
+	}
+	return nil
+}
+
+// cleanupSubnetPorts deletes non-VM ports (e.g. DHCP) still holding an IP
+// allocation from the given subnet, which would otherwise block its deletion.
+func (vpcHandler *OpenStackVPCHandler) cleanupSubnetPorts(networkID string, subnetID string) error {
+	portPages, err := ports.List(vpcHandler.NetworkClient, ports.ListOpts{NetworkID: networkID}).AllPages(context.TODO())
+	if err != nil {
+		return err
+	}
+	portList, err := ports.ExtractPorts(portPages)
+	if err != nil {
+		return err
+	}
+	for _, p := range portList {
+		// Skip ports that are owned by compute (VMs) - should not exist at this point
+		if p.DeviceOwner == "compute:nova" || p.DeviceOwner == "compute:None" {
+			continue
+		}
+		for _, fixedIP := range p.FixedIPs {
+			if fixedIP.SubnetID == subnetID {
+				if delErr := ports.Delete(context.TODO(), vpcHandler.NetworkClient, p.ID).ExtractErr(); delErr != nil {
+					cblogger.Warn(fmt.Sprintf("Failed to delete port %s (device_owner=%s): %v", p.ID, p.DeviceOwner, delErr))
+				}
+				break
+			}
 		}
 	}
 	return nil

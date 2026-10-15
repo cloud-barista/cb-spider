@@ -299,135 +299,44 @@ func convertTenStatusToDiskStatus(diskInfo *cbs.Disk) irs.DiskStatus {
 
 func validateDisk(diskReqInfo *irs.DiskInfo) error {
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT")
-	arrDiskType := cloudOSMetaInfo.DiskType
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-	arrRootDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
-
-	reqDiskType := diskReqInfo.DiskType
-	reqDiskSize := diskReqInfo.DiskSize
-
-	if reqDiskType == "" || reqDiskType == "default" {
-		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
-		reqDiskType = diskSizeArr[0]          //
-		diskReqInfo.DiskType = diskSizeArr[0] // set default value
-	}
-	// 정의된 type인지
-	if !ContainString(arrDiskType, reqDiskType) {
-		return errors.New("Disktype : " + reqDiskType + "' is not valid")
-	}
-
-	if reqDiskSize == "" || reqDiskSize == "default" {
-		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
-		reqDiskSize = diskSizeArr[1]
-		diskReqInfo.DiskSize = diskSizeArr[1] // set default value
-	}
-
-	diskSize, err := strconv.ParseInt(reqDiskSize, 10, 64)
 	if err != nil {
 		cblogger.Error(err)
 		return err
 	}
-
-	type diskSizeModel struct {
-		diskType    string
-		diskMinSize int64
-		diskMaxSize int64
-		unit        string
-	}
-
-	diskSizeValue := diskSizeModel{}
-	isExists := false
-
-	for _, diskSizeInfo := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(diskSizeInfo, "|")
-		if strings.EqualFold(reqDiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-			isExists = true
+	defaultType, defaultSize := "CLOUD_PREMIUM", "50"
+	if len(cloudOSMetaInfo.RootDiskSize) > 0 {
+		diskSizeArr := strings.Split(cloudOSMetaInfo.RootDiskSize[0], "|")
+		if len(diskSizeArr) > 1 {
+			defaultType, defaultSize = diskSizeArr[0], diskSizeArr[1]
 		}
 	}
-
-	if !isExists {
-		return errors.New("Invalid Disk Type : " + reqDiskType)
+	if diskReqInfo.DiskType == "" || diskReqInfo.DiskType == "default" {
+		diskReqInfo.DiskType = defaultType
 	}
-
-	if diskSize < diskSizeValue.diskMinSize {
-		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be at least the minimum size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
+	if diskReqInfo.DiskSize == "" || diskReqInfo.DiskSize == "default" {
+		diskReqInfo.DiskSize = defaultSize
 	}
-
-	if diskSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
+	if _, err := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64); err != nil {
+		cblogger.Error(err)
+		return err
 	}
-
 	return nil
 }
 
 func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
-	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT")
-	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
-
 	diskSize, err := strconv.ParseInt(diskInfo.DiskSize, 10, 64)
 	if err != nil {
 		cblogger.Error(err)
 		return err
 	}
-
 	newDiskSize, err := strconv.ParseInt(newSize, 10, 64)
 	if err != nil {
 		cblogger.Error(err)
 		return err
 	}
-
 	if diskSize >= newDiskSize {
 		return errors.New("Target Disk Size: " + newSize + " must be larger than existing Disk Size " + diskInfo.DiskSize)
 	}
-
-	type diskSizeModel struct {
-		diskType    string
-		diskMinSize int64
-		diskMaxSize int64
-		unit        string
-	}
-
-	diskSizeValue := diskSizeModel{}
-
-	for _, diskSizeInfo := range arrDiskSizeOfType {
-		diskSizeArr := strings.Split(diskSizeInfo, "|")
-		if strings.EqualFold(diskInfo.DiskType, diskSizeArr[0]) {
-			diskSizeValue.diskType = diskSizeArr[0]
-			diskSizeValue.unit = diskSizeArr[3]
-			diskSizeValue.diskMinSize, err = strconv.ParseInt(diskSizeArr[1], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-
-			diskSizeValue.diskMaxSize, err = strconv.ParseInt(diskSizeArr[2], 10, 64)
-			if err != nil {
-				cblogger.Error(err)
-				return err
-			}
-		}
-	}
-
-	if newDiskSize > diskSizeValue.diskMaxSize {
-		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
-		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
-	}
-
 	return nil
 }
 

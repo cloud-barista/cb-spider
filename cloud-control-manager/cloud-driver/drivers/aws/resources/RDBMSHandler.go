@@ -136,6 +136,12 @@ func (handler *AwsRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, fmt.Errorf("DescribeOrderableDBInstanceOptions failed: %w", err)
 	}
+	// AWS RDS documents MinStorageSize/MaxStorageSize in GiB (gibibytes); convert to decimal GB
+	// for RDBMSMetaInfo.StorageSizeRangeGB, which is defined in GB.
+	storageSizeRange = irs.StorageSizeRange{
+		Min: irs.GiBToGB(storageSizeRange.Min),
+		Max: irs.GiBToGB(storageSizeRange.Max),
+	}
 
 	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "0-35", true, true, true, true, true)
 	if err != nil {
@@ -307,8 +313,8 @@ func (handler *AwsRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	if rdbmsReqInfo.DBEngineVersion == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required")
 	}
 	if rdbmsReqInfo.MasterUserName == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
@@ -345,7 +351,7 @@ func (handler *AwsRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	// Build CreateDBInstance input
 	input := &rds.CreateDBInstanceInput{
 		DBInstanceIdentifier: aws.String(rdbmsReqInfo.IId.NameId),
-		DBInstanceClass:      aws.String(rdbmsReqInfo.DBInstanceSpec),
+		DBInstanceClass:      aws.String(rdbmsReqInfo.DBSpec),
 		Engine:               aws.String(rdbmsReqInfo.DBEngine),
 		EngineVersion:        aws.String(rdbmsReqInfo.DBEngineVersion),
 		MasterUsername:       aws.String(rdbmsReqInfo.MasterUserName),
@@ -669,7 +675,7 @@ func (handler *AwsRDBMSHandler) convertDBInstanceToRDBMSInfo(dbInstance *rds.DBI
 	rdbmsInfo.DBEngineVersion = aws.StringValue(dbInstance.EngineVersion)
 
 	// Instance Spec
-	rdbmsInfo.DBInstanceSpec = aws.StringValue(dbInstance.DBInstanceClass)
+	rdbmsInfo.DBSpec = aws.StringValue(dbInstance.DBInstanceClass)
 	if aws.BoolValue(dbInstance.MultiAZ) {
 		rdbmsInfo.DBInstanceType = "Multi-AZ"
 	} else {

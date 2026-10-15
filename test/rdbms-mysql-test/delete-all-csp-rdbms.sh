@@ -122,10 +122,17 @@ for csp in ${CSP_ORDER}; do
     printf "%-12s | %-14s | %-20s | %-10s\n" \
         "${r_csp}" "${r_result}" "${r_detail}" "${r_elapsed}"
 
-    # DELETED/NOT_FOUND are both fine (instance gone either way); anything
-    # else (DELETE_ERROR/DELETE_TIMEOUT/NO_RESULT) is a real failure.
+    # DELETED: instance confirmed gone.
+    # NOT_FOUND: CB-Spider has no IID for this instance, which may mean the
+    #   CSP resource still exists as a zombie (e.g. after a failed rollback).
+    #   Treat as a warning failure so operators are alerted to check manually.
+    # DELETE_ERROR/DELETE_TIMEOUT/NO_RESULT: hard failure.
     case "${r_result}" in
-        DELETED|NOT_FOUND) ;;
+        DELETED) ;;
+        NOT_FOUND)
+            fail_count=$((fail_count + 1))
+            printf "  [WARN] %s: NOT_FOUND in CB-Spider metadb — CSP resource may still exist as a zombie. Check the CSP console and delete manually if needed.\n" "${r_csp}"
+            ;;
         *) fail_count=$((fail_count + 1)) ;;
     esac
 done

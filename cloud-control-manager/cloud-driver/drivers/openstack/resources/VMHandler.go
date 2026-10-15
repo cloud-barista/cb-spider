@@ -301,17 +301,19 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 
 		if currentStatus == "active" {
-			// Floating IP 연결 시도
-			ok, ipStr, err := vmHandler.AssociatePublicIP(serverResult.ID)
-			if !ok {
-				publicIPStr = ipStr // 실패 시에도 생성된 public IP 값 반환됨
-				createErr = errors.New(fmt.Sprintf("Failed to startVM err = failed to Associate PublicIP, err : %s", err))
-				cblogger.Error(createErr.Error())
-				LoggingError(hiscallInfo, createErr)
-				return irs.VMInfo{}, createErr
+			if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+				// Floating IP 연결 시도
+				ok, ipStr, err := vmHandler.AssociatePublicIP(serverResult.ID)
+				if !ok {
+					publicIPStr = ipStr // 실패 시에도 생성된 public IP 값 반환됨
+					createErr = errors.New(fmt.Sprintf("Failed to startVM err = failed to Associate PublicIP, err : %s", err))
+					cblogger.Error(createErr.Error())
+					LoggingError(hiscallInfo, createErr)
+					return irs.VMInfo{}, createErr
+				}
+				publicIPStr = ipStr // 성공 시 생성된 public IP 값 저장
+				cblogger.Info(fmt.Sprintf("Public IP created and associated: %s", publicIPStr))
 			}
-			publicIPStr = ipStr // 성공 시 생성된 public IP 값 저장
-			cblogger.Info(fmt.Sprintf("Public IP created and associated: %s", publicIPStr))
 			break
 		}
 		curRetryCnt++
@@ -907,8 +909,16 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 							}
 							nicInfo.PublicIPs = publicIPs
 							allPublicIPs = append(allPublicIPs, publicIPs...)
-							if idx == 0 && len(publicIPs) > 0 {
-								vmInfo.PublicIP = publicIPs[0]
+							if idx == 0 {
+								// Overwrite (including clearing to "") with this live, per-NIC
+								// floating IP lookup - it supersedes the possibly-stale value
+								// read from Nova's server.Addresses above (e.g. right after
+								// UnassignVMDefaultPublicIP, Nova may still report the old IP).
+								if len(publicIPs) > 0 {
+									vmInfo.PublicIP = publicIPs[0]
+								} else {
+									vmInfo.PublicIP = ""
+								}
 							}
 						}
 					}

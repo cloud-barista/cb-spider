@@ -112,7 +112,7 @@ type RDBMSCreateRequest struct {
 
 		DBEngine        string `json:"DBEngine" validate:"required" example:"mysql"`
 		DBEngineVersion string `json:"DBEngineVersion" validate:"required" example:"8.0"`
-		DBInstanceSpec  string `json:"DBInstanceSpec" validate:"required" example:"db.t3.medium"`
+		DBSpec          string `json:"DBSpec" validate:"required" example:"db.t3.medium"`
 		StorageSize     string `json:"StorageSize" validate:"required" example:"100"` // in GB
 
 		// StorageType: storage volume type. Use GetMetaInfo() to discover available options per CSP.
@@ -134,6 +134,16 @@ type RDBMSCreateRequest struct {
 
 		PublicAccess       bool `json:"PublicAccess,omitempty" default:"false"`
 		DeletionProtection bool `json:"DeletionProtection,omitempty" default:"false"`
+
+		// NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.
+		// When true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)
+		// NHN Cloud RDS DB Security Group, and deletes it automatically when the
+		// instance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does
+		// not use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup
+		// instead); if this flag is false (default), create and attach a DB
+		// Security Group yourself via the NHN Cloud console/API for external
+		// SQL access.
+		NHNAutoOpenDBSecurityGroup bool `json:"NHNAutoOpenDBSecurityGroup,omitempty" default:"false"`
 
 		TagList []cres.KeyValue `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`
@@ -184,7 +194,7 @@ func CreateRDBMS(c echo.Context) error {
 
 		DBEngine:        req.ReqInfo.DBEngine,
 		DBEngineVersion: req.ReqInfo.DBEngineVersion,
-		DBInstanceSpec:  req.ReqInfo.DBInstanceSpec,
+		DBSpec:          req.ReqInfo.DBSpec,
 		StorageType:     req.ReqInfo.StorageType,
 		StorageSize:     req.ReqInfo.StorageSize,
 		Iops:            req.ReqInfo.Iops,
@@ -202,6 +212,8 @@ func CreateRDBMS(c echo.Context) error {
 		PublicAccess:       req.ReqInfo.PublicAccess,
 		DeletionProtection: req.ReqInfo.DeletionProtection,
 		// Encryption is not configurable at creation (CSP default)
+
+		NHNAutoOpenDBSecurityGroup: req.ReqInfo.NHNAutoOpenDBSecurityGroup,
 
 		TagList: req.ReqInfo.TagList,
 	}
@@ -449,6 +461,39 @@ func GetRDBMSMetaInfo(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// RDBMSEngineListResponse represents the response body structure for the ListRDBMSEngine API.
+type RDBMSEngineListResponse struct {
+	Result []string `json:"rdbmsengine" validate:"required" description:"A list of RDBMS engines supported by the CSP for this connection"`
+}
+
+// listRDBMSEngine godoc
+// @ID list-rdbms-engine
+// @Summary List RDBMS Engines
+// @Description Retrieve the list of RDBMS engines (e.g., mysql, mariadb, postgresql) that the CSP supports for a specific connection, derived from the connection's driver capability information (GET /driver/capability).
+// @Tags [RDBMS Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list supported RDBMS engines for"
+// @Success 200 {object} RDBMSEngineListResponse "List of RDBMS engines supported by the CSP"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /rdbmsengine [get]
+func ListRDBMSEngine(c echo.Context) error {
+	cblog.Info("call ListRDBMSEngine()")
+
+	connectionName := c.QueryParam("ConnectionName")
+
+	result, err := cmrt.ListRDBMSEngine(connectionName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	jsonResult := RDBMSEngineListResponse{
+		Result: result,
+	}
+	return c.JSON(http.StatusOK, &jsonResult)
+}
+
 // getRDBMSOwnerVPC godoc
 // @ID get-rdbms-owner-vpc
 // @Summary Get RDBMS Owner VPC
@@ -654,4 +699,46 @@ func DeleteRDBMSDatabase(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &SimpleMsg{Message: "deleted"})
+}
+
+//================ RDBMS Secure Transport Status
+
+// getRDBMSSecureTransport godoc
+// @ID get-rdbms-secure-transport
+// @Summary Get RDBMS Secure Transport Status
+// @Description Report whether an RDBMS instance enforces encrypted (TLS/SSL) client connections, whether TLS is actually available, and its CA certificate. <br> Determined uniformly across every CSP via standard SQL and protocol handshakes against the engine itself, not each CSP's own (inconsistently available) management API: <br> MySQL/MariaDB: `SHOW VARIABLES LIKE 'require_secure_transport'`. <br> PostgreSQL: `pg_hba_file_rules`. <br> TLS availability and the server's certificate are captured live from the connection/handshake itself — see the response fields below.
+// @Tags [RDBMS Management]
+// @Accept  json
+// @Produce  json
+// @Param Name path string true "The name of the RDBMS instance"
+// @Param ConnectionName query string true "The name of the Connection"
+// @Param MasterUserPassword query string true "The master user password, used to connect and run the SQL check"
+// @Success 200 {object} cmrt.RDBMSSecureTransportInfo "Secure transport status"
+// @Failure 400 {object} SimpleMsg "Bad Request"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /rdbms/{Name}/secure-transport [get]
+func GetRDBMSSecureTransport(c echo.Context) error {
+	cblog.Info("call GetRDBMSSecureTransport()")
+
+	var req RDBMSDatabaseRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+	if req.MasterUserPassword == "" {
+		req.MasterUserPassword = c.QueryParam("MasterUserPassword")
+	}
+	if req.ConnectionName == "" || req.MasterUserPassword == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and MasterUserPassword are required")
+	}
+
+	result, err := cmrt.GetRDBMSSecureTransportStatus(req.ConnectionName, c.Param("Name"), req.MasterUserPassword)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
 }

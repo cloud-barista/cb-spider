@@ -182,7 +182,8 @@ func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.
 			ClusterId:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
 			RDSUserAccessKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "User Access Key"),
 			RDSSecretAccessKey: KeyValueListGetValue(crdInfo.KeyValueInfoList, "Secret Access Key"),
-			RDSAppKey:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "appKey"),
+			RDSMySQLAppKey:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "mysqlAppKey"),
+			RDSMariaDBAppKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "mariadbAppKey"),
 			ConnectionName:     cloudConnectName,
 		},
 		RegionInfo: idrv.RegionInfo{
@@ -280,7 +281,8 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 				Username           string `json:"Username"`
 				RDSUserAccessKey   string `json:"RDSUserAccessKey"`
 				RDSSecretAccessKey string `json:"RDSSecretAccessKey"`
-				RDSAppKey          string `json:"RDSAppKey"`
+				RDSMySQLAppKey     string `json:"RDSMySQLAppKey"`
+				RDSMariaDBAppKey   string `json:"RDSMariaDBAppKey"`
 			} `json:"CredentialInfo"`
 			RegionInfo struct {
 				Region     string `json:"Region"`
@@ -327,7 +329,8 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 			Username:           apiResponse.ConnectionInfo.CredentialInfo.Username,
 			RDSUserAccessKey:   apiResponse.ConnectionInfo.CredentialInfo.RDSUserAccessKey,
 			RDSSecretAccessKey: apiResponse.ConnectionInfo.CredentialInfo.RDSSecretAccessKey,
-			RDSAppKey:          apiResponse.ConnectionInfo.CredentialInfo.RDSAppKey,
+			RDSMySQLAppKey:     apiResponse.ConnectionInfo.CredentialInfo.RDSMySQLAppKey,
+			RDSMariaDBAppKey:   apiResponse.ConnectionInfo.CredentialInfo.RDSMariaDBAppKey,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region:     apiResponse.ConnectionInfo.RegionInfo.Region,
@@ -392,7 +395,8 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 			ClusterId:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
 			RDSUserAccessKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "User Access Key"),
 			RDSSecretAccessKey: KeyValueListGetValue(crdInfo.KeyValueInfoList, "Secret Access Key"),
-			RDSAppKey:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "appKey"),
+			RDSMySQLAppKey:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "mysqlAppKey"),
+			RDSMariaDBAppKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "mariadbAppKey"),
 		},
 	}
 

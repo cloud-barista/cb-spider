@@ -237,8 +237,10 @@ func GetVMDiskTypeInitType(diskType string) armcompute.StorageAccountTypes {
 		return armcompute.StorageAccountTypesStandardSSDLRS
 	case StandardHDD:
 		return armcompute.StorageAccountTypesStandardLRS
-	default:
+	case "", "default":
 		return armcompute.StorageAccountTypesPremiumLRS
+	default:
+		return armcompute.StorageAccountTypes(diskType)
 	}
 }
 
@@ -274,7 +276,7 @@ func GetDiskTypeInitType(diskType string) (armcompute.DiskStorageAccountTypes, e
 	case StandardHDD:
 		return armcompute.DiskStorageAccountTypesStandardLRS, nil
 	default:
-		return "", errors.New(fmt.Sprintf("invalid DiskType %s, Please select one of %s, %s, %s", diskType, PremiumSSD, StandardSSD, StandardHDD))
+		return armcompute.DiskStorageAccountTypes(diskType), nil
 	}
 }
 

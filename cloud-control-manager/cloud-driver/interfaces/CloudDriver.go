@@ -26,19 +26,23 @@ type DriverCapabilityInfo struct {
 	VMSpecHandler     bool // support: true, do not support: false
 
 	// Resource Handler
-	VPCHandler        bool // support: true, do not support: false
-	SecurityHandler   bool // support: true, do not support: false
-	KeyPairHandler    bool // support: true, do not support: false
-	VMHandler         bool // support: true, do not support: false
-	DiskHandler       bool // support: true, do not support: false
-	MyImageHandler    bool // support: true, do not support: false
-	NLBHandler        bool // support: true, do not support: false
-	ClusterHandler    bool // support: true, do not support: false
-	FileSystemHandler bool // support: true, do not support: false
-	QuotaInfoHandler  bool // support: true, do not support: false
-	RDBMSHandler      bool // support: true, do not support: false
-	PublicIPHandler   bool // support: true, do not support: false
-	NICHandler        bool // support: true, do not support: false
+	VPCHandler             bool // support: true, do not support: false
+	SecurityHandler        bool // support: true, do not support: false
+	KeyPairHandler         bool // support: true, do not support: false
+	VMHandler              bool // support: true, do not support: false
+	DiskHandler            bool // support: true, do not support: false
+	MyImageHandler         bool // support: true, do not support: false
+	NLBHandler             bool // support: true, do not support: false
+	ClusterHandler         bool // support: true, do not support: false
+	FileSystemHandler      bool // support: true, do not support: false
+	QuotaInfoHandler       bool // support: true, do not support: false
+	RDBMSHandler           bool // support: true, do not support: false
+	DBSpecHandler          bool // support: true, do not support: false
+	RDBMSMySQLHandler      bool // support: true, do not support: false
+	RDBMSMariaDBHandler    bool // support: true, do not support: false
+	RDBMSPostgreSQLHandler bool // support: true, do not support: false
+	PublicIPHandler        bool // support: true, do not support: false
+	NICHandler             bool // support: true, do not support: false
 
 	TagHandler bool // support: true, do not support: false
 	// ex) {ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
@@ -87,7 +91,8 @@ type CredentialInfo struct {
 	//----- RDS Access Info
 	RDSUserAccessKey   string // RDS User Access Key
 	RDSSecretAccessKey string // RDS Secret Access Key
-	RDSAppKey          string // RDS AppKey
+	RDSMySQLAppKey     string // RDS MySQL-specific AppKey (e.g., NHN Cloud RDS for MySQL)
+	RDSMariaDBAppKey   string // RDS MariaDB-specific AppKey (e.g., NHN Cloud RDS for MariaDB; falls back to RDSMySQLAppKey if empty)
 }
 
 type RegionInfo struct {

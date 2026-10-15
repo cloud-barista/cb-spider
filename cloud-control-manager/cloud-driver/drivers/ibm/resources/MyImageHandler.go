@@ -4,15 +4,61 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strings"
-	"time"
 )
+
+// getSnapshotNextHref extracts the "start" cursor from a snapshot list page's Next link.
+func getSnapshotNextHref(next *vpcv1.PageLink) (string, error) {
+	if next != nil {
+		href := *next.Href
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", err
+		}
+		paramMap, _ := url.ParseQuery(u.RawQuery)
+		if paramMap != nil {
+			safe := paramMap["start"]
+			if safe != nil && len(safe) > 0 {
+				return safe[0], nil
+			}
+		}
+	}
+	return "", errors.New("NOT NEXT")
+}
+
+// getAllSnapshots fetches every snapshot in the account, following pagination.
+func getAllSnapshots(vpcService *vpcv1.VpcV1, ctx context.Context) ([]vpcv1.Snapshot, error) {
+	options := &vpcv1.ListSnapshotsOptions{}
+	result, _, err := vpcService.ListSnapshotsWithContext(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	var allSnapshots []vpcv1.Snapshot
+	for {
+		allSnapshots = append(allSnapshots, result.Snapshots...)
+		nextstr, _ := getSnapshotNextHref(result.Next)
+		if nextstr == "" {
+			break
+		}
+		options := &vpcv1.ListSnapshotsOptions{Start: core.StringPtr(nextstr)}
+		result, _, err = vpcService.ListSnapshotsWithContext(ctx, options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list snapshots during pagination: %w", err)
+		}
+	}
+	return allSnapshots, nil
+}
 
 type IbmMyImageHandler struct {
 	CredentialInfo idrv.CredentialInfo
@@ -115,7 +161,7 @@ func (myImageHandler *IbmMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MYIMAGE", "ListMyImage()")
 
 	start := call.Start()
-	snapshotList, _, listSnapshotErr := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+	snapshots, listSnapshotErr := getAllSnapshots(myImageHandler.VpcService, myImageHandler.Ctx)
 	if listSnapshotErr != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", listSnapshotErr.Error()))
 		cblogger.Error(createErr.Error())
@@ -124,7 +170,7 @@ func (myImageHandler *IbmMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 	}
 
 	groupByImageResult := make(map[string][]vpcv1.Snapshot)
-	for _, snapshot := range snapshotList.Snapshots {
+	for _, snapshot := range snapshots {
 		if strings.Contains(*snapshot.Name, DEV) {
 			groupByKey := strings.Split(*snapshot.Name, DEV)[0]
 			groupByImageResult[groupByKey] = append(groupByImageResult[groupByKey], snapshot)
@@ -164,14 +210,14 @@ func (myImageHandler *IbmMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 }
 
 func (myImageHandler *IbmMyImageHandler) GetRawMyImage(myImageIID irs.IID) (*vpcv1.Snapshot, error) {
-	snapshotList, _, err := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+	snapshots, err := getAllSnapshots(myImageHandler.VpcService, myImageHandler.Ctx)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err.Error()))
 		return nil, err
 	}
 
 	groupByImageResult := make(map[string][]vpcv1.Snapshot)
-	for _, snapshot := range snapshotList.Snapshots {
+	for _, snapshot := range snapshots {
 		if strings.Contains(*snapshot.Name, DEV) {
 			groupByKey := strings.Split(*snapshot.Name, DEV)[0]
 			groupByImageResult[groupByKey] = append(groupByImageResult[groupByKey], snapshot)
@@ -340,7 +386,7 @@ func (myImageHandler *IbmMyImageHandler) getMyImageIID(snapshotList []vpcv1.Snap
 }
 
 func (myImageHandler *IbmMyImageHandler) cleanSnapshotByMyImage(myImageIID irs.IID) error {
-	snapshotList, _, listSnapshotErr := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+	snapshots, listSnapshotErr := getAllSnapshots(myImageHandler.VpcService, myImageHandler.Ctx)
 	if listSnapshotErr != nil {
 		return listSnapshotErr
 	}
@@ -349,7 +395,7 @@ func (myImageHandler *IbmMyImageHandler) cleanSnapshotByMyImage(myImageIID irs.I
 	if myImageIID.NameId != "" {
 		myImageNameId = myImageIID.NameId
 	} else {
-		for _, snapshot := range snapshotList.Snapshots {
+		for _, snapshot := range snapshots {
 			if *snapshot.ID == myImageIID.SystemId {
 				myImageNameId = strings.Split(*snapshot.Name, DEV)[0]
 			}
@@ -357,7 +403,7 @@ func (myImageHandler *IbmMyImageHandler) cleanSnapshotByMyImage(myImageIID irs.I
 	}
 
 	if myImageNameId != "" {
-		for _, snapshot := range snapshotList.Snapshots {
+		for _, snapshot := range snapshots {
 			parsed := strings.Split(*snapshot.Name, DEV)[0]
 			if parsed == myImageNameId {
 				deleteSnapshotOptions := vpcv1.DeleteSnapshotOptions{
@@ -416,7 +462,7 @@ func (myImageHandler *IbmMyImageHandler) ListIID() ([]*irs.IID, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MYIMAGE", "ListIID()")
 
 	start := call.Start()
-	snapshotList, _, err := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+	snapshots, err := getAllSnapshots(myImageHandler.VpcService, myImageHandler.Ctx)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err.Error()))
 		cblogger.Error(err.Error())
@@ -425,7 +471,7 @@ func (myImageHandler *IbmMyImageHandler) ListIID() ([]*irs.IID, error) {
 	}
 
 	groupByImageResult := make(map[string][]vpcv1.Snapshot)
-	for _, snapshot := range snapshotList.Snapshots {
+	for _, snapshot := range snapshots {
 		if strings.Contains(*snapshot.Name, DEV) {
 			groupByKey := strings.Split(*snapshot.Name, DEV)[0]
 			groupByImageResult[groupByKey] = append(groupByImageResult[groupByKey], snapshot)

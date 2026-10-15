@@ -72,6 +72,26 @@ func (handler *AlibabaRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaI
 }
 
 func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[string][]string, map[string][]string, map[string][]string, irs.StorageSizeRange, error) {
+	engineNames, supportedEngines, storageTypeOptions, storageLookups, err := handler.fetchRDBMSZoneDiscovery(dbEngine)
+	if err != nil {
+		return nil, nil, nil, irs.StorageSizeRange{}, err
+	}
+
+	instanceSpecOptions, storageSizeRange, err := handler.fetchRDBMSInstanceOptions(engineNames, storageLookups)
+	if err != nil {
+		return nil, nil, nil, irs.StorageSizeRange{}, err
+	}
+
+	return supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, nil
+}
+
+// fetchRDBMSZoneDiscovery queries DescribeAvailableZones for the requested engine and
+// derives (a) supported engine versions, (b) supported storage types, and (c) the
+// (zone, engineVersion, category, storageType) lookup combinations needed to query
+// DescribeAvailableClasses. Extracted out of fetchRDBMSMetaOptions so the DBSpec
+// catalog (DBSpecHandler.go) can reuse the same zone/version discovery instead of
+// duplicating it.
+func (handler *AlibabaRDBMSHandler) fetchRDBMSZoneDiscovery(dbEngine string) ([]alibabaRDBMSEngine, map[string][]string, map[string][]string, map[string][]alibabaRDBMSStorageLookup, error) {
 	allEngineNames := []alibabaRDBMSEngine{
 		{cbName: "mysql", aliName: "MySQL"},
 		{cbName: "mariadb", aliName: "MariaDB"},
@@ -85,7 +105,7 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[
 		}
 	}
 	if len(engineNames) == 0 {
-		return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DBEngine '%s' is not supported by Alibaba RDS", dbEngine)
+		return nil, nil, nil, nil, fmt.Errorf("DBEngine '%s' is not supported by Alibaba RDS", dbEngine)
 	}
 	engineByAlibabaName := map[string]alibabaRDBMSEngine{}
 	for _, eng := range engineNames {
@@ -104,14 +124,14 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[
 		}
 		zonesResp, err := handler.Client.DescribeAvailableZones(zonesReq)
 		if err != nil {
-			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones failed for engine %s: %w", eng.aliName, err)
+			return nil, nil, nil, nil, fmt.Errorf("DescribeAvailableZones failed for engine %s: %w", eng.aliName, err)
 		}
 		selectedZoneID := handler.Region.Zone
 		if selectedZoneID == "" && len(zonesResp.AvailableZones) > 0 {
 			selectedZoneID = zonesResp.AvailableZones[0].ZoneId
 		}
 		if selectedZoneID == "" {
-			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no zones for %s", eng.aliName)
+			return nil, nil, nil, nil, fmt.Errorf("DescribeAvailableZones returned no zones for %s", eng.aliName)
 		}
 
 		for _, zone := range zonesResp.AvailableZones {
@@ -156,23 +176,18 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSMetaOptions(dbEngine string) (map[
 	for _, eng := range engineNames {
 		versions := alibabaSortedSet(versionSets[eng.cbName])
 		if len(versions) == 0 {
-			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no engine versions for %s", eng.aliName)
+			return nil, nil, nil, nil, fmt.Errorf("DescribeAvailableZones returned no engine versions for %s", eng.aliName)
 		}
 		supportedEngines[eng.cbName] = versions
 
 		storageTypes := alibabaSortedSet(storageTypeSets[eng.cbName])
 		if len(storageTypes) == 0 {
-			return nil, nil, nil, irs.StorageSizeRange{}, fmt.Errorf("DescribeAvailableZones returned no storage types for %s", eng.aliName)
+			return nil, nil, nil, nil, fmt.Errorf("DescribeAvailableZones returned no storage types for %s", eng.aliName)
 		}
 		storageTypeOptions[eng.cbName] = storageTypes
 	}
 
-	instanceSpecOptions, storageSizeRange, err := handler.fetchRDBMSInstanceOptions(engineNames, storageLookups)
-	if err != nil {
-		return nil, nil, nil, irs.StorageSizeRange{}, err
-	}
-
-	return supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, nil
+	return engineNames, supportedEngines, storageTypeOptions, storageLookups, nil
 }
 
 func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alibabaRDBMSEngine, storageLookups map[string][]alibabaRDBMSStorageLookup) (map[string][]string, irs.StorageSizeRange, error) {
@@ -191,6 +206,7 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alib
 	for _, eng := range engineNames {
 		instanceSpecSet := map[string]bool{}
 		seenLookup := map[string]bool{}
+		firstCall := true
 		for _, lookup := range storageLookups[eng.aliName] {
 			if lookup.engineVersion != latestVersionByEngine[eng.aliName] {
 				continue
@@ -200,6 +216,17 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alib
 				continue
 			}
 			seenLookup[lookupKey] = true
+
+			// A single GetMetaInfo() call can require one DescribeAvailableClasses
+			// request per (category, storageType) combination — for engines with
+			// several categories (Basic/HighAvailability/AlwaysOn/Finance) and
+			// storage types this can easily reach 10-20+ sequential calls. Pace
+			// them instead of firing back-to-back, or Alibaba's per-user rate
+			// limit rejects the burst with a "Throttling.User" error.
+			if !firstCall {
+				time.Sleep(describeAvailableClassesPacingDelay)
+			}
+			firstCall = false
 
 			classesReq := rds.CreateDescribeAvailableClassesRequest()
 			classesReq.Engine = eng.aliName
@@ -238,8 +265,18 @@ func (handler *AlibabaRDBMSHandler) fetchRDBMSInstanceOptions(engineNames []alib
 		return nil, irs.StorageSizeRange{}, errors.New("DescribeAvailableClasses returned no storage size range")
 	}
 
+	// No unit conversion applied: DescribeAvailableClasses' DBInstanceStorageRange/StorageRange
+	// is widely documented as decimal GB, but the vendored SDK (auto-generated) carries no unit
+	// comment to confirm this independently, so it is passed through as-is rather than guessed.
 	return instanceSpecOptions, irs.StorageSizeRange{Min: minStorage, Max: maxStorage}, nil
 }
+
+// describeAvailableClassesPacingDelay is slept between successive
+// DescribeAvailableClasses calls within a single GetMetaInfo() request (see
+// fetchRDBMSInstanceOptions) so the (category, storageType) combinations for
+// an engine version are queried as a paced sequence rather than a burst,
+// which is what triggers Alibaba's per-user "Throttling.User" rate limit.
+const describeAvailableClassesPacingDelay = 400 * time.Millisecond
 
 func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.DescribeAvailableClassesRequest) (*rds.DescribeAvailableClassesResponse, error) {
 	type describeAvailableClassesResult struct {
@@ -247,8 +284,9 @@ func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.Descri
 		err      error
 	}
 
-	const maxThrottleRetry = 5
-	const throttleWait = 5 * time.Second
+	const maxThrottleRetry = 6
+	const throttleBaseWait = 5 * time.Second
+	const throttleMaxWait = 60 * time.Second
 
 	for attempt := 0; ; attempt++ {
 		resultChan := make(chan describeAvailableClassesResult, 1)
@@ -263,9 +301,18 @@ func (handler *AlibabaRDBMSHandler) describeAvailableClasses(request *rds.Descri
 			timer.Stop()
 			if result.err != nil {
 				if strings.Contains(result.err.Error(), "ErrorCode: Throttling") && attempt < maxThrottleRetry {
-					cblogger.Warnf("Throttling error for DescribeAvailableClasses (engine=%s, version=%s, zone=%s): %v. Waiting %s before retrying...",
-						request.Engine, request.EngineVersion, request.ZoneId, result.err, throttleWait)
-					time.Sleep(throttleWait)
+					// Exponential backoff (5s, 10s, 20s, 40s, 60s, 60s...): a fixed
+					// 5s retry proved too short against Alibaba's observed
+					// recommended cooldown (X-Acs-Retry-After up to ~14s) for this
+					// API, so back off further on repeated throttling instead of
+					// hammering it at the same short interval.
+					wait := throttleBaseWait << attempt
+					if wait > throttleMaxWait || wait <= 0 {
+						wait = throttleMaxWait
+					}
+					cblogger.Warnf("Throttling error for DescribeAvailableClasses (engine=%s, version=%s, zone=%s): %v. Waiting %s before retrying (attempt %d/%d)...",
+						request.Engine, request.EngineVersion, request.ZoneId, result.err, wait, attempt+1, maxThrottleRetry)
+					time.Sleep(wait)
 					continue
 				}
 				return nil, result.err
@@ -394,8 +441,8 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 	if rdbmsReqInfo.DBEngineVersion == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec is required")
 	}
 	if rdbmsReqInfo.MasterUserName == "" {
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
@@ -430,7 +477,7 @@ func (handler *AlibabaRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs
 	}
 
 	request.EngineVersion = rdbmsReqInfo.DBEngineVersion
-	request.DBInstanceClass = rdbmsReqInfo.DBInstanceSpec
+	request.DBInstanceClass = rdbmsReqInfo.DBSpec
 	request.DBInstanceStorage = requests.Integer(rdbmsReqInfo.StorageSize)
 	request.DBInstanceDescription = rdbmsReqInfo.IId.NameId
 	request.SecurityIPList = "0.0.0.0/0" // Default, user can modify later
@@ -784,7 +831,7 @@ func (handler *AlibabaRDBMSHandler) convertAttributeToRDBMSInfo(attr *rds.DBInst
 
 	rdbmsInfo.DBEngine = strings.ToLower(attr.Engine)
 	rdbmsInfo.DBEngineVersion = attr.EngineVersion
-	rdbmsInfo.DBInstanceSpec = attr.DBInstanceClass
+	rdbmsInfo.DBSpec = attr.DBInstanceClass
 	rdbmsInfo.StorageType = attr.DBInstanceStorageType
 	rdbmsInfo.StorageSize = strconv.Itoa(attr.DBInstanceStorage)
 	rdbmsInfo.Endpoint = attr.ConnectionString
@@ -851,7 +898,7 @@ func (handler *AlibabaRDBMSHandler) convertListItemToRDBMSInfo(db *rds.DBInstanc
 
 	rdbmsInfo.DBEngine = strings.ToLower(db.Engine)
 	rdbmsInfo.DBEngineVersion = db.EngineVersion
-	rdbmsInfo.DBInstanceSpec = db.DBInstanceClass
+	rdbmsInfo.DBSpec = db.DBInstanceClass
 	rdbmsInfo.StorageType = db.DBInstanceStorageType
 	rdbmsInfo.Endpoint = db.ConnectionString
 	rdbmsInfo.MasterUserName = "NA"

@@ -140,14 +140,15 @@ func (clusterHandler *TencentClusterHandler) ListCluster() ([]*irs.ClusterInfo, 
 	}
 	calllogger.Info(call.String(callLogInfo))
 
-	cluster_info_list := make([]*irs.ClusterInfo, *res.Response.TotalCount)
-	for i, cluster := range res.Response.Clusters {
-		cluster_info_list[i], err = getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *cluster.ClusterId)
+	cluster_info_list := make([]*irs.ClusterInfo, 0, len(res.Response.Clusters))
+	for _, cluster := range res.Response.Clusters {
+		clusterInfo, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, *cluster.ClusterId)
 		if err != nil {
 			err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
 			cblogger.Error(err)
 			return nil, err
 		}
+		cluster_info_list = append(cluster_info_list, clusterInfo)
 	}
 
 	return cluster_info_list, nil
@@ -174,8 +175,8 @@ func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs
 
 // GenerateClusterToken generates a token for cluster authentication
 // Tencent Cloud does not support dynamic token generation yet
-func (clusterHandler *TencentClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
-	return "", fmt.Errorf("GenerateClusterToken is not supported for Tencent Cloud clusters yet")
+func (clusterHandler *TencentClusterHandler) GenerateClusterToken(clusterIID irs.IID) (irs.ClusterToken, error) {
+	return irs.ClusterToken{}, fmt.Errorf("GenerateClusterToken is not supported for Tencent Cloud clusters yet")
 }
 
 func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
@@ -977,6 +978,13 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	// certain characters (e.g. '#') broke RunInstances.
 	var tags []*tke.Tag
 	for _, inputTag := range clusterInfo.TagList {
+		// Same propagation path as the '#' case above: an empty tag value is accepted
+		// by TKE but makes the Auto Scaling scale-out call to RunInstances fail with
+		// "tag value contains illegal characters", so the node group stays at 0 nodes.
+		if inputTag.Value == "" {
+			cblogger.Warnf("skip tag %q: an empty tag value would break node creation on scale-out", inputTag.Key)
+			continue
+		}
 		tags = append(tags, &tke.Tag{
 			Key:   common.StringPtr(inputTag.Key),
 			Value: common.StringPtr(inputTag.Value),

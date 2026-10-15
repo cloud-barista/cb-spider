@@ -92,7 +92,33 @@ func (fileSystemHandler *AwsFileSystemHandler) ListIID() ([]*irs.IID, error) {
 	hiscallInfo := GetCallLogScheme(fileSystemHandler.Region, call.FILESYSTEM, "ListIID", "DescribeFileSystems()")
 	start := call.Start()
 
-	result, err := fileSystemHandler.Client.DescribeFileSystems(input)
+	var iidList []*irs.IID
+	err := fileSystemHandler.Client.DescribeFileSystemsPages(input, func(page *efs.DescribeFileSystemsOutput, lastPage bool) bool {
+		for _, fs := range page.FileSystems {
+			if fs == nil {
+				continue
+			}
+
+			var nameId, systemId string
+
+			// Safely handle Name
+			if fs.Name != nil {
+				nameId = *fs.Name
+			}
+
+			// Safely handle FileSystemId
+			if fs.FileSystemId != nil {
+				systemId = *fs.FileSystemId
+			}
+
+			iid := irs.IID{
+				NameId:   nameId,
+				SystemId: systemId,
+			}
+			iidList = append(iidList, &iid)
+		}
+		return !lastPage
+	})
 
 	if err != nil {
 		cblogger.Error(err)
@@ -100,31 +126,6 @@ func (fileSystemHandler *AwsFileSystemHandler) ListIID() ([]*irs.IID, error) {
 		return nil, err
 	}
 	LoggingInfo(hiscallInfo, start)
-
-	var iidList []*irs.IID
-	for _, fs := range result.FileSystems {
-		if fs == nil {
-			continue
-		}
-
-		var nameId, systemId string
-
-		// Safely handle Name
-		if fs.Name != nil {
-			nameId = *fs.Name
-		}
-
-		// Safely handle FileSystemId
-		if fs.FileSystemId != nil {
-			systemId = *fs.FileSystemId
-		}
-
-		iid := irs.IID{
-			NameId:   nameId,
-			SystemId: systemId,
-		}
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

@@ -233,3 +233,8 @@ func (cloudConn *GCPCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler, err
 	rdbmsHandler := gcprs.GCPRDBMSHandler{Region: cloudConn.Region, Credential: cloudConn.Credential, Client: cloudConn.SQLAdminClient}
 	return &rdbmsHandler, nil
 }
+
+func (cloudConn *GCPCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := gcprs.GCPRDBMSHandler{Region: cloudConn.Region, Credential: cloudConn.Credential, Client: cloudConn.SQLAdminClient}
+	return &handler, nil
+}

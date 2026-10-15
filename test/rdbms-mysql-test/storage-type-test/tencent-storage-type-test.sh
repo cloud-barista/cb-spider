@@ -2,7 +2,7 @@
 
 # Tencent Cloud RDBMS StorageType Test Script
 # Fetches StorageTypeOptions from rdbmsmetainfo and runs one test per type in parallel.
-# Note: Subnet required. DBInstanceSpec is memory size in MB.
+# Note: Subnet required. DBSpec is memory size in MB.
 # Note: Tencent may reject concurrent orders (OperationDenied.OtherOderInProcess).
 #       The driver handles this with automatic retry logic, so parallel execution is safe.
 
@@ -59,7 +59,7 @@ while IFS= read -r storage_type; do
     \"SubnetNames\": [\"subnet-01\"],
     \"DBEngine\": \"mysql\",
     \"DBEngineVersion\": \"8.0\",
-    \"DBInstanceSpec\": \"8000\",
+    \"DBSpec\": \"8000\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"50\",
     \"MasterUserName\": \"root\",

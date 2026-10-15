@@ -18,7 +18,6 @@ import (
 	_ "errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -283,13 +282,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 		NetworkInterfaces: []*compute.NetworkInterface{
 			{
-				AccessConfigs: []*compute.AccessConfig{
-					{
-						Type: "ONE_TO_ONE_NAT",
-						Name: "External NAT", // default
-
-					},
-				},
 				Network:    networkURL,
 				Subnetwork: subnetWorkURL,
 			},
@@ -306,6 +298,15 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		Tags: &compute.Tags{
 			Items: securityTags,
 		},
+	}
+
+	if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+		instance.NetworkInterfaces[0].AccessConfigs = []*compute.AccessConfig{
+			{
+				Type: "ONE_TO_ONE_NAT",
+				Name: "External NAT", // default
+			},
+		}
 	}
 
 	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
@@ -374,52 +375,12 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// diskType = cloudOSMetaInfo.RootDiskType[0]
 			} else {
 				diskType = vmReqInfo.RootDiskType
-
-				// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
-				diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Do()
-				if err != nil {
-					cblogger.Error("Invalid Disk Type Error!!")
-					return irs.VMInfo{}, err
-				}
-
-				cblogger.Info("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
-
-				//valid disk size 정의
-				re := regexp.MustCompile("GB-?") //ex) 10GB-65536GB
-				diskSizeArr := re.Split(diskSizeResp.ValidDiskSize, -1)
-				diskMinSize, err := strconv.ParseInt(diskSizeArr[0], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-
-				diskMaxSize, err := strconv.ParseInt(diskSizeArr[1], 10, 64)
-				if err != nil {
-					cblogger.Error(err)
-					return irs.VMInfo{}, err
-				}
-
-				// diskUnit := "GB" // 기본 단위는 GB
-
-				if iDiskSize < diskMinSize {
-					cblogger.Error("Disk Size Error!!: ", iDiskSize)
-					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
-					return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskMinSize, 10) + " GB).")
-				}
-
-				if iDiskSize > diskMaxSize {
-					cblogger.Error("Disk Size Error!!: ", iDiskSize)
-					//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
-					return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskMaxSize, 10) + " GB).")
-				}
+				cblogger.Infof("Root disk type %s / size %dGB; validation is delegated to GCP.", diskType, iDiskSize)
 			}
 
 			//imageSize = imageResp.DiskSizeGb
 
-			if iDiskSize < imageSize {
-				cblogger.Error("Disk Size Error!!: ", iDiskSize)
-				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
-			}
+			cblogger.Infof("Requested root disk size %dGB (image %dGB); validation is delegated to GCP.", iDiskSize, imageSize)
 
 			instance.Disks[0].InitializeParams.DiskSizeGb = iDiskSize
 
@@ -925,28 +886,29 @@ func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	for _, zoneItem := range regionZoneInfo.ZoneList {
 		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
 
-		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Pages(vmHandler.Ctx, func(serverList *compute.InstanceList) error {
+			for _, s := range serverList.Items {
+				if s.Name != "" {
+					vmId := s.Name
+					status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
+					vmStatusInfo := irs.VMStatusInfo{
+						IId: irs.IID{
+							NameId:   vmId,
+							SystemId: vmId,
+						},
+						VmStatus: status,
+					}
+					vmStatusList = append(vmStatusList, &vmStatusInfo)
+				}
+			}
+			return nil
+		})
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
 			cblogger.Error(err)
 			continue // skip to next zone
-		}
-
-		for _, s := range serverList.Items {
-			if s.Name != "" {
-				vmId := s.Name
-				status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
-				vmStatusInfo := irs.VMStatusInfo{
-					IId: irs.IID{
-						NameId:   vmId,
-						SystemId: vmId,
-					},
-					VmStatus: status,
-				}
-				vmStatusList = append(vmStatusList, &vmStatusInfo)
-			}
 		}
 		callogger.Info(call.String(callLogInfo))
 	}
@@ -1062,16 +1024,17 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	for _, zoneItem := range regionZoneInfo.ZoneList {
 		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
 
-		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Pages(vmHandler.Ctx, func(serverList *compute.InstanceList) error {
+			for _, server := range serverList.Items {
+				vmInfo := vmHandler.mappingServerInfo(server)
+				vmList = append(vmList, &vmInfo)
+			}
+			return nil
+		})
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 		if err != nil {
 			cblogger.Errorf("Error fetching VM instances in zone %s: %v", zoneItem.Name, err)
 			continue // try next zone
-		}
-
-		for _, server := range serverList.Items {
-			vmInfo := vmHandler.mappingServerInfo(server)
-			vmList = append(vmList, &vmInfo)
 		}
 
 		callogger.Info(call.String(callLogInfo))
@@ -1251,6 +1214,11 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		}
 	}
 
+	var gcpPublicIP string
+	if len(server.NetworkInterfaces) > 0 && len(server.NetworkInterfaces[0].AccessConfigs) > 0 {
+		gcpPublicIP = server.NetworkInterfaces[0].AccessConfigs[0].NatIP
+	}
+
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
 			NameId: server.Name,
@@ -1273,7 +1241,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			SystemId: server.Labels["keypair"],
 		},
 		ImageIId:  vmHandler.getImageIID(server),
-		PublicIP:  server.NetworkInterfaces[0].AccessConfigs[0].NatIP,
+		PublicIP:  gcpPublicIP,
 		PrivateIP: server.NetworkInterfaces[0].NetworkIP,
 		VpcIID: irs.IID{
 			NameId:   vpcName,
@@ -1549,20 +1517,21 @@ func (vmHandler *GCPVMHandler) ListIID() ([]*irs.IID, error) {
 	for _, zoneItem := range regionZoneInfo.ZoneList {
 		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
 
-		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Pages(vmHandler.Ctx, func(serverList *compute.InstanceList) error {
+			for _, server := range serverList.Items {
+				iid := irs.IID{
+					NameId:   server.Name,
+					SystemId: server.Name,
+				}
+				iidList = append(iidList, &iid)
+			}
+			return nil
+		})
 		hiscallInfo.ElapsedTime = call.Elapsed(start)
 
 		if err != nil {
 			cblogger.Errorf("Error fetching VM instances in zone %s: %v", zoneItem.Name, err)
 			continue // try next zone
-		}
-
-		for _, server := range serverList.Items {
-			iid := irs.IID{
-				NameId:   server.Name,
-				SystemId: server.Name,
-			}
-			iidList = append(iidList, &iid)
 		}
 
 		calllogger.Info(call.String(hiscallInfo))

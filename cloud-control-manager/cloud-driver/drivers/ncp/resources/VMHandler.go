@@ -101,8 +101,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	var publicImageId string
 	var publicImageSpecId string
 	var myImageId string
-	// var myImageSpecId string
-	// var serverProductCode string
+	var myImageSpecId string
 
 	var initScriptNo *string
 	var instanceReq vserver.CreateServerInstancesRequest
@@ -164,9 +163,9 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		if strings.EqualFold(vmReqInfo.RootDiskType, "default") || strings.EqualFold(vmReqInfo.RootDiskType, "HDD") {
 			reqDiskType = KVMRootDiskType
 		} else if strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
-			newErr := fmt.Errorf("Invalid root disk type. KVM-based VMs only support root disks of the ‘HDD’ type.")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
+			reqDiskType = "FB1"
+		} else {
+			reqDiskType = vmReqInfo.RootDiskType
 		}
 
 		instanceReq = vserver.CreateServerInstancesRequest{
@@ -202,6 +201,9 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
 			ServerCreateCount:          minCount,
 			InitScriptNo:               initScriptNo,
+
+			// Request a Public IP be assigned as part of VM creation itself (Public Subnet + single-instance creation only).
+			AssociateWithPublicIp: ncloud.Bool(vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP),
 		}
 
 	} else { // In case of My Image
@@ -221,21 +223,8 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			return irs.VMInfo{}, newErr
 		} else {
 			myImageId = vmReqInfo.ImageIID.SystemId
-			// myImageSpecId = vmReqInfo.VMSpecName
+			myImageSpecId = vmReqInfo.VMSpecName
 		}
-
-		// vmSpecHandler := NcpVpcVMSpecHandler{
-		// 	RegionInfo:  vmHandler.RegionInfo,
-		// 	VMClient:    vmHandler.VMClient,
-		// }
-		// var getErr error
-		// serverProductCode, getErr = vmSpecHandler.getNcpVpcServerProductCode(myImageSpecId)
-		// if err != nil {
-		// 	newErr := fmt.Errorf("Failed to Get ServerProductCode from NCP VPC : ", getErr)
-		// 	cblogger.Error(newErr.Error())
-		// 	LoggingError(callLogInfo, newErr)
-		// 	return irs.VMInfo{}, newErr
-		// }
 
 		myImageHandler := NcpVpcMyImageHandler{
 			RegionInfo: vmHandler.RegionInfo,
@@ -268,21 +257,15 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			}
 		}
 
-		// ### Note) "These parameters cannot be used at the same time : [memberServerImageInstanceNo, serverImageProductCode, serverSpecCode]"
-		// $$$ Need to check what to set as a vmSpec when creating a VM with a MyImge(MemberServerImageInstanceNo).
+		// MyImage (ServerImageNo from CreateServerImage API) uses the same new-API path as public images.
 		instanceReq = vserver.CreateServerInstancesRequest{
-			RegionCode:                  ncloud.String(vmHandler.RegionInfo.Region),
-			ServerName:                  ncloud.String(instanceName),
-			MemberServerImageInstanceNo: ncloud.String(myImageId),
-			// ServerImageProductCode: 		ncloud.String(publicImageId), // In case using New publicImageId(from New API). Use 'ServerImageNo' parameter!!
-			// ServerProductCode:      		ncloud.String(serverProductCode), // In case using New vmSpecId(from New API). Use 'ServerSpecCode' parameter!!
-			LoginKeyName: ncloud.String(keyPairId),
-			VpcNo:        ncloud.String(vpcId),
-			SubnetNo:     ncloud.String(subnetId), // Applied for Zone-based control!!
-
-			// Note) If enabled and set "", an error will occur on VM creation with 'MemberServerImageInstanceNo'.
-			// ServerImageNo: 				ncloud.String(publicImageId), // Added for using imageId from New API
-			// ServerSpecCode: 				ncloud.String(publicImageSpecId), // Added for using specId from New API
+			RegionCode:     ncloud.String(vmHandler.RegionInfo.Region),
+			ServerName:     ncloud.String(instanceName),
+			ServerImageNo:  ncloud.String(myImageId),
+			ServerSpecCode: ncloud.String(myImageSpecId),
+			LoginKeyName:   ncloud.String(keyPairId),
+			VpcNo:          ncloud.String(vpcId),
+			SubnetNo:       ncloud.String(subnetId), // Applied for Zone-based control!!
 
 			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
 			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
@@ -296,6 +279,24 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
 			ServerCreateCount:          minCount,
 			InitScriptNo:               initScriptNo,
+
+			// Request a Public IP be assigned as part of VM creation itself (Public Subnet + single-instance creation only).
+			AssociateWithPublicIp: ncloud.Bool(vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP),
+		}
+
+		// BlockStorageMappingList is only supported for KVM; XEN/RHV images must omit it.
+		isKvm, kvmErr := myImageHandler.isKvmMyImage(vmReqInfo.ImageIID)
+		if kvmErr != nil {
+			cblogger.Warnf("Failed to determine hypervisor type for MyImage [%s], skipping BlockStorageMappingList: [%v]", myImageId, kvmErr)
+		}
+		if isKvm {
+			instanceReq.BlockStorageMappingList = []*vserver.BlockStorageMappingParameter{
+				{
+					Order:                      orderInt32,
+					BlockStorageVolumeTypeCode: ncloud.String(KVMRootDiskType),
+					BlockStorageSize:           ncloud.String(vmReqInfo.RootDiskSize),
+				},
+			}
 		}
 	}
 	// cblogger.Info("# instanceReq")
@@ -983,32 +984,9 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		return irs.VMInfo{}, newErr
 	}
 
-	// Create a PublicIp, if the instance doesn't have a 'Public IP' after creation.
-	if strings.EqualFold(ncloud.StringValue(NcpInstance.PublicIp), "") {
-		publicIpReq := vserver.CreatePublicIpInstanceRequest{
-			ServerInstanceNo: NcpInstance.ServerInstanceNo,
-			RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
-		}
-
-		// CAUTION!! : The number of Public IPs cannot be more than the number of instances on NCP cloud default service.
-		result, err := vmHandler.VMClient.V2Api.CreatePublicIpInstance(&publicIpReq)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Create Public IP : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if len(result.PublicIpInstanceList) < 1 {
-			newErr := fmt.Errorf("Failed to Create Any Public IP!!")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-
-		publicIp = result.PublicIpInstanceList[0].PublicIp
-		privateIp = result.PublicIpInstanceList[0].PrivateIp
-
-		cblogger.Infof("*** PublicIp : %s ", ncloud.StringValue(publicIp))
-		cblogger.Infof("Finished to Create Public IP")
-	} else {
+	// Public IP is now requested at VM creation time via CreateServerInstancesRequest.AssociateWithPublicIp,
+	// so NCP VPC assigns and returns it directly on the server instance once creation completes.
+	if !strings.EqualFold(ncloud.StringValue(NcpInstance.PublicIp), "") {
 		publicIp = NcpInstance.PublicIp
 		cblogger.Infof("*** NcpInstance.PublicIp : %s ", ncloud.StringValue(publicIp))
 
@@ -1031,6 +1009,15 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		privateIp = result.PublicIpInstanceList[0].PrivateIp
 
 		cblogger.Infof("Finished to Get PublicIP InstanceNo")
+	} else {
+		// e.g. VM created on a Private Subnet, where a Public IP cannot be assigned.
+		publicIp = ncloud.String("")
+		privateIp = ncloud.String("")
+	}
+
+	sshAccessPoint := ""
+	if *publicIp != "" {
+		sshAccessPoint = *publicIp + ":22"
 	}
 
 	// PublicIpID : Using for deleting the PublicIP
@@ -1059,7 +1046,7 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		KeyPairIId:     irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
 		PublicIP:       *publicIp,
 		PrivateIP:      *privateIp,
-		SSHAccessPoint: *publicIp + ":22",
+		SSHAccessPoint: sshAccessPoint,
 		KeyValueList:   irs.StructToKeyValueList(NcpInstance),
 	}
 
@@ -1122,6 +1109,9 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 			}
 			if len(allPrivateIPs) > 0 {
 				vmInfo.PrivateIPs = allPrivateIPs
+				if vmInfo.PrivateIP == "" {
+					vmInfo.PrivateIP = allPrivateIPs[0]
+				}
 			}
 			for _, acgNo := range acgNos {
 				sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: acgNo})

@@ -48,7 +48,7 @@ for test_case in "${TEST_CASES[@]}"; do
     \"VPCName\": \"vpc-01\",
     \"DBEngine\": \"mysql\",
     \"DBEngineVersion\": \"8.0\",
-    \"DBInstanceSpec\": \"${db_instance_spec}\",
+    \"DBSpec\": \"${db_instance_spec}\",
     \"StorageType\": \"${storage_type}\",
     \"StorageSize\": \"${db_storage_size}\",
     \"MasterUserName\": \"myadmin\",

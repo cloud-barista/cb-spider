@@ -636,33 +636,33 @@ func listDLVM(anyCallHandler *GCPAnyCallHandler, callInfo irs.AnyCallInfo) (irs.
 	// Initialize the Compute Engine client
 	vmClient := anyCallHandler.Client
 
-	// Fetch the list of VM Instances
-	resp, err := vmClient.Instances.List(anyCallHandler.Credential.ProjectID, zoneId).Context(anyCallHandler.Ctx).Do()
+	// Fetch the list of VM Instances, filtering for those with a Jupyter Lab token label
+	err := vmClient.Instances.List(anyCallHandler.Credential.ProjectID, zoneId).Context(anyCallHandler.Ctx).Pages(anyCallHandler.Ctx, func(resp *compute.InstanceList) error {
+		for _, instance := range resp.Items {
+			// Check if the Jupyter Lab token label exists
+			jupyterToken, hasToken := instance.Labels["cb_spider_tpu_vm_jupyter_token"]
+			if !hasToken {
+				continue // Skip VMs without the Jupyter Lab token label
+			}
+
+			// Get VM information
+			vmInfo, err := getInstanceInfo(anyCallHandler, zoneId, instance.Name)
+			if err != nil {
+				cblogger.Errorf("Failed to get VM info for %s: %v", instance.Name, err)
+				continue
+			}
+
+			// Append VM information, including Jupyter Lab token from the label, to OKeyValueList
+			vmInfoWithToken := fmt.Sprintf("%s, Jupyter Lab token: %s", vmInfo, jupyterToken)
+			callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{
+				Key:   instance.Name,
+				Value: vmInfoWithToken,
+			})
+		}
+		return nil
+	})
 	if err != nil {
 		return callInfo, fmt.Errorf("failed to list VM instances in zone %s: %v", zoneId, err)
-	}
-
-	// Filter and populate OKeyValueList with details of VMs having the Jupyter Lab token label
-	for _, instance := range resp.Items {
-		// Check if the Jupyter Lab token label exists
-		jupyterToken, hasToken := instance.Labels["cb_spider_tpu_vm_jupyter_token"]
-		if !hasToken {
-			continue // Skip VMs without the Jupyter Lab token label
-		}
-
-		// Get VM information
-		vmInfo, err := getInstanceInfo(anyCallHandler, zoneId, instance.Name)
-		if err != nil {
-			cblogger.Errorf("Failed to get VM info for %s: %v", instance.Name, err)
-			continue
-		}
-
-		// Append VM information, including Jupyter Lab token from the label, to OKeyValueList
-		vmInfoWithToken := fmt.Sprintf("%s, Jupyter Lab token: %s", vmInfo, jupyterToken)
-		callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{
-			Key:   instance.Name,
-			Value: vmInfoWithToken,
-		})
 	}
 
 	return callInfo, nil

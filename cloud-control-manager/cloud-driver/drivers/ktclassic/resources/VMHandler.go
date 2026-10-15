@@ -374,32 +374,39 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		// cblogger.Infof("==> \n### result : [%s]", result.Listvirtualmachinesresponse.Virtualmachine[0])
 		// spew.Dump(result)
 
-		publicIp, publicIpId, err := vmHandler.associateIpAddress()
-		if err != nil {
-			cblogger.Errorf("Failed to Create New Public IP : [%v]", err)
-			return irs.VMInfo{}, err
-		}
-		cblogger.Infof("==> The Public IP and Public ID : [%s], [%s]", publicIp, publicIpId)
+		var publicIp, publicIpId string
+		if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+			publicIp, publicIpId, err = vmHandler.associateIpAddress()
+			if err != nil {
+				cblogger.Errorf("Failed to Create New Public IP : [%v]", err)
+				return irs.VMInfo{}, err
+			}
+			cblogger.Infof("==> The Public IP and Public ID : [%s], [%s]", publicIp, publicIpId)
 
-		// Caution!!) If execute DeleteFirewall(), PortFording rule also deleted via KT Cloud API
-		// Delete Firewall Rule(Open : tcp/22) created when setting PORT Forwarding.
-		// The port No. 22 is opened already when the PortFording rule is created.
+			// Caution!!) If execute DeleteFirewall(), PortFording rule also deleted via KT Cloud API
+			// Delete Firewall Rule(Open : tcp/22) created when setting PORT Forwarding.
+			// The port No. 22 is opened already when the PortFording rule is created.
 
-		// _, error := vmHandler.deleteFirewall(publicIpId)
-		// if error != nil {
-		// 	cblogger.Error(error.Error())
+			// _, error := vmHandler.deleteFirewall(publicIpId)
+			// if error != nil {
+			// 	cblogger.Error(error.Error())
 
-		// 	return irs.VMInfo{}, err
-		// } else {
-		// 	cblogger.Info("Succeeded in Deleting the Firewall rules!!")
-		// }
+			// 	return irs.VMInfo{}, err
+			// } else {
+			// 	cblogger.Info("Succeeded in Deleting the Firewall rules!!")
+			// }
 
-		_, ruleErr := vmHandler.createPortForwardingFirewallRules(sgSystemIDs, publicIpId, newVM.Deployvirtualmachineresponse.ID)
-		if ruleErr != nil {
-			newErr := fmt.Errorf("Failed to Create PortForwarding Rules and Firewall Rules : [%v]", ruleErr)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
+			_, ruleErr := vmHandler.createPortForwardingFirewallRules(sgSystemIDs, publicIpId, newVM.Deployvirtualmachineresponse.ID)
+			if ruleErr != nil {
+				newErr := fmt.Errorf("Failed to Create PortForwarding Rules and Firewall Rules : [%v]", ruleErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+		} else {
+			cblogger.Info("# AssignPublicIP=false: skipping Public IP creation and PortForwarding/Firewall rule setup. " +
+				"KT Cloud Classic enforces Security Groups only via per-PublicIP Firewall/PortForwarding rules, " +
+				"so the requested SecurityGroups will NOT be enforced at the network level for this VM.")
 		}
 
 		// Converts string slice to string

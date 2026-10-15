@@ -159,7 +159,7 @@ func makeDriverTRListHTML(bgcolor string, height string, fontSize string, infoLi
 }
 
 func fetchDriverInfos() ([]*dim.CloudDriverInfo, error) {
-	resp, err := httpGetWithAuth("http://localhost:1024/spider/driver")
+	resp, err := httpGetWithAuth(spiderBaseURL() + "/spider/driver")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching drivers: %v", err)
 	}

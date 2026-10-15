@@ -118,19 +118,21 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		return irs.VMInfo{}, newErr
 	}
 
-	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vpc.ID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
+	if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+		isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vpc.ID)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
 
-	if !isConnectedToGateway {
-		newErr := fmt.Errorf("Routing Table of the VPC need to be connected to an Internet Gateway to use Public IP!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
+		if !isConnectedToGateway {
+			newErr := fmt.Errorf("Routing Table of the VPC need to be connected to an Internet Gateway to use Public IP!!")
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
 	}
 
 	// Check if VM Name is Duplicated
@@ -329,49 +331,6 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	}
 
 	// When Volume Type is Incorrect
-	if strings.EqualFold(nhnVMSpecType, "u2") && !strings.EqualFold(reqDiskType, HDD) {
-		newErr := fmt.Errorf("Invalid RootDiskType!! Specified VMSpec [%s] supports only 'default' or 'General_HDD' RootDiskType!!", vmReqInfo.VMSpecName)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
-	if strings.EqualFold(nhnVMSpecType, "u2") && (!strings.EqualFold(reqDiskSize, "") && !strings.EqualFold(reqDiskSize, "default")) {
-
-		vmSpecHandler := NhnCloudVMSpecHandler{
-			RegionInfo: vmHandler.RegionInfo,
-			VMClient:   vmHandler.VMClient,
-		}
-		vmSpec, err := vmSpecHandler.GetVMSpec(vmReqInfo.VMSpecName) // Check vmSpec info.
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get VMSpec Info. with the name : %v", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-
-		// Use Key/Value info of the vmSpec Info.
-		var localDisk string
-		for _, keyInfo := range vmSpec.KeyValueList {
-			if strings.EqualFold(keyInfo.Key, "LocalDiskSize(GB)") {
-				localDisk = keyInfo.Value
-				break
-			}
-		}
-
-		if reqDiskSize != localDisk {
-			newErr := fmt.Errorf("Invalid RootDiskSize!! Specified VMSpec [%s] supports only [%s](GB)!!", vmReqInfo.VMSpecName, localDisk)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-	}
-
-	if nhnVMSpecType != "u2" && (reqDiskType != HDD && reqDiskType != SSD) {
-		newErr := fmt.Errorf("Invalid RootDiskType!! Must be 'default', 'General_HDD' or 'General_SSD'")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
 
 	var reqDiskSizeInt int
 	// Set VM RootDiskSize
@@ -396,12 +355,6 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		}
 
 		// Volume Size must be more than 50GB and less than 1000GB (for Windows OS)
-		if nhnVMSpecType != "u2" && (reqDiskSizeInt < 50 || reqDiskSizeInt > 1000) {
-			newErr := fmt.Errorf("Invalid RootDiskSize!! RootDiskSize range should be 50 to 1000(GB) for Windows OS!!")
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
 	} else {
 		if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
 			reqDiskSize = DefaultDiskSize
@@ -415,12 +368,6 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		}
 
 		// Volume Size must be more than 20GB and less than 1000GB (for Linux OS)
-		if nhnVMSpecType != "u2" && (reqDiskSizeInt < 20 || reqDiskSizeInt > 1000) {
-			newErr := fmt.Errorf("Invalid RootDiskSize!! RootDiskSize range should be 20 to 1000(GB) for Linux OS!!")
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
 	}
 
 	start := call.Start()
@@ -505,20 +452,23 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	vmInfo := irs.VMInfo{}
 	if strings.EqualFold(nhnVM.Status, "active") {
-		// Associate Public IP to the VM
-		if ok, err := vmHandler.associatePublicIP(nhnVM.ID); !ok {
-			newErr := fmt.Errorf("Failed to Start VM. Failed to Associate PublicIP : %v", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-		// Get Final VM info
-		nhnVM, err := servers.Get(vmHandler.VMClient, nhnVM.ID).Extract()
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get New VM Info. %s", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
+		if vmReqInfo.AssignPublicIP == nil || *vmReqInfo.AssignPublicIP {
+			// Associate Public IP to the VM
+			if ok, err := vmHandler.associatePublicIP(nhnVM.ID); !ok {
+				newErr := fmt.Errorf("Failed to Start VM. Failed to Associate PublicIP : %v", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+			// Get Final VM info
+			var getErr error
+			nhnVM, getErr = servers.Get(vmHandler.VMClient, nhnVM.ID).Extract()
+			if getErr != nil {
+				newErr := fmt.Errorf("Failed to Get New VM Info. %s", getErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
 		}
 
 		var mappingErr error
@@ -1187,8 +1137,16 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 							}
 							nicInfo.PublicIPs = publicIPs
 							allPublicIPs = append(allPublicIPs, publicIPs...)
-							if idx == 0 && len(publicIPs) > 0 {
-								vmInfo.PublicIP = publicIPs[0]
+							if idx == 0 {
+								// Overwrite (including clearing to "") with this live, per-NIC
+								// floating IP lookup - it supersedes the possibly-stale value
+								// read from Nova's server.Addresses above (e.g. right after
+								// UnassignVMDefaultPublicIP, Nova may still report the old IP).
+								if len(publicIPs) > 0 {
+									vmInfo.PublicIP = publicIPs[0]
+								} else {
+									vmInfo.PublicIP = ""
+								}
 							}
 						}
 					}

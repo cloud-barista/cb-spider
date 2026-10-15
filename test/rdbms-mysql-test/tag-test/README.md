@@ -1,6 +1,6 @@
 # CB-Spider RDBMS Tag Management Test
 
-RDBMS 리소스의 Tag CRUD API를 검증하는 테스트 스위트입니다. `RDBMSMetaInfo.SupportsTag=true`인 CSP(AWS, Azure, GCP, Alibaba, Tencent, IBM)에 대해서만 실행됩니다.
+Test suite that validates the Tag CRUD API on RDBMS resources. It only runs against the CSPs where `RDBMSMetaInfo.SupportsTag=true` (AWS, Azure, GCP, Alibaba, Tencent, IBM).
 
 ## Prerequisites
 
@@ -10,13 +10,13 @@ RDBMS 리소스의 Tag CRUD API를 검증하는 테스트 스위트입니다. `R
 cd ./bin; ./start.sh
 ```
 
-### RDBMS 인스턴스 사전 생성
+### RDBMS Instance Must Already Exist
 
-이 시험은 RDBMS 인스턴스가 이미 생성되어 있다고 가정합니다. 먼저 상위 디렉토리의 네트워크 사전 준비 및 create 시험을 실행하세요.
+This test assumes the RDBMS instance already exists. First run the network prerequisites and the create test in the parent directory:
 
 ```bash
 cd ..
-./run-all-csp-network-prepare.sh   # VPC/Subnet/SG 사전 생성 (최초 1회)
+./run-all-csp-network-prepare.sh   # VPC/Subnet/SG prerequisites (one-time)
 ./run-all-csp-rdbms-tests.sh
 ```
 
@@ -28,39 +28,39 @@ cd ..
 
 ## Supported CSPs
 
-`RDBMSMetaInfo.SupportsTag` 값에 따라 시험 대상 CSP가 결정됩니다.
+Which CSPs are tested is determined by the `RDBMSMetaInfo.SupportsTag` value.
 
-| CSP | SupportsTag | 시험 대상 |
+| CSP | SupportsTag | Tested |
 |-----|-------------|---------|
-| AWS | `true` | ✅ |
-| Azure | `true` | ✅ |
-| GCP | `true` | ✅ |
-| Alibaba | `true` | ✅ |
-| Tencent | `true` | ✅ |
-| IBM | `true` | ✅ |
-| OpenStack | `false` | ❌ |
-| NCP | `false` | ❌ |
-| NHN | `false` | ❌ |
+| AWS | `true` | Yes |
+| Azure | `true` | Yes |
+| GCP | `true` | Yes |
+| Alibaba | `true` | Yes |
+| Tencent | `true` | Yes |
+| IBM | `true` | Yes |
+| OpenStack | `false` | No |
+| NCP | `false` | No |
+| NHN | `false` | No |
 
 ## Test Flow
 
-각 CSP에 대해 다음 순서로 Tag CRUD를 검증합니다:
+For each CSP, Tag CRUD is validated in this order:
 
-1. **AddTag(1)** — `POST /spider/tag` — 첫 번째 태그 추가 (`spider-rdbms-tag` / `rdbms-tag-value`)
-2. **ListTag** — `GET /spider/tag?...` — 목록에서 첫 번째 태그 존재 확인
-3. **GetTag** — `GET /spider/tag/{Key}?...` — 태그 값 일치 확인
-4. **AddTag(2)** — `POST /spider/tag` — 두 번째 태그 추가 (`spider-rdbms-tag2` / `rdbms-tag-value2`)
-5. **RemoveTag** — `DELETE /spider/tag/{Key}` — 첫 번째 태그 삭제
-6. **VerifyRemoved** — `GET /spider/tag?...` — 첫 번째 태그가 목록에서 제거되었는지 확인
-7. **Cleanup** — 두 번째 태그 삭제 (정리)
+1. **AddTag(1)** — `POST /spider/tag` — adds the first tag (`spider-rdbms-tag` / `rdbms-tag-value`)
+2. **ListTag** — `GET /spider/tag?...` — confirms the first tag is present in the list
+3. **GetTag** — `GET /spider/tag/{Key}?...` — confirms the tag value matches
+4. **AddTag(2)** — `POST /spider/tag` — adds a second tag (`spider-rdbms-tag2` / `rdbms-tag-value2`)
+5. **RemoveTag** — `DELETE /spider/tag/{Key}` — deletes the first tag
+6. **VerifyRemoved** — `GET /spider/tag?...` — confirms the first tag is gone from the list
+7. **Cleanup** — deletes the second tag (cleanup)
 
-모든 단계가 PASS여야 해당 CSP가 전체 PASS로 판정됩니다.
+A CSP is judged an overall PASS only if every step passes.
 
 ## Configuration
 
 ```bash
 export SPIDER_URL=http://localhost:1024   # CB-Spider REST API URL
-export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
+export SPIDER_AUTH=admin:****             # Basic auth (admin:<password>)
 ```
 
 ## How to Run Tests
@@ -71,8 +71,8 @@ export SPIDER_AUTH=admin:*****           # Basic auth (admin:<password>)
 ./run-all-csp-rdbms-tag-tests.sh
 ```
 
-- SupportsTag=true인 6개 CSP에 대해 병렬로 Tag CRUD 검증 실행
-- 완료 후 통합 결과 테이블 및 PASS/FAIL 집계 출력
+- Runs Tag CRUD validation in parallel on the 6 CSPs where SupportsTag=true
+- Prints a unified result table and a PASS/FAIL tally when done
 
 **Example output:**
 ```
@@ -94,7 +94,7 @@ Total: 6 PASS, 0 FAIL
 
 ### Individual CSP
 
-특정 CSP만 단독 실행:
+To run a single CSP on its own:
 
 ```bash
 ./aws-rdbms-tag-test.sh
@@ -105,14 +105,14 @@ Total: 6 PASS, 0 FAIL
 ./ibm-rdbms-tag-test.sh
 ```
 
-단독 실행 시 결과 파일은 `RESULT_DIR` 환경변수로 지정하거나 기본값(`/tmp/rdbms_tag_results`)이 사용됩니다.
+When run individually, the result file goes to the `RESULT_DIR` you specify, or to the default (`/tmp/rdbms_tag_results`).
 
 ## Script Structure
 
 ```
 tag-test/
-├── run-all-csp-rdbms-tag-tests.sh   # Orchestrator: 6개 CSP 병렬 실행, PASS/FAIL 집계
-├── common-rdbms-tag-test.sh         # Common: AddTag → ListTag → GetTag → AddTag2 → RemoveTag → VerifyRemoved
+├── run-all-csp-rdbms-tag-tests.sh   # Orchestrator: parallel run across the 6 CSPs, PASS/FAIL tally
+├── common-rdbms-tag-test.sh         # Common: AddTag -> ListTag -> GetTag -> AddTag2 -> RemoveTag -> VerifyRemoved
 ├── aws-rdbms-tag-test.sh
 ├── azure-rdbms-tag-test.sh
 ├── gcp-rdbms-tag-test.sh
@@ -126,9 +126,9 @@ tag-test/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SPIDER_URL` | `http://localhost:1024` | CB-Spider REST API URL |
-| `SPIDER_AUTH` | `admin:*****` | Basic auth credentials |
+| `SPIDER_AUTH` | `admin:****` | Basic auth credentials |
 | `RESULT_DIR` | `/tmp/rdbms_tag_results` | Result file output directory |
-| `VERBOSE` | `0` | `1`로 설정 시 per-CSP 전체 로그 덤프 출력 |
+| `VERBOSE` | `0` | Set to `1` for a per-CSP full log dump |
 
 ```bash
 # Example: verbose output
@@ -137,22 +137,22 @@ VERBOSE=1 ./run-all-csp-rdbms-tag-tests.sh
 
 ## Result Format
 
-결과 파일(`result_<csp>.txt`)은 파이프(|) 구분 8개 필드:
+Each result file (`result_<csp>.txt`) has 8 pipe-separated fields:
 
 ```
 CSP|AddTag|ListTag|GetTag|AddTag2|RemoveTag|VerifyRemoved|Elapsed
 ```
 
-| 필드 | 설명 |
+| Field | Description |
 |------|------|
-| `CSP` | CSP 이름 (예: AWS) |
-| `AddTag` | 첫 번째 태그 추가 결과 (`PASS` / `FAIL`) |
-| `ListTag` | 태그 목록 조회 및 존재 확인 결과 |
-| `GetTag` | 특정 태그 조회 및 값 일치 확인 결과 |
-| `AddTag2` | 두 번째 태그 추가 결과 |
-| `RemoveTag` | 첫 번째 태그 삭제 결과 |
-| `VerifyRemoved` | 삭제 후 목록에서 제거 확인 결과 |
-| `Elapsed` | 경과 시간 |
+| `CSP` | CSP name (e.g. AWS) |
+| `AddTag` | Result of adding the first tag (`PASS` / `FAIL`) |
+| `ListTag` | Result of listing tags and confirming presence |
+| `GetTag` | Result of fetching a specific tag and confirming its value |
+| `AddTag2` | Result of adding the second tag |
+| `RemoveTag` | Result of deleting the first tag |
+| `VerifyRemoved` | Result of confirming it's gone from the list after deletion |
+| `Elapsed` | Elapsed time |
 
 ## Logs & Results
 
@@ -161,7 +161,7 @@ CSP|AddTag|ListTag|GetTag|AddTag2|RemoveTag|VerifyRemoved|Elapsed
 /tmp/rdbms_tag_logs_<PID>/log_<csp>.txt
 ```
 
-실행 중 모니터링:
+To monitor a run in progress:
 
 ```bash
 tail -f /tmp/rdbms_tag_logs_<PID>/log_aws.txt
@@ -176,7 +176,7 @@ tail -f /tmp/rdbms_tag_logs_<PID>/log_aws.txt
 | GetTag | `GET` | `/spider/tag/{Key}?ConnectionName=&ResourceType=rdbms&ResourceName=` |
 | RemoveTag | `DELETE` | `/spider/tag/{Key}` |
 
-## 시험 결과
+## Test Results
 
 ### 2026-08-03
 

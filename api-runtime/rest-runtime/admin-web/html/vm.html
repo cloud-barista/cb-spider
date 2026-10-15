@@ -1440,6 +1440,7 @@ THE SOFTWARE.
                 <th class="column-num">#</th>
                 <th class="center-align">Name</th>
                 <th class="center-align">SSH Access</th>
+                <th class="center-align">Default PublicIP</th>
                 <th class="center-align">Status | Actions</th>
                 <th class="center-align">Snapshot</th>
                 <th class="center-align">Provisioning Info</th>
@@ -1491,7 +1492,24 @@ THE SOFTWARE.
                         <span class="ssh-terminal-style">SSH: {{$vm.PublicIP}}</span>
                     </div>
                     {{end}}
-                </td>                                      
+                </td>
+                <td id="defaultpip-{{$vm.IId.NameId}}" class="center-align">
+                    {{if $vm.VMSpecName}}
+                        {{if $vm.PublicIP}}
+                        <div style="display: inline-flex; align-items: center;">
+                            <span style="margin-right: 8px;">{{$vm.PublicIP}}</span>
+                            <button class="vm-action-btn" onclick="unassignDefaultPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Unassign</button>
+                        </div>
+                        {{else}}
+                        <div>
+                            <button class="vm-action-btn" onclick="assignDefaultPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Assign</button>
+                            <br>
+                            <input type="text" id="attach-pip-name-{{$vm.IId.NameId}}" placeholder="PublicIP name" style="width:100px;">
+                            <button class="vm-action-btn" onclick="attachVMPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Attach</button>
+                        </div>
+                        {{end}}
+                    {{end}}
+                </td>
                 <td id="vmcontrol-{{$vm.IId.NameId}}" class="center-align vm-control-buttons">
                     {{if $vm.VMSpecName}}
                         {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
@@ -1570,7 +1588,7 @@ THE SOFTWARE.
             {{end}}
             {{if not .VMs}}
             <tr>
-                <td colspan="9" class="center-align">No VMs found for this connection.</td>
+                <td colspan="10" class="center-align">No VMs found for this connection.</td>
             </tr>
             {{end}}
         </table>       
@@ -2152,6 +2170,100 @@ THE SOFTWARE.
         return originalFetch(url, options);
     };
 
+    // ---- Default PublicIP (Assign/Unassign/Attach) ----
+    function renderDefaultPipCellHTML(connConfig, vmName, publicIP) {
+        if (publicIP) {
+            return `
+                <div style="display: inline-flex; align-items: center;">
+                    <span style="margin-right: 8px;">${publicIP}</span>
+                    <button class="vm-action-btn" onclick="unassignDefaultPublicIP('${connConfig}', '${vmName}')">Unassign</button>
+                </div>
+            `;
+        }
+        return `
+            <div>
+                <button class="vm-action-btn" onclick="assignDefaultPublicIP('${connConfig}', '${vmName}')">Assign</button>
+                <br>
+                <input type="text" id="attach-pip-name-${vmName}" placeholder="PublicIP name" style="width:100px;">
+                <button class="vm-action-btn" onclick="attachVMPublicIP('${connConfig}', '${vmName}')">Attach</button>
+            </div>
+        `;
+    }
+
+    function assignDefaultPublicIP(connConfig, vmName) {
+        const cell = document.getElementById(`defaultpip-${vmName}`);
+        cell.innerHTML = `<span class="progress-message">Assigning...</span>`;
+        fetchWithProgress(`/spider/vm/${vmName}/publicip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.PublicIPAddress) {
+                cell.innerHTML = renderDefaultPipCellHTML(connConfig, vmName, data.PublicIPAddress);
+            } else {
+                cell.innerHTML = `<span style="color:red;">Assign failed: ${data.message || 'unknown error'}</span>`;
+            }
+        })
+        .catch(err => {
+            cell.innerHTML = `<span style="color:red;">Error: ${err.message}</span>`;
+        });
+    }
+
+    function unassignDefaultPublicIP(connConfig, vmName) {
+        if (!confirm(`Unassign the default PublicIP from VM "${vmName}"?\n\n` +
+            `This may not be reversible depending on the CSP - re-Assigning afterward ` +
+            `could yield a different address, or may not be possible at all.`)) {
+            return;
+        }
+        const cell = document.getElementById(`defaultpip-${vmName}`);
+        cell.innerHTML = `<span class="progress-message">Unassigning...</span>`;
+        fetchWithProgress(`/spider/vm/${vmName}/publicip`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.Result === 'true') {
+                cell.innerHTML = renderDefaultPipCellHTML(connConfig, vmName, '');
+            } else {
+                cell.innerHTML = `<span style="color:red;">Unassign failed: ${data.message || 'unknown error'}</span>`;
+            }
+        })
+        .catch(err => {
+            cell.innerHTML = `<span style="color:red;">Error: ${err.message}</span>`;
+        });
+    }
+
+    function attachVMPublicIP(connConfig, vmName) {
+        const input = document.getElementById(`attach-pip-name-${vmName}`);
+        const publicIPName = input ? input.value.trim() : '';
+        if (!publicIPName) {
+            alert('Enter the name of an existing PublicIP to attach.');
+            return;
+        }
+        const cell = document.getElementById(`defaultpip-${vmName}`);
+        cell.innerHTML = `<span class="progress-message">Attaching...</span>`;
+        fetchWithProgress(`/spider/vm/${vmName}/publicip/${encodeURIComponent(publicIPName)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.PublicIPAddress) {
+                cell.innerHTML = renderDefaultPipCellHTML(connConfig, vmName, data.PublicIPAddress);
+            } else {
+                cell.innerHTML = `<span style="color:red;">Attach failed: ${data.message || 'unknown error'}</span>`;
+            }
+        })
+        .catch(err => {
+            cell.innerHTML = `<span style="color:red;">Error: ${err.message}</span>`;
+        });
+    }
+
     function vmControl(connConfig, vmName, action) {
         const controlCell = document.getElementById(`vmcontrol-${vmName}`);
         const rowElement = controlCell.parentElement;
@@ -2219,6 +2331,13 @@ THE SOFTWARE.
                 const sshAccessCell = rowElement.querySelector('.ssh-access-cell');
                 const provisioningInfoCell = rowElement.querySelector('.provisioning-info-cell');
                 const miscCell = rowElement.querySelector('.misc-cell .misc-content');
+                const defaultPipCell = document.getElementById(`defaultpip-${vmName}`);
+
+                // Update Default PublicIP (some CSPs assign a different address, or
+                // none at all, after a suspend/resume cycle)
+                if (defaultPipCell) {
+                    defaultPipCell.innerHTML = renderDefaultPipCellHTML(connConfig, vmName, vmData.PublicIP);
+                }
 
                 // Update SSH Access
                 sshAccessCell.innerHTML = `

@@ -382,3 +382,53 @@ func (h *TencentPublicIPHandler) DisassociatePublicIP(publicIPIID irs.IID) (bool
 	}
 	return true, nil
 }
+
+// RemoveDefaultPublicIP releases the CSP-native auto-assigned "ordinary
+// public IP" (WanIP, as opposed to an EIP) from a running instance via
+// ReturnNormalAddresses. This is a ONE-WAY operation: Tencent does not allow
+// rebinding an ordinary public IP once released, and does not automatically
+// assign a new one afterward - the instance simply has no public IP until
+// an EIP is associated instead. DescribeAddresses excludes WanIP-type
+// addresses from its default result set, so the address-type filter must be
+// passed explicitly to find it.
+func (h *TencentPublicIPHandler) RemoveDefaultPublicIP(vmIID irs.IID) (bool, error) {
+	hiscallInfo := GetCallLogScheme(h.Region, call.PUBLICIP, vmIID.NameId, "ReturnNormalAddresses()")
+	start := call.Start()
+
+	describeReq := tencentvpc.NewDescribeAddressesRequest()
+	describeReq.Filters = []*tencentvpc.Filter{
+		{Name: common.StringPtr("instance-id"), Values: common.StringPtrs([]string{vmIID.SystemId})},
+		{Name: common.StringPtr("address-type"), Values: common.StringPtrs([]string{"WanIP"})},
+	}
+	describeResp, err := h.VPCClient.DescribeAddresses(describeReq)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	if describeResp.Response == nil || len(describeResp.Response.AddressSet) == 0 {
+		err := fmt.Errorf("no ordinary public IP (WanIP) found attached to VM %s", vmIID.NameId)
+		cblogger.Error(err)
+		return false, err
+	}
+
+	var addressIps []*string
+	for _, addr := range describeResp.Response.AddressSet {
+		if addr.AddressIp != nil {
+			addressIps = append(addressIps, addr.AddressIp)
+		}
+	}
+
+	returnReq := tencentvpc.NewReturnNormalAddressesRequest()
+	returnReq.AddressIps = addressIps
+	_, err = h.VPCClient.ReturnNormalAddresses(returnReq)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	return true, nil
+}

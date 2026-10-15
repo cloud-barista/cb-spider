@@ -178,6 +178,37 @@ func GetRDBMSMetaInfo(connectionName string, dbEngine string) (*cres.RDBMSMetaIn
 	return &info, nil
 }
 
+// ListRDBMSEngine returns the RDBMS engine names (e.g., "mysql", "mariadb", "postgresql")
+// that the connection's CSP driver supports, derived from the same per-engine capability
+// flags exposed by GetDriverCapabilityInfo()/GET /driver/capability (RDBMSHandler,
+// RDBMSMySQLHandler, RDBMSMariaDBHandler, RDBMSPostgreSQLHandler). RDBMSHandler gates the
+// whole group: if it is false, the CSP driver does not support RDBMS at all, so the
+// per-engine flags are not meaningful and an empty list is returned.
+func ListRDBMSEngine(connectionName string) ([]string, error) {
+	cblog.Info("call ListRDBMSEngine()")
+
+	capability, err := GetDriverCapabilityInfo(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	engines := []string{}
+	if capability.RDBMSHandler {
+		if capability.RDBMSMySQLHandler {
+			engines = append(engines, "mysql")
+		}
+		if capability.RDBMSMariaDBHandler {
+			engines = append(engines, "mariadb")
+		}
+		if capability.RDBMSPostgreSQLHandler {
+			engines = append(engines, "postgresql")
+		}
+	}
+
+	return engines, nil
+}
+
 // (1) check existence(UserID)
 // (2) get resource info(CSP-ID)
 // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
@@ -383,31 +414,46 @@ func CreateRDBMS(connectionName string, rsType string, reqInfo cres.RDBMSInfo, I
 	//+++++++++++++++++++++++++++++++++++++++++++
 
 	// SecurityGroupIIDs translation
-	for idx, sgIID := range reqInfo.SecurityGroupIIDs {
-		sgSPLock.RLock(connectionName, sgIID.NameId)
-		defer sgSPLock.RUnlock(connectionName, sgIID.NameId)
-		var sgIIdInfo SGIIDInfo
-		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-			var iidInfoList []*SGIIDInfo
-			err := getAuthIIDInfoList(connectionName, &iidInfoList)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+	//
+	// NHN Cloud RDBMS does not use SecurityGroupNames/SecurityGroupIIDs at all
+	// (see RDBMSInfo.NHNAutoOpenDBSecurityGroup instead): NHN Cloud RDS DB
+	// Security Groups are a resource type separate from the VPC/Neutron
+	// security group this loop resolves, so a name given here would never
+	// correspond to a real registered SecurityGroup and resolution would
+	// always fail with "not found". Skip translation entirely for NHN so any
+	// value the caller sent is simply ignored, matching the driver's behavior.
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	if !strings.EqualFold(providerName, "NHN") {
+		for idx, sgIID := range reqInfo.SecurityGroupIIDs {
+			sgSPLock.RLock(connectionName, sgIID.NameId)
+			defer sgSPLock.RUnlock(connectionName, sgIID.NameId)
+			var sgIIdInfo SGIIDInfo
+			if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+				var iidInfoList []*SGIIDInfo
+				err := getAuthIIDInfoList(connectionName, &iidInfoList)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				sgIIdInfo = *castedIIDInfo.(*SGIIDInfo)
+			} else {
+				err = infostore.GetByConditions(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
 			}
-			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgIID.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-			sgIIdInfo = *castedIIDInfo.(*SGIIDInfo)
-		} else {
-			err = infostore.GetByConditions(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgIID.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
+			reqInfo.SecurityGroupIIDs[idx] = getDriverIID(cres.IID{NameId: sgIIdInfo.NameId, SystemId: sgIIdInfo.SystemId})
 		}
-		reqInfo.SecurityGroupIIDs[idx] = getDriverIID(cres.IID{NameId: sgIIdInfo.NameId, SystemId: sgIIdInfo.SystemId})
 	}
 	//+++++++++++++++++++++++++++++++++++++++++++
 
@@ -910,20 +956,8 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 	}
 
 	engine := strings.ToLower(string(info.DBEngine))
-	host := info.Endpoint
-	port := ""
+	host, port := splitRDBMSEndpoint(info.Endpoint)
 	user := info.MasterUserName
-
-	// Strip port embedded in endpoint ("host:port" form)
-	if idx := strings.LastIndex(host, ":"); idx > 0 {
-		hostPart := host[:idx]
-		portPart := host[idx+1:]
-		var p int
-		if _, err := fmt.Sscanf(portPart, "%d", &p); err == nil {
-			host = hostPart
-			port = portPart
-		}
-	}
 
 	var driverName, dsn string
 	switch {
@@ -932,12 +966,11 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 		if port == "" {
 			port = "3306"
 		}
-		// Enable TLS for IBM Cloud MySQL (skip server cert verification)
-		tlsSuffix := ""
-		if strings.Contains(strings.ToLower(host), ".databases.appdomain.cloud") {
-			tlsSuffix = "?tls=skip-verify"
-		}
-		dsn = fmt.Sprintf("%s:%s@tcp(%s)/%s", user, masterUserPassword, net.JoinHostPort(host, port), tlsSuffix)
+		// Use TLS whenever the server offers it, but don't require it: some CSPs enforce
+		// require_secure_transport=ON (e.g. IBM, and AWS/others when the operator enabled it),
+		// which rejects a plain connection outright; others don't enforce it at all. "preferred"
+		// handles both without needing to special-case any CSP's endpoint domain.
+		dsn = fmt.Sprintf("%s:%s@tcp(%s)/?tls=preferred", user, masterUserPassword, net.JoinHostPort(host, port))
 	case engine == "postgresql" || engine == "postgres":
 		driverName = "postgres"
 		if port == "" {
@@ -959,6 +992,209 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserPassword string) (*sql.DB,
 		return nil, "", fmt.Errorf("SQL fallback connect: %w", err)
 	}
 	return db, driverName, nil
+}
+
+// splitRDBMSEndpoint splits an RDBMSInfo.Endpoint value into host and port. The port is
+// returned empty when Endpoint has no ":port" suffix (or that suffix isn't numeric) — callers
+// apply their own engine-specific default in that case.
+func splitRDBMSEndpoint(endpoint string) (host, port string) {
+	host = endpoint
+	idx := strings.LastIndex(endpoint, ":")
+	if idx <= 0 {
+		return host, ""
+	}
+	hostPart := endpoint[:idx]
+	portPart := endpoint[idx+1:]
+	var p int
+	if _, err := fmt.Sscanf(portPart, "%d", &p); err != nil {
+		return host, ""
+	}
+	return hostPart, portPart
+}
+
+// RDBMSPgHbaRule is one row of PostgreSQL's pg_hba_file_rules view.
+type RDBMSPgHbaRule struct {
+	Type       string `json:"Type"`
+	Database   string `json:"Database"`
+	UserName   string `json:"UserName"`
+	Address    string `json:"Address,omitempty"`
+	AuthMethod string `json:"AuthMethod"`
+}
+
+// RDBMSSecureTransportInfo reports whether an RDBMS instance enforces encrypted (TLS/SSL)
+// client connections, determined via standard SQL against the engine itself (CSP-agnostic).
+type RDBMSSecureTransportInfo struct {
+	Engine string `json:"Engine"` // "mysql", "mariadb", or "postgres"
+
+	// MySQL/MariaDB: raw value of the require_secure_transport system variable ("ON" or "OFF").
+	RequireSecureTransport string `json:"RequireSecureTransport,omitempty"`
+
+	// PostgreSQL: best-effort verdict derived from pg_hba_file_rules — true only if every
+	// matching TCP rule requires SSL (no plain "host" rule accepts a non-rejected connection).
+	Enforced *bool `json:"Enforced,omitempty"`
+	// PostgreSQL: the raw pg_hba_file_rules rows the verdict above was derived from, for transparency.
+	Rules []RDBMSPgHbaRule `json:"Rules,omitempty"`
+
+	// TLSInUse is empirical, not config-derived: this diagnostic connection itself was opened
+	// with tls=preferred (TLS attempted first, plaintext only as fallback), so TLSInUse=false
+	// means the server doesn't offer TLS at all — independent of RequireSecureTransport/Enforced,
+	// which only say whether TLS is mandatory, not whether it's available.
+	TLSInUse bool `json:"TLSInUse"`
+	// TLSCipher: negotiated cipher suite name when TLSInUse=true, e.g. "ECDHE-RSA-AES128-GCM-SHA256"
+	// (TLS 1.2) or "TLS_AES_256_GCM_SHA384" (TLS 1.3); empty when TLSInUse=false.
+	TLSCipher string `json:"TLSCipher,omitempty"`
+
+	// CACertificate is captured via a separate, live TLS handshake against the endpoint (not
+	// sourced from any CSP API/doc — see RDBMSCACertInfo). nil when TLSInUse=false, or when the
+	// probe itself failed; this is best-effort and never fails the overall request.
+	CACertificate *RDBMSCACertInfo `json:"CACertificate,omitempty"`
+	// CACertificateError explains why CACertificate is absent despite TLSInUse=true (e.g. a
+	// transient network/handshake timeout on this separate probe connection) — set only in that
+	// case, so callers don't have to dig through server logs to tell "not attempted" from "failed".
+	CACertificateError string `json:"CACertificateError,omitempty"`
+}
+
+// GetRDBMSSecureTransportStatus connects to the RDBMS instance with standard SQL and reports
+// whether the server enforces encrypted (TLS/SSL) client connections:
+//   - MySQL/MariaDB: SHOW VARIABLES LIKE 'require_secure_transport'
+//   - PostgreSQL:    pg_hba_file_rules
+//
+// This works uniformly across every CSP because it queries the engine itself rather than
+// each CSP's own (inconsistently available) management API.
+func GetRDBMSSecureTransportStatus(connectionName, rdbmsName, masterUserPassword string) (*RDBMSSecureTransportInfo, error) {
+	cblog.Info("call GetRDBMSSecureTransportStatus()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		return nil, err
+	}
+	rdbmsName, err = EmptyCheckAndTrim("rdbmsName", rdbmsName)
+	if err != nil {
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateRDBMSHandler()
+	if err != nil {
+		return nil, err
+	}
+
+	systemId, _, err := getRDBMSSystemId(connectionName, rdbmsName)
+	if err != nil {
+		return nil, err
+	}
+
+	driverIId := getDriverIID(cres.IID{NameId: rdbmsName, SystemId: systemId})
+
+	info, err := handler.GetRDBMS(driverIId)
+	if err != nil {
+		return nil, err
+	}
+
+	db, driverName, err := openRDBMSSQLConn(&info, masterUserPassword)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var result *RDBMSSecureTransportInfo
+
+	switch driverName {
+	case "mysql":
+		var varName, varValue string
+		if err := db.QueryRow("SHOW VARIABLES LIKE 'require_secure_transport'").Scan(&varName, &varValue); err != nil {
+			return nil, fmt.Errorf("failed to read require_secure_transport: %w", err)
+		}
+
+		// Empirical check: did THIS connection (opened with tls=preferred) actually end up
+		// encrypted? A non-empty Ssl_cipher means yes; empty means the server offered no TLS
+		// at all, so the preferred-mode client fell back to plaintext.
+		var sslStatusName, sslCipher string
+		_ = db.QueryRow("SHOW STATUS LIKE 'Ssl_cipher'").Scan(&sslStatusName, &sslCipher)
+
+		result = &RDBMSSecureTransportInfo{
+			Engine:                 string(info.DBEngine),
+			RequireSecureTransport: strings.ToUpper(varValue),
+			TLSInUse:               sslCipher != "",
+			TLSCipher:              sslCipher,
+		}
+
+	case "postgres":
+		rows, err := db.Query(`SELECT type, database::text, user_name::text, COALESCE(address, ''), auth_method FROM pg_hba_file_rules`)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read pg_hba_file_rules: %w", err)
+		}
+		defer rows.Close()
+
+		var rules []RDBMSPgHbaRule
+		enforced := true
+		for rows.Next() {
+			var r RDBMSPgHbaRule
+			if err := rows.Scan(&r.Type, &r.Database, &r.UserName, &r.Address, &r.AuthMethod); err != nil {
+				return nil, fmt.Errorf("failed to scan pg_hba_file_rules row: %w", err)
+			}
+			rules = append(rules, r)
+			// A plain "host" (non-SSL TCP) rule that doesn't reject the connection means
+			// plaintext connections are still accepted for whatever it matches.
+			if r.Type == "host" && strings.ToLower(r.AuthMethod) != "reject" {
+				enforced = false
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("error reading pg_hba_file_rules: %w", err)
+		}
+
+		// Empirical check: did THIS connection (opened with sslmode=require) actually end up
+		// encrypted? pg_stat_ssl reports it per-backend; a query error (e.g. insufficient
+		// privilege) just leaves tlsInUse at its zero value rather than failing the request.
+		var tlsInUse bool
+		var sslVersion, sslCipher string
+		_ = db.QueryRow(`SELECT ssl, COALESCE(version, ''), COALESCE(cipher, '') FROM pg_stat_ssl WHERE pid = pg_backend_pid()`).
+			Scan(&tlsInUse, &sslVersion, &sslCipher)
+
+		result = &RDBMSSecureTransportInfo{
+			Engine:    string(info.DBEngine),
+			Enforced:  &enforced,
+			Rules:     rules,
+			TLSInUse:  tlsInUse,
+			TLSCipher: sslCipher,
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported DB engine: %s", driverName)
+	}
+
+	// Best-effort: capture the server's certificate via a separate, live TLS handshake (not
+	// sourced from any CSP API/doc — see RDBMSCACertInfo). Only worth attempting when we already
+	// know TLS is available; a probe failure here must never fail the overall request.
+	//
+	// Close the SQL connection first (rather than waiting for the deferred Close) so this probe
+	// isn't competing with an already-open connection to the same instance — a second concurrent
+	// connection attempt right after the first is a plausible source of the transient handshake
+	// timeouts this probe can hit in practice.
+	if result.TLSInUse {
+		db.Close()
+		host, port := splitRDBMSEndpoint(info.Endpoint)
+		if port == "" {
+			if driverName == "mysql" {
+				port = "3306"
+			} else {
+				port = "5432"
+			}
+		}
+		if cert, err := fetchRDBMSCACertificate(string(info.DBEngine), host, port); err != nil {
+			cblog.Warnf("GetRDBMSSecureTransportStatus: CA certificate probe failed for %s: %v", rdbmsName, err)
+			result.CACertificateError = err.Error()
+		} else {
+			result.CACertificate = cert
+		}
+	}
+
+	return result, nil
 }
 
 // createDatabaseSQL creates a database via direct SQL (CREATE DATABASE).

@@ -1962,7 +1962,11 @@ func (securityHandler *GCPSecurityHandler) firewallList(tag string) ([]compute.F
 	}
 	callLogStart := call.Start()
 
-	result, err := securityHandler.Client.Firewalls.List(projectID).Do()
+	var allItems []*compute.Firewall
+	err := securityHandler.Client.Firewalls.List(projectID).Pages(securityHandler.Ctx, func(page *compute.FirewallList) error {
+		allItems = append(allItems, page.Items...)
+		return nil
+	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -1972,7 +1976,7 @@ func (securityHandler *GCPSecurityHandler) firewallList(tag string) ([]compute.F
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	firewallList := extractFirewallList(*result, tag) // 그룹으로 묶기
+	firewallList := extractFirewallList(compute.FirewallList{Items: allItems}, tag) // 그룹으로 묶기
 	return firewallList, nil
 }
 

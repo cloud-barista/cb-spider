@@ -75,6 +75,54 @@
             border: none;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
+
+        /* Same error popup style/behavior as quota-info.html, for a consistent UX when a
+           CSP doesn't support PriceInfoHandler at all. */
+        .error-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+        }
+        .error-modal.active {
+            display: flex;
+        }
+        .error-modal-content {
+            width: min(680px, calc(100% - 40px));
+            max-height: 70vh;
+            background: #fff;
+            border: 1px solid #666;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            padding: 16px;
+            overflow: auto;
+        }
+        .error-modal-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #b00020;
+        }
+        .error-modal-message {
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+        .error-modal-actions {
+            margin-top: 14px;
+            text-align: right;
+        }
+        .error-modal-actions button {
+            padding: 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -99,13 +147,23 @@
                     </select>                    
                 </div>
             </div>
-            <button type="button" class="fetch-btn" onclick="OpenFetchOverlay()">Fetch</button>
+            <button type="button" class="fetch-btn" onclick="OpenFetchOverlay()" {{if not .PriceInfoSupported}}disabled title="This CSP does not support Price Info"{{end}}>Fetch</button>
         </form>
     </div>
 
     <!-- Fetch Overlay -->
     <div class="fetch-overlay" id="fetchOverlay">
         <iframe class="fetch-overlay-content" id="fetchOverlayContent"></iframe>
+    </div>
+
+    <div id="errorModal" class="error-modal" onclick="hideErrorModal()">
+        <div class="error-modal-content" onclick="event.stopPropagation()">
+            <div id="errorModalTitle" class="error-modal-title">Error</div>
+            <div id="errorModalMessage" class="error-modal-message"></div>
+            <div class="error-modal-actions">
+                <button type="button" onclick="hideErrorModal()">OK</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -139,7 +197,24 @@
             return originalFetch(url, options);
         };
 
+        function showErrorModal(title, message) {
+            document.getElementById("errorModalTitle").textContent = title || "Error";
+            document.getElementById("errorModalMessage").textContent = message || "Unknown error";
+            document.getElementById("errorModal").classList.add("active");
+        }
+
+        function hideErrorModal() {
+            document.getElementById("errorModal").classList.remove("active");
+        }
+
+        var priceInfoSupported = {{if .PriceInfoSupported}}true{{else}}false{{end}};
+        var priceInfoProviderName = "{{.ProviderName}}";
+
         document.addEventListener('DOMContentLoaded', function() {
+            if (!priceInfoSupported) {
+                showErrorModal("Price Info not available", "The current CSP (" + priceInfoProviderName + ") does not support Price Info.");
+                return;
+            }
             const connectionName = document.getElementById('connectionName').value;
             updateRegionList(connectionName);
         });
@@ -161,7 +236,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert(error);
+                    showErrorModal("Failed to load region list", error.message || String(error));
                     clearInterval(intervalId); // Stop the interval on error
                 });
         }
@@ -234,7 +309,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert(error);
+                    showErrorModal("Failed to fetch price info", error.message || String(error));
                     clearInterval(intervalId); // when error occurs, stop the interval
 
                     try {

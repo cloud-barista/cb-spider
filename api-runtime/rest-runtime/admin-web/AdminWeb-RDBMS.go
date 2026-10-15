@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,30 @@ import (
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
 )
+
+// driverCapabilityRDBMS is the subset of DriverCapabilityInfo needed to tell whether this
+// connection's CSP driver supports RDBMS at all (e.g. KT does not).
+type driverCapabilityRDBMS struct {
+	RDBMSHandler bool `json:"RDBMSHandler"`
+}
+
+// isRDBMSSupported reports whether connConfig's CSP driver supports RDBMS, so the RDBMS
+// Management page can say so up front instead of silently showing an empty list that looks
+// the same as "no RDBMS created yet". Fails open (true) if the capability lookup itself
+// fails, so a hiccup there doesn't hide the page's real content.
+func isRDBMSSupported(connConfig string) bool {
+	resBody, err := getResourceList_JsonByte("driver/capability?ConnectionName=" + url.QueryEscape(connConfig))
+	if err != nil {
+		cblog.Warnf("RDBMSManagement: failed to load driver capability for %s: %v", connConfig, err)
+		return true
+	}
+	var capability driverCapabilityRDBMS
+	if err := json.Unmarshal(resBody, &capability); err != nil {
+		cblog.Warnf("RDBMSManagement: failed to parse driver capability for %s: %v", connConfig, err)
+		return true
+	}
+	return capability.RDBMSHandler
+}
 
 // Function to fetch RDBMSs
 func fetchRDBMSs(connConfig string) ([]*cres.RDBMSInfo, error) {
@@ -98,6 +123,7 @@ func RDBMSManagement(c echo.Context) error {
 		RDBMSs           []*cres.RDBMSInfo
 		APIUsername      string
 		APIPassword      string
+		RDBMSSupported   bool
 	}{
 		ConnectionConfig: connConfig,
 		ProviderName:     providerName,
@@ -107,6 +133,7 @@ func RDBMSManagement(c echo.Context) error {
 		RDBMSs:           rdbmss,
 		APIUsername:      os.Getenv("SPIDER_USERNAME"),
 		APIPassword:      os.Getenv("SPIDER_PASSWORD"),
+		RDBMSSupported:   isRDBMSSupported(connConfig),
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/rdbms.html")

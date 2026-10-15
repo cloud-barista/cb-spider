@@ -88,7 +88,7 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 	counts.ConnectionName = config.ConfigName
 	counts.RegionName = config.RegionName
 
-	baseURL := "http://localhost:1024/spider"
+	baseURL := spiderBaseURL() + "/spider"
 	resources := []string{"vpc", "subnet", "securitygroup", "vm", "keypair", "disk", "nlb", "publicip", "nic", "cluster", "myimage", "s3", "rdbms"}
 
 	for _, resource := range resources {

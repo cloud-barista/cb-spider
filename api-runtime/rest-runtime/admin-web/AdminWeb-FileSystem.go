@@ -111,7 +111,7 @@ func FileSystemManagement(c echo.Context) error {
 
 func fetchFileSystems(connConfig string) ([]FileSystemInfo, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "http://localhost:1024/spider/filesystem", nil)
+	req, err := http.NewRequest("GET", spiderBaseURL()+"/spider/filesystem", nil)
 	if err != nil {
 		return nil, err
 	}

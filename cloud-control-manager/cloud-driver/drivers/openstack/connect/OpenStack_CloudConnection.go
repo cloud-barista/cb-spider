@@ -235,6 +235,15 @@ func (cloudConn *OpenStackCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandle
 	return &rdbmsHandler, nil
 }
 
+func (cloudConn *OpenStackCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
+	handler := osrs.OpenStackRDBMSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		DBClient:       cloudConn.DBClient,
+		ComputeClient:  cloudConn.ComputeClient,
+	}
+	return &handler, nil
+}
 
 func (cloudConn *OpenStackCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := osrs.OpenStackNICHandler{Region: cloudConn.Region, NetworkClient: cloudConn.NetworkClient, ComputeClient: cloudConn.ComputeClient}

@@ -1436,14 +1436,18 @@ func (nlbHandler *GCPNLBHandler) listRegionAddresses(regionID string, filter str
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.Addresses.List(projectID, regionID).Do()
+	var allItems []*compute.Address
+	err := nlbHandler.Client.Addresses.List(projectID, regionID).Pages(nlbHandler.Ctx, func(resp *compute.AddressList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	for _, item := range resp.Items {
+	for _, item := range allItems {
 		cblogger.Debug(item)
 	}
-	return resp, nil
+	return &compute.AddressList{Items: allItems}, nil
 }
 
 // Address 등록 : LB의 시작점
@@ -1512,14 +1516,18 @@ func (nlbHandler *GCPNLBHandler) listGlobalAddresses(filter string) (*compute.Ad
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.GlobalAddresses.List(projectID).Do()
+	var allItems []*compute.Address
+	err := nlbHandler.Client.GlobalAddresses.List(projectID).Pages(nlbHandler.Ctx, func(resp *compute.AddressList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	for _, item := range resp.Items {
+	for _, item := range allItems {
 		cblogger.Debug(item)
 	}
-	return resp, nil
+	return &compute.AddressList{Items: allItems}, nil
 }
 
 // Region ForwardingRule 등록
@@ -1644,7 +1652,11 @@ func (nlbHandler *GCPNLBHandler) listRegionForwardingRules(regionID string, filt
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.ForwardingRules.List(projectID, regionID).Do()
+	var allItems []*compute.ForwardingRule
+	err := nlbHandler.Client.ForwardingRules.List(projectID, regionID).Pages(nlbHandler.Ctx, func(resp *compute.ForwardingRuleList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
@@ -1655,7 +1667,7 @@ func (nlbHandler *GCPNLBHandler) listRegionForwardingRules(regionID string, filt
 
 		responseForwardingRule := compute.ForwardingRuleList{}
 		forwardingRuleList := []*compute.ForwardingRule{}
-		for _, item := range resp.Items {
+		for _, item := range allItems {
 			forwardingRuleUrlArr := strings.Split(item.SelfLink, StringSeperator_Slash)
 
 			itemForwardingRule := forwardingRuleUrlArr[len(forwardingRuleUrlArr)-1]
@@ -1668,7 +1680,7 @@ func (nlbHandler *GCPNLBHandler) listRegionForwardingRules(regionID string, filt
 		responseForwardingRule.Items = forwardingRuleList
 		return &responseForwardingRule, nil
 	}
-	return resp, nil
+	return &compute.ForwardingRuleList{Items: allItems}, nil
 
 }
 
@@ -1724,15 +1736,19 @@ func (nlbHandler *GCPNLBHandler) listGlobalForwardingRules(filter string) (*comp
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.GlobalForwardingRules.List(projectID).Do()
+	var allItems []*compute.ForwardingRule
+	err := nlbHandler.Client.GlobalForwardingRules.List(projectID).Pages(nlbHandler.Ctx, func(resp *compute.ForwardingRuleList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	for _, item := range resp.Items {
+	for _, item := range allItems {
 		cblogger.Debug(item)
 	}
 
-	return resp, nil
+	return &compute.ForwardingRuleList{Items: allItems}, nil
 }
 
 // Region BackendService 등록
@@ -1791,14 +1807,19 @@ func (nlbHandler *GCPNLBHandler) getRegionBackendServices(region string, regionB
 func (nlbHandler *GCPNLBHandler) listRegionBackendServices(region string, filter string) (*compute.BackendServiceList, error) {
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.RegionBackendServices.List(projectID, region).Do()
+	var allItems []*compute.BackendService
+	err := nlbHandler.Client.RegionBackendServices.List(projectID, region).Pages(nlbHandler.Ctx, func(resp *compute.BackendServiceList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
+	resp := &compute.BackendServiceList{Items: allItems}
 	//cblogger.Info(resp)
 	printToJson(resp)
-	for _, item := range resp.Items {
+	for _, item := range allItems {
 		cblogger.Debug(item)
 		//if strings.EqualFold(item.Group,   // instance group or network endpoint group(NEG)
 	}
@@ -1864,19 +1885,23 @@ func (nlbHandler *GCPNLBHandler) getGlobalBackendServices(backendServiceName str
 func (nlbHandler *GCPNLBHandler) listGlobalBackendServices(filter string) (*compute.BackendServiceList, error) {
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.BackendServices.List(projectID).Do()
+	var allItems []*compute.BackendService
+	err := nlbHandler.Client.BackendServices.List(projectID).Pages(nlbHandler.Ctx, func(resp *compute.BackendServiceList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, item := range resp.Items {
+	for _, item := range allItems {
 		cblogger.Debug(item)
 		//if strings.EqualFold(item.Group,   // instance group or network endpoint group(NEG)
 	}
 	//// item.group // instance group or network endpoint group
 	//cblogger.Info(backServices)
 	//return backServices, nil
-	return resp, nil
+	return &compute.BackendServiceList{Items: allItems}, nil
 }
 
 // RegionalHealthCheck 등록 : 미사용
@@ -2050,16 +2075,20 @@ func (nlbHandler *GCPNLBHandler) listHttpHealthChecks(filter string) (*compute.H
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.HttpHealthChecks.List(projectID).Do()
+	var allItems []*compute.HttpHealthCheck
+	err := nlbHandler.Client.HttpHealthChecks.List(projectID).Pages(nlbHandler.Ctx, func(resp *compute.HttpHealthCheckList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, item := range resp.Items {
+	for _, item := range allItems {
 		cblogger.Debug(item)
 	}
 
-	return resp, nil
+	return &compute.HttpHealthCheckList{Items: allItems}, nil
 }
 
 // TargetPool Insert
@@ -2115,17 +2144,22 @@ func (nlbHandler *GCPNLBHandler) listTargetPools(regionID string, filter string)
 	// path param
 	projectID := nlbHandler.Credential.ProjectID
 
-	resp, err := nlbHandler.Client.TargetPools.List(projectID, regionID).Do()
+	var allItems []*compute.TargetPool
+	err := nlbHandler.Client.TargetPools.List(projectID, regionID).Pages(nlbHandler.Ctx, func(resp *compute.TargetPoolList) error {
+		allItems = append(allItems, resp.Items...)
+		return nil
+	})
 	if err != nil {
 		cblogger.Error("TargetPools.List ", err)
 		return &compute.TargetPoolList{}, err
 	}
-	printToJson(resp)
-	for _, item := range resp.Items {
+	result := &compute.TargetPoolList{Items: allItems}
+	printToJson(result)
+	for _, item := range allItems {
 		cblogger.Debug(item)
 	}
 
-	return resp, nil
+	return result, nil
 }
 
 // nlbHandler.Client.TargetPools.AggregatedList(projectID) : 해당 project의 모든 region 에 대해 region별  target pool 목록

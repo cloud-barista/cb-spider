@@ -77,6 +77,10 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.QuotaInfoHandler = true
 
 	drvCapabilityInfo.RDBMSHandler = true
+	drvCapabilityInfo.DBSpecHandler = true
+	drvCapabilityInfo.RDBMSMySQLHandler = true
+	drvCapabilityInfo.RDBMSMariaDBHandler = false    // not implemented: GCP Cloud SQL does not support mariadb
+	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.NICHandler = false
 
@@ -136,12 +140,12 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	}
 
 	iConn := gcpcon.GCPCloudConnection{
-		Region:      connectionInfo.RegionInfo,
-		Credential:  connectionInfo.CredentialInfo,
-		Ctx:         Ctx,
-		VMClient:    VMClient,
-		ImageClient:    VMClient,
-		PublicIPClient: VMClient,
+		Region:              connectionInfo.RegionInfo,
+		Credential:          connectionInfo.CredentialInfo,
+		Ctx:                 Ctx,
+		VMClient:            VMClient,
+		ImageClient:         VMClient,
+		PublicIPClient:      VMClient,
 		SecurityGroupClient: VMClient,
 		// VNetClient:          VMClient,
 		// VNicClient:          VMClient,

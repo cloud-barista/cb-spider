@@ -16,7 +16,7 @@ export CREATE_JSON='{
     "VPCName": "vpc-01",
     "DBEngine": "mysql",
     "DBEngineVersion": "8.0",
-    "DBInstanceSpec": "db.t3.medium",
+    "DBSpec": "db.t3.medium",
     "StorageSize": "100",
     "SubnetNames": ["subnet-01", "subnet-02"],
     "SecurityGroupNames": ["sg-01"],

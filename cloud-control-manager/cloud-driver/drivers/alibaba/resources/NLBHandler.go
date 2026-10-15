@@ -203,6 +203,8 @@ func (NLBHandler *AlibabaNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	request := slb.CreateDescribeLoadBalancersRequest()
 	request.RegionId = NLBHandler.Region.Region
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -215,21 +217,32 @@ func (NLBHandler *AlibabaNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
+
+	var loadBalancers []slb.LoadBalancer
+	curPage := 1
 	callLogStart := call.Start()
+	for {
+		result, err := NLBHandler.Client.DescribeLoadBalancers(request)
+		if err != nil {
+			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			return nil, err
+		}
 
-	result, err := NLBHandler.Client.DescribeLoadBalancers(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//cblogger.Debug(result)
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		return nil, err
+		cblogger.Info("result count ", result.TotalCount)
+		loadBalancers = append(loadBalancers, result.LoadBalancers.LoadBalancer...)
+		if len(loadBalancers) >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
 	}
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("result count ", result.TotalCount)
-	cblogger.Info(result)
 	var nlbInfoList []*irs.NLBInfo
-	for _, curLB := range result.LoadBalancers.LoadBalancer { // LB 목록 조회시 가져오는 값들이 많지 않음. 상세정보는 GetNL로로
+	for _, curLB := range loadBalancers { // LB 목록 조회시 가져오는 값들이 많지 않음. 상세정보는 GetNL로로
 		nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: curLB.LoadBalancerId})
 
 		if nlbErr != nil {
@@ -238,8 +251,6 @@ func (NLBHandler *AlibabaNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		nlbInfoList = append(nlbInfoList, &nlbInfo)
 	}
 
-	cblogger.Debug(result)
-	//cblogger.Debug(vpcInfoList)
 	return nlbInfoList, nil
 }
 func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {

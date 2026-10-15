@@ -115,27 +115,37 @@ func (fileSystemHandler *AlibabaFileSystemHandler) ListIID() ([]*irs.IID, error)
 
 	request := nas.CreateDescribeFileSystemsRequest()
 	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50)
 
 	hiscallInfo := GetCallLogScheme(fileSystemHandler.Region, call.FILESYSTEM, "ListIID", "DescribeFileSystems()")
 	start := call.Start()
 
-	response, err := fileSystemHandler.Client.DescribeFileSystems(request)
+	var iidList []*irs.IID
+	curPage := 1
+	for {
+		response, err := fileSystemHandler.Client.DescribeFileSystems(request)
+		if err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return nil, err
+		}
 
-	if err != nil {
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return nil, err
+		for _, fs := range response.FileSystems.FileSystem {
+			iid := irs.IID{
+				NameId:   fs.Description, // Alibaba NAS uses Description as name
+				SystemId: fs.FileSystemId,
+			}
+			iidList = append(iidList, &iid)
+		}
+
+		if len(iidList) >= response.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
 	}
 	LoggingInfo(hiscallInfo, start)
-
-	var iidList []*irs.IID
-	for _, fs := range response.FileSystems.FileSystem {
-		iid := irs.IID{
-			NameId:   fs.Description, // Alibaba NAS uses Description as name
-			SystemId: fs.FileSystemId,
-		}
-		iidList = append(iidList, &iid)
-	}
 
 	return iidList, nil
 }

@@ -1385,9 +1385,8 @@ func (vpcHandler *NhnCloudVPCHandler) removeInternetGateway(vpcId string) (bool,
 	}
 
 	if strings.EqualFold(iGWId, "") {
-		newErr := fmt.Errorf("Failed to Get the Internet Gateway ID!!")
-		cblogger.Error(newErr.Error())
-		return false, newErr
+		cblogger.Info("### No Internet Gateway attached to the VPC. Skip deleting Internet Gateway.")
+		return true, nil
 	}
 
 	deleteErr := vpcHandler.deleteInternetGateway(iGWId)

@@ -599,7 +599,7 @@ type Drivers struct {
 }
 
 func fetchConnectionConfigs() (map[string][]ConnectionConfig, error) {
-	resp, err := httpGetWithAuth("http://localhost:1024/spider/connectionconfig")
+	resp, err := httpGetWithAuth(spiderBaseURL() + "/spider/connectionconfig")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching connection configurations: %v", err)
 	}
@@ -619,7 +619,7 @@ func fetchConnectionConfigs() (map[string][]ConnectionConfig, error) {
 }
 
 func fetchProviders() ([]string, error) {
-	resp, err := httpGetWithAuth("http://localhost:1024/spider/cloudos")
+	resp, err := httpGetWithAuth(spiderBaseURL() + "/spider/cloudos")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching providers: %v", err)
 	}
@@ -634,7 +634,7 @@ func fetchProviders() ([]string, error) {
 }
 
 func fetchDrivers() (map[string]string, error) {
-	resp, err := httpGetWithAuth("http://localhost:1024/spider/driver")
+	resp, err := httpGetWithAuth(spiderBaseURL() + "/spider/driver")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching drivers: %v", err)
 	}

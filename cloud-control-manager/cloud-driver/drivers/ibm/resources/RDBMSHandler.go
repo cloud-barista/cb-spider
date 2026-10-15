@@ -107,12 +107,20 @@ func (handler *IbmRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMetaInfo,
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSMetaInfo{}, err
 	}
+	// fetchRDBMSStorageSizeRange() returns Disk.MinimumMb/MaximumMb divided by
+	// ibmStorageUnitGB(1024), i.e. GiB — but that raw GiB value is also reused as-is by
+	// validateRDBMSStorageSizeRange()/CreateRDBMS() for request validation and the
+	// members_disk_allocation_mb calculation, so it must NOT be changed there. Convert to
+	// decimal GB only for this GetMetaInfo() response (RDBMSMetaInfo.StorageSizeRangeGB).
+	metaInfoStorageSizeRange := irs.StorageSizeRange{
+		Min: irs.GiBToGB(storageSizeRange.Min),
+		Max: irs.GiBToGB(storageSizeRange.Max),
+	}
 
-	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, storageSizeRange, true, true, true, true, true, "NA", false, false, false, true, true)
+	metaInfo, err := irs.BuildRDBMSMetaInfo(requestedEngine, supportedEngines, instanceSpecOptions, storageTypeOptions, metaInfoStorageSizeRange, true, true, true, true, true, "NA", false, false, false, true, true)
 	if err != nil {
 		return irs.RDBMSMetaInfo{}, err
 	}
-	metaInfo.MarkStatic("DBInstanceSpecOptions", "IBM Cloud Databases host_flavor IDs are a fixed, curated list; not obtained from a live catalog/spec-list API call.")
 	metaInfo.MarkStatic("StorageTypeOptions", "IBM Cloud Databases' Global Catalog plans (\"standard\"/\"standard-gen2\") select the Gen1 vs Gen2 platform generation, not a storage type; CB-Spider only provisions Gen1 (\"standard\").")
 
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
@@ -155,18 +163,22 @@ func (handler *IbmRDBMSHandler) fetchRDBMSVersions() (map[string][]string, error
 	return supportedEngines, nil
 }
 
+// fetchRDBMSInstanceSpecOptions lists currently orderable host flavor IDs per engine via
+// fetchIbmHostFlavorSet (CreateCapability(flavors); falls back to the static
+// ibmRDBMSHostFlavorIDs catalog if that call fails), rather than always returning the fixed
+// catalog regardless of what IBM actually sells in this engine/region right now.
 func (handler *IbmRDBMSHandler) fetchRDBMSInstanceSpecOptions() map[string][]string {
-	// IBM Cloud Databases supports a hardcoded list of host_flavor IDs
-	hostFlavors := make([]string, 0, len(ibmRDBMSHostFlavorIDs))
-	for flavor := range ibmRDBMSHostFlavorIDs {
-		hostFlavors = append(hostFlavors, flavor)
+	result := map[string][]string{}
+	for _, engine := range []string{"mysql", "postgresql"} {
+		set := handler.fetchIbmHostFlavorSet(engine)
+		hostFlavors := make([]string, 0, len(set))
+		for flavor := range set {
+			hostFlavors = append(hostFlavors, flavor)
+		}
+		sort.Strings(hostFlavors)
+		result[engine] = hostFlavors
 	}
-	sort.Strings(hostFlavors)
-
-	return map[string][]string{
-		"mysql":      append([]string(nil), hostFlavors...),
-		"postgresql": append([]string(nil), hostFlavors...),
-	}
+	return result
 }
 
 func (handler *IbmRDBMSHandler) fetchRDBMSStorageSizeRange(dbEngine string) (irs.StorageSizeRange, error) {
@@ -260,7 +272,8 @@ func (handler *IbmRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	if rdbmsReqInfo.DBEngine == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngine is required (mysql or postgresql)")
 	}
-	if err := validateIBMCreateRequest(rdbmsReqInfo); err != nil {
+	validHostFlavors := handler.fetchIbmHostFlavorSet(rdbmsReqInfo.DBEngine)
+	if err := validateIBMCreateRequest(rdbmsReqInfo, validHostFlavors); err != nil {
 		return irs.RDBMSInfo{}, err
 	}
 
@@ -295,14 +308,14 @@ func (handler *IbmRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 		if err != nil {
 			return irs.RDBMSInfo{}, fmt.Errorf("IBM StorageSize must be an integer GB value: %w", err)
 		}
-		memberCount, err := handler.getInitialMemberCount(rdbmsReqInfo.DBEngine, rdbmsReqInfo.DBInstanceSpec)
+		memberCount, err := handler.getInitialMemberCount(rdbmsReqInfo.DBEngine, rdbmsReqInfo.DBSpec)
 		if err != nil {
 			return irs.RDBMSInfo{}, err
 		}
 		params["members_disk_allocation_mb"] = storageSizeGB * ibmStorageUnitGB * memberCount
 	}
-	if isIBMHostFlavor(rdbmsReqInfo.DBInstanceSpec) {
-		params["members_host_flavor"] = rdbmsReqInfo.DBInstanceSpec
+	if isIBMHostFlavor(rdbmsReqInfo.DBSpec, validHostFlavors) {
+		params["members_host_flavor"] = rdbmsReqInfo.DBSpec
 	}
 
 	// Target region
@@ -390,7 +403,7 @@ func (handler *IbmRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.RDB
 	info := handler.convertResourceInstanceToRDBMSInfo(result)
 	info.DBEngineVersion = rdbmsReqInfo.DBEngineVersion
 	info.StorageSize = rdbmsReqInfo.StorageSize
-	info.DBInstanceSpec = rdbmsReqInfo.DBInstanceSpec
+	info.DBSpec = rdbmsReqInfo.DBSpec
 	info.MasterUserName = rdbmsReqInfo.MasterUserName
 	info.HighAvailability = rdbmsReqInfo.HighAvailability
 	info.PublicAccess = rdbmsReqInfo.PublicAccess
@@ -412,7 +425,7 @@ func (handler *IbmRDBMSHandler) rollbackCreatedRDBMS(rdbmsIID irs.IID, cause err
 	return fmt.Errorf("%w (partially-created RDBMS was rolled back and deleted)", cause)
 }
 
-func validateIBMCreateRequest(rdbmsReqInfo irs.RDBMSInfo) error {
+func validateIBMCreateRequest(rdbmsReqInfo irs.RDBMSInfo, validHostFlavors map[string]bool) error {
 	// SubnetIIDs and SecurityGroupIIDs are silently ignored: IBM Cloud Databases uses
 	// service endpoints, not VPC subnets or security groups, for network access control.
 	if rdbmsReqInfo.BackupRetentionDays > 0 {
@@ -421,8 +434,8 @@ func validateIBMCreateRequest(rdbmsReqInfo irs.RDBMSInfo) error {
 	if rdbmsReqInfo.BackupTime != "" && !isIBMDefaultValue(rdbmsReqInfo.BackupTime) {
 		return errors.New("IBM Cloud Databases API does not support setting BackupTime during provisioning")
 	}
-	if rdbmsReqInfo.DBInstanceSpec != "" && !isIBMDefaultValue(rdbmsReqInfo.DBInstanceSpec) && !isIBMHostFlavor(rdbmsReqInfo.DBInstanceSpec) {
-		return fmt.Errorf("IBM DBInstanceSpec must be an IBM host_flavor id, got %s", rdbmsReqInfo.DBInstanceSpec)
+	if rdbmsReqInfo.DBSpec != "" && !isIBMDefaultValue(rdbmsReqInfo.DBSpec) && !isIBMHostFlavor(rdbmsReqInfo.DBSpec, validHostFlavors) {
+		return fmt.Errorf("IBM DBSpec must be an IBM host_flavor id, got %s", rdbmsReqInfo.DBSpec)
 	}
 	if rdbmsReqInfo.StorageSize != "" {
 		if _, err := strconv.ParseInt(rdbmsReqInfo.StorageSize, 10, 64); err != nil {
@@ -528,7 +541,10 @@ func (handler *IbmRDBMSHandler) getInitialMemberCount(dbEngine string, hostFlavo
 
 func (handler *IbmRDBMSHandler) getDefaultMemberScalingGroup(dbEngine string, hostFlavor string) (*clouddatabasesv5.Group, error) {
 	options := handler.CloudDBService.NewGetDefaultScalingGroupsOptions(dbEngine)
-	if isIBMHostFlavor(hostFlavor) {
+	// GetDefaultScalingGroups' HostFlavor parameter is only meaningful for the literal value
+	// "multitenant" (see fetchIbmFlavors' comment) — any other flavor ID is not a supported
+	// per-flavor lookup, so it is only set for that one case.
+	if hostFlavor == clouddatabasesv5.GetDefaultScalingGroupsOptionsHostFlavorMultitenantConst {
 		options.SetHostFlavor(hostFlavor)
 	}
 	resp, _, err := handler.CloudDBService.GetDefaultScalingGroupsWithContext(handler.getContext(), options)
@@ -646,8 +662,11 @@ func isIBMDefaultValue(value string) bool {
 	}
 }
 
-func isIBMHostFlavor(value string) bool {
-	return ibmRDBMSHostFlavorIDs[strings.TrimSpace(value)]
+// isIBMHostFlavor checks value against validFlavors — the live catalog from
+// fetchIbmHostFlavorSet (falling back to the static ibmRDBMSHostFlavorIDs list on API failure),
+// rather than the static list directly, so validation reflects what is actually orderable.
+func isIBMHostFlavor(value string, validFlavors map[string]bool) bool {
+	return validFlavors[strings.TrimSpace(value)]
 }
 
 func (handler *IbmRDBMSHandler) ListRDBMS() ([]*irs.RDBMSInfo, error) {
@@ -714,8 +733,28 @@ func (handler *IbmRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo, error
 	calllogger.Info(call.String(hiscallInfo))
 
 	info := handler.convertResourceInstanceToRDBMSInfo(result)
-	if err := handler.enrichRDBMSInfoFromCloudDB(&info, result); err != nil {
-		return irs.RDBMSInfo{}, err
+
+	// enrichRDBMSInfoFromCloudDB chains several IBM Cloud Databases/Global Tagging
+	// API calls (deployment info, scaling groups, tags, connection). A transient
+	// network blip in any one of them (observed e.g. as ECONNRESET against the
+	// Global Tagging API) would otherwise wipe out an already-successful,
+	// available instance's info entirely. Retry a few times before giving up.
+	const maxEnrichAttempts = 3
+	const enrichRetryInterval = 5 * time.Second
+	var enrichErr error
+	for attempt := 1; attempt <= maxEnrichAttempts; attempt++ {
+		enrichErr = handler.enrichRDBMSInfoFromCloudDB(&info, result)
+		if enrichErr == nil {
+			break
+		}
+		if attempt < maxEnrichAttempts {
+			cblogger.Warnf("[IBM] GetRDBMS: enrichment attempt %d/%d failed for %s, retrying in %s: %v",
+				attempt, maxEnrichAttempts, info.IId.NameId, enrichRetryInterval, enrichErr)
+			time.Sleep(enrichRetryInterval)
+		}
+	}
+	if enrichErr != nil {
+		return irs.RDBMSInfo{}, enrichErr
 	}
 	return info, nil
 }
@@ -770,13 +809,25 @@ func (handler *IbmRDBMSHandler) listResourceInstances(serviceID string) ([]resou
 		ResourceID: &serviceID,
 	}
 
-	result, _, err := handler.ResourceController.ListResourceInstances(listOpts)
-	if err != nil {
-		return nil, err
-	}
+	for {
+		result, _, err := handler.ResourceController.ListResourceInstances(listOpts)
+		if err != nil {
+			return nil, err
+		}
+		if result == nil {
+			break
+		}
 
-	if result != nil && result.Resources != nil {
 		allInstances = append(allInstances, result.Resources...)
+
+		if result.NextURL == nil || *result.NextURL == "" {
+			break
+		}
+		next, err := core.GetQueryParam(result.NextURL, "start")
+		if err != nil || next == nil || *next == "" {
+			break
+		}
+		listOpts.Start = next
 	}
 
 	return allInstances, nil
@@ -832,7 +883,7 @@ func (handler *IbmRDBMSHandler) convertResourceInstanceToRDBMSInfo(inst *resourc
 	rdbmsInfo.MasterUserName = ibmDefaultAdminUser // IBM default
 	rdbmsInfo.StorageSize = "NA"
 	rdbmsInfo.StorageType = "NA"
-	rdbmsInfo.DBInstanceSpec = "NA"
+	rdbmsInfo.DBSpec = "NA"
 	rdbmsInfo.DBInstanceType = "NA"    // IBM Cloud Databases does not provide instance type information
 	rdbmsInfo.BackupTime = "AUTO"      // IBM manages backup schedule automatically
 	rdbmsInfo.BackupRetentionDays = 30 // IBM Cloud Databases automatic backups are kept for 30 days (not configurable)
@@ -897,7 +948,7 @@ func (handler *IbmRDBMSHandler) enrichRDBMSInfoFromCloudDB(info *irs.RDBMSInfo, 
 				info.StorageSize = strconv.FormatInt((*group.Disk.AllocationMb/memberCount)/ibmStorageUnitGB, 10)
 			}
 			if group.HostFlavor != nil && group.HostFlavor.ID != nil && *group.HostFlavor.ID != "" {
-				info.DBInstanceSpec = *group.HostFlavor.ID
+				info.DBSpec = *group.HostFlavor.ID
 			}
 			break
 		}

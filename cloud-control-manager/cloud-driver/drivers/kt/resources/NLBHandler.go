@@ -463,13 +463,26 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	// Caution) Before deleting the StaticNAT, must first delete the firewall settings.
 	// Delete FirewallRules, Static NAT and Public IP
 	if !strings.EqualFold(publicIp, "") {
-		// Delete FirewallRules
+		// Delete firewall rules matched by public IP (covers inbound rules: DstAddress=publicIP).
 		cblogger.Info("### Deleting Firewall Rules of the StaticNAT!!")
 		_, dellFwErr := vmHandler.removeFirewallRules(publicIp)
 		if dellFwErr != nil {
 			cblogger.Error(dellFwErr.Error())
 			loggingError(callLogInfo, dellFwErr)
 			return false, dellFwErr
+		}
+
+		// Also delete firewall rules matched by the NLB's ServiceIP (covers outbound rules:
+		// SrcAddress=ServiceIP, which differs from the public floating IP).
+		ktNLB, getNLBErr := nlbHandler.getKtNlbInfo(nlbIID.SystemId)
+		if getNLBErr != nil {
+			cblogger.Warnf("Failed to get NLB info for ServiceIP-based firewall cleanup: %v (skipping)", getNLBErr)
+		} else if !strings.EqualFold(ktNLB.ServiceIP, "") && !strings.EqualFold(ktNLB.ServiceIP, publicIp) {
+			cblogger.Infof("### Deleting Firewall Rules matched by NLB ServiceIP: %s", ktNLB.ServiceIP)
+			_, dellFwErr2 := vmHandler.removeFirewallRules(ktNLB.ServiceIP)
+			if dellFwErr2 != nil {
+				cblogger.Warnf("Failed to delete firewall rules by ServiceIP %s: %v (continuing)", ktNLB.ServiceIP, dellFwErr2)
+			}
 		}
 
 		// Delete StaticNAT
@@ -1392,20 +1405,21 @@ func (nlbHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 		Size: 2000, // Max page size, to list all data in a single page
 	}
 	start := call.Start()
-	firstPage, err := ktvpclb.List(nlbHandler.NLBClient, listOpts).FirstPage() // Not 'NetworkClient', Not 'AllPages()'
+	var nlbList []ktvpclb.LoadBalancer
+	err := ktvpclb.List(nlbHandler.NLBClient, listOpts).EachPage(func(page pagination.Page) (bool, error) {
+		loadBalancers, err := ktvpclb.ExtractLoadBalancers(page)
+		if err != nil {
+			return false, fmt.Errorf("Failed to Extract NLB List : [%v]", err)
+		}
+		nlbList = append(nlbList, loadBalancers...)
+		return true, nil
+	})
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NLB List from KT Cloud : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
 	loggingInfo(callLogInfo, start)
-
-	nlbList, err := ktvpclb.ExtractLoadBalancers(firstPage)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Extract NLB List : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
 
 	if len(nlbList) < 1 {
 		cblogger.Info("### There is No NLB!!")

@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -92,14 +93,17 @@ func (handler *OpenStackRDBMSHandler) GetMetaInfo(dbEngine string) (irs.RDBMSMet
 	}
 
 	if len(instanceSpecOptions[requestedEngine]) == 0 {
-		metaInfo.MarkStatic("DBInstanceSpecOptions", "Trove returned no flavors for this deployment; showing an empty list rather than live data.")
+		metaInfo.MarkStatic("DBSpecOptions", "Trove returned no flavors for this deployment; showing an empty list rather than live data.")
 	}
 
 	// Min is never derived from a live value; Trove/Cinder don't expose a minimum disk size.
-	metaInfo.MarkStatic("StorageSizeRange", "Minimum storage size is a fixed constant; not derived from a live Cinder value.")
-	metaInfo.MarkStatic("StorageSizeRange.Min", "OpenStack Cinder does not expose a minimum volume size; fixed at 1GB.")
+	// No unit conversion is applied here: this range is not a Trove/RDBMS spec limit at all,
+	// it is the OpenStack project's (tenant's) Cinder block-storage quota, and Cinder's
+	// "gigabytes" quota has no documented/objective binary-vs-decimal basis to convert from.
+	metaInfo.MarkStatic("StorageSizeRangeGB", "Minimum storage size is a fixed constant; not derived from a live Cinder value. This range reflects the project's Cinder volume quota, not a per-flavor RDBMS storage limit; its native unit (decimal vs binary GB) is not documented by Cinder, so no conversion is applied.")
+	metaInfo.MarkStatic("StorageSizeRangeGB.Min", "OpenStack Cinder does not expose a minimum volume size; fixed at 1GB.")
 	if storageSizeRange.Max <= 0 {
-		metaInfo.MarkStatic("StorageSizeRange.Max", "No Cinder volume quota is configured for this project (unlimited); -1 is a sentinel, not a real upper bound.")
+		metaInfo.MarkStatic("StorageSizeRangeGB.Max", "No Cinder volume quota is configured for this project (unlimited); -1 is a sentinel, not a real upper bound.")
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -322,7 +326,7 @@ func (opts troveCreateOpts) ToInstanceCreateMap() (map[string]any, error) {
 }
 
 // CreateRDBMS creates a new Trove database instance.
-// DBInstanceSpec accepts either a Nova flavor UUID or a flavor name (e.g.
+// DBSpec accepts either a Nova flavor UUID or a flavor name (e.g.
 // "m1.small"). In DevStack, Trove uses the same Nova flavor catalog so the
 // names and UUIDs are identical to the VM spec list.
 // After the instance reaches ACTIVE status, EnableRootUser is called and, when
@@ -342,8 +346,8 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 	if rdbmsReqInfo.DBEngineVersion == "" {
 		return irs.RDBMSInfo{}, errors.New("DBEngineVersion is required")
 	}
-	if rdbmsReqInfo.DBInstanceSpec == "" {
-		return irs.RDBMSInfo{}, errors.New("DBInstanceSpec (flavor name or UUID) is required")
+	if rdbmsReqInfo.DBSpec == "" {
+		return irs.RDBMSInfo{}, errors.New("DBSpec (flavor name or UUID) is required")
 	}
 	if rdbmsReqInfo.StorageSize == "" {
 		return irs.RDBMSInfo{}, errors.New("StorageSize is required")
@@ -355,7 +359,7 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 	}
 
 	// Resolve flavor name → UUID (Trove shares Nova flavors in DevStack)
-	flavorRef, err := handler.resolveFlavorRef(rdbmsReqInfo.DBInstanceSpec)
+	flavorRef, err := handler.resolveFlavorRef(rdbmsReqInfo.DBSpec)
 	if err != nil {
 		return irs.RDBMSInfo{}, err
 	}
@@ -705,8 +709,15 @@ func grantAdminPrivileges(endpoint, port, rootPassword, userName string) error {
 	if port == "" || port == "NA" {
 		port = "3306"
 	}
-	// DSN: root:<pass>@tcp(<host>:<port>)/?timeout=10s
-	dsn := fmt.Sprintf("root:%s@tcp(%s:%s)/?timeout=10s", rootPassword, endpoint, port)
+	// endpoint may already be a "host:port" pair (e.g. as returned by
+	// convertInstanceToRDBMSInfo), so avoid blindly re-appending port, which
+	// would produce an invalid address like "host:3306:3306".
+	address := net.JoinHostPort(endpoint, port)
+	if host, existingPort, err := net.SplitHostPort(endpoint); err == nil {
+		address = net.JoinHostPort(host, existingPort)
+	}
+	// DSN: root:<pass>@tcp(<address>)/?timeout=10s
+	dsn := fmt.Sprintf("root:%s@tcp(%s)/?timeout=10s", rootPassword, address)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return fmt.Errorf("grantAdminPrivileges: sql.Open failed: %w", err)
@@ -852,7 +863,7 @@ func (handler *OpenStackRDBMSHandler) convertInstanceToRDBMSInfo(inst *instances
 
 		DBEngine:        inst.Datastore.Type,
 		DBEngineVersion: inst.Datastore.Version,
-		DBInstanceSpec:  flavorName,
+		DBSpec:          flavorName,
 		DBInstanceType:  "NA",
 
 		StorageType: func() string {
