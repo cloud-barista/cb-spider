@@ -250,8 +250,10 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	if isMyImage {
 		instance.SourceMachineImage = imageURL
 	} else {
+		// GCP does not propagate instance labels to disks, so set them on the boot disk explicitly.
 		instance.Disks[0].InitializeParams = &compute.AttachedDiskInitializeParams{
 			SourceImage: imageURL,
+			Labels:      labels,
 		}
 
 		//이슈 #348에 의해 RootDisk 및 사이즈 변경 기능 지원
@@ -433,6 +435,23 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//vm, err := vmHandler.Client.Instances.Start(project string, zone string, instance string)
 
 	//time.Sleep(time.Second * 10)
+
+	// With SourceMachineImage, the boot disk is created from the machine image and
+	// InitializeParams cannot carry labels, so set the VM labels on the boot disk after creation.
+	if isMyImage {
+		vm, errLabel := vmHandler.Client.Instances.Get(projectID, zone, vmName).Do()
+		if errLabel == nil {
+			errLabel = UpdateBootDiskLabels(vmHandler.Client, projectID, zone, vm, func(diskLabels map[string]string) bool {
+				for k, v := range labels {
+					diskLabels[k] = v
+				}
+				return true
+			})
+		}
+		if errLabel != nil {
+			cblogger.Errorf("[%s] failed to set labels on the boot disk: %v", vmName, errLabel)
+		}
+	}
 
 	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
 	vmStatus, _ := vmHandler.WaitForRun(irs.IID{NameId: vmName, SystemId: vmName})
