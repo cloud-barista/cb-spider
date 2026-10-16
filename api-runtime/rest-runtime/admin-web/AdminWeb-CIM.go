@@ -355,6 +355,9 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		case "KT":
 			credentialInfo = ' [{"Key":"IdentityEndpoint", "Value":"https://api.ucloudbiz.olleh.com/d1/identity/v3/"}, {"Key":"Username", "Value":"~~~@~~~.com"}, {"Key":"Password", "Value":"XXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"XXXXXXXXXX"}]'
 		    break;
+		case "SCP":
+			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}, {"Key":"IdentityEndpoint", "Value":"https://identity.e.samsungsdscloud.com"}]'
+		    break;
 
 		  case "MOCK":
 			credentialInfo = '[{"Key":"MockName", "Value":"mock_name00"}]'
@@ -661,6 +664,10 @@ func makeOnchangeRegionProviderFunc_js() string {
 		case "KT":
             regionInfo = '[{"Key":"Region", "Value":"KR1"}, {"Key":"Zone", "Value":"DX-M1"}]'
             region = 'KR1-DX-M1'
+            break;
+		case "SCP":
+            regionInfo = '[{"Key":"Region", "Value":"kr-west1"}, {"Key":"Zone", "Value":"kr-west1-a"}]'
+            region = 'kr-west1-a'
             break;
 
           case "MOCK":

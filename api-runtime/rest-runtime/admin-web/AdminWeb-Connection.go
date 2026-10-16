@@ -100,6 +100,11 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 			credentialNameList = document.getElementsByName('credentialName-KT');
 			regionNameList = document.getElementsByName('regionName-KT');
 				break;
+		case "SCP":
+			driverNameList = document.getElementsByName('driverName-SCP');
+			credentialNameList = document.getElementsByName('credentialName-SCP');
+			regionNameList = document.getElementsByName('regionName-SCP');
+				break;
 
           case "MOCK":
 	    driverNameList = document.getElementsByName('driverName-MOCK');

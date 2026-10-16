@@ -8,6 +8,7 @@
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
 // by CB-Spider Team, 2020.12.
+// Updated by CB-Spider Team, 2026.10.
 
 package clouddriverhandler
 
@@ -29,6 +30,7 @@ import (
 	ktdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktclassic"
 	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn"
+	// scpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/scp"
 
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -75,6 +77,8 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cloudDriver = new(ktdrv.KtCloudDriver)
 	case "KT":
 		cloudDriver = new(ktvpcdrv.KTCloudVpcDriver)
+	// case "SCP":
+	//	cloudDriver = new(scpdrv.ScpDriver)
 	case "MOCK":
 		cloudDriver = new(mockdrv.MockDriver)
 
