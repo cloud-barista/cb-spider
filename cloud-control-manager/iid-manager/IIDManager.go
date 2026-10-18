@@ -114,6 +114,17 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return prefix + "-" + xid.New().String()[0:5], nil
 	}
 
+	// NCP-Cluster: MaxLength = 20, lower, number, Cannot use '_'
+	if cccInfo.ProviderName == "SCP" && (rsType == "vpc" || rsType == "subnet") {
+		retUID := strings.ToLower(strings.ReplaceAll(uid, "_", "-"))
+
+		if len(retUID) > 20 {
+			// #15 + #5 => #20
+			retUID = uid[:15] + xid.New().String()[0:5]
+		}
+		return retUID, nil
+	}
+
 	// default length: 9 + 21 => 30 (NCP's ID Length, the shortest)
 	//   ex) AWS maxLen(VMID)=255, #234 + #1 + #20 <== "{UID}-{XID}", {XID} = #20
 	maxLength := 9

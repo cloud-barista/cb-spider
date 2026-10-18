@@ -143,6 +143,17 @@ KT:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem / RDBMS
   idmaxlength: 30 / 48 / 30 / 100 / 63 / 50 / 30 / 50 / 0 / 20 / 30
 
+SCP:
+  region: Region / Zone
+  credential: ClientId / ClientSecret / IdentityEndpoint
+  credentialcsp: Access_Key / Secret_Key / Identity_Endpoint
+  rootdisktype: SSD
+  rootdisksize: SSD|50|2000|GB
+  disktype: SSD
+  disksize: SSD|10|2000|GB
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem / RDBMS
+  idmaxlength: 20 / 20 / 0 / 0 / 0 / 0 / 0 / 0 / 0 / 0 / 0
+
 #--- Emulation
 
 MOCK:

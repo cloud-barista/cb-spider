@@ -1,0 +1,35 @@
+DisplayName:
+  kr-west1:
+    "": "South Korea, NA"
+    kr-west1-a: "South Korea, NA"
+    kr-west1-b: "South Korea, NA"
+  kr-east1:
+    "": "South Korea, NA"
+    kr-east1-a: "South Korea, NA"
+  kr-south1:
+    "": "South Korea, NA"
+    kr-south1-a: "South Korea, NA"
+  kr-south2:
+    "": "South Korea, NA"
+    kr-south2-a: "South Korea, NA"
+  kr-south3:
+    "": "South Korea, NA"
+    kr-south3-a: "South Korea, NA"
+
+CSPDisplayName:
+  kr-west1:
+    "": "Korea West 1"
+    kr-west1-a: "Korea West 1 Zone A"
+    kr-west1-b: "Korea West 1 Zone B"
+  kr-east1:
+    "": "Korea East 1"
+    kr-east1-a: "Korea East 1 Zone A"
+  kr-south1:
+    "": "Korea South 1"
+    kr-south1-a: "Korea South 1 Zone A"
+  kr-south2:
+    "": "Korea South 2"
+    kr-south2-a: "Korea South 2 Zone A"
+  kr-south3:
+    "": "Korea South 3"
+    kr-south3-a: "Korea South 3 Zone A"
