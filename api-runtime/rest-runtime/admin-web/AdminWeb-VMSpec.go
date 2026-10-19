@@ -57,16 +57,39 @@ func VMSpec(c echo.Context) error {
 	}
 	json.Unmarshal(resBody, &info)
 
+	providerName, _ := getProviderName(connConfig)
+	accSupported := isAcceleratorClassSupported(providerName)
+
+	vmSpecs := make([]vmSpecView, 0, len(info.ResultList))
+	accCounts := map[string]int{}
+	for _, spec := range info.ResultList {
+		if spec == nil {
+			continue
+		}
+		view := vmSpecView{VMSpecInfo: spec}
+		if accSupported {
+			view.Accel = classifyVMSpecAccelerator(spec)
+			accCounts[view.Accel.Class]++
+		}
+		vmSpecs = append(vmSpecs, view)
+	}
+
 	data := struct {
-		ConnConfig  string
-		VMSpecs     []*cres.VMSpecInfo
-		APIUsername string
-		APIPassword string
+		ConnConfig   string
+		ProviderName string
+		AccSupported bool
+		AccCounts    map[string]int
+		VMSpecs      []vmSpecView
+		APIUsername  string
+		APIPassword  string
 	}{
-		ConnConfig:  connConfig,
-		VMSpecs:     info.ResultList,
-		APIUsername: os.Getenv("SPIDER_USERNAME"),
-		APIPassword: os.Getenv("SPIDER_PASSWORD"),
+		ConnConfig:   connConfig,
+		ProviderName: providerName,
+		AccSupported: accSupported,
+		AccCounts:    accCounts,
+		VMSpecs:      vmSpecs,
+		APIUsername:  os.Getenv("SPIDER_USERNAME"),
+		APIPassword:  os.Getenv("SPIDER_PASSWORD"),
 	}
 
 	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vm-spec.html")
@@ -86,4 +109,64 @@ func VMSpec(c echo.Context) error {
 	}
 
 	return c.HTML(http.StatusOK, result.String())
+}
+
+//====================================== VMSpec Accelerator Classification
+
+// Accelerator classes shown as badges and filter buttons on the VMSpec page.
+const (
+	accClassCPU = "CPU"
+	accClassGPU = "GPU"
+	accClassTPU = "TPU"
+	accClassNPU = "NPU"
+)
+
+// vmSpecAccelerator describes the AI accelerator class of a VM spec.
+// The class and chip come from VMSpecInfo.Accelerator filled by the drivers with the CSP API values.
+type vmSpecAccelerator struct {
+	Class string // CPU, GPU, TPU, NPU
+	Chip  string // e.g. Inferentia2, CT6E, A10 (1/6)
+}
+
+type vmSpecView struct {
+	*cres.VMSpecInfo
+	Accel vmSpecAccelerator
+}
+
+// Currently, accelerator classification is provided only for AWS, Azure and GCP.
+func isAcceleratorClassSupported(providerName string) bool {
+	switch strings.ToUpper(providerName) {
+	case "AWS", "AZURE", "GCP":
+		return true
+	}
+	return false
+}
+
+// classifyVMSpecAccelerator picks the representative accelerator of a spec (NPU > TPU > GPU).
+func classifyVMSpecAccelerator(spec *cres.VMSpecInfo) vmSpecAccelerator {
+	priority := map[cres.AcceleratorType]int{cres.AcceleratorNPU: 3, cres.AcceleratorTPU: 2, cres.AcceleratorGPU: 1}
+
+	var selected *cres.AcceleratorInfo
+	for i := range spec.Accelerator {
+		acc := &spec.Accelerator[i]
+		if selected == nil || priority[acc.Type] > priority[selected.Type] {
+			selected = acc
+		}
+	}
+	if selected != nil && priority[selected.Type] > 0 {
+		chip := selected.Model
+		if chip == "NA" {
+			chip = ""
+		}
+		if chip != "" && selected.Fraction != "" {
+			chip += " (" + selected.Fraction + ")"
+		}
+		return vmSpecAccelerator{Class: string(selected.Type), Chip: chip}
+	}
+
+	// drivers that do not provide Accelerator yet
+	if len(spec.Gpu) > 0 {
+		return vmSpecAccelerator{Class: accClassGPU}
+	}
+	return vmSpecAccelerator{Class: accClassCPU}
 }

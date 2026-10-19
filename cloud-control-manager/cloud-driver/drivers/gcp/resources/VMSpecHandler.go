@@ -56,9 +56,10 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		for _, i := range page.Items {
 
 			gpuInfoList := []irs.GpuInfo{}
+			accInfoList := []irs.AcceleratorInfo{}
 			if i.Accelerators != nil {
 				gpuInfoList = acceleratorsToGPUInfoList(i.Accelerators)
-
+				accInfoList = acceleratorsToAcceleratorInfoList(i.Accelerators)
 			}
 			info := irs.VMSpecInfo{
 				Region: zone,
@@ -70,9 +71,10 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 				// GCP's MachineType.MemoryMb is documented as "MB" but is actually already MiB
 				// (e.g. n1-standard-1 returns 3840, matching its real 3.75 GiB spec exactly);
 				// no unit conversion is applied.
-				MemSizeMiB: strconv.FormatInt(i.MemoryMb, 10),
-				DiskSizeGB: "-1",
-				Gpu:        gpuInfoList,
+				MemSizeMiB:  strconv.FormatInt(i.MemoryMb, 10),
+				DiskSizeGB:  "-1",
+				Gpu:         gpuInfoList,
+				Accelerator: accInfoList,
 			}
 
 			info.KeyValueList = irs.StructToKeyValueList(i)
@@ -124,9 +126,10 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 	callogger.Info(call.String(callLogInfo))
 
 	gpuInfoList := []irs.GpuInfo{}
+	accInfoList := []irs.AcceleratorInfo{}
 	if info.Accelerators != nil {
 		gpuInfoList = acceleratorsToGPUInfoList(info.Accelerators)
-
+		accInfoList = acceleratorsToAcceleratorInfoList(info.Accelerators)
 	}
 
 	vmSpecInfo := irs.VMSpecInfo{
@@ -140,8 +143,9 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 		// no unit conversion is applied (see ListVMSpec).
 		MemSizeMiB: strconv.FormatInt(info.MemoryMb, 10),
 
-		DiskSizeGB: "-1",
-		Gpu:        gpuInfoList,
+		DiskSizeGB:  "-1",
+		Gpu:         gpuInfoList,
+		Accelerator: accInfoList,
 	}
 
 	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(info)
@@ -165,7 +169,18 @@ func (vmSpecHandler *GCPVMSpecHandler) ListOrgVMSpec() (string, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	resp, err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Do()
+	// MachineTypes.List returns at most one page (default 500 items) per call;
+	// collect all pages so the original list is not truncated (same as ListVMSpec).
+	resp := &compute.MachineTypeList{}
+	err := vmSpecHandler.Client.MachineTypes.List(projectID, zone).Pages(vmSpecHandler.Ctx, func(page *compute.MachineTypeList) error {
+		if resp.Kind == "" {
+			resp.Kind = page.Kind
+			resp.Id = page.Id
+			resp.SelfLink = page.SelfLink
+		}
+		resp.Items = append(resp.Items, page.Items...)
+		return nil
+	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -233,6 +248,10 @@ func (vmSpecHandler *GCPVMSpecHandler) GetOrgVMSpec(Name string) (string, error)
 func acceleratorsToGPUInfoList(accerators []*compute.MachineTypeAccelerators) []irs.GpuInfo {
 	gpuInfoList := []irs.GpuInfo{}
 	for _, accelerator := range accerators {
+		// TPUs(ex: ct6e) are not GPUs; they are provided only in the Accelerator list.
+		if !isGPUAcceleratorType(accelerator.GuestAcceleratorType) {
+			continue
+		}
 		gpuInfo := irs.GpuInfo{}
 		gpuInfo.Model = strings.ToUpper(accelerator.GuestAcceleratorType)
 
@@ -327,4 +346,58 @@ func CheckMachineType(Name string) bool {
 
 	return false
 
+}
+
+// GPU accelerator types of GCP start with the GPU manufacturer.
+// ex) nvidia-h100-80gb, nvidia-l4, nvidia-tesla-t4
+var gpuAcceleratorTypePrefixes = []string{"nvidia-", "amd-", "intel-"}
+
+// isGPUAcceleratorType returns false for Google's own accelerators(TPU),
+// whose types have no manufacturer prefix. ex) ct5lp, ct6e
+func isGPUAcceleratorType(acceleratorType string) bool {
+	accType := strings.ToLower(acceleratorType)
+	for _, prefix := range gpuAcceleratorTypePrefixes {
+		if strings.HasPrefix(accType, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// acceleratorsToAcceleratorInfoList converts the machine type accelerators to the GPU/TPU accelerator list.
+//
+//	GPU: {"guestAcceleratorType": "nvidia-h100-80gb", "guestAcceleratorCount": 8}
+//	TPU: {"guestAcceleratorType": "ct6e", "guestAcceleratorCount": 4}
+func acceleratorsToAcceleratorInfoList(accelerators []*compute.MachineTypeAccelerators) []irs.AcceleratorInfo {
+	accInfoList := []irs.AcceleratorInfo{}
+	for _, accelerator := range accelerators {
+		if isGPUAcceleratorType(accelerator.GuestAcceleratorType) {
+			for _, gpu := range acceleratorsToGPUInfoList([]*compute.MachineTypeAccelerators{accelerator}) {
+				accInfoList = append(accInfoList, irs.AcceleratorInfo{
+					Type:           irs.AcceleratorGPU,
+					Mfr:            gpu.Mfr,
+					Model:          gpu.Model,
+					Count:          gpu.Count,
+					MemSizeGB:      gpu.MemSizeGB,
+					TotalMemSizeGB: gpu.TotalMemSizeGB,
+				})
+			}
+			continue
+		}
+
+		count := accelerator.GuestAcceleratorCount
+		if count == 0 {
+			count = -1
+		}
+		// The TPU memory size is not provided by the Compute Engine API.
+		accInfoList = append(accInfoList, irs.AcceleratorInfo{
+			Type:           irs.AcceleratorTPU,
+			Mfr:            "GOOGLE",
+			Model:          strings.ToUpper(accelerator.GuestAcceleratorType),
+			Count:          strconv.FormatInt(count, 10),
+			MemSizeGB:      "-1",
+			TotalMemSizeGB: "-1",
+		})
+	}
+	return accInfoList
 }

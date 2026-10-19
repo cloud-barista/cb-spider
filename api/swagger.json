@@ -14390,6 +14390,77 @@
                 }
             }
         },
+        "spider.AcceleratorInfo": {
+            "type": "object",
+            "required": [
+                "Count",
+                "Type"
+            ],
+            "properties": {
+                "Count": {
+                    "description": "Number of accelerator devices attached to the VM, \"-1\" when not applicable",
+                    "type": "string",
+                    "example": "2"
+                },
+                "Fraction": {
+                    "description": "Share of one physical accelerator per device for partial(fractional) GPUs, empty for whole devices",
+                    "type": "string",
+                    "example": ""
+                },
+                "MemSizeGB": {
+                    "description": "Memory size per device available to the VM in GB, \"-1\" when not applicable",
+                    "type": "string",
+                    "example": "12"
+                },
+                "Mfr": {
+                    "description": "Manufacturer of the accelerator, NA when not applicable",
+                    "type": "string",
+                    "example": "NVIDIA"
+                },
+                "Model": {
+                    "description": "Model of the accelerator, NA when not applicable",
+                    "type": "string",
+                    "example": "Tesla K80"
+                },
+                "TotalMemSizeGB": {
+                    "description": "Total memory size of all devices available to the VM in GB, \"-1\" when not applicable",
+                    "type": "string",
+                    "example": "24"
+                },
+                "Type": {
+                    "description": "GPU, TPU, NPU",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.AcceleratorType"
+                        }
+                    ],
+                    "example": "GPU"
+                }
+            }
+        },
+        "spider.AcceleratorType": {
+            "type": "string",
+            "enum": [
+                "GPU",
+                "TPU",
+                "NPU"
+            ],
+            "x-enum-comments": {
+                "AcceleratorGPU": "General-purpose GPU (NVIDIA, AMD, ...)",
+                "AcceleratorNPU": "Neural processing ASIC (AWS Inferentia/Trainium, Qualcomm AI 100, ...)",
+                "AcceleratorTPU": "Google Tensor Processing Unit"
+            },
+            "x-enum-descriptions": [
+                "General-purpose GPU (NVIDIA, AMD, ...)",
+                "Google Tensor Processing Unit",
+                "Neural processing ASIC (AWS Inferentia/Trainium, Qualcomm AI 100, ...)"
+            ],
+            "x-enum-varnames": [
+                "AcceleratorGPU",
+                "AcceleratorTPU",
+                "AcceleratorNPU"
+            ]
+        },
         "spider.AccessInfo": {
             "description": "Access Information for a Kubernetes Cluster. \u003cbr\u003e Take some time to provide.",
             "type": "object",
@@ -16652,6 +16723,13 @@
                 "VCpu"
             ],
             "properties": {
+                "Accelerator": {
+                    "description": "AI accelerator(GPU/TPU/NPU) details if available",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.AcceleratorInfo"
+                    }
+                },
                 "DiskSizeGB": {
                     "description": "Disk size in GB, \"-1\" when not applicable",
                     "type": "string",

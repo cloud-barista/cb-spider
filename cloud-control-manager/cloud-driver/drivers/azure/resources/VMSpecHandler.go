@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,7 +27,9 @@ type AzureVmSpecHandler struct {
 	ResourceSKUsClient *armcompute.ResourceSKUsClient
 }
 
-func getGpuCount(vmSize string) (ea float32, memory int) {
+// getGpuCount returns the number of GPUs and the total GPU memory(GB) available to the VM.
+// For a partial(fractional) GPU size, ea is the exact share of one physical GPU (ex: 1.0/6).
+func getGpuCount(vmSize string) (ea float64, memory int) {
 	// NC series
 	// https://learn.microsoft.com/ko-kr/azure/virtual-machines/sizes/gpu-accelerated/nc-family
 	if strings.HasPrefix(vmSize, "nc") {
@@ -151,12 +154,11 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 	if strings.HasPrefix(vmSize, "nv") {
 		// A10 GPU series
 		if strings.Contains(vmSize, "a10") {
+			// https://learn.microsoft.com/azure/virtual-machines/sizes/gpu-accelerated/nvadsa10v5-series
 			if strings.Contains(vmSize, "nv6") {
-				// original quantity: 1/6 = 0.167
-				return 0.167, 8
+				return 1.0 / 6, 4 // 1/6 of A10(24GB)
 			} else if strings.Contains(vmSize, "nv12") {
-				// original quantity: 1/3 = 0.333
-				return 0.333, 8
+				return 1.0 / 3, 8 // 1/3 of A10(24GB)
 			} else if strings.Contains(vmSize, "nv18") {
 				return 0.5, 12
 			} else if strings.Contains(vmSize, "nv36") {
@@ -170,11 +172,9 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 		// V710 GPU series
 		if strings.Contains(vmSize, "v710") {
 			if strings.Contains(vmSize, "nv4") {
-				// original quantity: 1/6 = 0.167
-				return 0.167, 4
+				return 1.0 / 6, 4
 			} else if strings.Contains(vmSize, "nv8") {
-				// original quantity: 1/3 = 0.333
-				return 0.333, 8
+				return 1.0 / 3, 8
 			} else if strings.Contains(vmSize, "nv12") {
 				return 0.5, 12
 			} else if strings.Contains(vmSize, "nv24") {
@@ -304,7 +304,94 @@ func getGpuModel(vmSize string) string {
 	return "NA"
 }
 
+// gpuSpec is the GPU information of an Azure VM size derived from the size name.
+type gpuSpec struct {
+	count    float64 // number of GPUs, fractional for a partial GPU (ex: 1.0/6)
+	totalMem int     // total GPU memory(GB) available to the VM
+	mfr      string
+	model    string
+}
+
 func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
+	return gpuSpecToGpuInfo(parseGpuSpec(vmSizeName))
+}
+
+func gpuSpecToGpuInfo(spec *gpuSpec) *irs.GpuInfo {
+	if spec == nil {
+		return nil
+	}
+
+	// GPU Memroy Size (memory of one physical GPU)
+	var memPerGpu string
+	if spec.count <= 0 || spec.totalMem <= 0 {
+		memPerGpu = "-1"
+	} else {
+		memPerGpu = fmt.Sprintf("%d", int64(math.Round(float64(spec.totalMem)/spec.count)))
+	}
+
+	gpuInfo := &irs.GpuInfo{
+		Mfr:            spec.mfr,
+		Model:          spec.model,
+		MemSizeGB:      memPerGpu,
+		Count:          formatGpuCountValue(spec.count),
+		TotalMemSizeGB: fmt.Sprintf("%d", spec.totalMem),
+	}
+
+	return gpuInfo
+}
+
+// gpuSpecToAcceleratorInfo returns the GPU accelerator information as seen by the VM.
+// A partial GPU size is reported as one GPU device with the partition memory and its Fraction.
+//
+//	ex) Standard_NV6ads_A10_v5 => Count: "1", Fraction: "1/6", MemSizeGB: "4", TotalMemSizeGB: "4"
+//
+// skuGpuCount is the "GPUs" capability of the ResourceSKU API ("" if not available).
+// It is used as the device count of whole GPU sizes.
+func gpuSpecToAcceleratorInfo(vmSizeName string, spec *gpuSpec, skuGpuCount string) *irs.AcceleratorInfo {
+	if spec == nil {
+		skuCount, err := strconv.Atoi(skuGpuCount)
+		if err != nil || skuCount <= 0 {
+			return nil
+		}
+		// GPU size that is not known by the name rules
+		return &irs.AcceleratorInfo{Type: irs.AcceleratorGPU, Mfr: "NA", Model: "NA",
+			Count: skuGpuCount, MemSizeGB: "-1", TotalMemSizeGB: "-1"}
+	}
+
+	accInfo := &irs.AcceleratorInfo{
+		Type:           irs.AcceleratorGPU,
+		Mfr:            spec.mfr,
+		Model:          spec.model,
+		Count:          "-1",
+		MemSizeGB:      "-1",
+		TotalMemSizeGB: "-1",
+	}
+	if spec.totalMem > 0 {
+		accInfo.TotalMemSizeGB = fmt.Sprintf("%d", spec.totalMem)
+	}
+
+	switch {
+	case spec.count > 0 && spec.count < 1:
+		// partial GPU: one virtual GPU device with a share of a physical GPU
+		accInfo.Count = "1"
+		accInfo.Fraction = fmt.Sprintf("1/%d", int(math.Round(1/spec.count)))
+		accInfo.MemSizeGB = accInfo.TotalMemSizeGB
+	case spec.count >= 1:
+		count := int(math.Round(spec.count))
+		if skuCount, err := strconv.Atoi(skuGpuCount); err == nil && skuCount > 0 && skuCount != count {
+			cblogger.Warnf("GPU count of %s differs: name rule=%d, ResourceSKU GPUs=%d; using ResourceSKU", vmSizeName, count, skuCount)
+			count = skuCount
+		}
+		accInfo.Count = strconv.Itoa(count)
+		if spec.totalMem > 0 {
+			accInfo.MemSizeGB = fmt.Sprintf("%d", int64(math.Round(float64(spec.totalMem)/float64(count))))
+		}
+	}
+
+	return accInfo
+}
+
+func parseGpuSpec(vmSizeName string) *gpuSpec {
 	vmSizeLower := strings.ToLower(vmSizeName)
 	vmSizeLower = strings.ReplaceAll(vmSizeLower, "standard_", "")
 
@@ -460,7 +547,6 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 		}
 	}
 
-	countStr := formatGpuCountValue(count)
 	modelFullName := getGpuModel(vmSizeLower)
 
 	var mfr = "NA"
@@ -473,28 +559,12 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 		model, _ = strings.CutPrefix(modelFullName, "AMD ")
 	}
 
-	// GPU Memroy Size
-	var memPerGpu string
-	if count <= 0 || mem <= 0 {
-		memPerGpu = "-1"
-	} else {
-		memPerGpu = fmt.Sprintf("%d", int64(float64(mem)/float64(count)))
-	}
-
-	gpuInfo := &irs.GpuInfo{
-		Mfr:            mfr,
-		Model:          model,
-		MemSizeGB:      memPerGpu,
-		Count:          countStr,
-		TotalMemSizeGB: fmt.Sprintf("%d", mem),
-	}
-
-	return gpuInfo
+	return &gpuSpec{count: count, totalMem: mem, mfr: mfr, model: model}
 }
 
-func formatGpuCountValue(value float32) string {
+func formatGpuCountValue(value float64) string {
 	// Check if integer
-	if value == float32(int32(value)) {
+	if value == math.Trunc(value) {
 		return fmt.Sprintf("%d", int32(value))
 	}
 	return fmt.Sprintf("%.3f", value)
@@ -590,10 +660,17 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize, resource
 		}
 	}
 
+	gpuSpec := parseGpuSpec(*vmSpec.Name)
+
 	gpuInfoList := make([]irs.GpuInfo, 0)
-	gpuInfo := parseGpuInfo(*vmSpec.Name)
+	gpuInfo := gpuSpecToGpuInfo(gpuSpec)
 	if gpuInfo != nil {
 		gpuInfoList = append(gpuInfoList, *gpuInfo)
+	}
+
+	accInfoList := make([]irs.AcceleratorInfo, 0)
+	if accInfo := gpuSpecToAcceleratorInfo(*vmSpec.Name, gpuSpec, getSkuCapability(resourceSKU, "GPUs")); accInfo != nil {
+		accInfoList = append(accInfoList, *accInfo)
 	}
 
 	vmSpecInfo := &irs.VMSpecInfo{
@@ -608,6 +685,7 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize, resource
 		// ref) https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series
 		DiskSizeGB:   irs.ConvertMiBToGBInt64(int64(*vmSpec.ResourceDiskSizeInMB)), // MiB(real) -> GB
 		Gpu:          gpuInfoList,
+		Accelerator:  accInfoList,
 		KeyValueList: keyValueList,
 	}
 	return vmSpecInfo
@@ -823,4 +901,17 @@ func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Name string) (string, erro
 	cblogger.Error(getErr.Error())
 	LoggingError(hiscallInfo, getErr)
 	return "", getErr
+}
+
+// getSkuCapability returns the value of the named ResourceSKU capability ("" if not found).
+func getSkuCapability(resourceSKU *armcompute.ResourceSKU, name string) string {
+	if resourceSKU == nil {
+		return ""
+	}
+	for _, capability := range resourceSKU.Capabilities {
+		if capability.Name != nil && capability.Value != nil && *capability.Name == name {
+			return *capability.Value
+		}
+	}
+	return ""
 }

@@ -157,7 +157,7 @@ func (cloudConn *AwsCloudConnection) CreateNICHandler() (irs.NICHandler, error) 
 }
 
 func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-	handler := ars.AwsVmSpecHandler{Region: cloudConn.Region, Client: cloudConn.VmSpecClient}
+	handler := ars.AwsVmSpecHandler{Region: cloudConn.Region, Client: cloudConn.VmSpecClient, CredentialInfo: cloudConn.CredentialInfo}
 	return &handler, nil
 }
 
