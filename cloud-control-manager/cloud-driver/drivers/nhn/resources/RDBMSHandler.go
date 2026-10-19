@@ -623,8 +623,6 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 		return irs.RDBMSInfo{}, errors.New("MasterUserName is required")
 	case rdbmsReqInfo.MasterUserPassword == "":
 		return irs.RDBMSInfo{}, errors.New("MasterUserPassword is required")
-	case rdbmsReqInfo.NHNAutoOpenDBSecurityGroup && !rdbmsReqInfo.PublicAccess:
-		return irs.RDBMSInfo{}, errors.New("NHNAutoOpenDBSecurityGroup requires PublicAccess=true")
 	}
 
 	storageSize, err := strconv.Atoi(rdbmsReqInfo.StorageSize)
@@ -1368,16 +1366,23 @@ func (handler *NhnCloudRDBMSHandler) fetchRDBMSEnrichmentWithEndpoint(ctx contex
 	data.SubnetId = netResp.Subnet.SubnetId
 	data.SubnetName = netResp.Subnet.SubnetName
 	data.SubnetCidr = netResp.Subnet.SubnetCidr
+	var internalEndpoint string
 	for _, ep := range netResp.EndPoints {
+		addr := ep.Domain
+		if addr == "" {
+			addr = ep.IPAddress
+		}
 		if ep.EndPointType == "EXTERNAL" {
 			data.UsePublicAccess = true
-			if ep.Domain != "" {
-				data.PublicEndpoint = ep.Domain
-			} else {
-				data.PublicEndpoint = ep.IPAddress
-			}
+			data.PublicEndpoint = addr
 			break
 		}
+		if ep.EndPointType == "INTERNAL" && internalEndpoint == "" {
+			internalEndpoint = addr
+		}
+	}
+	if data.PublicEndpoint == "" {
+		data.PublicEndpoint = internalEndpoint
 	}
 
 	var storResp nhnRDSStorageInfoResponse
@@ -1608,16 +1613,23 @@ func (handler *NhnCloudRDBMSHandler) fetchRDBMSEnrichment(ctx context.Context, d
 	data.SubnetId = netResp.Subnet.SubnetId
 	data.SubnetName = netResp.Subnet.SubnetName
 	data.SubnetCidr = netResp.Subnet.SubnetCidr
+	var internalEndpoint string
 	for _, ep := range netResp.EndPoints {
+		addr := ep.Domain
+		if addr == "" {
+			addr = ep.IPAddress
+		}
 		if ep.EndPointType == "EXTERNAL" {
 			data.UsePublicAccess = true
-			if ep.Domain != "" {
-				data.PublicEndpoint = ep.Domain
-			} else {
-				data.PublicEndpoint = ep.IPAddress
-			}
+			data.PublicEndpoint = addr
 			break
 		}
+		if ep.EndPointType == "INTERNAL" && internalEndpoint == "" {
+			internalEndpoint = addr
+		}
+	}
+	if data.PublicEndpoint == "" {
+		data.PublicEndpoint = internalEndpoint
 	}
 
 	var storResp nhnRDSStorageInfoResponse
