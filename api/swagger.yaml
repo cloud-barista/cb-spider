@@ -369,6 +369,64 @@ definitions:
       zone:
         type: string
     type: object
+  spider.AcceleratorInfo:
+    properties:
+      Count:
+        description: Number of accelerator devices attached to the VM, "-1" when not
+          applicable
+        example: "2"
+        type: string
+      Fraction:
+        description: Share of one physical accelerator per device for partial(fractional)
+          GPUs, empty for whole devices
+        example: ""
+        type: string
+      MemSizeGB:
+        description: Memory size per device available to the VM in GB, "-1" when not
+          applicable
+        example: "12"
+        type: string
+      Mfr:
+        description: Manufacturer of the accelerator, NA when not applicable
+        example: NVIDIA
+        type: string
+      Model:
+        description: Model of the accelerator, NA when not applicable
+        example: Tesla K80
+        type: string
+      TotalMemSizeGB:
+        description: Total memory size of all devices available to the VM in GB, "-1"
+          when not applicable
+        example: "24"
+        type: string
+      Type:
+        allOf:
+        - $ref: '#/definitions/spider.AcceleratorType'
+        description: GPU, TPU, NPU
+        example: GPU
+    required:
+    - Count
+    - Type
+    type: object
+  spider.AcceleratorType:
+    enum:
+    - GPU
+    - TPU
+    - NPU
+    type: string
+    x-enum-comments:
+      AcceleratorGPU: General-purpose GPU (NVIDIA, AMD, ...)
+      AcceleratorNPU: Neural processing ASIC (AWS Inferentia/Trainium, Qualcomm AI
+        100, ...)
+      AcceleratorTPU: Google Tensor Processing Unit
+    x-enum-descriptions:
+    - General-purpose GPU (NVIDIA, AMD, ...)
+    - Google Tensor Processing Unit
+    - Neural processing ASIC (AWS Inferentia/Trainium, Qualcomm AI 100, ...)
+    x-enum-varnames:
+    - AcceleratorGPU
+    - AcceleratorTPU
+    - AcceleratorNPU
   spider.AccessInfo:
     description: Access Information for a Kubernetes Cluster. <br> Take some time
       to provide.
@@ -2012,6 +2070,11 @@ definitions:
     type: object
   spider.VMSpecInfo:
     properties:
+      Accelerator:
+        description: AI accelerator(GPU/TPU/NPU) details if available
+        items:
+          $ref: '#/definitions/spider.AcceleratorInfo'
+        type: array
       DiskSizeGB:
         description: Disk size in GB, "-1" when not applicable
         example: "8"

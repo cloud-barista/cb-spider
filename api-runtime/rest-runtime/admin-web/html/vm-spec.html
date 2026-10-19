@@ -103,6 +103,53 @@
         cursor: pointer;
         font-family: Arial, sans-serif;
     }
+
+    /* AI accelerator badges (CPU/GPU/TPU/NPU) */
+    .acc-badge {
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: bold;
+        line-height: 16px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+    .acc-badge.acc-CPU { color: #57606a; background-color: #eaeef2; border-color: #d0d7de; }
+    .acc-badge.acc-GPU { color: #1a7f37; background-color: #dafbe1; border-color: #aceebb; }
+    .acc-badge.acc-TPU { color: #0969da; background-color: #ddf4ff; border-color: #b6e3ff; }
+    .acc-badge.acc-NPU { color: #8250df; background-color: #fbefff; border-color: #e7d3ff; }
+    .acc-chip {
+        margin-left: 4px;
+        color: #57606a;
+        font-size: 11px;
+    }
+
+    /* 1-click accelerator filter buttons */
+    #accFilter {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 14px;
+    }
+    #accFilter button.acc-badge {
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        opacity: 0.55;
+    }
+    #accFilter button.acc-badge:hover {
+        opacity: 0.85;
+    }
+    #accFilter button.acc-badge.active {
+        opacity: 1;
+        box-shadow: 0 0 0 2px #24292f;
+    }
+    #accFilter button.acc-ALL { color: #24292f; background-color: #ffffff; border-color: #8c959f; }
+    #accFilter button.acc-badge:disabled {
+        cursor: default;
+        opacity: 0.25;
+        box-shadow: none;
+    }
 </style>
 <script>
     // Basic Auth credentials from server
@@ -135,8 +182,11 @@
         return originalFetch(url, options);
     };
 
+    // Selected accelerator class filter: "ALL", "CPU", "GPU", "TPU", "NPU"
+    var selectedAccClass = "ALL";
+
     function searchKeyword() {
-        var input, filter, table, tr, td, i, j, txtValue;
+        var input, filter, table, tr, td, i, j, txtValue, matched;
         input = document.getElementById("searchInput");
         filter = input.value.toUpperCase();
         table = document.getElementsByTagName("table")[0];
@@ -144,17 +194,34 @@
 
         for (i = 1; i < tr.length; i++) {
             tr[i].style.display = "none";
+            if (selectedAccClass !== "ALL" && tr[i].getAttribute("data-acc") !== selectedAccClass) {
+                continue;
+            }
+            matched = false;
             td = tr[i].getElementsByTagName("td");
             for (j = 0; j < td.length; j++) {
                 if (td[j]) {
                     txtValue = td[j].textContent || td[j].innerText;
                     if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                        tr[i].style.display = "";
+                        matched = true;
                         break;
                     }
                 }
             }
+            if (matched) {
+                tr[i].style.display = "";
+            }
         }
+    }
+
+    function filterAccClass(accClass) {
+        // Clicking the active class again returns to ALL
+        selectedAccClass = (selectedAccClass === accClass) ? "ALL" : accClass;
+        var buttons = document.querySelectorAll("#accFilter button");
+        for (var i = 0; i < buttons.length; i++) {
+            buttons[i].classList.toggle("active", buttons[i].getAttribute("data-acc") === selectedAccClass);
+        }
+        searchKeyword();
     }
 
     function clearSearchInput() {
@@ -169,6 +236,15 @@
         <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
         <button id="clearSearch" onclick="clearSearchInput()">X</button>
     </div>
+    {{if .AccSupported}}
+    <div id="accFilter">
+        <button class="acc-badge acc-ALL active" data-acc="ALL" onclick="filterAccClass('ALL')">ALL {{len .VMSpecs}}</button>
+        <button class="acc-badge acc-CPU" data-acc="CPU" onclick="filterAccClass('CPU')" {{if not (index .AccCounts "CPU")}}disabled{{end}}>CPU {{index .AccCounts "CPU"}}</button>
+        <button class="acc-badge acc-GPU" data-acc="GPU" onclick="filterAccClass('GPU')" {{if not (index .AccCounts "GPU")}}disabled{{end}}>GPU {{index .AccCounts "GPU"}}</button>
+        <button class="acc-badge acc-TPU" data-acc="TPU" onclick="filterAccClass('TPU')" {{if not (index .AccCounts "TPU")}}disabled{{end}}>TPU {{index .AccCounts "TPU"}}</button>
+        <button class="acc-badge acc-NPU" data-acc="NPU" onclick="filterAccClass('NPU')" {{if not (index .AccCounts "NPU")}}disabled{{end}}>NPU {{index .AccCounts "NPU"}}</button>
+    </div>
+    {{end}}
 </div>
 <table>
     <tr>
@@ -177,13 +253,18 @@
         <th>VCPU</th>
         <th class="column-meminfo">Memory (MiB)</th>
         <th class="column-diskinfo">Disk (GB)</th>
-        <th>GPU</th>
+        <th>{{if .AccSupported}}Accelerator (GPU/TPU/NPU){{else}}GPU{{end}}</th>
         <th class="th-column-Misc">Misc</th>
     </tr>
     {{range $index, $spec := .VMSpecs}}
-    <tr>
+    <tr data-acc="{{$spec.Accel.Class}}">
         <td class="column-num">{{$index | inc}}</td>
-        <td class="column-vmspecname">{{$spec.Name}}</td>
+        <td class="column-vmspecname">
+            {{$spec.Name}}
+            {{if $spec.Accel.Class}}
+            <br><span class="acc-badge acc-{{$spec.Accel.Class}}">{{$spec.Accel.Class}}</span>{{if $spec.Accel.Chip}}<span class="acc-chip">{{$spec.Accel.Chip}}</span>{{end}}
+            {{end}}
+        </td>
         <td class="column-vcpuinfo">
             &nbsp;* Count: {{$spec.VCpu.Count}}<br>
             &nbsp;* Clock: {{$spec.VCpu.ClockGHz}} GHz<br>
@@ -191,12 +272,24 @@
         <td class="column-meminfo">{{$spec.MemSizeMiB}} MiB</td>
         <td class="column-diskinfo">{{$spec.DiskSizeGB}}</td>
         <td class="column-gpuinfo">
+            {{if $spec.Accelerator}}
+            {{range $acc := $spec.Accelerator}}
+                <span class="acc-badge acc-{{$acc.Type}}">{{$acc.Type}}</span><br>
+                &nbsp;* Mfr: {{$acc.Mfr}}<br>
+                &nbsp;* Model: {{$acc.Model}}<br>
+                &nbsp;* Count: {{$acc.Count}}{{if $acc.Fraction}} ({{$acc.Fraction}} of a physical {{$acc.Type}}){{end}}<br>
+                &nbsp;* Memory: {{$acc.MemSizeGB}} GB<br>
+                &nbsp;* TotalMemory: {{$acc.TotalMemSizeGB}} GB<br>
+            {{end}}
+            {{else}}
+            {{if and (eq $spec.Accel.Class "GPU") $spec.Gpu}}<span class="acc-badge acc-GPU">GPU</span><br>{{end}}
             {{range $gpu := $spec.Gpu}}
                 &nbsp;* Mfr: {{$gpu.Mfr}}<br>
                 &nbsp;* Model: {{$gpu.Model}}<br>
                 &nbsp;* Memory: {{$gpu.MemSizeGB}} GB<br>
                 &nbsp;* Count: {{$gpu.Count}}<br>
                 &nbsp;* TotalMemory: {{$gpu.TotalMemSizeGB}} GB<br>
+            {{end}}
             {{end}}
         </td>
         <td class="column-Misc">
