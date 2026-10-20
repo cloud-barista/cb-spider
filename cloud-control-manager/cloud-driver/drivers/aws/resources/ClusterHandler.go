@@ -1449,48 +1449,77 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	DesiredNodeSize int, MinNodeSize int, MaxNodeSize int) (irs.NodeGroupInfo, error) {
 	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s] / DesiredNodeSize : [%d] / MinNodeSize : [%d] / MaxNodeSize : [%d]", clusterIID.SystemId, nodeGroupIID.SystemId, DesiredNodeSize, MinNodeSize, MaxNodeSize)
 
-	// Retrieve cluster info by clusterIID
-	// Retrieve nodeGroup info by nodeGroupIID
-	// 		nodeGroup contains the AutoScaling group name
-
-	// TODO : refactor into a shared helper
-	input := &eks.DescribeNodegroupInput{
-		ClusterName:   aws.String(clusterIID.SystemId),   //required
-		NodegroupName: aws.String(nodeGroupIID.SystemId), // required
+	// Change the scaling through EKS rather than the node group's Auto Scaling group.
+	// EKS syncs a directly changed Auto Scaling group back into its scalingConfig only
+	// after several minutes, so the node group kept reporting the old sizes meanwhile.
+	input := &eks.UpdateNodegroupConfigInput{
+		ClusterName:   aws.String(clusterIID.SystemId),
+		NodegroupName: aws.String(nodeGroupIID.SystemId),
+		ScalingConfig: &eks.NodegroupScalingConfig{
+			DesiredSize: aws.Int64(int64(DesiredNodeSize)),
+			MinSize:     aws.Int64(int64(MinNodeSize)),
+			MaxSize:     aws.Int64(int64(MaxNodeSize)),
+		},
 	}
 
-	result, err := ClusterHandler.Client.DescribeNodegroup(input)
-	cblogger.Debug(result.Nodegroup)
+	result, err := ClusterHandler.Client.UpdateNodegroupConfig(input)
+	if err != nil {
+		// EKS accepts one update at a time, and none while the node group is being created.
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == eks.ErrCodeResourceInUseException {
+			err = awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST,
+				fmt.Sprintf("node group %s is being created or updated; retry after it becomes Active (%s)",
+					nodeGroupIID.SystemId, aerr.Message()), nil)
+		}
+		cblogger.Error(err)
+		return irs.NodeGroupInfo{}, err
+	}
+
+	// DescribeNodegroup reports the new sizes only after the update completes (a few seconds).
+	err = ClusterHandler.waitUntilNodegroupUpdateDone(clusterIID.SystemId, nodeGroupIID.SystemId, aws.StringValue(result.Update.Id))
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 
-	nodeGroupName := result.Nodegroup.NodegroupName
-	nodeGroupResources := result.Nodegroup.Resources.AutoScalingGroups
-	for _, autoScalingGroup := range nodeGroupResources {
-		input := &autoscaling.UpdateAutoScalingGroupInput{
-			AutoScalingGroupName: aws.String(*autoScalingGroup.Name),
-
-			MaxSize:         aws.Int64(int64(MaxNodeSize)),
-			MinSize:         aws.Int64(int64(MinNodeSize)),
-			DesiredCapacity: aws.Int64(int64(DesiredNodeSize)),
-		}
-
-		updateResult, err := ClusterHandler.AutoScaling.UpdateAutoScalingGroup(input)
-		if err != nil {
-			cblogger.Error(err)
-			return irs.NodeGroupInfo{}, err
-		}
-		cblogger.Debug(updateResult)
-	}
-
-	nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{SystemId: *nodeGroupName})
+	nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, nodeGroupIID)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 	return nodeGroupInfo, nil
+}
+
+// waitUntilNodegroupUpdateDone polls a node group update until it ends, and returns
+// an error if it does not succeed. aws-sdk-go v1 has no waiter for EKS updates.
+func (ClusterHandler *AwsClusterHandler) waitUntilNodegroupUpdateDone(clusterName string, nodegroupName string, updateId string) error {
+	input := &eks.DescribeUpdateInput{
+		Name:          aws.String(clusterName),
+		NodegroupName: aws.String(nodegroupName),
+		UpdateId:      aws.String(updateId),
+	}
+
+	const interval = 3 * time.Second
+	const timeout = 2 * time.Minute
+	for waited := time.Duration(0); waited < timeout; waited += interval {
+		result, err := ClusterHandler.Client.DescribeUpdate(input)
+		if err != nil {
+			return err
+		}
+
+		switch aws.StringValue(result.Update.Status) {
+		case eks.UpdateStatusSuccessful:
+			return nil
+		case eks.UpdateStatusFailed, eks.UpdateStatusCancelled:
+			var reasons []string
+			for _, e := range result.Update.Errors {
+				reasons = append(reasons, fmt.Sprintf("%s: %s", aws.StringValue(e.ErrorCode), aws.StringValue(e.ErrorMessage)))
+			}
+			return fmt.Errorf("node group %s update %s %s: %s", nodegroupName, updateId,
+				aws.StringValue(result.Update.Status), strings.Join(reasons, "; "))
+		}
+		time.Sleep(interval)
+	}
+	return fmt.Errorf("node group %s update %s did not finish within %v", nodegroupName, updateId, timeout)
 }
 
 func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
