@@ -26,14 +26,15 @@ import (
 )
 
 type AwsClusterHandler struct {
-	Region      idrv.RegionInfo
-	Client      *eks.EKS
-	EC2Client   *ec2.EC2
-	ELBClient   *elb.ELB // Classic ELB client, used to clean up Load Balancers that EKS clusters auto-create (ref: cloud-barista/cb-spider#1208)
-	Iam         *iam.IAM
-	StsClient   *sts.STS
-	AutoScaling *autoscaling.AutoScaling
-	TagHandler  *AwsTagHandler // 2024-07-18 TagHandler add
+	Region         idrv.RegionInfo
+	CredentialInfo idrv.CredentialInfo // used by the aws-sdk-go-v2 EKS client (ClusterEBSCSIPodIdentity.go)
+	Client         *eks.EKS
+	EC2Client      *ec2.EC2
+	ELBClient      *elb.ELB // Classic ELB client, used to clean up Load Balancers that EKS clusters auto-create (ref: cloud-barista/cb-spider#1208)
+	Iam            *iam.IAM
+	StsClient      *sts.STS
+	AutoScaling    *autoscaling.AutoScaling
+	TagHandler     *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 const (
@@ -1048,6 +1049,12 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return irs.NodeGroupInfo{}, err
 	}
 
+	// Clusters created by an earlier version run the EBS CSI driver on the node role through IMDS,
+	// which fails on nodes with IMDS hop limit 1. Best effort: a failure here must not block the node group.
+	if err := ClusterHandler.ensureEBSCSIDriverPodIdentity(clusterIID.SystemId); err != nil {
+		cblogger.Errorf("Failed to ensure EBS CSI driver pod identity: %v", err)
+	}
+
 	networkInfo := clusterInfo.Network
 	var subnetList []*string
 	for _, subnet := range networkInfo.SubnetIIDs {
@@ -1253,10 +1260,17 @@ func (ClusterHandler *AwsClusterHandler) InstallEBSCSIDriverAndPodIdentityAgentI
 	csiDriverExists := false
 	podIdentityAgentExists := false
 	for _, addon := range addonList.Addons {
-		if aws.StringValue(addon) == "aws-ebs-csi-driver" {
+		if aws.StringValue(addon) == ebsCSIDriverAddonName {
 			csiDriverExists = true
 		} else if aws.StringValue(addon) == "eks-pod-identity-agent" {
 			podIdentityAgentExists = true
+		}
+	}
+
+	// An EBS CSI driver installed by an earlier version has no Pod Identity association.
+	if csiDriverExists {
+		if err := ClusterHandler.ensureEBSCSIDriverPodIdentity(clusterID); err != nil {
+			cblogger.Errorf("Failed to ensure EBS CSI driver pod identity: %v", err)
 		}
 	}
 
@@ -1264,6 +1278,15 @@ func (ClusterHandler *AwsClusterHandler) InstallEBSCSIDriverAndPodIdentityAgentI
 	if csiDriverExists && podIdentityAgentExists {
 		cblogger.Infof("EBS CSI driver and pod identity agent already exist in cluster %s", clusterID)
 		return nil
+	}
+
+	// Install the pod identity agent first: the EBS CSI controller gets its credentials through it.
+	var errPodIdentityAgent error
+	if podIdentityAgentExists == false {
+		errPodIdentityAgent = ClusterHandler.installPodIdentityAgent(clusterID)
+		if errPodIdentityAgent != nil {
+			cblogger.Errorf("Failed to install pod identity agent: %v", errPodIdentityAgent)
+		}
 	}
 
 	var errCsiDriver error
@@ -1274,38 +1297,10 @@ func (ClusterHandler *AwsClusterHandler) InstallEBSCSIDriverAndPodIdentityAgentI
 		}
 	}
 
-	var errPodIdentityAgent error
-	if podIdentityAgentExists == false {
-		errPodIdentityAgent = ClusterHandler.installPodIdentityAgent(clusterID)
-		if errPodIdentityAgent != nil {
-			cblogger.Errorf("Failed to install pod identity agent: %v", errPodIdentityAgent)
-		}
-	}
-
 	if errCsiDriver != nil || errPodIdentityAgent != nil {
 		return errors.Join(errCsiDriver, errPodIdentityAgent)
 	}
 
-	return nil
-}
-
-func (ClusterHandler *AwsClusterHandler) installEBSCSIDriver(clusterID string) error {
-	addonName := "aws-ebs-csi-driver" // EBS CSI Driver, don't change
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	input := &eks.CreateAddonInput{
-		ClusterName:      aws.String(clusterID),
-		AddonName:        aws.String(addonName),
-		ResolveConflicts: aws.String("OVERWRITE"),
-	}
-
-	_, err := ClusterHandler.Client.CreateAddonWithContext(ctx, input)
-	if err != nil {
-		cblogger.Errorf("Failed to install EBS CSI Driver: %v", err)
-		return err
-	}
 	return nil
 }
 
