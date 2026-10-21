@@ -63,6 +63,14 @@ func (ClusterHandler *AwsClusterHandler) getOrCreateEBSCSIDriverRole() (string, 
 
 	result, err := ClusterHandler.Iam.GetRole(input)
 	if err == nil {
+		// Re-attach the policy in case an earlier attempt created the role but failed to attach it.
+		// The role may also be pre-created without IAM write permissions for Spider, so only warn on failure.
+		if _, err := ClusterHandler.Iam.AttachRolePolicy(&iam.AttachRolePolicyInput{
+			RoleName:  aws.String(ebsCSIDriverRoleName),
+			PolicyArn: aws.String(ebsCSIDriverPolicyArn),
+		}); err != nil {
+			cblogger.Warnf("Failed to attach policy %s to existing role %s: %v", ebsCSIDriverPolicyArn, ebsCSIDriverRoleName, err)
+		}
 		return aws.StringValue(result.Role.Arn), nil
 	}
 	if aerr, ok := err.(awserr.Error); !ok || aerr.Code() != iam.ErrCodeNoSuchEntityException {
