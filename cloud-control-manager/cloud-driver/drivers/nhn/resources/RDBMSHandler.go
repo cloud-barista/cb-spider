@@ -1377,7 +1377,7 @@ func (handler *NhnCloudRDBMSHandler) fetchRDBMSEnrichmentWithEndpoint(ctx contex
 			data.PublicEndpoint = addr
 			break
 		}
-		if ep.EndPointType == "INTERNAL" && internalEndpoint == "" {
+		if internalEndpoint == "" && addr != "" {
 			internalEndpoint = addr
 		}
 	}
@@ -1624,7 +1624,7 @@ func (handler *NhnCloudRDBMSHandler) fetchRDBMSEnrichment(ctx context.Context, d
 			data.PublicEndpoint = addr
 			break
 		}
-		if ep.EndPointType == "INTERNAL" && internalEndpoint == "" {
+		if internalEndpoint == "" && addr != "" {
 			internalEndpoint = addr
 		}
 	}
