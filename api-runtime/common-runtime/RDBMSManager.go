@@ -976,6 +976,15 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserName, masterUserPassword s
 	if info.Endpoint == "" {
 		return nil, "", fmt.Errorf("RDBMS endpoint is empty; instance may still be provisioning")
 	}
+	// Fast-fail instead of blocking on a connection attempt that is known to be
+	// unreachable: a Private Mode (PublicAccess=false) instance has no route from
+	// wherever the CB-Spider server runs unless it happens to sit inside the same
+	// private network, and there is no reliable way to tell the two cases apart here
+	// -- so direct-SQL features are unsupported for Private Mode instances across every
+	// CSP (see the RDBMS Management Guide's "Private Mode" limitations section).
+	if !info.PublicAccess {
+		return nil, "", fmt.Errorf("direct SQL connection is not supported for a Private Mode (PublicAccess=false) RDBMS instance; perform this operation from inside the instance's VPC/VNet instead")
+	}
 
 	engine := strings.ToLower(string(info.DBEngine))
 	host, port := splitRDBMSEndpoint(info.Endpoint)
@@ -992,7 +1001,10 @@ func openRDBMSSQLConn(info *cres.RDBMSInfo, masterUserName, masterUserPassword s
 		// require_secure_transport=ON (e.g. IBM, and AWS/others when the operator enabled it),
 		// which rejects a plain connection outright; others don't enforce it at all. "preferred"
 		// handles both without needing to special-case any CSP's endpoint domain.
-		dsn = fmt.Sprintf("%s:%s@tcp(%s)/?tls=preferred", user, masterUserPassword, net.JoinHostPort(host, port))
+		// timeout=10s bounds the initial TCP connect (go-sql-driver/mysql otherwise falls back
+		// to the OS default, which can block far longer) -- matching the PostgreSQL branch's
+		// connect_timeout below.
+		dsn = fmt.Sprintf("%s:%s@tcp(%s)/?tls=preferred&timeout=10s", user, masterUserPassword, net.JoinHostPort(host, port))
 	case engine == "postgresql" || engine == "postgres":
 		driverName = "postgres"
 		if port == "" {
