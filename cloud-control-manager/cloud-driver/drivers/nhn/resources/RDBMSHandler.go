@@ -697,11 +697,14 @@ func (handler *NhnCloudRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (ir
 	// and attach it to the DB instance themselves (independently of Spider)
 	// for external SQL access.
 	//
-	// Setting NHNAutoOpenDBSecurityGroup=true (requires PublicAccess=true,
-	// validated above) is an official convenience option: CB-Spider then
-	// auto-creates a fully-open (0.0.0.0/0) DB Security Group, attaches it at
-	// creation, and deletes it automatically when the instance is deleted
-	// (see DeleteRDBMS).
+	// Setting NHNAutoOpenDBSecurityGroup=true is an official convenience
+	// option: CB-Spider then auto-creates a fully-open (0.0.0.0/0) DB
+	// Security Group, attaches it at creation, and deletes it automatically
+	// when the instance is deleted (see DeleteRDBMS). This works regardless
+	// of PublicAccess — on a Private Mode (PublicAccess=false) instance the
+	// 0.0.0.0/0 rule only ever matches traffic that can already reach the
+	// instance's private endpoint, so it effectively opens the DB port to
+	// the whole private network rather than the internet.
 	//
 	// dbSGIds must stay a non-nil (possibly empty) slice: the NHN API docs
 	// mark dbSecurityGroupIds as optional, but a Go nil slice marshals to
@@ -1149,8 +1152,8 @@ func (handler *NhnCloudRDBMSHandler) putRDS(ctx context.Context, path string, bo
 // createDefaultDBSecurityGroup creates a fully-open (0.0.0.0/0) NHN Cloud RDS
 // DB Security Group for the RDBMSInfo.NHNAutoOpenDBSecurityGroup convenience
 // option and returns its ID. endpointFn selects the correct RDS endpoint
-// (MySQL or MariaDB) for the DB instance being created. Callers must ensure
-// PublicAccess=true before calling this (validated in CreateRDBMS).
+// (MySQL or MariaDB) for the DB instance being created. Usable regardless of
+// PublicAccess (see the caller in CreateRDBMS).
 func (handler *NhnCloudRDBMSHandler) createDefaultDBSecurityGroup(ctx context.Context, endpointFn func() (string, error), name string) (string, error) {
 	const cidr = "0.0.0.0/0"
 	reqBody := nhnRDSCreateDBSecurityGroupRequest{

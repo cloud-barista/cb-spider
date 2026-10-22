@@ -19410,7 +19410,7 @@
                             "default": false
                         },
                         "NHNAutoOpenDBSecurityGroup": {
-                            "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.\nWhen true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)\nNHN Cloud RDS DB Security Group, and deletes it automatically when the\ninstance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does\nnot use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup\ninstead); if this flag is false (default), create and attach a DB\nSecurity Group yourself via the NHN Cloud console/API for external\nSQL access.",
+                            "description": "NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true, CB-Spider\nauto-creates and attaches a fully-open (0.0.0.0/0) NHN Cloud RDS\nDB Security Group, and deletes it automatically when the instance\nis deleted. Works regardless of PublicAccess. Ignored by every\nother CSP. NHN Cloud RDBMS does not use SecurityGroupNames at all\n(see NHNAutoOpenDBSecurityGroup instead); if this flag is false\n(default), create and attach a DB Security Group yourself via the\nNHN Cloud console/API for external SQL access.",
                             "type": "boolean",
                             "default": false
                         },

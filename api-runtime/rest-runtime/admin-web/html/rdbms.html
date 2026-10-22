@@ -1465,7 +1465,7 @@
                         </div>
                         <div class="form-group" style="margin-top: -6px;">
                             <label></label>
-                            <small style="flex: 2; text-align: left; color: #666;">NHN only. Requires Public Access = Yes. Auto-creates a fully-open (0.0.0.0/0) DB Security Group and deletes it automatically when the instance is deleted.</small>
+                            <small style="flex: 2; text-align: left; color: #666;">NHN only. Auto-creates a fully-open (0.0.0.0/0) DB Security Group and deletes it automatically when the instance is deleted.</small>
                         </div>
                     </div>
                     <div id="ncpAutoOpenACGGroup" style="display:none;">
@@ -1508,7 +1508,7 @@
                     </div>
                     <div class="form-group">
                         <label for="publicAccess">Public Access:</label>
-                        <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;" onchange="updateSubnetFieldAvailability(); updateNHNAutoOpenSGAvailability()">
+                        <select id="publicAccess" name="publicAccess" style="background-color: #E6E6FA; width: 65%;" onchange="updateSubnetFieldAvailability()">
                             <option value="false">No</option>
                             <option value="true" selected>Yes</option>
                         </select>
@@ -1805,15 +1805,6 @@
             const selectedSGs = Array.from(document.querySelectorAll('.sg-checkbox:checked'));
             if (selectedSGs.length === 0) {
                 alert("At least one Security Group is required for this CSP.");
-                return false;
-            }
-        }
-
-        const nhnAutoOpenDBSecurityGroupEl = document.getElementById('nhnAutoOpenDBSecurityGroup');
-        if (isNHNProvider() && nhnAutoOpenDBSecurityGroupEl && nhnAutoOpenDBSecurityGroupEl.value === 'true') {
-            const publicAccess = document.getElementById('publicAccess').value === 'true';
-            if (!publicAccess) {
-                alert("Auto-open DB Security Group requires Public Access = Yes.");
                 return false;
             }
         }
@@ -2288,7 +2279,6 @@
             if (nhnSGGroup) {
                 if (isNHNProvider()) {
                     nhnSGGroup.style.display = '';
-                    updateNHNAutoOpenSGAvailability();
                 } else {
                     nhnSGGroup.style.display = 'none';
                     document.getElementById('nhnAutoOpenDBSecurityGroup').value = 'false';
@@ -3292,26 +3282,6 @@
     function isNCPProvider() {
         const provider = (document.getElementById('currentProviderName').value || '').toUpperCase();
         return provider === 'NCP';
-    }
-
-    // NHNAutoOpenDBSecurityGroup requires PublicAccess=true (enforced by the
-    // backend too — see validateForm()). Keep the control in sync with
-    // Public Access so users can't set an invalid combination in the first
-    // place: force it to No and lock it while Public Access=No, and hand
-    // control back (defaulting to Yes again) once Public Access=Yes.
-    function updateNHNAutoOpenSGAvailability() {
-        if (!isNHNProvider()) return;
-        const select = document.getElementById('nhnAutoOpenDBSecurityGroup');
-        if (!select) return;
-
-        const publicAccess = document.getElementById('publicAccess').value === 'true';
-        if (publicAccess) {
-            select.disabled = false;
-            select.value = 'true';
-        } else {
-            select.disabled = true;
-            select.value = 'false';
-        }
     }
 
     function isNativeDBProvider() {
