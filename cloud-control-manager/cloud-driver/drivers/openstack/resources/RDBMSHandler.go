@@ -450,16 +450,24 @@ func (handler *OpenStackRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (i
 	// Grant global admin privileges to the non-root master user so it can
 	// create/drop databases (Trove's user API only grants db-specific access).
 	if effectiveUser != "root" {
-		// Determine default port based on engine type
-		engineType := strings.ToLower(rdbmsReqInfo.DBEngine)
-		defaultPort := "3306"
-		if strings.Contains(engineType, "postgresql") {
-			defaultPort = "5432"
-		}
-		if grantErr := grantAdminPrivileges(rdbmsInfo.Endpoint, defaultPort, rootPwd, effectiveUser); grantErr != nil {
-			cblogger.Warnf("CreateRDBMS: could not grant admin privileges to '%s': %v", effectiveUser, grantErr)
+		if !rdbmsInfo.PublicAccess {
+			// A Private Mode (PublicAccess=false) instance has no route from wherever
+			// CB-Spider runs, so grantAdminPrivileges' direct SQL connection is known to
+			// fail up front -- skip it instead of blocking CreateRDBMS for up to
+			// OPENSTACK_GRANT_ADMIN_TIMEOUT waiting on a connection that can't succeed.
+			cblogger.Warnf("CreateRDBMS: instance is Private Mode (PublicAccess=false); skipping automatic GRANT of admin privileges to '%s' -- run it manually (GRANT ALL PRIVILEGES ON *.* TO '%s'@'%%' WITH GRANT OPTION; FLUSH PRIVILEGES;) from inside the instance's network", effectiveUser, effectiveUser)
 		} else {
-			cblogger.Infof("CreateRDBMS: granted ALL PRIVILEGES ON *.* to '%s'", effectiveUser)
+			// Determine default port based on engine type
+			engineType := strings.ToLower(rdbmsReqInfo.DBEngine)
+			defaultPort := "3306"
+			if strings.Contains(engineType, "postgresql") {
+				defaultPort = "5432"
+			}
+			if grantErr := grantAdminPrivileges(rdbmsInfo.Endpoint, defaultPort, rootPwd, effectiveUser); grantErr != nil {
+				cblogger.Warnf("CreateRDBMS: could not grant admin privileges to '%s': %v", effectiveUser, grantErr)
+			} else {
+				cblogger.Infof("CreateRDBMS: granted ALL PRIVILEGES ON *.* to '%s'", effectiveUser)
+			}
 		}
 	}
 
