@@ -227,14 +227,14 @@ type RDBMSCreateRequest struct {
 		PublicAccess       bool `json:"PublicAccess,omitempty" default:"false"`
 		DeletionProtection bool `json:"DeletionProtection,omitempty" default:"false"`
 
-		// NHNAutoOpenDBSecurityGroup (NHN Cloud only): requires PublicAccess=true.
-		// When true, CB-Spider auto-creates and attaches a fully-open (0.0.0.0/0)
-		// NHN Cloud RDS DB Security Group, and deletes it automatically when the
-		// instance is deleted. Ignored by every other CSP. NHN Cloud RDBMS does
-		// not use SecurityGroupNames at all (see NHNAutoOpenDBSecurityGroup
-		// instead); if this flag is false (default), create and attach a DB
-		// Security Group yourself via the NHN Cloud console/API for external
-		// SQL access.
+		// NHNAutoOpenDBSecurityGroup (NHN Cloud only): when true, CB-Spider
+		// auto-creates and attaches a fully-open (0.0.0.0/0) NHN Cloud RDS
+		// DB Security Group, and deletes it automatically when the instance
+		// is deleted. Works regardless of PublicAccess. Ignored by every
+		// other CSP. NHN Cloud RDBMS does not use SecurityGroupNames at all
+		// (see NHNAutoOpenDBSecurityGroup instead); if this flag is false
+		// (default), create and attach a DB Security Group yourself via the
+		// NHN Cloud console/API for external SQL access.
 		NHNAutoOpenDBSecurityGroup bool `json:"NHNAutoOpenDBSecurityGroup,omitempty" default:"false"`
 
 		// NCPAutoOpenACG (NCP only): NCP provides no API to assign a public
