@@ -521,6 +521,10 @@ func getRoutes() []route {
 		{"PUT", "/cluster/:Name/nodegroup/:NodeGroupName/onautoscaling", SetNodeGroupAutoScaling},
 		{"PUT", "/cluster/:Name/nodegroup/:NodeGroupName/autoscalesize", ChangeNodeGroupScaling},
 		{"PUT", "/cluster/:Name/upgrade", UpgradeCluster},
+		//-- for Storage Driver
+		{"GET", "/cluster/:Name/storagedriver", ListStorageDriver},
+		{"PUT", "/cluster/:Name/storagedriver", EnableStorageDriver},
+		{"DELETE", "/cluster/:Name/storagedriver/:Kind", DisableStorageDriver},
 		{"GET", "/cspvm/:Id", GetCSPVM},
 
 		//-- for management
