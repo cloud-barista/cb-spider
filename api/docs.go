@@ -1754,6 +1754,171 @@ const docTemplate = `{
                 }
             }
         },
+        "/cluster/{Name}/storagedriver": {
+            "get": {
+                "description": "List the CSP-managed CSI storage drivers (Block and File) of a Cluster, read through the CSP API.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "List Storage Drivers of a Cluster",
+                "operationId": "list-storage-driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to use",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Storage drivers of the Cluster",
+                        "schema": {
+                            "$ref": "#/definitions/spider.StorageDriverListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to missing parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Enable a CSP-managed CSI storage driver (Block or File) of a Cluster through the CSP API. \u003cbr\u003e Enabling installs the driver components and wires the permissions the driver needs (e.g., AWS IAM Role and Pod Identity). \u003cbr\u003e Idempotent: an already enabled or BuiltIn driver is returned as-is. \u003cbr\u003e Some CSPs apply the change asynchronously and return Status \"Updating\"; check the result with the GET API.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Enable a Storage Driver of a Cluster",
+                "operationId": "enable-storage-driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for enabling a storage driver",
+                        "name": "StorageDriverEnableRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.StorageDriverEnableRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The storage driver after the request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.StorageDriverInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to an invalid Kind",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}/storagedriver/{Kind}": {
+            "delete": {
+                "description": "Disable a CSP-managed CSI storage driver (Block or File) of a Cluster through the CSP API. \u003cbr\u003e Only the driver components are removed; volumes, their data and cloud resources are kept. \u003cbr\u003e WARNING: existing PVs of the driver can no longer be attached or mounted, so Pods using them fail when rescheduled. \u003cbr\u003e BuiltIn drivers cannot be disabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Disable a Storage Driver of a Cluster",
+                "operationId": "disable-storage-driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The kind of the storage driver: Block or File",
+                        "name": "Kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for disabling a storage driver",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the disable operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to an invalid Kind",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/cluster/{Name}/token": {
             "get": {
                 "description": "Get a temporary token for accessing EKS cluster (for kubectl exec auth)",
@@ -16345,6 +16510,125 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.StorageDriverInfo": {
+            "description": "CSP-managed CSI Storage Driver Information for a Kubernetes Cluster",
+            "type": "object",
+            "required": [
+                "Kind",
+                "ManagementMode",
+                "Status"
+            ],
+            "properties": {
+                "CSIDriverName": {
+                    "description": "name of the Kubernetes CSIDriver object",
+                    "type": "string",
+                    "example": "ebs.csi.aws.com"
+                },
+                "CSPDriverName": {
+                    "description": "CSP add-on name as-is",
+                    "type": "string",
+                    "example": "aws-ebs-csi-driver"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Kind": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.StorageDriverKind"
+                        }
+                    ],
+                    "example": "Block"
+                },
+                "ManagementMode": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.StorageDriverManagementMode"
+                        }
+                    ],
+                    "example": "Addon"
+                },
+                "RequiresFileSystem": {
+                    "description": "RequiresFileSystem is true when the File driver cannot create file systems by itself\nand needs an existing one (e.g., AWS EFS, Alibaba NAS subpath mode, NHN NAS).",
+                    "type": "boolean",
+                    "example": false
+                },
+                "Status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.StorageDriverStatus"
+                        }
+                    ],
+                    "example": "Enabled"
+                },
+                "Version": {
+                    "type": "string",
+                    "example": "v1.37.0-eksbuild.1"
+                }
+            }
+        },
+        "spider.StorageDriverKind": {
+            "type": "string",
+            "enum": [
+                "Block",
+                "File"
+            ],
+            "x-enum-comments": {
+                "StorageDriverBlock": "block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)",
+                "StorageDriverFile": "shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)"
+            },
+            "x-enum-descriptions": [
+                "block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)",
+                "shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)"
+            ],
+            "x-enum-varnames": [
+                "StorageDriverBlock",
+                "StorageDriverFile"
+            ]
+        },
+        "spider.StorageDriverManagementMode": {
+            "type": "string",
+            "enum": [
+                "Addon",
+                "BuiltIn",
+                "NotSupported"
+            ],
+            "x-enum-comments": {
+                "StorageDriverAddon": "can be enabled and disabled through the CSP API",
+                "StorageDriverBuiltIn": "always enabled; the CSP API cannot disable it",
+                "StorageDriverNotSupported": "the CSP offers no driver of this kind"
+            },
+            "x-enum-descriptions": [
+                "can be enabled and disabled through the CSP API",
+                "always enabled; the CSP API cannot disable it",
+                "the CSP offers no driver of this kind"
+            ],
+            "x-enum-varnames": [
+                "StorageDriverAddon",
+                "StorageDriverBuiltIn",
+                "StorageDriverNotSupported"
+            ]
+        },
+        "spider.StorageDriverStatus": {
+            "type": "string",
+            "enum": [
+                "Enabled",
+                "Disabled",
+                "Updating",
+                "Failed",
+                "Unknown"
+            ],
+            "x-enum-varnames": [
+                "StorageDriverEnabled",
+                "StorageDriverDisabled",
+                "StorageDriverUpdating",
+                "StorageDriverFailed",
+                "StorageDriverUnknown"
+            ]
+        },
         "spider.StorageSizeRange": {
             "type": "object",
             "properties": {
@@ -18123,6 +18407,13 @@ const docTemplate = `{
                             "type": "string",
                             "example": "RegionType"
                         },
+                        "MountTargetList": {
+                            "description": "MountTargetList creates mount targets with the given security groups (by NameId).\nAccessSubnetList creates mount targets in the CSP default security group instead.",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.FileSystemMountTargetReq"
+                            }
+                        },
                         "NFSVersion": {
                             "type": "string",
                             "example": "4.1"
@@ -18151,6 +18442,23 @@ const docTemplate = `{
                             "example": "us-east-1a"
                         }
                     }
+                }
+            }
+        },
+        "spider.FileSystemMountTargetReq": {
+            "type": "object",
+            "required": [
+                "SubnetIID"
+            ],
+            "properties": {
+                "SecurityGroupIIDs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "SubnetIID": {
+                    "$ref": "#/definitions/spider.IID"
                 }
             }
         },
@@ -20089,6 +20397,51 @@ const docTemplate = `{
                 "message": {
                     "type": "string",
                     "example": "Any message"
+                }
+            }
+        },
+        "spider.StorageDriverEnableRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Kind"
+                    ],
+                    "properties": {
+                        "Kind": {
+                            "description": "Block or File",
+                            "type": "string",
+                            "example": "Block"
+                        },
+                        "Version": {
+                            "description": "CSP default version if empty",
+                            "type": "string",
+                            "example": "v1.37.0-eksbuild.1"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.StorageDriverListResponse": {
+            "type": "object",
+            "required": [
+                "storagedriver"
+            ],
+            "properties": {
+                "storagedriver": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.StorageDriverInfo"
+                    }
                 }
             }
         },

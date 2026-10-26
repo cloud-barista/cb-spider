@@ -1810,6 +1810,94 @@ definitions:
     - IPProtocol
     - ToPort
     type: object
+  spider.StorageDriverInfo:
+    description: CSP-managed CSI Storage Driver Information for a Kubernetes Cluster
+    properties:
+      CSIDriverName:
+        description: name of the Kubernetes CSIDriver object
+        example: ebs.csi.aws.com
+        type: string
+      CSPDriverName:
+        description: CSP add-on name as-is
+        example: aws-ebs-csi-driver
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Kind:
+        allOf:
+        - $ref: '#/definitions/spider.StorageDriverKind'
+        example: Block
+      ManagementMode:
+        allOf:
+        - $ref: '#/definitions/spider.StorageDriverManagementMode'
+        example: Addon
+      RequiresFileSystem:
+        description: |-
+          RequiresFileSystem is true when the File driver cannot create file systems by itself
+          and needs an existing one (e.g., AWS EFS, Alibaba NAS subpath mode, NHN NAS).
+        example: false
+        type: boolean
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.StorageDriverStatus'
+        example: Enabled
+      Version:
+        example: v1.37.0-eksbuild.1
+        type: string
+    required:
+    - Kind
+    - ManagementMode
+    - Status
+    type: object
+  spider.StorageDriverKind:
+    enum:
+    - Block
+    - File
+    type: string
+    x-enum-comments:
+      StorageDriverBlock: block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)
+      StorageDriverFile: shared file storage, ReadWriteMany (e.g., EFS, Filestore,
+        Azure Files)
+    x-enum-descriptions:
+    - block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)
+    - shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)
+    x-enum-varnames:
+    - StorageDriverBlock
+    - StorageDriverFile
+  spider.StorageDriverManagementMode:
+    enum:
+    - Addon
+    - BuiltIn
+    - NotSupported
+    type: string
+    x-enum-comments:
+      StorageDriverAddon: can be enabled and disabled through the CSP API
+      StorageDriverBuiltIn: always enabled; the CSP API cannot disable it
+      StorageDriverNotSupported: the CSP offers no driver of this kind
+    x-enum-descriptions:
+    - can be enabled and disabled through the CSP API
+    - always enabled; the CSP API cannot disable it
+    - the CSP offers no driver of this kind
+    x-enum-varnames:
+    - StorageDriverAddon
+    - StorageDriverBuiltIn
+    - StorageDriverNotSupported
+  spider.StorageDriverStatus:
+    enum:
+    - Enabled
+    - Disabled
+    - Updating
+    - Failed
+    - Unknown
+    type: string
+    x-enum-varnames:
+    - StorageDriverEnabled
+    - StorageDriverDisabled
+    - StorageDriverUpdating
+    - StorageDriverFailed
+    - StorageDriverUnknown
   spider.StorageSizeRange:
     properties:
       Max:
@@ -3077,6 +3165,13 @@ definitions:
           FileSystemType:
             example: RegionType
             type: string
+          MountTargetList:
+            description: |-
+              MountTargetList creates mount targets with the given security groups (by NameId).
+              AccessSubnetList creates mount targets in the CSP default security group instead.
+            items:
+              $ref: '#/definitions/spider.FileSystemMountTargetReq'
+            type: array
           NFSVersion:
             example: "4.1"
             type: string
@@ -3105,6 +3200,17 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.FileSystemMountTargetReq:
+    properties:
+      SecurityGroupIIDs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      SubnetIID:
+        $ref: '#/definitions/spider.IID'
+    required:
+    - SubnetIID
     type: object
   spider.HealthCheckResponse:
     properties:
@@ -4530,6 +4636,37 @@ definitions:
         type: string
     required:
     - message
+    type: object
+  spider.StorageDriverEnableRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          Kind:
+            description: Block or File
+            example: Block
+            type: string
+          Version:
+            description: CSP default version if empty
+            example: v1.37.0-eksbuild.1
+            type: string
+        required:
+        - Kind
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.StorageDriverListResponse:
+    properties:
+      storagedriver:
+        items:
+          $ref: '#/definitions/spider.StorageDriverInfo'
+        type: array
+    required:
+    - storagedriver
     type: object
   spider.SubnetAddRequest:
     properties:
@@ -6228,6 +6365,127 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Set Node Group Auto Scaling
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/storagedriver:
+    get:
+      consumes:
+      - application/json
+      description: List the CSP-managed CSI storage drivers (Block and File) of a
+        Cluster, read through the CSP API.
+      operationId: list-storage-driver
+      parameters:
+      - description: The name of the Cluster
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Connection to use
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Storage drivers of the Cluster
+          schema:
+            $ref: '#/definitions/spider.StorageDriverListResponse'
+        "400":
+          description: Bad Request, possibly due to missing parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Storage Drivers of a Cluster
+      tags:
+      - '[Cluster Management]'
+    put:
+      consumes:
+      - application/json
+      description: 'Enable a CSP-managed CSI storage driver (Block or File) of a Cluster
+        through the CSP API. <br> Enabling installs the driver components and wires
+        the permissions the driver needs (e.g., AWS IAM Role and Pod Identity). <br>
+        Idempotent: an already enabled or BuiltIn driver is returned as-is. <br> Some
+        CSPs apply the change asynchronously and return Status "Updating"; check the
+        result with the GET API.'
+      operationId: enable-storage-driver
+      parameters:
+      - description: The name of the Cluster
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for enabling a storage driver
+        in: body
+        name: StorageDriverEnableRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.StorageDriverEnableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The storage driver after the request
+          schema:
+            $ref: '#/definitions/spider.StorageDriverInfo'
+        "400":
+          description: Bad Request, possibly due to an invalid Kind
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Enable a Storage Driver of a Cluster
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/storagedriver/{Kind}:
+    delete:
+      consumes:
+      - application/json
+      description: 'Disable a CSP-managed CSI storage driver (Block or File) of a
+        Cluster through the CSP API. <br> Only the driver components are removed;
+        volumes, their data and cloud resources are kept. <br> WARNING: existing PVs
+        of the driver can no longer be attached or mounted, so Pods using them fail
+        when rescheduled. <br> BuiltIn drivers cannot be disabled.'
+      operationId: disable-storage-driver
+      parameters:
+      - description: The name of the Cluster
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: 'The kind of the storage driver: Block or File'
+        in: path
+        name: Kind
+        required: true
+        type: string
+      - description: Request body for disabling a storage driver
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the disable operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to an invalid Kind
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Disable a Storage Driver of a Cluster
       tags:
       - '[Cluster Management]'
   /cluster/{Name}/token:

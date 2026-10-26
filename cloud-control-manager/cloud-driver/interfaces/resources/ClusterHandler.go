@@ -7,7 +7,7 @@
 // This is Resouces interfaces of Cloud Driver.
 //
 // by CB-Spider Team, 2022.08.
-// Updated by CB-Spider Team, 2026.04.
+// Updated by CB-Spider Team, 2026.10.
 
 package resources
 
@@ -118,6 +118,55 @@ type ClusterToken struct {
 	ExpiresAt time.Time `json:"ExpiresAt,omitempty" example:"2026-09-02T05:15:00Z"`
 }
 
+// -------- Storage Driver
+// StorageDriverKind is the kind of storage a CSI driver provisions.
+type StorageDriverKind string
+
+const (
+	StorageDriverBlock StorageDriverKind = "Block" // block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)
+	StorageDriverFile  StorageDriverKind = "File"  // shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)
+)
+
+// StorageDriverManagementMode tells how the CSP manages a storage driver.
+type StorageDriverManagementMode string
+
+const (
+	StorageDriverAddon        StorageDriverManagementMode = "Addon"        // can be enabled and disabled through the CSP API
+	StorageDriverBuiltIn      StorageDriverManagementMode = "BuiltIn"      // always enabled; the CSP API cannot disable it
+	StorageDriverNotSupported StorageDriverManagementMode = "NotSupported" // the CSP offers no driver of this kind
+)
+
+// StorageDriverStatus is the current state of a storage driver on a Cluster.
+type StorageDriverStatus string
+
+const (
+	StorageDriverEnabled  StorageDriverStatus = "Enabled"
+	StorageDriverDisabled StorageDriverStatus = "Disabled"
+	StorageDriverUpdating StorageDriverStatus = "Updating"
+	StorageDriverFailed   StorageDriverStatus = "Failed"
+	StorageDriverUnknown  StorageDriverStatus = "Unknown"
+)
+
+// StorageDriverInfo represents a CSI storage driver that the CSP manages for a Cluster.
+// Enabling installs the driver components and wires the permissions the driver needs;
+// disabling removes the driver components only. Volumes and their data are never deleted,
+// but existing PVs of the driver can no longer be attached or mounted.
+// @description CSP-managed CSI Storage Driver Information for a Kubernetes Cluster
+type StorageDriverInfo struct {
+	Kind           StorageDriverKind           `json:"Kind" validate:"required" example:"Block"`
+	CSPDriverName  string                      `json:"CSPDriverName,omitempty" example:"aws-ebs-csi-driver"` // CSP add-on name as-is
+	CSIDriverName  string                      `json:"CSIDriverName,omitempty" example:"ebs.csi.aws.com"`    // name of the Kubernetes CSIDriver object
+	ManagementMode StorageDriverManagementMode `json:"ManagementMode" validate:"required" example:"Addon"`
+	Status         StorageDriverStatus         `json:"Status" validate:"required" example:"Enabled"`
+	Version        string                      `json:"Version,omitempty" example:"v1.37.0-eksbuild.1"`
+
+	// RequiresFileSystem is true when the File driver cannot create file systems by itself
+	// and needs an existing one (e.g., AWS EFS, Alibaba NAS subpath mode, NHN NAS).
+	RequiresFileSystem bool `json:"RequiresFileSystem,omitempty" example:"false"`
+
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
+}
+
 // -------- Cluster API
 type ClusterHandler interface {
 
@@ -140,4 +189,13 @@ type ClusterHandler interface {
 
 	//------ Upgrade K8S
 	UpgradeCluster(clusterIID IID, newVersion string) (ClusterInfo, error)
+
+	//------ Storage Driver Management
+	// ListStorageDriver returns one entry per StorageDriverKind (Block and File).
+	ListStorageDriver(clusterIID IID) ([]StorageDriverInfo, error)
+	// EnableStorageDriver is idempotent. An empty version means the CSP default version.
+	// Drivers whose CSP applies the change asynchronously return Status Updating.
+	EnableStorageDriver(clusterIID IID, kind StorageDriverKind, version string) (StorageDriverInfo, error)
+	// DisableStorageDriver removes the driver components and keeps volumes and cloud resources.
+	DisableStorageDriver(clusterIID IID, kind StorageDriverKind) (bool, error)
 }
