@@ -27,16 +27,7 @@ type FileSystemCreateRequest struct {
 		Encryption       bool              `json:"Encryption,omitempty" example:"false"`
 		PerformanceInfo  map[string]string `json:"PerformanceInfo,omitempty"`
 		TagList          []cres.KeyValue   `json:"TagList,omitempty"`
-		// MountTargetList creates mount targets with the given security groups (by NameId).
-		// AccessSubnetList creates mount targets in the CSP default security group instead.
-		MountTargetList []FileSystemMountTargetReq `json:"MountTargetList,omitempty"`
 	} `json:"ReqInfo" validate:"required"`
-}
-
-// FileSystemMountTargetReq is a mount target to create with a FileSystem.
-type FileSystemMountTargetReq struct {
-	SubnetIID         cres.IID   `json:"SubnetIID" validate:"required"`
-	SecurityGroupIIDs []cres.IID `json:"SecurityGroupIIDs,omitempty"`
 }
 
 // CreateFileSystem godoc
@@ -85,13 +76,6 @@ func CreateFileSystem(c echo.Context) error {
 		Encryption:       req.ReqInfo.Encryption,
 		PerformanceInfo:  req.ReqInfo.PerformanceInfo,
 		TagList:          req.ReqInfo.TagList,
-	}
-	for _, mt := range req.ReqInfo.MountTargetList {
-		sgNames := make([]string, 0, len(mt.SecurityGroupIIDs))
-		for _, sg := range mt.SecurityGroupIIDs {
-			sgNames = append(sgNames, sg.NameId)
-		}
-		reqInfo.MountTargetList = append(reqInfo.MountTargetList, cres.MountTargetInfo{SubnetIID: mt.SubnetIID, SecurityGroups: sgNames})
 	}
 
 	result, err := cmrt.CreateFileSystem(req.ConnectionName, reqInfo)
