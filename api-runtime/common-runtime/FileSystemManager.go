@@ -105,6 +105,24 @@ func CreateFileSystem(connectionName string, reqInfo cres.FileSystemInfo) (*cres
 			reqInfo.AccessSubnetList[idx] = getDriverIID(cres.IID{NameId: subnetIIDInfo.NameId, SystemId: subnetIIDInfo.SystemId})
 		}
 	}
+
+	// MountTargetList is optional: set the subnet's driver IID and turn security group NameIds into CSP IDs
+	for idx, mt := range reqInfo.MountTargetList {
+		subnetIID, err := getFileSystemSubnetDriverIID(connectionName, mt.SubnetIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		reqInfo.MountTargetList[idx].SubnetIID = subnetIID
+		for sgIdx, sgName := range mt.SecurityGroups {
+			sgSystemId, err := getFileSystemSGSystemId(connectionName, sgName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			reqInfo.MountTargetList[idx].SecurityGroups[sgIdx] = sgSystemId
+		}
+	}
 	//+++++++++++++++++++++++++++++++++++++++++++
 
 	fsSPLock.Lock(connectionName, reqInfo.IId.NameId)
@@ -501,4 +519,42 @@ func ListAccessSubnet(connectionName string, nameID string) ([]cres.IID, error) 
 		return nil, err
 	}
 	return handler.ListAccessSubnet(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+}
+
+// getFileSystemSubnetDriverIID returns the driver IID of a Subnet by its NameId.
+func getFileSystemSubnetDriverIID(connectionName string, subnetName string) (cres.IID, error) {
+	var subnetIIDInfo SubnetIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SubnetIIDInfo
+		if err := getAuthIIDInfoList(connectionName, &iidInfoList); err != nil {
+			return cres.IID{}, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, subnetName)
+		if err != nil {
+			return cres.IID{}, err
+		}
+		subnetIIDInfo = *castedIIDInfo.(*SubnetIIDInfo)
+	} else if err := infostore.GetByConditions(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, subnetName); err != nil {
+		return cres.IID{}, fmt.Errorf("subnet '%s' of mount target: %w", subnetName, err)
+	}
+	return getDriverIID(cres.IID{NameId: subnetIIDInfo.NameId, SystemId: subnetIIDInfo.SystemId}), nil
+}
+
+// getFileSystemSGSystemId returns the CSP ID of a SecurityGroup by its NameId.
+func getFileSystemSGSystemId(connectionName string, sgName string) (string, error) {
+	var sgIIDInfo SGIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SGIIDInfo
+		if err := getAuthIIDInfoList(connectionName, &iidInfoList); err != nil {
+			return "", err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgName)
+		if err != nil {
+			return "", err
+		}
+		sgIIDInfo = *castedIIDInfo.(*SGIIDInfo)
+	} else if err := infostore.GetByConditions(&sgIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName); err != nil {
+		return "", fmt.Errorf("security group '%s' of mount target: %w", sgName, err)
+	}
+	return getDriverIID(cres.IID{NameId: sgIIDInfo.NameId, SystemId: sgIIDInfo.SystemId}).SystemId, nil
 }
