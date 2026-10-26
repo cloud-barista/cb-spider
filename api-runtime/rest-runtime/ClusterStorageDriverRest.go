@@ -29,7 +29,7 @@ type StorageDriverListResponse struct {
 type StorageDriverEnableRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
-		Kind    string `json:"Kind" validate:"required" example:"Block"`       // Block or File
+		Kind    string `json:"Kind" validate:"required" example:"Block"`       // only Block is supported
 		Version string `json:"Version,omitempty" example:"v1.37.0-eksbuild.1"` // CSP default version if empty
 	} `json:"ReqInfo" validate:"required"`
 }
@@ -37,7 +37,7 @@ type StorageDriverEnableRequest struct {
 // listStorageDriver godoc
 // @ID list-storage-driver
 // @Summary List Storage Drivers of a Cluster
-// @Description List the CSP-managed CSI storage drivers (Block and File) of a Cluster, read through the CSP API.
+// @Description List the CSP-managed CSI storage driver (Block) of a Cluster, read through the CSP API.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
@@ -77,14 +77,14 @@ func ListStorageDriver(c echo.Context) error {
 // enableStorageDriver godoc
 // @ID enable-storage-driver
 // @Summary Enable a Storage Driver of a Cluster
-// @Description Enable a CSP-managed CSI storage driver (Block or File) of a Cluster through the CSP API. <br> Enabling installs the driver components and wires the permissions the driver needs (e.g., AWS IAM Role and Pod Identity). <br> Idempotent: an already enabled or BuiltIn driver is returned as-is. <br> Some CSPs apply the change asynchronously and return Status "Updating"; check the result with the GET API.
+// @Description Enable a CSP-managed CSI storage driver of a Cluster through the CSP API. Only Kind "Block" is supported. <br> Enabling installs the driver components and wires the permissions the driver needs (e.g., AWS IAM Role and Pod Identity). <br> Idempotent: an already enabled or BuiltIn driver is returned as-is. <br> Some CSPs apply the change asynchronously and return Status "Updating"; check the result with the GET API.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
 // @Param Name path string true "The name of the Cluster"
 // @Param StorageDriverEnableRequest body restruntime.StorageDriverEnableRequest true "Request body for enabling a storage driver"
 // @Success 200 {object} cres.StorageDriverInfo "The storage driver after the request"
-// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to an invalid Kind"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to an unsupported Kind (only Block is supported)"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /cluster/{Name}/storagedriver [put]
 func EnableStorageDriver(c echo.Context) error {
@@ -109,15 +109,15 @@ func EnableStorageDriver(c echo.Context) error {
 // disableStorageDriver godoc
 // @ID disable-storage-driver
 // @Summary Disable a Storage Driver of a Cluster
-// @Description Disable a CSP-managed CSI storage driver (Block or File) of a Cluster through the CSP API. <br> Only the driver components are removed; volumes, their data and cloud resources are kept. <br> WARNING: existing PVs of the driver can no longer be attached or mounted, so Pods using them fail when rescheduled. <br> BuiltIn drivers cannot be disabled.
+// @Description Disable a CSP-managed CSI storage driver of a Cluster through the CSP API. Only Kind "Block" is supported. <br> Only the driver components are removed; volumes, their data and cloud resources are kept. <br> WARNING: existing PVs of the driver can no longer be attached or mounted, so Pods using them fail when rescheduled. <br> BuiltIn drivers cannot be disabled.
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
 // @Param Name path string true "The name of the Cluster"
-// @Param Kind path string true "The kind of the storage driver: Block or File"
+// @Param Kind path string true "The kind of the storage driver: Block" Enums(Block)
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for disabling a storage driver"
 // @Success 200 {object} BooleanInfo "Result of the disable operation"
-// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to an invalid Kind"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to an unsupported Kind (only Block is supported)"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /cluster/{Name}/storagedriver/{Kind} [delete]
 func DisableStorageDriver(c echo.Context) error {

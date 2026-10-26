@@ -1833,12 +1833,6 @@ definitions:
         allOf:
         - $ref: '#/definitions/spider.StorageDriverManagementMode'
         example: Addon
-      RequiresFileSystem:
-        description: |-
-          RequiresFileSystem is true when the File driver cannot create file systems by itself
-          and needs an existing one (e.g., AWS EFS, Alibaba NAS subpath mode, NHN NAS).
-        example: false
-        type: boolean
       Status:
         allOf:
         - $ref: '#/definitions/spider.StorageDriverStatus'
@@ -1854,18 +1848,13 @@ definitions:
   spider.StorageDriverKind:
     enum:
     - Block
-    - File
     type: string
     x-enum-comments:
       StorageDriverBlock: block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)
-      StorageDriverFile: shared file storage, ReadWriteMany (e.g., EFS, Filestore,
-        Azure Files)
     x-enum-descriptions:
     - block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)
-    - shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)
     x-enum-varnames:
     - StorageDriverBlock
-    - StorageDriverFile
   spider.StorageDriverManagementMode:
     enum:
     - Addon
@@ -3165,13 +3154,6 @@ definitions:
           FileSystemType:
             example: RegionType
             type: string
-          MountTargetList:
-            description: |-
-              MountTargetList creates mount targets with the given security groups (by NameId).
-              AccessSubnetList creates mount targets in the CSP default security group instead.
-            items:
-              $ref: '#/definitions/spider.FileSystemMountTargetReq'
-            type: array
           NFSVersion:
             example: "4.1"
             type: string
@@ -3200,17 +3182,6 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
-    type: object
-  spider.FileSystemMountTargetReq:
-    properties:
-      SecurityGroupIIDs:
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
-      SubnetIID:
-        $ref: '#/definitions/spider.IID'
-    required:
-    - SubnetIID
     type: object
   spider.HealthCheckResponse:
     properties:
@@ -4645,7 +4616,7 @@ definitions:
       ReqInfo:
         properties:
           Kind:
-            description: Block or File
+            description: only Block is supported
             example: Block
             type: string
           Version:
@@ -6371,8 +6342,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: List the CSP-managed CSI storage drivers (Block and File) of a
-        Cluster, read through the CSP API.
+      description: List the CSP-managed CSI storage driver (Block) of a Cluster, read
+        through the CSP API.
       operationId: list-storage-driver
       parameters:
       - description: The name of the Cluster
@@ -6406,12 +6377,12 @@ paths:
     put:
       consumes:
       - application/json
-      description: 'Enable a CSP-managed CSI storage driver (Block or File) of a Cluster
-        through the CSP API. <br> Enabling installs the driver components and wires
-        the permissions the driver needs (e.g., AWS IAM Role and Pod Identity). <br>
-        Idempotent: an already enabled or BuiltIn driver is returned as-is. <br> Some
-        CSPs apply the change asynchronously and return Status "Updating"; check the
-        result with the GET API.'
+      description: 'Enable a CSP-managed CSI storage driver of a Cluster through the
+        CSP API. Only Kind "Block" is supported. <br> Enabling installs the driver
+        components and wires the permissions the driver needs (e.g., AWS IAM Role
+        and Pod Identity). <br> Idempotent: an already enabled or BuiltIn driver is
+        returned as-is. <br> Some CSPs apply the change asynchronously and return
+        Status "Updating"; check the result with the GET API.'
       operationId: enable-storage-driver
       parameters:
       - description: The name of the Cluster
@@ -6433,7 +6404,8 @@ paths:
           schema:
             $ref: '#/definitions/spider.StorageDriverInfo'
         "400":
-          description: Bad Request, possibly due to an invalid Kind
+          description: Bad Request, possibly due to an unsupported Kind (only Block
+            is supported)
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
         "500":
@@ -6447,11 +6419,11 @@ paths:
     delete:
       consumes:
       - application/json
-      description: 'Disable a CSP-managed CSI storage driver (Block or File) of a
-        Cluster through the CSP API. <br> Only the driver components are removed;
-        volumes, their data and cloud resources are kept. <br> WARNING: existing PVs
-        of the driver can no longer be attached or mounted, so Pods using them fail
-        when rescheduled. <br> BuiltIn drivers cannot be disabled.'
+      description: 'Disable a CSP-managed CSI storage driver of a Cluster through
+        the CSP API. Only Kind "Block" is supported. <br> Only the driver components
+        are removed; volumes, their data and cloud resources are kept. <br> WARNING:
+        existing PVs of the driver can no longer be attached or mounted, so Pods using
+        them fail when rescheduled. <br> BuiltIn drivers cannot be disabled.'
       operationId: disable-storage-driver
       parameters:
       - description: The name of the Cluster
@@ -6459,7 +6431,9 @@ paths:
         name: Name
         required: true
         type: string
-      - description: 'The kind of the storage driver: Block or File'
+      - description: 'The kind of the storage driver: Block'
+        enum:
+        - Block
         in: path
         name: Kind
         required: true
@@ -6478,7 +6452,8 @@ paths:
           schema:
             $ref: '#/definitions/spider.BooleanInfo'
         "400":
-          description: Bad Request, possibly due to an invalid Kind
+          description: Bad Request, possibly due to an unsupported Kind (only Block
+            is supported)
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
         "500":

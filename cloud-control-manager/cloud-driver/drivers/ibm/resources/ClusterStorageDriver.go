@@ -6,11 +6,11 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// IKS (VPC) manages its CSI drivers as cluster add-ons:
+// IKS (VPC) manages its Block CSI driver (vpc-block-csi-driver) as a cluster add-on:
 //   - GET   /v1/clusters/{idOrName}/addons  (GetClusterAddons)
 //   - PATCH /v1/clusters/{idOrName}/addons  (ManageClusterAddons, enable/update)
 //   - GET   /v1/addons                      (GetAddons, available add-on versions)
-// Both add-ons can be enabled and disabled through the API, so both kinds are Addon mode.
+// The add-on can be enabled and disabled through the API, so it is Addon mode.
 //
 // by CB-Spider Team, 2026.10.
 
@@ -31,11 +31,9 @@ import (
 const (
 	// IKS add-on names (as shown by `ibmcloud ks cluster addon ls`)
 	ibmBlockCSIAddon = "vpc-block-csi-driver" // enabled by default on VPC clusters, can be disabled
-	ibmFileCSIAddon  = "vpc-file-csi-driver"  // disabled by default
 
-	// Kubernetes CSIDriver object names
+	// Kubernetes CSIDriver object name
 	ibmBlockCSIDriverName = "vpc.block.csi.ibm.io"
-	ibmFileCSIDriverName  = "vpc.file.csi.ibm.io"
 )
 
 type ibmStorageDriverSpec struct {
@@ -48,10 +46,8 @@ func ibmStorageDriverSpecOf(kind irs.StorageDriverKind) (ibmStorageDriverSpec, e
 	switch kind {
 	case irs.StorageDriverBlock:
 		return ibmStorageDriverSpec{addonName: ibmBlockCSIAddon, csiDriverName: ibmBlockCSIDriverName}, nil
-	case irs.StorageDriverFile:
-		return ibmStorageDriverSpec{addonName: ibmFileCSIAddon, csiDriverName: ibmFileCSIDriverName}, nil
 	default:
-		return ibmStorageDriverSpec{}, fmt.Errorf("Unsupported storage driver kind: %q (must be %q or %q)", kind, irs.StorageDriverBlock, irs.StorageDriverFile)
+		return ibmStorageDriverSpec{}, fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 	}
 }
 
@@ -205,10 +201,9 @@ func (ic *IbmClusterHandler) ListStorageDriver(clusterIID irs.IID) ([]irs.Storag
 		return nil, err
 	}
 
-	result := make([]irs.StorageDriverInfo, 0, 2)
-	for _, kind := range []irs.StorageDriverKind{irs.StorageDriverBlock, irs.StorageDriverFile} {
-		spec, _ := ibmStorageDriverSpecOf(kind)
-		result = append(result, ibmStorageDriverInfoOf(kind, spec, findIbmClusterAddon(addons, spec.addonName)))
+	spec, _ := ibmStorageDriverSpecOf(irs.StorageDriverBlock)
+	result := []irs.StorageDriverInfo{
+		ibmStorageDriverInfoOf(irs.StorageDriverBlock, spec, findIbmClusterAddon(addons, spec.addonName)),
 	}
 
 	LoggingInfo(hiscallInfo, start)

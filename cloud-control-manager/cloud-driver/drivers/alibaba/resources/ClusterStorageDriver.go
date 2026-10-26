@@ -6,15 +6,13 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// On ACK, the disk (Block) and NAS (File) CSI drivers are both served by the same
-// two cluster add-ons, csi-plugin and csi-provisioner, which are installed by default
-// on ACK managed clusters. ACK Pro clusters may run the control-plane-hosted variant
-// of csi-provisioner, named managed-csiprovisioner; it is accepted as csi-provisioner.
+// On ACK, the disk (Block) CSI driver is served by two cluster add-ons, csi-plugin and
+// csi-provisioner, which are installed by default on ACK managed clusters. ACK Pro clusters
+// may run the control-plane-hosted variant of csi-provisioner, named managed-csiprovisioner;
+// it is accepted as csi-provisioner.
 //   - Block: CSIDriver diskplugin.csi.alibabacloud.com
-//   - File : CSIDriver nasplugin.csi.alibabacloud.com, reported for subpath mode, which
-//            provisions a sub-directory of an existing NAS per PVC (RequiresFileSystem).
-//            filesystem mode, which creates a NAS per PVC, needs extra RAM permissions.
-// Because both kinds share the same add-ons, one kind cannot be disabled independently.
+// The same add-ons also serve the NAS and OSS CSI drivers, so the Block driver cannot be
+// disabled without breaking them.
 //
 // by CB-Spider Team, 2026.10.
 
@@ -37,7 +35,6 @@ const (
 	aliManagedCSIProvisionerAddon = "managed-csiprovisioner"
 
 	aliDiskCSIDriverName = "diskplugin.csi.alibabacloud.com"
-	aliNASCSIDriverName  = "nasplugin.csi.alibabacloud.com"
 )
 
 // aliAddonState is the normalized state of one installed add-on.
@@ -73,7 +70,6 @@ func (ach *AlibabaClusterHandler) ListStorageDriver(clusterIID irs.IID) ([]irs.S
 
 	return []irs.StorageDriverInfo{
 		aliStorageDriverInfo(addons, irs.StorageDriverBlock),
-		aliStorageDriverInfo(addons, irs.StorageDriverFile),
 	}, nil
 }
 
@@ -98,7 +94,7 @@ func (ach *AlibabaClusterHandler) EnableStorageDriver(clusterIID irs.IID, kind i
 
 func (ach *AlibabaClusterHandler) enableStorageDriver(clusterIID irs.IID, kind irs.StorageDriverKind, version string) (irs.StorageDriverInfo, error) {
 	if !isValidAliStorageDriverKind(kind) {
-		return irs.StorageDriverInfo{}, fmt.Errorf("invalid StorageDriverKind(%s): must be %s or %s", kind, irs.StorageDriverBlock, irs.StorageDriverFile)
+		return irs.StorageDriverInfo{}, fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 	}
 
 	clusterId := clusterIID.SystemId
@@ -131,9 +127,9 @@ func (ach *AlibabaClusterHandler) enableStorageDriver(clusterIID irs.IID, kind i
 	return info, nil
 }
 
-// DisableStorageDriver always fails on ACK: the Block (disk) and File (NAS) drivers are
-// served by the same csi-plugin/csi-provisioner add-ons, so uninstalling them for one
-// kind would also break the other.
+// DisableStorageDriver always fails on ACK: the Block (disk) driver is served by the
+// csi-plugin/csi-provisioner add-ons that the NAS and OSS CSI drivers also use, so
+// uninstalling them would break those drivers too.
 func (ach *AlibabaClusterHandler) DisableStorageDriver(clusterIID irs.IID, kind irs.StorageDriverKind) (bool, error) {
 	cblogger.Debug("Alibaba Cloud Driver: called DisableStorageDriver()")
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "DisableStorageDriver()")
@@ -147,14 +143,14 @@ func (ach *AlibabaClusterHandler) DisableStorageDriver(clusterIID irs.IID, kind 
 // aliDisableStorageDriverError is the error DisableStorageDriver returns for every kind.
 func aliDisableStorageDriverError(kind irs.StorageDriverKind) error {
 	if !isValidAliStorageDriverKind(kind) {
-		return fmt.Errorf("invalid StorageDriverKind(%s): must be %s or %s", kind, irs.StorageDriverBlock, irs.StorageDriverFile)
+		return fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 	}
-	return fmt.Errorf("on Alibaba ACK the %s and %s storage drivers share the %s and %s add-ons, so %s cannot be disabled independently",
-		irs.StorageDriverBlock, irs.StorageDriverFile, aliCSIPluginAddon, aliCSIProvisionerAddon, kind)
+	return fmt.Errorf("on Alibaba ACK the %s storage driver cannot be disabled: its %s and %s add-ons are shared with the NAS and OSS CSI drivers",
+		kind, aliCSIPluginAddon, aliCSIProvisionerAddon)
 }
 
 func isValidAliStorageDriverKind(kind irs.StorageDriverKind) bool {
-	return kind == irs.StorageDriverBlock || kind == irs.StorageDriverFile
+	return kind == irs.StorageDriverBlock
 }
 
 // aliListClusterAddons returns the installed add-ons keyed by name.
@@ -282,17 +278,8 @@ func aliStorageDriverInfo(addons map[string]aliAddon, kind irs.StorageDriverKind
 			{Key: provisionerName + ".version", Value: provisioner.Version},
 		},
 	}
-	switch kind {
-	case irs.StorageDriverBlock:
+	if kind == irs.StorageDriverBlock {
 		info.CSIDriverName = aliDiskCSIDriverName
-	case irs.StorageDriverFile:
-		info.CSIDriverName = aliNASCSIDriverName
-		// subpath mode: one existing NAS, a sub-directory per PVC.
-		info.RequiresFileSystem = true
-		info.KeyValueList = append(info.KeyValueList, irs.KeyValue{
-			Key:   "ProvisioningMode",
-			Value: "subpath (needs an existing NAS file system and mount target in the cluster VPC)",
-		})
 	}
 	return info
 }

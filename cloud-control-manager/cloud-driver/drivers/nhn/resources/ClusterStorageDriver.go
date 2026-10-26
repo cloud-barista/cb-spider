@@ -6,7 +6,7 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// NKS offers its CSI drivers as optional cluster add-ons (cinder-csi-plugin, nfs-csi-plugin).
+// NKS offers its Block CSI driver as an optional cluster add-on (cinder-csi-plugin).
 // The nhncloud-sdk-go containerinfra package has no add-on API, so the add-on endpoints are
 // called with the cluster ServiceClient, which adds the auth token and the
 // "OpenStack-API-Version: container-infra latest" header.
@@ -42,17 +42,13 @@ const (
 
 // nhnStorageDriverSpec describes the NKS add-on that provides a StorageDriverKind.
 type nhnStorageDriverSpec struct {
-	Kind               irs.StorageDriverKind
-	AddonName          string
-	CSIDriverName      string
-	RequiresFileSystem bool
+	Kind          irs.StorageDriverKind
+	AddonName     string
+	CSIDriverName string
 }
 
 var nhnStorageDriverSpecs = []nhnStorageDriverSpec{
 	{Kind: irs.StorageDriverBlock, AddonName: "cinder-csi-plugin", CSIDriverName: "cinder.csi.openstack.org"},
-	// NHN's nfs.csi.k8s.io creates an NHN NAS volume per PVC, so no file system is needed in advance
-	// (per NHN NKS user guide "NHN Cloud NAS Service Integration").
-	{Kind: irs.StorageDriverFile, AddonName: "nfs-csi-plugin", CSIDriverName: "nfs.csi.k8s.io", RequiresFileSystem: false},
 }
 
 // nhnClusterAddon is an add-on installed on a cluster (GET /v1/clusters/{id}/addons).
@@ -103,7 +99,7 @@ func nhnStorageDriverSpecOf(kind irs.StorageDriverKind) (nhnStorageDriverSpec, e
 			return spec, nil
 		}
 	}
-	return nhnStorageDriverSpec{}, fmt.Errorf("unsupported storage driver kind: %q", kind)
+	return nhnStorageDriverSpec{}, fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 }
 
 func (nch *NhnCloudClusterHandler) ListStorageDriver(clusterIID irs.IID) ([]irs.StorageDriverInfo, error) {
@@ -377,12 +373,11 @@ func nhnFindClusterAddon(addons []nhnClusterAddon, addonName string) *nhnCluster
 // nhnBuildStorageDriverInfo maps an NKS cluster add-on (nil when not installed) to StorageDriverInfo.
 func nhnBuildStorageDriverInfo(spec nhnStorageDriverSpec, addon *nhnClusterAddon) irs.StorageDriverInfo {
 	info := irs.StorageDriverInfo{
-		Kind:               spec.Kind,
-		CSPDriverName:      spec.AddonName,
-		CSIDriverName:      spec.CSIDriverName,
-		ManagementMode:     irs.StorageDriverAddon,
-		Status:             irs.StorageDriverDisabled,
-		RequiresFileSystem: spec.RequiresFileSystem,
+		Kind:           spec.Kind,
+		CSPDriverName:  spec.AddonName,
+		CSIDriverName:  spec.CSIDriverName,
+		ManagementMode: irs.StorageDriverAddon,
+		Status:         irs.StorageDriverDisabled,
 	}
 	if addon == nil {
 		return info

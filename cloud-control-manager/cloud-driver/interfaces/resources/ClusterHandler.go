@@ -120,11 +120,11 @@ type ClusterToken struct {
 
 // -------- Storage Driver
 // StorageDriverKind is the kind of storage a CSI driver provisions.
+// Only Block is supported now.
 type StorageDriverKind string
 
 const (
 	StorageDriverBlock StorageDriverKind = "Block" // block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)
-	StorageDriverFile  StorageDriverKind = "File"  // shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)
 )
 
 // StorageDriverManagementMode tells how the CSP manages a storage driver.
@@ -159,12 +159,7 @@ type StorageDriverInfo struct {
 	ManagementMode StorageDriverManagementMode `json:"ManagementMode" validate:"required" example:"Addon"`
 	Status         StorageDriverStatus         `json:"Status" validate:"required" example:"Enabled"`
 	Version        string                      `json:"Version,omitempty" example:"v1.37.0-eksbuild.1"`
-
-	// RequiresFileSystem is true when the File driver cannot create file systems by itself
-	// and needs an existing one (e.g., AWS EFS, Alibaba NAS subpath mode, NHN NAS).
-	RequiresFileSystem bool `json:"RequiresFileSystem,omitempty" example:"false"`
-
-	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
+	KeyValueList   []KeyValue                  `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
 // -------- Cluster API
@@ -191,7 +186,7 @@ type ClusterHandler interface {
 	UpgradeCluster(clusterIID IID, newVersion string) (ClusterInfo, error)
 
 	//------ Storage Driver Management
-	// ListStorageDriver returns one entry per StorageDriverKind (Block and File).
+	// ListStorageDriver returns one entry per supported StorageDriverKind (Block).
 	ListStorageDriver(clusterIID IID) ([]StorageDriverInfo, error)
 	// EnableStorageDriver is idempotent. An empty version means the CSP default version.
 	// Drivers whose CSP applies the change asynchronously return Status Updating.

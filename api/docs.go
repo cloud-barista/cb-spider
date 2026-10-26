@@ -1756,7 +1756,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/storagedriver": {
             "get": {
-                "description": "List the CSP-managed CSI storage drivers (Block and File) of a Cluster, read through the CSP API.",
+                "description": "List the CSP-managed CSI storage driver (Block) of a Cluster, read through the CSP API.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1806,7 +1806,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Enable a CSP-managed CSI storage driver (Block or File) of a Cluster through the CSP API. \u003cbr\u003e Enabling installs the driver components and wires the permissions the driver needs (e.g., AWS IAM Role and Pod Identity). \u003cbr\u003e Idempotent: an already enabled or BuiltIn driver is returned as-is. \u003cbr\u003e Some CSPs apply the change asynchronously and return Status \"Updating\"; check the result with the GET API.",
+                "description": "Enable a CSP-managed CSI storage driver of a Cluster through the CSP API. Only Kind \"Block\" is supported. \u003cbr\u003e Enabling installs the driver components and wires the permissions the driver needs (e.g., AWS IAM Role and Pod Identity). \u003cbr\u003e Idempotent: an already enabled or BuiltIn driver is returned as-is. \u003cbr\u003e Some CSPs apply the change asynchronously and return Status \"Updating\"; check the result with the GET API.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1844,7 +1844,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request, possibly due to an invalid Kind",
+                        "description": "Bad Request, possibly due to an unsupported Kind (only Block is supported)",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -1860,7 +1860,7 @@ const docTemplate = `{
         },
         "/cluster/{Name}/storagedriver/{Kind}": {
             "delete": {
-                "description": "Disable a CSP-managed CSI storage driver (Block or File) of a Cluster through the CSP API. \u003cbr\u003e Only the driver components are removed; volumes, their data and cloud resources are kept. \u003cbr\u003e WARNING: existing PVs of the driver can no longer be attached or mounted, so Pods using them fail when rescheduled. \u003cbr\u003e BuiltIn drivers cannot be disabled.",
+                "description": "Disable a CSP-managed CSI storage driver of a Cluster through the CSP API. Only Kind \"Block\" is supported. \u003cbr\u003e Only the driver components are removed; volumes, their data and cloud resources are kept. \u003cbr\u003e WARNING: existing PVs of the driver can no longer be attached or mounted, so Pods using them fail when rescheduled. \u003cbr\u003e BuiltIn drivers cannot be disabled.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1881,8 +1881,11 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "enum": [
+                            "Block"
+                        ],
                         "type": "string",
-                        "description": "The kind of the storage driver: Block or File",
+                        "description": "The kind of the storage driver: Block",
                         "name": "Kind",
                         "in": "path",
                         "required": true
@@ -1905,7 +1908,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request, possibly due to an invalid Kind",
+                        "description": "Bad Request, possibly due to an unsupported Kind (only Block is supported)",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -16551,11 +16554,6 @@ const docTemplate = `{
                     ],
                     "example": "Addon"
                 },
-                "RequiresFileSystem": {
-                    "description": "RequiresFileSystem is true when the File driver cannot create file systems by itself\nand needs an existing one (e.g., AWS EFS, Alibaba NAS subpath mode, NHN NAS).",
-                    "type": "boolean",
-                    "example": false
-                },
                 "Status": {
                     "allOf": [
                         {
@@ -16573,20 +16571,16 @@ const docTemplate = `{
         "spider.StorageDriverKind": {
             "type": "string",
             "enum": [
-                "Block",
-                "File"
+                "Block"
             ],
             "x-enum-comments": {
-                "StorageDriverBlock": "block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)",
-                "StorageDriverFile": "shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)"
+                "StorageDriverBlock": "block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)"
             },
             "x-enum-descriptions": [
-                "block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)",
-                "shared file storage, ReadWriteMany (e.g., EFS, Filestore, Azure Files)"
+                "block storage, ReadWriteOnce (e.g., EBS, PD, Azure Disk)"
             ],
             "x-enum-varnames": [
-                "StorageDriverBlock",
-                "StorageDriverFile"
+                "StorageDriverBlock"
             ]
         },
         "spider.StorageDriverManagementMode": {
@@ -18407,13 +18401,6 @@ const docTemplate = `{
                             "type": "string",
                             "example": "RegionType"
                         },
-                        "MountTargetList": {
-                            "description": "MountTargetList creates mount targets with the given security groups (by NameId).\nAccessSubnetList creates mount targets in the CSP default security group instead.",
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/spider.FileSystemMountTargetReq"
-                            }
-                        },
                         "NFSVersion": {
                             "type": "string",
                             "example": "4.1"
@@ -18442,23 +18429,6 @@ const docTemplate = `{
                             "example": "us-east-1a"
                         }
                     }
-                }
-            }
-        },
-        "spider.FileSystemMountTargetReq": {
-            "type": "object",
-            "required": [
-                "SubnetIID"
-            ],
-            "properties": {
-                "SecurityGroupIIDs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
-                    }
-                },
-                "SubnetIID": {
-                    "$ref": "#/definitions/spider.IID"
                 }
             }
         },
@@ -20418,7 +20388,7 @@ const docTemplate = `{
                     ],
                     "properties": {
                         "Kind": {
-                            "description": "Block or File",
+                            "description": "only Block is supported",
                             "type": "string",
                             "example": "Block"
                         },

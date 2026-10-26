@@ -12,9 +12,6 @@ package resources
 // EKS Pod Identity association, so it no longer depends on IMDS.
 // (ref: https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html)
 //
-// The same pattern is used for the aws-efs-csi-driver add-on (ClusterStorageDriver.go),
-// so the helpers below take an eksCSIDriverSpec.
-//
 // Pod Identity APIs and CreateAddon.PodIdentityAssociations do not exist in
 // aws-sdk-go v1.39.4 (pinned for the rest of this driver), so only these EKS calls
 // use aws-sdk-go-v2.
@@ -33,8 +30,6 @@ import (
 	credentialsv2 "github.com/aws/aws-sdk-go-v2/credentials"
 	eksv2 "github.com/aws/aws-sdk-go-v2/service/eks"
 	eksv2types "github.com/aws/aws-sdk-go-v2/service/eks/types"
-
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 const (
@@ -62,14 +57,8 @@ func (ClusterHandler *AwsClusterHandler) newEKSV2Client() *eksv2.Client {
 // getOrCreateEBSCSIDriverRole returns the ARN of the IAM role that EKS Pod Identity
 // assigns to the EBS CSI controller, creating the role if it does not exist.
 func (ClusterHandler *AwsClusterHandler) getOrCreateEBSCSIDriverRole() (string, error) {
-	return ClusterHandler.getOrCreateCSIDriverRole(ebsCSIDriverSpec)
-}
-
-// getOrCreateCSIDriverRole returns the ARN of the IAM role that EKS Pod Identity
-// assigns to the controller of a CSI driver add-on, creating the role if it does not exist.
-func (ClusterHandler *AwsClusterHandler) getOrCreateCSIDriverRole(spec eksCSIDriverSpec) (string, error) {
 	input := &iam.GetRoleInput{
-		RoleName: aws.String(spec.roleName),
+		RoleName: aws.String(ebsCSIDriverRoleName),
 	}
 
 	result, err := ClusterHandler.Iam.GetRole(input)
@@ -77,18 +66,18 @@ func (ClusterHandler *AwsClusterHandler) getOrCreateCSIDriverRole(spec eksCSIDri
 		// Re-attach the policy in case an earlier attempt created the role but failed to attach it.
 		// The role may also be pre-created without IAM write permissions for Spider, so only warn on failure.
 		if _, err := ClusterHandler.Iam.AttachRolePolicy(&iam.AttachRolePolicyInput{
-			RoleName:  aws.String(spec.roleName),
-			PolicyArn: aws.String(spec.policyArn),
+			RoleName:  aws.String(ebsCSIDriverRoleName),
+			PolicyArn: aws.String(ebsCSIDriverPolicyArn),
 		}); err != nil {
-			cblogger.Warnf("Failed to attach policy %s to existing role %s: %v", spec.policyArn, spec.roleName, err)
+			cblogger.Warnf("Failed to attach policy %s to existing role %s: %v", ebsCSIDriverPolicyArn, ebsCSIDriverRoleName, err)
 		}
 		return aws.StringValue(result.Role.Arn), nil
 	}
 	if aerr, ok := err.(awserr.Error); !ok || aerr.Code() != iam.ErrCodeNoSuchEntityException {
-		return "", fmt.Errorf("failed to get role %s: %w", spec.roleName, err)
+		return "", fmt.Errorf("failed to get role %s: %w", ebsCSIDriverRoleName, err)
 	}
 
-	cblogger.Infof("Creating %s role: %s", spec.addonName, spec.roleName)
+	cblogger.Infof("Creating EBS CSI driver role: %s", ebsCSIDriverRoleName)
 
 	// EKS Pod Identity requires both sts:AssumeRole and sts:TagSession.
 	trustPolicy := `{
@@ -105,9 +94,9 @@ func (ClusterHandler *AwsClusterHandler) getOrCreateCSIDriverRole(spec eksCSIDri
 	}`
 
 	_, err = ClusterHandler.Iam.CreateRole(&iam.CreateRoleInput{
-		RoleName:                 aws.String(spec.roleName),
+		RoleName:                 aws.String(ebsCSIDriverRoleName),
 		AssumeRolePolicyDocument: aws.String(trustPolicy),
-		Description:              aws.String(spec.roleDescription),
+		Description:              aws.String("IAM role for the EBS CSI driver of Cloud-Barista EKS clusters (EKS Pod Identity)"),
 		Tags: []*iam.Tag{
 			{
 				Key:   aws.String("ManagedBy"),
@@ -116,15 +105,15 @@ func (ClusterHandler *AwsClusterHandler) getOrCreateCSIDriverRole(spec eksCSIDri
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create role %s: %w", spec.roleName, err)
+		return "", fmt.Errorf("failed to create role %s: %w", ebsCSIDriverRoleName, err)
 	}
 
 	_, err = ClusterHandler.Iam.AttachRolePolicy(&iam.AttachRolePolicyInput{
-		RoleName:  aws.String(spec.roleName),
-		PolicyArn: aws.String(spec.policyArn),
+		RoleName:  aws.String(ebsCSIDriverRoleName),
+		PolicyArn: aws.String(ebsCSIDriverPolicyArn),
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to attach policy %s: %w", spec.policyArn, err)
+		return "", fmt.Errorf("failed to attach policy %s: %w", ebsCSIDriverPolicyArn, err)
 	}
 
 	cblogger.Info("Waiting for IAM changes to propagate...")
@@ -132,16 +121,16 @@ func (ClusterHandler *AwsClusterHandler) getOrCreateCSIDriverRole(spec eksCSIDri
 
 	result, err = ClusterHandler.Iam.GetRole(input)
 	if err != nil {
-		return "", fmt.Errorf("failed to get newly created role %s: %w", spec.roleName, err)
+		return "", fmt.Errorf("failed to get newly created role %s: %w", ebsCSIDriverRoleName, err)
 	}
 	return aws.StringValue(result.Role.Arn), nil
 }
 
-func csiDriverPodIdentityAssociations(spec eksCSIDriverSpec, roleArn string) []eksv2types.AddonPodIdentityAssociations {
+func ebsCSIPodIdentityAssociations(roleArn string) []eksv2types.AddonPodIdentityAssociations {
 	return []eksv2types.AddonPodIdentityAssociations{
 		{
 			RoleArn:        awsv2.String(roleArn),
-			ServiceAccount: awsv2.String(spec.serviceAccount),
+			ServiceAccount: awsv2.String(ebsCSIControllerServiceAccount),
 		},
 	}
 }
@@ -150,49 +139,29 @@ func csiDriverPodIdentityAssociations(spec eksCSIDriverSpec, roleArn string) []e
 // Pod Identity association of its controller service account, so the association
 // exists before the controller Pods are created.
 func (ClusterHandler *AwsClusterHandler) installEBSCSIDriver(clusterID string) error {
-	_, err := ClusterHandler.installCSIDriverAddon(clusterID, ebsCSIDriverSpec, "")
-	if err != nil {
-		cblogger.Errorf("Failed to install EBS CSI Driver: %v", err)
-		return err
-	}
-	return nil
-}
-
-// installCSIDriverAddon installs a CSI driver add-on together with the Pod Identity
-// association of its controller service account. An empty version means the EKS default version.
-func (ClusterHandler *AwsClusterHandler) installCSIDriverAddon(clusterID string, spec eksCSIDriverSpec, version string) (*eksv2types.Addon, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	input := &eksv2.CreateAddonInput{
 		ClusterName:      awsv2.String(clusterID),
-		AddonName:        awsv2.String(spec.addonName),
+		AddonName:        awsv2.String(ebsCSIDriverAddonName),
 		ResolveConflicts: eksv2types.ResolveConflictsOverwrite,
 	}
-	if version != "" {
-		input.AddonVersion = awsv2.String(version)
-	}
 
-	roleArn, err := ClusterHandler.getOrCreateCSIDriverRole(spec)
+	roleArn, err := ClusterHandler.getOrCreateEBSCSIDriverRole()
 	if err != nil {
-		if !spec.installWithoutPodIdentity {
-			return nil, err
-		}
 		// Keep the previous behavior (node role through IMDS) rather than failing the cluster.
-		cblogger.Errorf("Failed to get or create %s role, installing without Pod Identity: %v", spec.addonName, err)
+		cblogger.Errorf("Failed to get or create EBS CSI driver role, installing without Pod Identity: %v", err)
 	} else {
-		input.PodIdentityAssociations = csiDriverPodIdentityAssociations(spec, roleArn)
+		input.PodIdentityAssociations = ebsCSIPodIdentityAssociations(roleArn)
 	}
 
-	callLogInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterID, "CreateAddon()")
-	start := call.Start()
-	output, err := ClusterHandler.newEKSV2Client().CreateAddon(ctx, input)
+	_, err = ClusterHandler.newEKSV2Client().CreateAddon(ctx, input)
 	if err != nil {
-		LoggingError(callLogInfo, err)
-		return nil, fmt.Errorf("failed to create %s add-on: %w", spec.addonName, err)
+		cblogger.Errorf("Failed to install EBS CSI Driver: %v", err)
+		return err
 	}
-	LoggingInfo(callLogInfo, start)
-	return output.Addon, nil
+	return nil
 }
 
 // ensureEBSCSIDriverPodIdentity adds the Pod Identity association to an
@@ -202,12 +171,6 @@ func (ClusterHandler *AwsClusterHandler) installCSIDriverAddon(clusterID string,
 // Pod Identity injects credentials when a Pod is created, so controller Pods that
 // already run keep using the node role until they are recreated.
 func (ClusterHandler *AwsClusterHandler) ensureEBSCSIDriverPodIdentity(clusterID string) error {
-	return ClusterHandler.ensureCSIDriverPodIdentity(clusterID, ebsCSIDriverSpec)
-}
-
-// ensureCSIDriverPodIdentity adds the Pod Identity association to a CSI driver add-on
-// that was installed without it. It does nothing if the add-on is not installed.
-func (ClusterHandler *AwsClusterHandler) ensureCSIDriverPodIdentity(clusterID string, spec eksCSIDriverSpec) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -215,20 +178,20 @@ func (ClusterHandler *AwsClusterHandler) ensureCSIDriverPodIdentity(clusterID st
 
 	_, err := client.DescribeAddon(ctx, &eksv2.DescribeAddonInput{
 		ClusterName: awsv2.String(clusterID),
-		AddonName:   awsv2.String(spec.addonName),
+		AddonName:   awsv2.String(ebsCSIDriverAddonName),
 	})
 	if err != nil {
 		var notFound *eksv2types.ResourceNotFoundException
 		if errors.As(err, &notFound) {
 			return nil
 		}
-		return fmt.Errorf("failed to describe %s add-on: %w", spec.addonName, err)
+		return fmt.Errorf("failed to describe %s add-on: %w", ebsCSIDriverAddonName, err)
 	}
 
 	assocs, err := client.ListPodIdentityAssociations(ctx, &eksv2.ListPodIdentityAssociationsInput{
 		ClusterName:    awsv2.String(clusterID),
-		Namespace:      awsv2.String(spec.namespace),
-		ServiceAccount: awsv2.String(spec.serviceAccount),
+		Namespace:      awsv2.String(ebsCSIDriverNamespace),
+		ServiceAccount: awsv2.String(ebsCSIControllerServiceAccount),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list pod identity associations: %w", err)
@@ -237,22 +200,22 @@ func (ClusterHandler *AwsClusterHandler) ensureCSIDriverPodIdentity(clusterID st
 		return nil
 	}
 
-	roleArn, err := ClusterHandler.getOrCreateCSIDriverRole(spec)
+	roleArn, err := ClusterHandler.getOrCreateEBSCSIDriverRole()
 	if err != nil {
 		return err
 	}
 
 	_, err = client.UpdateAddon(ctx, &eksv2.UpdateAddonInput{
 		ClusterName:             awsv2.String(clusterID),
-		AddonName:               awsv2.String(spec.addonName),
+		AddonName:               awsv2.String(ebsCSIDriverAddonName),
 		ResolveConflicts:        eksv2types.ResolveConflictsPreserve,
-		PodIdentityAssociations: csiDriverPodIdentityAssociations(spec, roleArn),
+		PodIdentityAssociations: ebsCSIPodIdentityAssociations(roleArn),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to add pod identity association to %s: %w", spec.addonName, err)
+		return fmt.Errorf("failed to add pod identity association to %s: %w", ebsCSIDriverAddonName, err)
 	}
 
 	cblogger.Infof("Added EKS Pod Identity association for %s/%s in cluster %s",
-		spec.namespace, spec.serviceAccount, clusterID)
+		ebsCSIDriverNamespace, ebsCSIControllerServiceAccount, clusterID)
 	return nil
 }

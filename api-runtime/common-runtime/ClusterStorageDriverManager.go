@@ -18,15 +18,12 @@ import (
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-// ParseStorageDriverKind accepts "Block"/"File" case-insensitively.
+// ParseStorageDriverKind accepts "Block" case-insensitively; any other kind is rejected.
 func ParseStorageDriverKind(kind string) (cres.StorageDriverKind, error) {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "block":
+	if strings.EqualFold(strings.TrimSpace(kind), string(cres.StorageDriverBlock)) {
 		return cres.StorageDriverBlock, nil
-	case "file":
-		return cres.StorageDriverFile, nil
 	}
-	return "", fmt.Errorf("invalid storage driver kind '%s': must be one of Block, File", kind)
+	return "", fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 }
 
 // getClusterHandlerAndDriverIID validates the inputs and resolves the Cluster's driver IID.

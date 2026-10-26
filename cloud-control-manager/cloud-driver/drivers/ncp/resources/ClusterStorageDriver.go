@@ -6,8 +6,8 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// NKS manages its CSI drivers as cluster add-ons (nks-csi, nks-nas-csi) since K8s 1.36.
-// Older clusters ship the same drivers preinstalled and outside the add-on API, so they are
+// NKS manages its Block CSI driver as a cluster add-on (nks-csi) since K8s 1.36.
+// Older clusters ship the same driver preinstalled and outside the add-on API, so it is
 // reported as BuiltIn. The pinned ncloud-sdk-go-v2 (services/vnks) has no add-on methods,
 // so the add-on endpoints are called directly with the SDK's base path and HMAC signer.
 //
@@ -63,7 +63,6 @@ type ncpStorageDriverSpec struct {
 
 var ncpStorageDriverSpecs = []ncpStorageDriverSpec{
 	{Kind: irs.StorageDriverBlock, AddonName: "nks-csi", CSIDriverName: "blk.csi.ncloud.com"},
-	{Kind: irs.StorageDriverFile, AddonName: "nks-nas-csi", CSIDriverName: "nas.csi.ncloud.com"},
 }
 
 // ncpClusterAddon is an add-on item of GET /clusters/{uuid}/addons.
@@ -110,7 +109,7 @@ func ncpStorageDriverSpecOf(kind irs.StorageDriverKind) (ncpStorageDriverSpec, e
 			return spec, nil
 		}
 	}
-	return ncpStorageDriverSpec{}, fmt.Errorf("unsupported storage driver kind: %q", kind)
+	return ncpStorageDriverSpec{}, fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 }
 
 func (nvch *NcpVpcClusterHandler) ListStorageDriver(clusterIID irs.IID) ([]irs.StorageDriverInfo, error) {

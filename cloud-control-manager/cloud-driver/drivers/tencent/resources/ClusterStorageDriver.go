@@ -6,9 +6,9 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// TKE manages its CSI drivers as cluster add-ons:
+// TKE manages its Block CSI driver (cbs) as a cluster add-on:
 //   - DescribeAddon / InstallAddon / UpdateAddon / DeleteAddon (tke v20180525)
-// Both add-ons can be installed and deleted through the API, so both kinds are Addon mode.
+// The add-on can be installed and deleted through the API, so it is Addon mode.
 //
 // by CB-Spider Team, 2026.10.
 
@@ -30,14 +30,10 @@ import (
 const (
 	// TKE add-on names (AddonName of DescribeAddon/InstallAddon/DeleteAddon)
 	tencentBlockCSIAddon = "cbs"
-	// UNCONFIRMED: the API add-on name of the CFS CSI component ("CFS" in the TKE console).
-	// Verify with DescribeAddon on a real cluster that has CFS installed.
-	tencentFileCSIAddon = "cfs"
 
-	// Kubernetes CSIDriver object names, from tencentcloud kubernetes-csi-tencentcloud.
+	// Kubernetes CSIDriver object name, from tencentcloud kubernetes-csi-tencentcloud.
 	// UNCONFIRMED on a TKE-managed add-on; verify with `kubectl get csidriver` on a real cluster.
 	tencentBlockCSIDriverName = "com.tencent.cloud.csi.cbs"
-	tencentFileCSIDriverName  = "com.tencent.cloud.csi.cfs"
 )
 
 type tencentStorageDriverSpec struct {
@@ -50,10 +46,8 @@ func tencentStorageDriverSpecOf(kind irs.StorageDriverKind) (tencentStorageDrive
 	switch kind {
 	case irs.StorageDriverBlock:
 		return tencentStorageDriverSpec{addonName: tencentBlockCSIAddon, csiDriverName: tencentBlockCSIDriverName}, nil
-	case irs.StorageDriverFile:
-		return tencentStorageDriverSpec{addonName: tencentFileCSIAddon, csiDriverName: tencentFileCSIDriverName}, nil
 	default:
-		return tencentStorageDriverSpec{}, fmt.Errorf("unsupported storage driver kind: %q (must be %q or %q)", kind, irs.StorageDriverBlock, irs.StorageDriverFile)
+		return tencentStorageDriverSpec{}, fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 	}
 }
 
@@ -187,12 +181,10 @@ func (clusterHandler *TencentClusterHandler) ListStorageDriver(clusterIID irs.II
 	}
 	calllogger.Info(call.String(callLogInfo))
 
-	result := make([]irs.StorageDriverInfo, 0, 2)
-	for _, kind := range []irs.StorageDriverKind{irs.StorageDriverBlock, irs.StorageDriverFile} {
-		spec, _ := tencentStorageDriverSpecOf(kind)
-		result = append(result, tencentStorageDriverInfoOf(kind, spec, findTencentAddon(addons, spec.addonName)))
-	}
-	return result, nil
+	spec, _ := tencentStorageDriverSpecOf(irs.StorageDriverBlock)
+	return []irs.StorageDriverInfo{
+		tencentStorageDriverInfoOf(irs.StorageDriverBlock, spec, findTencentAddon(addons, spec.addonName)),
+	}, nil
 }
 
 func (clusterHandler *TencentClusterHandler) EnableStorageDriver(clusterIID irs.IID, kind irs.StorageDriverKind, version string) (irs.StorageDriverInfo, error) {
@@ -292,7 +284,7 @@ func (clusterHandler *TencentClusterHandler) disableStorageDriver(clusterIID irs
 		return nil
 	}
 
-	// Deleting the add-on removes the driver components only; CBS disks and CFS file systems are kept.
+	// Deleting the add-on removes the driver components only; CBS disks are kept.
 	request := tke.NewDeleteAddonRequest()
 	request.ClusterId = common.StringPtr(clusterId)
 	request.AddonName = common.StringPtr(spec.addonName)

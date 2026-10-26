@@ -6,13 +6,10 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// EKS manages the CSI drivers as EKS add-ons:
-//   - Block: aws-ebs-csi-driver (ebs.csi.aws.com)
-//   - File:  aws-efs-csi-driver (efs.csi.aws.com)
-//
-// Each controller gets its IAM role through an EKS Pod Identity association that is
+// EKS manages the Block CSI driver as the aws-ebs-csi-driver add-on (ebs.csi.aws.com).
+// The controller gets its IAM role through an EKS Pod Identity association that is
 // created together with the add-on (see ClusterEBSCSIPodIdentity.go).
-// Disabling deletes the add-on only. Volumes, file systems and IAM roles are kept.
+// Disabling deletes the add-on only. Volumes and the IAM role are kept.
 //
 // by CB-Spider Team, 2026.10.
 
@@ -27,7 +24,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/eks"
-	"github.com/aws/aws-sdk-go/service/iam"
 
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	eksv2 "github.com/aws/aws-sdk-go-v2/service/eks"
@@ -39,87 +35,14 @@ import (
 
 const (
 	podIdentityAgentAddonName = "eks-pod-identity-agent" // Eks pod identity agent, don't change
-
-	efsCSIDriverAddonName          = "aws-efs-csi-driver" // EFS CSI Driver, don't change
-	efsCSIControllerServiceAccount = "efs-csi-controller-sa"
-	// The role name is fixed per account, like the EBS CSI driver role.
-	efsCSIDriverRoleName  = "cloud-barista-eks-efs-csi-driver-role"
-	efsCSIDriverPolicyArn = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
+	ebsCSIDriverName          = "ebs.csi.aws.com"        // name of the Kubernetes CSIDriver object
 )
 
-// eksCSIDriverSpec describes a CSI driver that EKS manages as an add-on.
-type eksCSIDriverSpec struct {
-	kind            irs.StorageDriverKind
-	addonName       string // EKS add-on name
-	csiDriverName   string // name of the Kubernetes CSIDriver object
-	namespace       string // namespace of the controller service account
-	serviceAccount  string // controller service account that gets the IAM role through Pod Identity
-	roleName        string
-	policyArn       string
-	roleDescription string
-
-	// requiresFileSystem is true when dynamic provisioning needs an existing file system.
-	requiresFileSystem bool
-	// nodeRolePolicy is an inline policy the node IAM roles need for the driver's node plugin.
-	nodeRolePolicy string
-	// installWithoutPodIdentity installs the add-on even when the IAM role cannot be prepared,
-	// so the controller falls back to the node role (the node role has the EBS policy only).
-	installWithoutPodIdentity bool
-}
-
-var ebsCSIDriverSpec = eksCSIDriverSpec{
-	kind:                      irs.StorageDriverBlock,
-	addonName:                 ebsCSIDriverAddonName,
-	csiDriverName:             "ebs.csi.aws.com",
-	namespace:                 ebsCSIDriverNamespace,
-	serviceAccount:            ebsCSIControllerServiceAccount,
-	roleName:                  ebsCSIDriverRoleName,
-	policyArn:                 ebsCSIDriverPolicyArn,
-	roleDescription:           "IAM role for the EBS CSI driver of Cloud-Barista EKS clusters (EKS Pod Identity)",
-	installWithoutPodIdentity: true,
-}
-
-// EFS dynamic provisioning creates access points on an existing EFS file system,
-// which needs mount targets in the subnets of the cluster nodes.
-var efsCSIDriverSpec = eksCSIDriverSpec{
-	kind:               irs.StorageDriverFile,
-	addonName:          efsCSIDriverAddonName,
-	csiDriverName:      "efs.csi.aws.com",
-	namespace:          "kube-system",
-	serviceAccount:     efsCSIControllerServiceAccount,
-	roleName:           efsCSIDriverRoleName,
-	policyArn:          efsCSIDriverPolicyArn,
-	roleDescription:    "IAM role for the EFS CSI driver of Cloud-Barista EKS clusters (EKS Pod Identity)",
-	requiresFileSystem: true,
-	nodeRolePolicy:     efsNodeRolePolicy,
-}
-
-// efsNodeRolePolicyName is the inline policy added to the node roles when the EFS driver is enabled.
-// The EFS mount helper on the node resolves fs-xxx.efs.<region>.amazonaws.com; when the VPC has
-// no DNS hostnames it looks the mount target IP up with the node role instead, which needs these
-// actions.
-const efsNodeRolePolicyName = "cloud-barista-efs-csi-mount-target-lookup"
-
-const efsNodeRolePolicy = `{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["elasticfilesystem:DescribeMountTargets", "ec2:DescribeAvailabilityZones"],
-    "Resource": "*"
-  }]
-}`
-
-// eksCSIDriverSpecs is in the order ListStorageDriver returns: Block, then File.
-var eksCSIDriverSpecs = []eksCSIDriverSpec{ebsCSIDriverSpec, efsCSIDriverSpec}
-
-func getEKSCSIDriverSpec(kind irs.StorageDriverKind) (eksCSIDriverSpec, error) {
-	for _, spec := range eksCSIDriverSpecs {
-		if strings.EqualFold(string(spec.kind), string(kind)) {
-			return spec, nil
-		}
+func checkEKSStorageDriverKind(kind irs.StorageDriverKind) error {
+	if !strings.EqualFold(string(kind), string(irs.StorageDriverBlock)) {
+		return fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 	}
-	return eksCSIDriverSpec{}, fmt.Errorf("unsupported storage driver kind %q: must be %q or %q",
-		kind, irs.StorageDriverBlock, irs.StorageDriverFile)
+	return nil
 }
 
 // convertEKSAddonStatusToStorageDriverStatus maps the status of an installed EKS add-on.
@@ -139,14 +62,13 @@ func convertEKSAddonStatusToStorageDriverStatus(status eksv2types.AddonStatus) i
 }
 
 // convertEKSAddonToStorageDriverInfo converts an EKS add-on. A nil add-on means it is not installed.
-func convertEKSAddonToStorageDriverInfo(spec eksCSIDriverSpec, addon *eksv2types.Addon) irs.StorageDriverInfo {
+func convertEKSAddonToStorageDriverInfo(addon *eksv2types.Addon) irs.StorageDriverInfo {
 	info := irs.StorageDriverInfo{
-		Kind:               spec.kind,
-		CSPDriverName:      spec.addonName,
-		CSIDriverName:      spec.csiDriverName,
-		ManagementMode:     irs.StorageDriverAddon,
-		Status:             irs.StorageDriverDisabled,
-		RequiresFileSystem: spec.requiresFileSystem,
+		Kind:           irs.StorageDriverBlock,
+		CSPDriverName:  ebsCSIDriverAddonName,
+		CSIDriverName:  ebsCSIDriverName,
+		ManagementMode: irs.StorageDriverAddon,
+		Status:         irs.StorageDriverDisabled,
 	}
 	if addon == nil {
 		return info
@@ -215,7 +137,7 @@ func (ClusterHandler *AwsClusterHandler) describeEKSAddon(ctx context.Context, c
 	start := call.Start()
 	result, err := client.DescribeAddon(ctx, &eksv2.DescribeAddonInput{
 		ClusterName: awsv2.String(clusterID),
-		AddonName:   awsv2.String(addonName),
+		AddonName:   awsv2.String(ebsCSIDriverAddonName),
 	})
 	if err != nil {
 		var notFound *eksv2types.ResourceNotFoundException
@@ -224,7 +146,7 @@ func (ClusterHandler *AwsClusterHandler) describeEKSAddon(ctx context.Context, c
 			return nil, nil
 		}
 		LoggingError(callLogInfo, err)
-		return nil, fmt.Errorf("failed to describe %s add-on: %w", addonName, err)
+		return nil, fmt.Errorf("failed to describe %s add-on: %w", ebsCSIDriverAddonName, err)
 	}
 	LoggingInfo(callLogInfo, start)
 	return result.Addon, nil
@@ -246,42 +168,6 @@ func (ClusterHandler *AwsClusterHandler) ensurePodIdentityAgent(ctx context.Cont
 	return nil
 }
 
-// ensureNodeRolePolicy puts the driver's inline policy on the IAM roles of every node group of the cluster.
-func (ClusterHandler *AwsClusterHandler) ensureNodeRolePolicy(ctx context.Context, client *eksv2.Client, clusterID string, spec eksCSIDriverSpec) error {
-	if spec.nodeRolePolicy == "" {
-		return nil
-	}
-	ngList, err := client.ListNodegroups(ctx, &eksv2.ListNodegroupsInput{ClusterName: awsv2.String(clusterID)})
-	if err != nil {
-		return fmt.Errorf("failed to list node groups of cluster %s: %w", clusterID, err)
-	}
-	roleNames := map[string]bool{}
-	for _, ng := range ngList.Nodegroups {
-		out, err := client.DescribeNodegroup(ctx, &eksv2.DescribeNodegroupInput{ClusterName: awsv2.String(clusterID), NodegroupName: awsv2.String(ng)})
-		if err != nil {
-			return fmt.Errorf("failed to describe node group %s: %w", ng, err)
-		}
-		if arn := awsv2.ToString(out.Nodegroup.NodeRole); arn != "" {
-			roleNames[arn[strings.LastIndex(arn, "/")+1:]] = true
-		}
-	}
-	for roleName := range roleNames {
-		callLogInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterID, "PutRolePolicy()")
-		start := call.Start()
-		_, err := ClusterHandler.Iam.PutRolePolicy(&iam.PutRolePolicyInput{
-			RoleName:       aws.String(roleName),
-			PolicyName:     aws.String(efsNodeRolePolicyName),
-			PolicyDocument: aws.String(spec.nodeRolePolicy),
-		})
-		if err != nil {
-			LoggingError(callLogInfo, err)
-			return fmt.Errorf("failed to put %s policy on node role %s: %w", efsNodeRolePolicyName, roleName, err)
-		}
-		LoggingInfo(callLogInfo, start)
-	}
-	return nil
-}
-
 func (ClusterHandler *AwsClusterHandler) ListStorageDriver(clusterIID irs.IID) ([]irs.StorageDriverInfo, error) {
 	cblogger.Info("AWS Cloud Driver: called ListStorageDriver()")
 	clusterID := clusterIID.SystemId
@@ -295,24 +181,19 @@ func (ClusterHandler *AwsClusterHandler) ListStorageDriver(clusterIID irs.IID) (
 	defer cancel()
 	client := ClusterHandler.newEKSV2Client()
 
-	driverList := make([]irs.StorageDriverInfo, 0, len(eksCSIDriverSpecs))
-	for _, spec := range eksCSIDriverSpecs {
-		addon, err := ClusterHandler.describeEKSAddon(ctx, client, clusterID, spec.addonName)
-		if err != nil {
-			cblogger.Error(err)
-			return nil, err
-		}
-		driverList = append(driverList, convertEKSAddonToStorageDriverInfo(spec, addon))
+	addon, err := ClusterHandler.describeEKSAddon(ctx, client, clusterID, ebsCSIDriverAddonName)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
 	}
-	return driverList, nil
+	return []irs.StorageDriverInfo{convertEKSAddonToStorageDriverInfo(addon)}, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) EnableStorageDriver(clusterIID irs.IID, kind irs.StorageDriverKind, version string) (irs.StorageDriverInfo, error) {
 	cblogger.Info("AWS Cloud Driver: called EnableStorageDriver()")
 	clusterID := clusterIID.SystemId
 
-	spec, err := getEKSCSIDriverSpec(kind)
-	if err != nil {
+	if err := checkEKSStorageDriverKind(kind); err != nil {
 		return irs.StorageDriverInfo{}, err
 	}
 	if err := ClusterHandler.checkEKSClusterActive(clusterID); err != nil {
@@ -324,19 +205,14 @@ func (ClusterHandler *AwsClusterHandler) EnableStorageDriver(clusterIID irs.IID,
 	defer cancel()
 	client := ClusterHandler.newEKSV2Client()
 
-	addon, err := ClusterHandler.describeEKSAddon(ctx, client, clusterID, spec.addonName)
+	addon, err := ClusterHandler.describeEKSAddon(ctx, client, clusterID, ebsCSIDriverAddonName)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.StorageDriverInfo{}, err
 	}
 
-	if err := ClusterHandler.ensureNodeRolePolicy(ctx, client, clusterID, spec); err != nil {
-		cblogger.Error(err)
-		return irs.StorageDriverInfo{}, err
-	}
-
 	if addon != nil {
-		return ClusterHandler.reconcileInstalledCSIDriverAddon(ctx, client, clusterID, spec, addon, version)
+		return ClusterHandler.reconcileInstalledEBSCSIDriverAddon(ctx, client, clusterID, addon, version)
 	}
 
 	// Install the pod identity agent first: the controller gets its credentials through it.
@@ -345,12 +221,12 @@ func (ClusterHandler *AwsClusterHandler) EnableStorageDriver(clusterIID irs.IID,
 		return irs.StorageDriverInfo{}, err
 	}
 
-	addon, err = ClusterHandler.installCSIDriverAddon(clusterID, spec, version)
+	addon, err = ClusterHandler.installEBSCSIDriverAddon(ctx, client, clusterID, version)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.StorageDriverInfo{}, err
 	}
-	info := convertEKSAddonToStorageDriverInfo(spec, addon)
+	info := convertEKSAddonToStorageDriverInfo(addon)
 	if addon == nil {
 		// CreateAddon succeeded but returned no add-on: the add-on is being created.
 		info.Status = irs.StorageDriverUpdating
@@ -359,26 +235,59 @@ func (ClusterHandler *AwsClusterHandler) EnableStorageDriver(clusterIID irs.IID,
 	return info, nil
 }
 
-// reconcileInstalledCSIDriverAddon handles EnableStorageDriver for an add-on that already exists.
-// It does nothing if the add-on is already at the requested version, and updates the version otherwise.
-func (ClusterHandler *AwsClusterHandler) reconcileInstalledCSIDriverAddon(ctx context.Context, client *eksv2.Client,
-	clusterID string, spec eksCSIDriverSpec, addon *eksv2types.Addon, version string) (irs.StorageDriverInfo, error) {
+// installEBSCSIDriverAddon installs the EBS CSI driver add-on at the given version (EKS default if empty)
+// together with the Pod Identity association of its controller service account, like installEBSCSIDriver.
+func (ClusterHandler *AwsClusterHandler) installEBSCSIDriverAddon(ctx context.Context, client *eksv2.Client,
+	clusterID string, version string) (*eksv2types.Addon, error) {
 
-	info := convertEKSAddonToStorageDriverInfo(spec, addon)
+	input := &eksv2.CreateAddonInput{
+		ClusterName:      awsv2.String(clusterID),
+		AddonName:        awsv2.String(ebsCSIDriverAddonName),
+		ResolveConflicts: eksv2types.ResolveConflictsOverwrite,
+	}
+	if version != "" {
+		input.AddonVersion = awsv2.String(version)
+	}
+
+	roleArn, err := ClusterHandler.getOrCreateEBSCSIDriverRole()
+	if err != nil {
+		// Same as cluster creation: fall back to the node role (through IMDS) rather than failing.
+		cblogger.Errorf("Failed to get or create EBS CSI driver role, installing without Pod Identity: %v", err)
+	} else {
+		input.PodIdentityAssociations = ebsCSIPodIdentityAssociations(roleArn)
+	}
+
+	callLogInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterID, "CreateAddon()")
+	start := call.Start()
+	output, err := client.CreateAddon(ctx, input)
+	if err != nil {
+		LoggingError(callLogInfo, err)
+		return nil, fmt.Errorf("failed to create %s add-on: %w", ebsCSIDriverAddonName, err)
+	}
+	LoggingInfo(callLogInfo, start)
+	return output.Addon, nil
+}
+
+// reconcileInstalledEBSCSIDriverAddon handles EnableStorageDriver for an add-on that already exists.
+// It does nothing if the add-on is already at the requested version, and updates the version otherwise.
+func (ClusterHandler *AwsClusterHandler) reconcileInstalledEBSCSIDriverAddon(ctx context.Context, client *eksv2.Client,
+	clusterID string, addon *eksv2types.Addon, version string) (irs.StorageDriverInfo, error) {
+
+	info := convertEKSAddonToStorageDriverInfo(addon)
 
 	switch addon.Status {
 	case eksv2types.AddonStatusDeleting:
-		return info, fmt.Errorf("%s add-on is being deleted; enable it again after the deletion completes", spec.addonName)
+		return info, fmt.Errorf("%s add-on is being deleted; enable it again after the deletion completes", ebsCSIDriverAddonName)
 	case eksv2types.AddonStatusCreateFailed, eksv2types.AddonStatusDeleteFailed:
-		return info, fmt.Errorf("%s add-on is in %s state; disable it and enable it again", spec.addonName, addon.Status)
+		return info, fmt.Errorf("%s add-on is in %s state; disable it and enable it again", ebsCSIDriverAddonName, addon.Status)
 	case eksv2types.AddonStatusCreating, eksv2types.AddonStatusUpdating:
 		// Another change is in progress. Report it as is.
 		return info, nil
 	}
 
 	// An add-on installed by an earlier CB-Spider version or by the user may have no Pod Identity association.
-	if err := ClusterHandler.ensureCSIDriverPodIdentity(clusterID, spec); err != nil {
-		cblogger.Warnf("Failed to ensure %s pod identity: %v", spec.addonName, err)
+	if err := ClusterHandler.ensureEBSCSIDriverPodIdentity(clusterID); err != nil {
+		cblogger.Warnf("Failed to ensure %s pod identity: %v", ebsCSIDriverAddonName, err)
 	}
 
 	if version == "" || version == awsv2.ToString(addon.AddonVersion) {
@@ -389,13 +298,13 @@ func (ClusterHandler *AwsClusterHandler) reconcileInstalledCSIDriverAddon(ctx co
 	start := call.Start()
 	_, err := client.UpdateAddon(ctx, &eksv2.UpdateAddonInput{
 		ClusterName:      awsv2.String(clusterID),
-		AddonName:        awsv2.String(spec.addonName),
+		AddonName:        awsv2.String(ebsCSIDriverAddonName),
 		AddonVersion:     awsv2.String(version),
 		ResolveConflicts: eksv2types.ResolveConflictsOverwrite,
 	})
 	if err != nil {
 		LoggingError(callLogInfo, err)
-		err = fmt.Errorf("failed to update %s add-on to version %s: %w", spec.addonName, version, err)
+		err = fmt.Errorf("failed to update %s add-on to version %s: %w", ebsCSIDriverAddonName, version, err)
 		cblogger.Error(err)
 		return info, err
 	}
@@ -410,8 +319,7 @@ func (ClusterHandler *AwsClusterHandler) DisableStorageDriver(clusterIID irs.IID
 	cblogger.Info("AWS Cloud Driver: called DisableStorageDriver()")
 	clusterID := clusterIID.SystemId
 
-	spec, err := getEKSCSIDriverSpec(kind)
-	if err != nil {
+	if err := checkEKSStorageDriverKind(kind); err != nil {
 		return false, err
 	}
 	if err := ClusterHandler.checkEKSClusterActive(clusterID); err != nil {
@@ -423,7 +331,7 @@ func (ClusterHandler *AwsClusterHandler) DisableStorageDriver(clusterIID irs.IID
 	defer cancel()
 	client := ClusterHandler.newEKSV2Client()
 
-	addon, err := ClusterHandler.describeEKSAddon(ctx, client, clusterID, spec.addonName)
+	addon, err := ClusterHandler.describeEKSAddon(ctx, client, clusterID, ebsCSIDriverAddonName)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -433,12 +341,12 @@ func (ClusterHandler *AwsClusterHandler) DisableStorageDriver(clusterIID irs.IID
 	}
 
 	// Preserve=false removes the add-on's Kubernetes resources (controller, node plugin, CSIDriver).
-	// EBS volumes, EFS file systems and the IAM role are not deleted.
+	// EBS volumes and the IAM role are not deleted.
 	callLogInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterID, "DeleteAddon()")
 	start := call.Start()
 	_, err = client.DeleteAddon(ctx, &eksv2.DeleteAddonInput{
 		ClusterName: awsv2.String(clusterID),
-		AddonName:   awsv2.String(spec.addonName),
+		AddonName:   awsv2.String(ebsCSIDriverAddonName),
 		Preserve:    false,
 	})
 	if err != nil {
@@ -448,7 +356,7 @@ func (ClusterHandler *AwsClusterHandler) DisableStorageDriver(clusterIID irs.IID
 			return true, nil
 		}
 		LoggingError(callLogInfo, err)
-		err = fmt.Errorf("failed to delete %s add-on: %w", spec.addonName, err)
+		err = fmt.Errorf("failed to delete %s add-on: %w", ebsCSIDriverAddonName, err)
 		cblogger.Error(err)
 		return false, err
 	}

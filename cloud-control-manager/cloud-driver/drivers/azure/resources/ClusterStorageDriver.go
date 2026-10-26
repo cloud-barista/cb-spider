@@ -6,16 +6,15 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// AKS manages its CSI storage drivers through the managed cluster's
+// AKS manages its Block CSI storage driver through the managed cluster's
 // properties.storageProfile, not through a separate add-on API:
 //   - Block: storageProfile.diskCSIDriver (CSIDriver disk.csi.azure.com)
-//   - File : storageProfile.fileCSIDriver (CSIDriver file.csi.azure.com)
 //
-// Both are enabled by default on AKS (Kubernetes >= 1.21) and can be toggled
-// with a managed cluster PUT. When storageProfile or a driver's Enabled field
+// It is enabled by default on AKS (Kubernetes >= 1.21) and can be toggled
+// with a managed cluster PUT. When storageProfile or the driver's Enabled field
 // is absent, AKS applies its default (enabled), so nil is reported as enabled.
 // AKS has no per-driver version; the driver version follows the cluster version.
-// blobCSIDriver and snapshotController are out of scope.
+// fileCSIDriver, blobCSIDriver and snapshotController are out of scope.
 //
 // by CB-Spider Team, 2026.10.
 
@@ -34,9 +33,7 @@ import (
 
 const (
 	azureDiskCSPDriverName = "diskCSIDriver"
-	azureFileCSPDriverName = "fileCSIDriver"
 	azureDiskCSIDriverName = "disk.csi.azure.com"
-	azureFileCSIDriverName = "file.csi.azure.com"
 
 	azureProvisioningSucceeded = "Succeeded"
 )
@@ -56,7 +53,6 @@ func (ac *AzureClusterHandler) ListStorageDriver(clusterIID irs.IID) ([]irs.Stor
 
 	return []irs.StorageDriverInfo{
 		azureStorageDriverInfo(&cluster, irs.StorageDriverBlock),
-		azureStorageDriverInfo(&cluster, irs.StorageDriverFile),
 	}, nil
 }
 
@@ -83,7 +79,7 @@ func (ac *AzureClusterHandler) EnableStorageDriver(clusterIID irs.IID, kind irs.
 }
 
 // DisableStorageDriver sets storageProfile.<driver>.enabled=false with a managed cluster PUT.
-// AKS removes the driver components only; disks, file shares and PVs are kept.
+// AKS removes the driver components only; disks and PVs are kept.
 func (ac *AzureClusterHandler) DisableStorageDriver(clusterIID irs.IID, kind irs.StorageDriverKind) (bool, error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterIID.NameId, "DisableStorageDriver()")
 	start := call.Start()
@@ -103,7 +99,7 @@ func (ac *AzureClusterHandler) DisableStorageDriver(clusterIID irs.IID, kind irs
 // flag already has the requested value, no CSP call is made and the current info is returned.
 func (ac *AzureClusterHandler) setStorageDriverEnabled(clusterIID irs.IID, kind irs.StorageDriverKind, enable bool) (irs.StorageDriverInfo, error) {
 	if !isValidAzureStorageDriverKind(kind) {
-		return irs.StorageDriverInfo{}, fmt.Errorf("invalid StorageDriverKind(%s): must be %s or %s", kind, irs.StorageDriverBlock, irs.StorageDriverFile)
+		return irs.StorageDriverInfo{}, fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 	}
 
 	cluster, err := getRawCluster(clusterIID, ac.ManagedClustersClient, ac.Ctx, ac.CredentialInfo, ac.Region)
@@ -139,11 +135,11 @@ func (ac *AzureClusterHandler) setStorageDriverEnabled(clusterIID irs.IID, kind 
 }
 
 func isValidAzureStorageDriverKind(kind irs.StorageDriverKind) bool {
-	return kind == irs.StorageDriverBlock || kind == irs.StorageDriverFile
+	return kind == irs.StorageDriverBlock
 }
 
 // azureStorageDriverEnabled reports the configured flag. A nil profile, nil driver
-// struct or nil Enabled means the AKS default, which is enabled for disk and file
+// struct or nil Enabled means the AKS default, which is enabled for disk
 // (Kubernetes >= 1.21).
 func azureStorageDriverEnabled(profile *armcontainerservice.ManagedClusterStorageProfile, kind irs.StorageDriverKind) bool {
 	if profile == nil {
@@ -155,11 +151,6 @@ func azureStorageDriverEnabled(profile *armcontainerservice.ManagedClusterStorag
 			return true
 		}
 		return *profile.DiskCSIDriver.Enabled
-	case irs.StorageDriverFile:
-		if profile.FileCSIDriver == nil || profile.FileCSIDriver.Enabled == nil {
-			return true
-		}
-		return *profile.FileCSIDriver.Enabled
 	}
 	return false
 }
@@ -171,8 +162,6 @@ func setAzureStorageDriverEnabled(props *armcontainerservice.ManagedClusterPrope
 	switch kind {
 	case irs.StorageDriverBlock:
 		props.StorageProfile.DiskCSIDriver = &armcontainerservice.ManagedClusterStorageProfileDiskCSIDriver{Enabled: toBoolPtr(enable)}
-	case irs.StorageDriverFile:
-		props.StorageProfile.FileCSIDriver = &armcontainerservice.ManagedClusterStorageProfileFileCSIDriver{Enabled: toBoolPtr(enable)}
 	}
 }
 
@@ -203,10 +192,6 @@ func azureStorageDriverInfo(cluster *armcontainerservice.ManagedCluster, kind ir
 	case irs.StorageDriverBlock:
 		info.CSPDriverName = azureDiskCSPDriverName
 		info.CSIDriverName = azureDiskCSIDriverName
-	case irs.StorageDriverFile:
-		info.CSPDriverName = azureFileCSPDriverName
-		info.CSIDriverName = azureFileCSIDriverName
-		info.RequiresFileSystem = false // the driver creates storage accounts and file shares dynamically
 	}
 	if cluster == nil || cluster.Properties == nil {
 		return info

@@ -6,13 +6,12 @@
 //
 // CSI storage driver management of a Kubernetes Cluster.
 //
-// GKE manages the CSI drivers through the cluster's addonsConfig:
+// GKE manages the Block CSI driver through the cluster's addonsConfig:
 //   - Block: gcePersistentDiskCsiDriverConfig (pd.csi.storage.gke.io)
-//   - File:  gcpFilestoreCsiDriverConfig      (filestore.csi.storage.gke.io)
 //
 // Changes are applied with projects.locations.clusters.update (desiredAddonsConfig),
 // which runs asynchronously. GKE manages the driver versions, so Version is always empty.
-// On Autopilot clusters both drivers are always enabled and cannot be changed.
+// On Autopilot clusters the driver is always enabled and cannot be changed.
 //
 // by CB-Spider Team, 2026.10.
 
@@ -59,25 +58,8 @@ var gkePDCSIDriverSpec = gkeCSIDriverSpec{
 	},
 }
 
-var gkeFilestoreCSIDriverSpec = gkeCSIDriverSpec{
-	kind:          irs.StorageDriverFile,
-	cspDriverName: "gcpFilestoreCsiDriverConfig",
-	csiDriverName: "filestore.csi.storage.gke.io",
-	isEnabled: func(addons *container.AddonsConfig) bool {
-		return addons != nil && addons.GcpFilestoreCsiDriverConfig != nil && addons.GcpFilestoreCsiDriverConfig.Enabled
-	},
-	desiredAddonsConfig: func(enabled bool) *container.AddonsConfig {
-		return &container.AddonsConfig{
-			GcpFilestoreCsiDriverConfig: &container.GcpFilestoreCsiDriverConfig{
-				Enabled:         enabled,
-				ForceSendFields: []string{"Enabled"},
-			},
-		}
-	},
-}
-
-// gkeCSIDriverSpecs is in the order ListStorageDriver returns: Block, then File.
-var gkeCSIDriverSpecs = []gkeCSIDriverSpec{gkePDCSIDriverSpec, gkeFilestoreCSIDriverSpec}
+// gkeCSIDriverSpecs lists the drivers ListStorageDriver returns. Only Block is supported.
+var gkeCSIDriverSpecs = []gkeCSIDriverSpec{gkePDCSIDriverSpec}
 
 func getGKECSIDriverSpec(kind irs.StorageDriverKind) (gkeCSIDriverSpec, error) {
 	for _, spec := range gkeCSIDriverSpecs {
@@ -85,8 +67,7 @@ func getGKECSIDriverSpec(kind irs.StorageDriverKind) (gkeCSIDriverSpec, error) {
 			return spec, nil
 		}
 	}
-	return gkeCSIDriverSpec{}, fmt.Errorf("unsupported storage driver kind %q: must be %q or %q",
-		kind, irs.StorageDriverBlock, irs.StorageDriverFile)
+	return gkeCSIDriverSpec{}, fmt.Errorf("storage driver kind(%s) is not supported; only Block is supported", kind)
 }
 
 func isGKEAutopilot(cluster *container.Cluster) bool {
@@ -103,8 +84,6 @@ func convertGKEClusterToStorageDriverInfo(spec gkeCSIDriverSpec, cluster *contai
 		Status:         irs.StorageDriverDisabled,
 		// GKE manages the driver version.
 		Version: "",
-		// The Filestore CSI driver creates Filestore instances by itself.
-		RequiresFileSystem: false,
 	}
 
 	if isGKEAutopilot(cluster) {
@@ -259,7 +238,7 @@ func (ClusterHandler *GCPClusterHandler) DisableStorageDriver(clusterIID irs.IID
 		return false, err
 	}
 
-	// Disabling removes the driver only. Persistent disks and Filestore instances are kept.
+	// Disabling removes the driver only. Persistent disks are kept.
 	if _, err := ClusterHandler.updateGKEAddonsConfig(clusterIID, spec, false, "DisableStorageDriver()"); err != nil {
 		cblogger.Error(err)
 		return false, err
