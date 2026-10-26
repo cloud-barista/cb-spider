@@ -241,14 +241,14 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 	case "NCP":
 		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId")
 		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret")
-		endpoint = fmt.Sprintf("%s.object.ncloudstorage.com", regionID)
+		endpoint = fmt.Sprintf("%s.object.ncloudstorage.com", strings.ToLower(regionID))
 		useSSL = true
 		regionRequired = false
 
 	case "NHN":
 		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "Access Key")
 		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "Secret Key")
-		endpoint = fmt.Sprintf("%s-api-object-storage.nhncloudservice.com", regionID)
+		endpoint = fmt.Sprintf("%s-api-object-storage.nhncloudservice.com", strings.ToLower(regionID))
 		useSSL = true
 		regionRequired = true
 
