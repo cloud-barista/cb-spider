@@ -111,5 +111,10 @@ type CloudDriver interface {
 	GetDriverCapability() DriverCapabilityInfo
 
 	ConnectCloud(connectionInfo ConnectionInfo) (icon.CloudConnection, error)
+
+	// ValidateCredential checks whether the credential can be authenticated by the CSP,
+	// without region information and without storing anything.
+	// Use a lightweight authentication API that needs no extra permission if possible.
+	ValidateCredential(credentialInfo CredentialInfo) error
 	//ConnectNetworkCloud(connectionInfo ConnectionInfo) (icon.CloudConnection, error)
 }

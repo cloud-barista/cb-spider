@@ -189,6 +189,16 @@ func getClassicServerClient(connectionInfo idrv.ConnectionInfo) (*server.APIClie
 	return client, nil
 }
 
+// ValidateCredential checks the API key with the region-independent GetRegionList API.
+func (driver *NcpVpcDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	vmClient, err := getVmClient(idrv.ConnectionInfo{CredentialInfo: credentialInfo})
+	if err != nil {
+		return err
+	}
+	_, err = vmClient.V2Api.GetRegionList(&vserver.GetRegionListRequest{})
+	return err
+}
+
 func (driver *NcpVpcDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.

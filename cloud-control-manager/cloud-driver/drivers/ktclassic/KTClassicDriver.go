@@ -12,6 +12,7 @@
 package ktclassic
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -153,6 +154,20 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, err
 	client := ktsdk.KtCloudClient{}.New(apiurl, apikey, secretkey, insecureskipverify)
 
 	return client, nil
+}
+
+// ValidateCredential checks the API key with the ListZones API (KT Cloud has no auth-only API).
+func (driver *KtCloudDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	// check here: getVMClient() exits the process with an empty key
+	if credentialInfo.ClientId == "" || credentialInfo.ClientSecret == "" {
+		return errors.New("ClientId and ClientSecret are required")
+	}
+	client, err := getVMClient(idrv.ConnectionInfo{CredentialInfo: credentialInfo})
+	if err != nil {
+		return err
+	}
+	_, err = client.ListZones(true, "", "", "")
+	return err
 }
 
 func (driver *KtCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {

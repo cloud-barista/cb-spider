@@ -132,6 +132,20 @@ func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
+// ValidateCredential checks the credential by issuing a Keystone token.
+func (driver *KTCloudVpcDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	authOpts := ktvpcsdk.AuthOptions{
+		IdentityEndpoint: credentialInfo.IdentityEndpoint,
+		Username:         credentialInfo.Username,
+		Password:         credentialInfo.Password,
+		DomainName:       credentialInfo.DomainName,
+		TenantID:         credentialInfo.ProjectID, // Caution : ProjectID to TenantID on SDK
+	}
+	// do not use getProviderClient(): its cache is keyed by username only
+	_, err := ostack.AuthenticatedClient(authOpts)
+	return err
+}
+
 func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// Initialize Logger
 	ktvpcrs.InitLog()

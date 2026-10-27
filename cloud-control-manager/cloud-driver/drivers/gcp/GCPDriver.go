@@ -89,6 +89,16 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
+// ValidateCredential checks the credential by issuing a token and getting the project.
+func (driver *GCPDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	ctx, vmClient, err := getVMClient(credentialInfo)
+	if err != nil {
+		return err
+	}
+	_, err = vmClient.Projects.Get(credentialInfo.ProjectID).Context(ctx).Do()
+	return err
+}
+
 func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.

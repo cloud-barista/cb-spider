@@ -11,6 +11,8 @@ package restruntime
 import (
 	"strconv"
 
+	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	im "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
@@ -272,6 +274,39 @@ func RegisterCredential(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &crdinfoList)
+}
+
+// CredentialValidateRequest represents the request body for validating a Credential before registration.
+type CredentialValidateRequest struct {
+	ProviderName     string          `json:"ProviderName" validate:"required" example:"AWS"`
+	KeyValueInfoList []cres.KeyValue `json:"KeyValueInfoList" validate:"required"`
+}
+
+// validateCredential godoc
+// @ID validate-credential
+// @Summary Validate Credential
+// @Description Check whether a Credential can connect to the cloud before registering it. The Credential is not stored.
+// @Tags [Cloud Info Management] Credential Info
+// @Accept  json
+// @Produce  json
+// @Param CredentialValidateRequest body restruntime.CredentialValidateRequest true "Request body for validating a Credential"
+// @Success 200 {object} cmrt.CredentialValidateResult "Validation result (Valid: true/false)"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Router /credential/validate [post]
+func ValidateCredential(c echo.Context) error {
+	cblog.Info("call ValidateCredential()")
+
+	req := &CredentialValidateRequest{}
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	result, err := cmrt.ValidateCredential(req.ProviderName, req.KeyValueInfoList)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
 }
 
 // ListCredentialResponse represents the response body for listing Credentials.

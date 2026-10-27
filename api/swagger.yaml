@@ -20,6 +20,26 @@ definitions:
             type: array
         type: object
     type: object
+  spider.CredentialValidateResult:
+    properties:
+      ElapsedTime:
+        example: 1.234s
+        type: string
+      Message:
+        example: Successfully authenticated to AWS.
+        type: string
+      ProviderName:
+        example: AWS
+        type: string
+      Valid:
+        example: true
+        type: boolean
+    required:
+    - ElapsedTime
+    - Message
+    - ProviderName
+    - Valid
+    type: object
   spider.DeletedResourceInfoList:
     properties:
       DeletedIIDList:
@@ -2910,6 +2930,19 @@ definitions:
         type: integer
     required:
     - count
+    type: object
+  spider.CredentialValidateRequest:
+    properties:
+      KeyValueInfoList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      ProviderName:
+        example: AWS
+        type: string
+    required:
+    - KeyValueInfoList
+    - ProviderName
     type: object
   spider.DBSpecListResponse:
     properties:
@@ -7393,6 +7426,35 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get Credential
+      tags:
+      - '[Cloud Info Management] Credential Info'
+  /credential/validate:
+    post:
+      consumes:
+      - application/json
+      description: Check whether a Credential can connect to the cloud before registering
+        it. The Credential is not stored.
+      operationId: validate-credential
+      parameters:
+      - description: Request body for validating a Credential
+        in: body
+        name: CredentialValidateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.CredentialValidateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Validation result (Valid: true/false)'
+          schema:
+            $ref: '#/definitions/spider.CredentialValidateResult'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Validate Credential
       tags:
       - '[Cloud Info Management] Credential Info'
   /cspcluster/{Id}:

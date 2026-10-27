@@ -11,6 +11,7 @@
 package mock
 
 import (
+	"errors"
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
@@ -59,6 +60,14 @@ func (MockDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPC_CIDR = true
 
 	return drvCapabilityInfo
+}
+
+// ValidateCredential checks only that MockName is set.
+func (driver *MockDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	if credentialInfo.MockName == "" {
+		return errors.New("MockName is required")
+	}
+	return nil
 }
 
 func (driver *MockDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {

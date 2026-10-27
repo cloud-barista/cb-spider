@@ -3223,6 +3223,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/credential/validate": {
+            "post": {
+                "description": "Check whether a Credential can connect to the cloud before registering it. The Credential is not stored.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Credential Info"
+                ],
+                "summary": "Validate Credential",
+                "operationId": "validate-credential",
+                "parameters": [
+                    {
+                        "description": "Request body for validating a Credential",
+                        "name": "CredentialValidateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.CredentialValidateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Validation result (Valid: true/false)",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CredentialValidateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/credential/{CredentialName}": {
             "get": {
                 "description": "Retrieve details of a specific Credential.",
@@ -14118,6 +14159,33 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.CredentialValidateResult": {
+            "type": "object",
+            "required": [
+                "ElapsedTime",
+                "Message",
+                "ProviderName",
+                "Valid"
+            ],
+            "properties": {
+                "ElapsedTime": {
+                    "type": "string",
+                    "example": "1.234s"
+                },
+                "Message": {
+                    "type": "string",
+                    "example": "Successfully authenticated to AWS."
+                },
+                "ProviderName": {
+                    "type": "string",
+                    "example": "AWS"
+                },
+                "Valid": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "spider.DeletedResourceInfoList": {
             "type": "object",
             "required": [
@@ -18052,6 +18120,25 @@ const docTemplate = `{
                 "count": {
                     "type": "integer",
                     "example": 5
+                }
+            }
+        },
+        "spider.CredentialValidateRequest": {
+            "type": "object",
+            "required": [
+                "KeyValueInfoList",
+                "ProviderName"
+            ],
+            "properties": {
+                "KeyValueInfoList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "ProviderName": {
+                    "type": "string",
+                    "example": "AWS"
                 }
             }
         },

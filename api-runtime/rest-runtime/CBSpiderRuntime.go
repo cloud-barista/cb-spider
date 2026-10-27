@@ -234,6 +234,7 @@ func getRoutes() []route {
 
 		//----------CredentialInfo
 		{"POST", "/credential", RegisterCredential},
+		{"POST", "/credential/validate", ValidateCredential},
 		{"GET", "/credential", ListCredential},
 		{"GET", "/credential/:CredentialName", GetCredential},
 		{"DELETE", "/credential/:CredentialName", UnRegisterCredential},
