@@ -71,6 +71,7 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMariaDBHandler = true
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.DNSHandler = true
 
 	return drvCapabilityInfo
 }
@@ -222,6 +223,15 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	if err != nil {
 		// Trove may not be available in all OpenStack deployments; log and continue
 		fmt.Printf("Warning: failed to create Trove DB client: %v\n", err)
+	}
+
+	// Designate (DNS-as-a-Service) client - optional, some deployments may not have Designate
+	iConn.DNSClient, err = openstack.NewDNSV2(provider, gophercloud.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		cblogger.Warnf("Failed to initialize DNS(Designate) client. DNS features will be unavailable: %v", err)
+		iConn.DNSClient = nil
 	}
 
 	return &iConn, nil

@@ -317,6 +317,22 @@ func getRoutes() []route {
 		//-- for dashboard
 		{"GET", "/countvpc", CountAllVPCs},
 		{"GET", "/countvpc/:ConnectionName", CountVPCsByConnection},
+
+		//----------DNS Handler (Public Authoritative DNS baseline only)
+		{"POST", "/regdnszone", RegisterDNSZone},
+		{"DELETE", "/regdnszone/:Name", UnregisterDNSZone},
+
+		{"POST", "/dnszone", CreateDNSZone},
+		{"GET", "/dnszone", ListDNSZone},
+		{"GET", "/dnszone/:Name", GetDNSZone},
+		{"DELETE", "/dnszone/:Name", DeleteDNSZone},
+		//-- for record
+		{"POST", "/dnszone/:DNSZoneName/record", AddDNSRecord},
+		{"PUT", "/dnszone/:DNSZoneName/record/:RecordName", ChangeDNSRecord},
+		{"DELETE", "/dnszone/:DNSZoneName/record/:RecordName", RemoveDNSRecord},
+		//-- for dashboard
+		{"GET", "/countdnszone", CountAllDNSZones},
+		{"GET", "/countdnszone/:ConnectionName", CountDNSZonesByConnection},
 		{"GET", "/countsubnet", CountAllSubnets},
 		{"GET", "/countsubnet/:ConnectionName", CountSubnetsByConnection},
 
@@ -726,6 +742,7 @@ func getRoutes() []route {
 			{"GET", "/adminweb/publicip/:ConnectConfig", aw.PublicIPManagement},
 			{"GET", "/adminweb/nic/:ConnectConfig", aw.NICManagement},
 			{"GET", "/adminweb/topology/:ConnectConfig", aw.TopologyManagement},
+			{"GET", "/adminweb/dns/:ConnectConfig", aw.DNSZoneManagement},
 
 			//----------Topology Layout (MetaDB persistence, multi-version)
 			{"GET", "/topology/layout", ListTopologyLayouts},       // list all versions

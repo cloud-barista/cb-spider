@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DNS Zone Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        position: relative;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    .checkbox-cell {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        flex: 2;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    .info-group legend {
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    .error-message {
+        background-color: #F8D7DA;
+        color: #721C24;
+        padding: 20px;
+        border-radius: 5px;
+        font-size: 16px;
+        margin-bottom: 20px;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2000;
+        text-align: center;
+    }
+    .error-message button {
+        display: block;
+        margin: 20px auto 0;
+    }
+    .zone-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .zone-name {
+        width: 13%;
+    }
+    .domain-name {
+        width: 15%;
+    }
+    .name-servers {
+        width: 20%;
+    }
+    .record-info {
+        width: 42%;
+    }
+    .inner-table th {
+        background-color: #f9f9f9;
+        font-size: 12px;
+        padding: 2px;
+        text-align: center;
+    }
+    .inner-table td {
+        font-size: 12px;
+        padding: 2px;
+        text-align: center;
+    }
+    .inner-table .value-cell {
+        text-align: left;
+        width: auto;
+        word-break: break-all;
+    }
+    .inner-table .actions-cell {
+        width: 90px;
+        white-space: nowrap;
+    }
+    .inner-table button.delete-btn,
+    .inner-table button.edit-btn,
+    .inner-table button.add-btn {
+        width: auto;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    .inner-table .name-column {
+        width: 20%;
+    }
+    .inner-table .type-column {
+        width: 10%;
+    }
+    .inner-table .host-column {
+        width: 25%;
+    }
+    .inner-table .ttl-column {
+        width: 8%;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .header-with-progress {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0px;
+    }
+    .progress-bar-container {
+        width: 600px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+        height: 22px;
+        background-color: #f0f5ff;
+        border-radius: 4px;
+        overflow: hidden;
+        display: none;
+        position: relative;
+        z-index: 20;
+    }
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #cce6ff;
+        border-radius: 4px;
+        transition: width 3s ease;
+    }
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        word-wrap: break-word;
+    }
+    .system-id-overlay .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .system-id-overlay .overlay-close-btn:hover {
+        background-color: #e0e0e0;
+    }
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+    .ns-list span {
+        display: block;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/nlb.png" alt="DNS Icon">
+            <h1>DNS Zone Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedZones()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+ DNS Zone</button>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>
+        </div>
+        <table id="zone-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="zone-name center-align">Name</th>
+                <th class="domain-name center-align">Domain Name</th>
+                <th class="name-servers center-align">Name Servers</th>
+                <th class="record-info">Records</th>
+                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+            </tr>
+            {{range $index, $zone := .DNSZones}}
+            {{ $zoneNameId := $zone.IId.NameId }}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="zone-name-cell">{{$zone.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$zone.IId.SystemId}}')">&nbsp;• {{$zone.IId.SystemId}}</span></td>
+                <td class="center-align">{{$zone.DomainName}}</td>
+                <td class="ns-list">
+                    {{range $ns := $zone.NameServers}}<span>{{$ns}}</span>{{end}}
+                </td>
+                <td class="record-info">
+                    <table class="inner-table">
+                        <tr>
+                            <th class="name-column">Name</th>
+                            <th class="type-column">Type</th>
+                            <th class="host-column">Host</th>
+                            <th>Value</th>
+                            <th class="ttl-column">TTL</th>
+                            <th class="actions-cell"><button class="add-btn" onclick="showRecordOverlay('{{$zoneNameId}}')">add</button></th>
+                        </tr>
+                        {{range $record := $zone.RecordInfoList}}
+                        <tr>
+                            <td class="zone-name-cell" style="text-align: left;">{{$record.IId.NameId}}</td>
+                            <td>{{$record.Type}}</td>
+                            <td style="word-break: break-all;">{{$record.Name}}</td>
+                            <td class="value-cell">{{range $v := $record.Value}}{{$v}}<br>{{end}}</td>
+                            <td>{{$record.TTL}}</td>
+                            <td class="actions-cell">
+                                <button class="edit-btn"
+                                    data-name="{{$record.IId.NameId}}"
+                                    data-type="{{$record.Type}}"
+                                    data-host="{{$record.Name}}"
+                                    data-value="{{join $record.Value ","}}"
+                                    data-ttl="{{$record.TTL}}"
+                                    onclick="showRecordOverlayFromButton(this, '{{$zoneNameId}}')">edit</button>
+                                <button class="delete-btn" onclick="deleteRecord('{{$zoneNameId}}', '{{$record.IId.NameId}}')">del</button>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </table>
+                </td>
+                <td class="checkbox-cell center-align">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$zone.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .DNSZones}}
+            <tr>
+                <td colspan="6" class="center-align">No DNS Zones found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New DNS Zone</h2>
+            <form id="addZoneForm" onsubmit="event.preventDefault(); postDNSZone();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <fieldset class="info-group">
+                    <legend>DNS Zone Info:</legend>
+                    <div class="form-group">
+                        <label for="zoneName">Name:</label>
+                        <input type="text" id="zoneName" name="zoneName" required style="color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label for="zoneDomainName">Domain Name:</label>
+                        <input type="text" id="zoneDomainName" name="zoneDomainName" required placeholder="example.com">
+                    </div>
+                </fieldset>
+                <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add DNS Zone</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="record-overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideRecordOverlay()">X</button>
+            <h2 id="recordOverlayTitle">Add DNS Record</h2>
+            <form id="addRecordForm" onsubmit="event.preventDefault(); submitRecord();">
+                <input type="hidden" id="recordZoneName">
+                <input type="hidden" id="recordOrigName">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="recordZoneNameDisplay">DNS Zone:</label>
+                    <input type="text" id="recordZoneNameDisplay" style="background-color:#d0d0d0" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="recordName">Name:</label>
+                    <input type="text" id="recordName" name="recordName" required>
+                </div>
+                <div class="form-group">
+                    <label for="recordType">Type:</label>
+                    <select id="recordType" name="recordType" required>
+                        <option value="A">A</option>
+                        <option value="AAAA">AAAA</option>
+                        <option value="CNAME">CNAME</option>
+                        <option value="MX">MX</option>
+                        <option value="TXT">TXT</option>
+                        <option value="NS">NS</option>
+                        <option value="SRV">SRV</option>
+                        <option value="CAA">CAA</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="recordHost">Host:</label>
+                    <input type="text" id="recordHost" name="recordHost" required placeholder="www.example.com">
+                </div>
+                <div class="form-group">
+                    <label for="recordValue">Value(s):</label>
+                    <input type="text" id="recordValue" name="recordValue" required placeholder="comma-separated, ex) 203.0.113.10">
+                </div>
+                <div class="form-group">
+                    <label for="recordTTL">TTL:</label>
+                    <input type="number" id="recordTTL" name="recordTTL" value="300" min="1">
+                </div>
+                <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit" id="recordSubmitBtn">Add Record</button>
+                    <button type="button" onclick="hideRecordOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+</body>
+
+<script>
+    // Basic Auth credentials from server
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        return fetchOptions;
+    }
+
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    function showError(message, title) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        const formattedMessage = message.split('.').join('.<br>');
+        errorDiv.innerHTML = `<p>${title}</p><p>${formattedMessage}</p><button onclick="closeError()">OK</button>`;
+        document.body.appendChild(errorDiv);
+        document.addEventListener('keydown', handleEscError);
+    }
+
+    function closeError() {
+        const errorDiv = document.querySelector('.error-message');
+        if (errorDiv) {
+            errorDiv.remove();
+            document.removeEventListener('keydown', handleEscError);
+        }
+    }
+
+    function handleEscError(event) {
+        if (event.key === "Escape") {
+            closeError();
+        }
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+        const startTime = Date.now();
+        const timerInterval = 500;
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId);
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
+    function showProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBarContainer.style.display = 'block';
+        setTimeout(() => { progressBar.style.width = '100%'; }, 100);
+    }
+
+    function hideProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = '';
+        }, 500);
+    }
+
+    // ---------------- DNS Zone ----------------
+
+    function showOverlay() {
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEsc);
+        const connConfig = document.getElementById('connConfig').value;
+        document.getElementById('zoneName').value = `${connConfig}-zone-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('zoneDomainName').value = '';
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function postDNSZone() {
+        const connConfig = document.getElementById('connConfig').value;
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: document.getElementById('zoneName').value,
+                DomainName: document.getElementById('zoneDomainName').value
+            }
+        };
+
+        fetchWithProgress('/spider/dnszone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        })
+        .then(() => location.reload())
+        .catch(error => {
+            showError("Error creating DNS Zone: " + error.message, "DNS Zone Name: " + data.ReqInfo.Name);
+        });
+    }
+
+    function deleteDNSZone(zoneName) {
+        if (!confirm(`Are you sure you want to delete the DNS Zone: ${zoneName}?`)) {
+            return;
+        }
+        const connConfig = document.getElementById('connConfig').value;
+        const data = { ConnectionName: connConfig };
+
+        fetchWithProgress(`/spider/dnszone/${zoneName}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.Result === "true") {
+                location.reload();
+            } else {
+                showError("Failed to delete DNS Zone: " + (data.Message || "Unknown error"), "DNS Zone Name: " + zoneName);
+            }
+        })
+        .catch(error => {
+            showError("Error deleting DNS Zone: " + error.message, "DNS Zone Name: " + zoneName);
+        });
+    }
+
+    function deleteSelectedZones() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select DNS Zones to delete.");
+            return;
+        }
+        if (!confirm("Are you sure you want to delete the selected DNS Zones?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const zoneName = checkbox.value;
+            const data = { ConnectionName: connConfig };
+            return fetchWithProgress(`/spider/dnszone/${zoneName}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.message); });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(deletePromises)
+            .then(() => location.reload())
+            .catch(error => {
+                alert("Error deleting DNS Zones: " + error.message);
+            });
+    }
+
+    // ---------------- DNS Record ----------------
+
+    function showRecordOverlay(zoneName, record) {
+        document.getElementById('recordZoneName').value = zoneName;
+        document.getElementById('recordZoneNameDisplay').value = zoneName;
+        document.addEventListener('keydown', handleEscRecord);
+
+        const isEdit = !!record;
+        document.getElementById('recordOverlayTitle').textContent = isEdit ? 'Edit DNS Record' : 'Add DNS Record';
+        document.getElementById('recordSubmitBtn').textContent = isEdit ? 'Save Record' : 'Add Record';
+        document.getElementById('recordOrigName').value = isEdit ? record.name : '';
+        document.getElementById('recordName').value = isEdit ? record.name : '';
+        document.getElementById('recordName').readOnly = isEdit;
+        document.getElementById('recordType').value = isEdit ? record.type : 'A';
+        document.getElementById('recordType').disabled = isEdit;
+        document.getElementById('recordHost').value = isEdit ? record.host : '';
+        document.getElementById('recordValue').value = isEdit ? record.value : '';
+        document.getElementById('recordTTL').value = isEdit ? record.ttl : 300;
+
+        document.getElementById('record-overlay').style.display = 'flex';
+    }
+
+    function showRecordOverlayFromButton(btn, zoneName) {
+        showRecordOverlay(zoneName, {
+            name: btn.dataset.name,
+            type: btn.dataset.type,
+            host: btn.dataset.host,
+            value: btn.dataset.value,
+            ttl: btn.dataset.ttl
+        });
+    }
+
+    function hideRecordOverlay() {
+        document.getElementById('record-overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEscRecord);
+    }
+
+    function handleEscRecord(event) {
+        if (event.key === "Escape") {
+            hideRecordOverlay();
+        }
+    }
+
+    function submitRecord() {
+        const zoneName = document.getElementById('recordZoneName').value;
+        const origName = document.getElementById('recordOrigName').value;
+        const isEdit = !!origName;
+
+        const data = {
+            ConnectionName: document.getElementById('connConfig').value,
+            ReqInfo: {
+                Name: document.getElementById('recordName').value,
+                Type: document.getElementById('recordType').value,
+                Host: document.getElementById('recordHost').value,
+                Value: document.getElementById('recordValue').value.split(',').map(v => v.trim()).filter(v => v),
+                TTL: parseInt(document.getElementById('recordTTL').value, 10) || 300
+            }
+        };
+
+        const url = isEdit
+            ? `/spider/dnszone/${zoneName}/record/${origName}`
+            : `/spider/dnszone/${zoneName}/record`;
+        const method = isEdit ? 'PUT' : 'POST';
+
+        fetchWithProgress(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        })
+        .then(() => location.reload())
+        .catch(error => {
+            showError(`Error ${isEdit ? 'changing' : 'creating'} DNS Record: ` + error.message, "Record Name: " + data.ReqInfo.Name);
+        });
+    }
+
+    function deleteRecord(zoneName, recordName) {
+        if (!confirm(`Are you sure you want to delete the record: ${recordName}?`)) {
+            return;
+        }
+        const connConfig = document.getElementById('connConfig').value;
+        const data = { ConnectionName: connConfig };
+
+        fetchWithProgress(`/spider/dnszone/${zoneName}/record/${recordName}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.Result === "true") {
+                location.reload();
+            } else {
+                showError("Failed to delete Record: " + (data.Message || "Unknown error"), "Record Name: " + recordName);
+            }
+        })
+        .catch(error => {
+            showError("Error deleting Record: " + error.message, "Record Name: " + recordName);
+        });
+    }
+
+    // ---------------- Misc ----------------
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        document.getElementById('fullSystemId').textContent = systemId;
+        overlay.style.display = 'block';
+        document.addEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function closeSystemIdOverlay() {
+        const overlay = document.getElementById('system-id-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function handleEscSystemIdOverlay(event) {
+        if (event.key === "Escape") {
+            closeSystemIdOverlay();
+        }
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+        selection.removeAllRanges();
+    }
+
+    function searchKeyword() {
+        let input, filter, table, tr, td, i, j, k, innerTable, innerTr, innerTd, txtValue;
+        input = document.getElementById('searchInput');
+        filter = input.value.toUpperCase().trim();
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        table = document.getElementById('zone-table');
+        tr = table.getElementsByTagName('tr');
+
+        for (i = 1; i < tr.length; i++) {
+            for (j = 0; j < tr[i].cells.length; j++) {
+                td = tr[i].cells[j];
+                if (td) {
+                    txtValue = td.textContent || td.innerText;
+                    if (td.querySelector('table.inner-table')) {
+                        innerTable = td.querySelector('table.inner-table');
+                        innerTr = innerTable.getElementsByTagName('tr');
+                        for (k = 1; k < innerTr.length; k++) {
+                            for (let l = 0; l < innerTr[k].cells.length; l++) {
+                                innerTd = innerTr[k].cells[l];
+                                txtValue = innerTd.textContent || innerTd.innerText;
+                                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                                    innerTd.classList.add('highlight');
+                                } else {
+                                    innerTd.classList.remove('highlight');
+                                }
+                            }
+                        }
+                    } else {
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            td.classList.add('highlight');
+                        } else {
+                            td.classList.remove('highlight');
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        let table = document.getElementById('zone-table');
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                tr[i].cells[j].classList.remove('highlight');
+                if (tr[i].cells[j].querySelector('table.inner-table')) {
+                    let innerTable = tr[i].cells[j].querySelector('table.inner-table');
+                    let innerTr = innerTable.getElementsByTagName('tr');
+                    for (let k = 1; k < innerTr.length; k++) {
+                        for (let l = 0; l < innerTr[k].cells.length; l++) {
+                            innerTr[k].cells[l].classList.remove('highlight');
+                        }
+                    }
+                }
+            }
+        }
+    }
+</script>
+</html>

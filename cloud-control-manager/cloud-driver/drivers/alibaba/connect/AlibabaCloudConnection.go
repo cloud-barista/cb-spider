@@ -14,6 +14,7 @@ import (
 	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
 	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
 	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/alidns"
 	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
@@ -65,6 +66,7 @@ type AlibabaCloudConnection struct {
 	BssClient     *bssopenapi.Client
 	QuotaClient   *quotas.Client
 	RDSClient     *rds.Client
+	DNSClient     *alidns.Client
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -119,6 +121,12 @@ func (cloudConn *AlibabaCloudConnection) CreateVNicHandler() (irs.VNicHandler, e
 	return &vNicHandler, nil
 }
 */
+
+func (cloudConn *AlibabaCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("Alibaba Cloud Driver: called CreateDNSHandler()!")
+	dnsHandler := alirs.AlibabaDNSHandler{Region: cloudConn.Region, Client: cloudConn.DNSClient}
+	return &dnsHandler, nil
+}
 
 func (cloudConn *AlibabaCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := alirs.AlibabaNICHandler{Region: cloudConn.Region, EcsClient: cloudConn.VMClient}

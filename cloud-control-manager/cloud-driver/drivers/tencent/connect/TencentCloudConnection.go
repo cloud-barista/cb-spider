@@ -22,6 +22,7 @@ import (
 	cfs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs/v20190719"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	dnspod "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod/v20210323"
 	tag "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 
@@ -47,6 +48,7 @@ type TencentCloudConnection struct {
 	ClusterClient    *tke.Client
 	FileSystemClient *cfs.Client
 	CDBClient        *cdb.Client
+	DNSPodClient     *dnspod.Client
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -206,6 +208,14 @@ func (cloudConn *TencentCloudConnection) CreateRDBMSHandler() (irs.RDBMSHandler,
 
 func (cloudConn *TencentCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, error) {
 	handler := trs.TencentRDBMSHandler{Region: cloudConn.Region, Client: cloudConn.CDBClient}
+	return &handler, nil
+}
+
+func (cloudConn *TencentCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("Start CreateDNSHandler()")
+
+	handler := trs.TencentDNSHandler{Region: cloudConn.Region, Client: cloudConn.DNSPodClient}
+
 	return &handler, nil
 }
 

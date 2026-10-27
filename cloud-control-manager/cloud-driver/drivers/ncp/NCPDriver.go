@@ -83,6 +83,8 @@ func (NcpVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.NICHandler = false
 
+	drvCapabilityInfo.DNSHandler = true
+
 	return drvCapabilityInfo
 }
 

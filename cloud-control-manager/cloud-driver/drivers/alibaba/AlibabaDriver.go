@@ -18,6 +18,7 @@ import (
 	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
 	"github.com/sirupsen/logrus"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/alidns"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/quotas"
@@ -83,6 +84,7 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMariaDBHandler = true
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.DNSHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = true
 
@@ -161,6 +163,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	DNSClient, err := getAliDNSClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := alicon.AlibabaCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
@@ -186,6 +193,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		BssClient:        BssClient,
 		QuotaClient:      QuotaClient,
 		RDSClient:        RDSClient,
+		DNSClient:        DNSClient,
 
 		// Connection for AnyCall
 		AnyCallClient: ECSClient,
@@ -490,4 +498,30 @@ func getRDSClient(connectionInfo idrv.ConnectionInfo) (*rds.Client, error) {
 	}
 
 	return rdsClient, nil
+}
+
+// getAliDNSClient creates the alidns(Alibaba Cloud DNS) client. alidns is a
+// global, non-regional product served from a single centralized endpoint, so
+// a fixed regionId(alirs.AlibabaDNSRegion) is used here instead of the
+// connection's actual configured region.
+func getAliDNSClient(connectionInfo idrv.ConnectionInfo) (*alidns.Client, error) {
+	cblog.Info("AlibabaDriver : getAliDNSClient() - Region : [" + alirs.AlibabaDNSRegion + "] (fixed, alidns is a global product)")
+
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(60) * time.Second
+	config.AutoRetry = true
+	config.MaxRetryTime = 2
+
+	dnsClient, err := alidns.NewClientWithOptions(alirs.AlibabaDNSRegion, config, credential)
+	if err != nil {
+		cblog.Error("Could not create alibaba's alidns client", err)
+		return nil, err
+	}
+
+	return dnsClient, nil
 }

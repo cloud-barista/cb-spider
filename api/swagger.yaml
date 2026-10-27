@@ -622,6 +622,88 @@ definitions:
         description: CPU details. Count is "-1" when the CSP does not expose it and
           no objective cross-service basis exists to derive it
     type: object
+  spider.DNSRecordInfo:
+    properties:
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Name:
+        example: www.example.com
+        type: string
+      TTL:
+        example: 300
+        type: integer
+      Type:
+        allOf:
+        - $ref: '#/definitions/spider.DNSRecordType'
+        example: A
+      Value:
+        example:
+        - 203.0.113.10
+        items:
+          type: string
+        type: array
+    required:
+    - IId
+    - Name
+    - Type
+    - Value
+    type: object
+  spider.DNSRecordType:
+    enum:
+    - A
+    - AAAA
+    - CNAME
+    - MX
+    - TXT
+    - NS
+    - SRV
+    - CAA
+    type: string
+    x-enum-varnames:
+    - DNSRecordTypeA
+    - DNSRecordTypeAAAA
+    - DNSRecordTypeCNAME
+    - DNSRecordTypeMX
+    - DNSRecordTypeTXT
+    - DNSRecordTypeNS
+    - DNSRecordTypeSRV
+    - DNSRecordTypeCAA
+  spider.DNSZoneInfo:
+    properties:
+      DomainName:
+        example: example.com
+        type: string
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      NameServers:
+        items:
+          type: string
+        type: array
+      RecordInfoList:
+        items:
+          $ref: '#/definitions/spider.DNSRecordInfo'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    required:
+    - DomainName
+    - IId
+    - RecordInfoList
+    type: object
   spider.DiskInfo:
     properties:
       CreatedTime:
@@ -1721,6 +1803,8 @@ definitions:
     - rdbms
     - publicip
     - nic
+    - dns
+    - dnsrecord
     type: string
     x-enum-varnames:
     - ALL
@@ -1740,6 +1824,8 @@ definitions:
     - RDBMS
     - PUBLICIP
     - NIC
+    - DNS
+    - DNSRECORD
   spider.RegionInfo:
     properties:
       Region:
@@ -2953,6 +3039,131 @@ definitions:
     required:
     - dbspec
     type: object
+  spider.DNSRecordAddRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          Host:
+            example: www.example.com
+            type: string
+          Name:
+            example: my-a-record
+            type: string
+          TTL:
+            example: 300
+            type: integer
+          Type:
+            example: A
+            type: string
+          Value:
+            example:
+            - 203.0.113.10
+            items:
+              type: string
+            type: array
+        required:
+        - Host
+        - Name
+        - Type
+        - Value
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.DNSRecordChangeRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          Host:
+            example: www.example.com
+            type: string
+          TTL:
+            example: 300
+            type: integer
+          Type:
+            example: A
+            type: string
+          Value:
+            example:
+            - 203.0.113.20
+            items:
+              type: string
+            type: array
+        required:
+        - Host
+        - Type
+        - Value
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.DNSZoneCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          DomainName:
+            example: example.com
+            type: string
+          Name:
+            example: my-zone
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+        required:
+        - DomainName
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.DNSZoneListResponse:
+    properties:
+      dnszone:
+        items:
+          $ref: '#/definitions/spider.DNSZoneInfo'
+        type: array
+    required:
+    - dnszone
+    type: object
+  spider.DNSZoneRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: /hostedzone/Z1234567890ABC
+            type: string
+          Name:
+            example: my-zone
+            type: string
+        required:
+        - CSPId
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
   spider.DiskAttachRequest:
     properties:
       ConnectionName:
@@ -3089,6 +3300,9 @@ definitions:
         description: 'support: true, do not support: false'
         type: boolean
       diskHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      dnshandler:
         description: 'support: true, do not support: false'
         type: boolean
       emulated_VPC:
@@ -6854,6 +7068,48 @@ paths:
       summary: Count Disks by Connection
       tags:
       - '[Disk Management]'
+  /countdnszone:
+    get:
+      description: Get the total number of DNS Zones across all connections.
+      operationId: count-all-dnszone
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of DNS Zones
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All DNS Zones
+      tags:
+      - '[DNS Management]'
+  /countdnszone/{ConnectionName}:
+    get:
+      description: Get the total number of DNS Zones for a specific connection.
+      operationId: count-dnszone-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of DNS Zones for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count DNS Zones by Connection
+      tags:
+      - '[DNS Management]'
   /countkeypair:
     get:
       description: Get the total number of KeyPairs across all connections.
@@ -8388,6 +8644,299 @@ paths:
       summary: Increase Disk Size
       tags:
       - '[Disk Management]'
+  /dnszone:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Public DNS Zones associated with a specific
+        connection.
+      operationId: list-dnszone
+      parameters:
+      - description: The name of the Connection to list DNS Zones for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of DNS Zones
+          schema:
+            $ref: '#/definitions/spider.DNSZoneListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List DNS Zones
+      tags:
+      - '[DNS Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Public Authoritative DNS Zone(Hosted Zone) for the
+        given domain name.
+      operationId: create-dnszone
+      parameters:
+      - description: Request body for creating a DNS Zone
+        in: body
+        name: DNSZoneCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DNSZoneCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created DNS Zone
+          schema:
+            $ref: '#/definitions/spider.DNSZoneInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create DNS Zone
+      tags:
+      - '[DNS Management]'
+  /dnszone/{DNSZoneName}/record:
+    post:
+      consumes:
+      - application/json
+      description: 'Add a new record(ex: A, CNAME) to an existing Public DNS Zone.'
+      operationId: add-dnsrecord
+      parameters:
+      - description: The name of the DNS Zone to add the record to
+        in: path
+        name: DNSZoneName
+        required: true
+        type: string
+      - description: Request body for adding a DNS Record
+        in: body
+        name: DNSRecordAddRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DNSRecordAddRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the DNS Zone including the added record
+          schema:
+            $ref: '#/definitions/spider.DNSZoneInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Add DNS Record
+      tags:
+      - '[DNS Management]'
+  /dnszone/{DNSZoneName}/record/{RecordName}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove an existing record from a Public DNS Zone.
+      operationId: remove-dnsrecord
+      parameters:
+      - description: The name of the DNS Zone
+        in: path
+        name: DNSZoneName
+        required: true
+        type: string
+      - description: The CB-Spider name of the DNS Record to remove
+        in: path
+        name: RecordName
+        required: true
+        type: string
+      - description: 'Force delete the record. ex) true or false(default: false)'
+        in: query
+        name: force
+        type: string
+      - description: Request body for removing a DNS Record
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Remove DNS Record
+      tags:
+      - '[DNS Management]'
+    put:
+      consumes:
+      - application/json
+      description: Change the value/TTL of an existing record(by Name) in a Public
+        DNS Zone.
+      operationId: change-dnsrecord
+      parameters:
+      - description: The name of the DNS Zone
+        in: path
+        name: DNSZoneName
+        required: true
+        type: string
+      - description: The CB-Spider name of the DNS Record to change
+        in: path
+        name: RecordName
+        required: true
+        type: string
+      - description: Request body for changing a DNS Record
+        in: body
+        name: DNSRecordChangeRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DNSRecordChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the DNS Zone including the changed record
+          schema:
+            $ref: '#/definitions/spider.DNSZoneInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Change DNS Record
+      tags:
+      - '[DNS Management]'
+  /dnszone/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a Public DNS Zone, including every record CB-Spider or the
+        CSP has in it.
+      operationId: delete-dnszone
+      parameters:
+      - description: The name of the DNS Zone to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: 'Force delete the DNS Zone. ex) true or false(default: false)'
+        in: query
+        name: force
+        type: string
+      - description: Request body for deleting a DNS Zone
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete DNS Zone
+      tags:
+      - '[DNS Management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific Public DNS Zone, including the records CB-Spider
+        manages in it.
+      operationId: get-dnszone
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the DNS Zone to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the requested DNS Zone
+          schema:
+            $ref: '#/definitions/spider.DNSZoneInfo'
+        "400":
+          description: Bad Request, possibly due to invalid parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get DNS Zone
+      tags:
+      - '[DNS Management]'
   /driver:
     get:
       description: Retrieve a list of registered Cloud Drivers.
@@ -11343,6 +11892,85 @@ paths:
       summary: Unregister Disk
       tags:
       - '[Disk Management]'
+  /regdnszone:
+    post:
+      consumes:
+      - application/json
+      description: Register an existing Public DNS Zone with the specified name and
+        CSP ID.
+      operationId: register-dnszone
+      parameters:
+      - description: Request body for registering a DNS Zone
+        in: body
+        name: DNSZoneRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DNSZoneRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered DNS Zone
+          schema:
+            $ref: '#/definitions/spider.DNSZoneInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register DNS Zone
+      tags:
+      - '[DNS Management]'
+  /regdnszone/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a DNS Zone with the specified name, without deleting
+        it from the CSP.
+      operationId: unregister-dnszone
+      parameters:
+      - description: Request body for unregistering a DNS Zone
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the DNS Zone to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister DNS Zone
+      tags:
+      - '[DNS Management]'
   /region:
     get:
       description: Retrieve a list of registered Regions.

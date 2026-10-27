@@ -110,6 +110,8 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 	drvCapabilityInfo.VPC_CIDR = true
 
+	drvCapabilityInfo.DNSHandler = true
+
 	return drvCapabilityInfo
 }
 
@@ -309,6 +311,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, dnsRecordSetClient, err := getDnsRecordSetClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	Ctx, fileShareClient, err := getFileShareClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
@@ -372,6 +378,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		TagsClient:                      tagsClient,
 		ResourceSKUsClient:              resourceSKUsClient,
 		DnsZoneClient:                   dnsZoneClient,
+		DnsRecordSetClient:              dnsRecordSetClient,
 		FileShareClient:                 fileShareClient,
 		AccountsClient:                  accountsClient,
 		MySQLServersClient:              mysqlServersClient,
@@ -781,6 +788,21 @@ func getDnsZoneClient(credential idrv.CredentialInfo) (context.Context, *armdns.
 
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 	return ctx, dnsZoneClient, nil
+}
+
+func getDnsRecordSetClient(credential idrv.CredentialInfo) (context.Context, *armdns.RecordSetsClient, error) {
+	cred, err := getCred(credential)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dnsRecordSetClient, err := armdns.NewRecordSetsClient(credential.SubscriptionId, cred, newArmClientOptions())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, dnsRecordSetClient, nil
 }
 
 func getFileShareClient(credential idrv.CredentialInfo) (context.Context, *armstorage.FileSharesClient, error) {

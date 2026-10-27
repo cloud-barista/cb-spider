@@ -38,6 +38,7 @@ type ResourceCounts struct {
 	MyImages             int    `json:"myImages"`
 	S3Buckets            int    `json:"s3Buckets"`
 	RDBMSInstances       int    `json:"rdbmsInstances"`
+	DNSZones             int    `json:"dnsZones"`
 }
 
 // DashboardData aggregates the data for rendering the dashboard
@@ -62,7 +63,7 @@ func filterEmptyConnections(resourceCounts map[string][]ResourceCounts) map[stri
 			if count.VPCs > 0 || count.Subnets > 0 || count.SecurityGroups > 0 || count.VMs > 0 ||
 				count.KeyPairs > 0 || count.Disks > 0 || count.NetworkLoadBalancers > 0 ||
 				count.PublicIPs > 0 || count.NICs > 0 || count.Clusters > 0 || count.MyImages > 0 ||
-				count.S3Buckets > 0 || count.RDBMSInstances > 0 {
+				count.S3Buckets > 0 || count.RDBMSInstances > 0 || count.DNSZones > 0 {
 				nonEmptyCounts = append(nonEmptyCounts, count)
 			}
 		}
@@ -89,7 +90,7 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 	counts.RegionName = config.RegionName
 
 	baseURL := spiderBaseURL() + "/spider"
-	resources := []string{"vpc", "subnet", "securitygroup", "vm", "keypair", "disk", "nlb", "publicip", "nic", "cluster", "myimage", "s3", "rdbms"}
+	resources := []string{"vpc", "subnet", "securitygroup", "vm", "keypair", "disk", "nlb", "publicip", "nic", "cluster", "myimage", "s3", "rdbms", "dnszone"}
 
 	for _, resource := range resources {
 		url := fmt.Sprintf("%s/count%s/%s", baseURL, resource, config.ConfigName)
@@ -137,6 +138,8 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 			counts.S3Buckets = response.Count
 		case "rdbms":
 			counts.RDBMSInstances = response.Count
+		case "dnszone":
+			counts.DNSZones = response.Count
 		}
 	}
 	countsChan <- struct {

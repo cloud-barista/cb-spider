@@ -42,6 +42,7 @@ type OpenStackCloudConnection struct {
 	SharedFileSystemClient *gophercloud.ServiceClient
 	IdentityClient         *gophercloud.ServiceClient
 	DBClient               *gophercloud.ServiceClient
+	DNSClient              *gophercloud.ServiceClient
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -243,6 +244,21 @@ func (cloudConn *OpenStackCloudConnection) CreateDBSpecHandler() (irs.DBSpecHand
 		ComputeClient:  cloudConn.ComputeClient,
 	}
 	return &handler, nil
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("OpenStack Driver: called CreateDNSHandler()!")
+
+	if cloudConn.DNSClient == nil {
+		return nil, errors.New("this OpenStack does not provide DNS(Designate) service. Please check if Designate is installed")
+	}
+
+	dnsHandler := osrs.OpenStackDNSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		DNSClient:      cloudConn.DNSClient,
+	}
+	return &dnsHandler, nil
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateNICHandler() (irs.NICHandler, error) {

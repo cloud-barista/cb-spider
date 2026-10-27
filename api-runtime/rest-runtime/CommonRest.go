@@ -41,6 +41,8 @@ const (
 	RDBMS     string = string(cres.RDBMS)
 	PUBLICIP  string = string(cres.PUBLICIP)
 	NIC       string = string(cres.NIC)
+	DNS       string = string(cres.DNS)
+	DNSRECORD string = string(cres.DNSRECORD)
 )
 
 //================ Common Request & Response

@@ -26,6 +26,7 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	dnspod "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod/v20210323"
 	tag "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 
@@ -75,6 +76,8 @@ func (TencentDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMariaDBHandler = false    // not implemented: Tencent CDB API rejects mariadb
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // not implemented
 	drvCapabilityInfo.PublicIPHandler = true
+
+	drvCapabilityInfo.DNSHandler = true
 
 	return drvCapabilityInfo
 }
@@ -273,6 +276,38 @@ func getFileSystemClient(connectionInfo idrv.ConnectionInfo) (*cfs.Client, error
 	return client, nil
 }
 
+// getDNSPodClient builds a client for Tencent's DNSPod (Public Authoritative
+// DNS) product. DNSPod is a global, non-regional product (like Tag), so no
+// Region is passed to NewClient.
+//
+// Tencent exposes DNSPod on two separate API domains with two separate
+// "line"(ISP routing) naming schemes: the mainland-China endpoint
+// (dnspod.tencentcloudapi.com, Chinese line names such as "默认") and the
+// international endpoint(dnspod.intl.tencentcloudapi.com, English line names
+// such as "Default"). CB-Spider targets international use, so this driver
+// talks to the international endpoint; TencentDNSHandler's defaultRecordLine
+// constant must stay in sync with whichever endpoint is used here.
+func getDNSPodClient(connectionInfo idrv.ConnectionInfo) (*dnspod.Client, error) {
+	cblogger.Debug("TencentDriver : getDNSPodClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+
+	credential := common.NewCredential(
+		connectionInfo.CredentialInfo.ClientId,
+		connectionInfo.CredentialInfo.ClientSecret,
+	)
+
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "dnspod.intl.tencentcloudapi.com"
+	cpf.Language = "en-US"
+	client, err := dnspod.NewClient(credential, "", cpf)
+	if err != nil {
+		cblogger.Error("Could not create New Session")
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return client, nil
+}
+
 func getCDBClient(connectionInfo idrv.ConnectionInfo) (*cdb.Client, error) {
 	cblogger.Debug("TencentDriver : getCDBClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
@@ -370,6 +405,12 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	dnspodClient, err := getDNSPodClient(connectionInfo)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
 	iConn := tcon.TencentCloudConnection{
 		CredentialInfo:   connectionInfo.CredentialInfo,
 		Region:           connectionInfo.RegionInfo,
@@ -387,6 +428,7 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		ClusterClient:    clusterClient,
 		FileSystemClient: fileSystemClient,
 		CDBClient:        cdbClient,
+		DNSPodClient:     dnspodClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)

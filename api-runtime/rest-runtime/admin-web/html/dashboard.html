@@ -421,6 +421,7 @@
                 <th>Clusters</th>
                 <th>S3 Buckets</th>
                 <th>RDBMS</th>
+                <th>DNS Zones</th>
             </tr>
             {{if index $.ResourceCounts $provider}}
                 {{range $count := index $.ResourceCounts $provider}}
@@ -441,11 +442,12 @@
                     <td class="{{if gt $count.Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/cluster/{{$count.ConnectionName}}'); return false;">{{$count.Clusters}}</a></td>
                     <td class="{{if gt $count.S3Buckets 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/s3/{{$count.ConnectionName}}'); return false;">{{$count.S3Buckets}}</a></td>
                     <td class="{{if gt $count.RDBMSInstances 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/rdbms/{{$count.ConnectionName}}'); return false;">{{$count.RDBMSInstances}}</a></td>
+                    <td class="{{if gt $count.DNSZones 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/dns/{{$count.ConnectionName}}'); return false;">{{$count.DNSZones}}</a></td>
                 </tr>
                 {{end}}
             {{else}}
             <tr>
-                <td colspan="14">No connections found for {{$provider}}</td>
+                <td colspan="15">No connections found for {{$provider}}</td>
             </tr>
             {{end}}
         </table>

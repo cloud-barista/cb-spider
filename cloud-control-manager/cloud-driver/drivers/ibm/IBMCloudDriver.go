@@ -82,6 +82,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMariaDBHandler = false
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.DNSHandler = true
 
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER, ires.RDBMS}
@@ -191,7 +192,13 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		SearchService:      searchService,
 		ResourceController: resourceControllerService,
 		CloudDBService:     cloudDBService,
-		Ctx:                ctx,
+		// Authenticator is passed through (rather than a pre-built zonesv1/
+		// dnsrecordsv1 client, unlike the other services above) because CIS's
+		// DNSHandler needs a per-CIS-instance CRN to construct those clients,
+		// which is not available here -- see IbmDNSHandler.go's
+		// getCISInstanceCRN() for details on this known limitation.
+		Authenticator: auth,
+		Ctx:           ctx,
 	}
 	return &iConn, nil
 }

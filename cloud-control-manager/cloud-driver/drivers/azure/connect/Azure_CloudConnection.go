@@ -70,6 +70,7 @@ type AzureCloudConnection struct {
 	ResourceSKUsClient              *armcompute.ResourceSKUsClient
 	TagsClient                      *armresources.TagsClient
 	DnsZoneClient                   *armdns.ZonesClient
+	DnsRecordSetClient              *armdns.RecordSetsClient
 	FileShareClient                 *armstorage.FileSharesClient
 	AccountsClient                  *armstorage.AccountsClient
 	MySQLServersClient              *armmysqlfs.ServersClient
@@ -131,6 +132,17 @@ func (cloudConn *AzureCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandle
 	vNicHandler := azrs.AzureVNicHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.SubnetClient}
 	return &vNicHandler, nil
 }*/
+
+func (cloudConn *AzureCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("Azure Cloud Driver: called CreateDNSHandler()!")
+	dnsHandler := azrs.AzureDNSHandler{
+		Region:          cloudConn.Region,
+		Ctx:             cloudConn.Ctx,
+		Client:          cloudConn.DnsZoneClient,
+		RecordSetClient: cloudConn.DnsRecordSetClient,
+	}
+	return &dnsHandler, nil
+}
 
 func (cloudConn *AzureCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := azrs.AzureNICHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, NicClient: cloudConn.VNicClient, VMClient: cloudConn.VMClient}

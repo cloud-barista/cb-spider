@@ -2450,6 +2450,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/countdnszone": {
+            "get": {
+                "description": "Get the total number of DNS Zones across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Count All DNS Zones",
+                "operationId": "count-all-dnszone",
+                "responses": {
+                    "200": {
+                        "description": "Total count of DNS Zones",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countdnszone/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of DNS Zones for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Count DNS Zones by Connection",
+                "operationId": "count-dnszone-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of DNS Zones for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/countkeypair": {
             "get": {
                 "description": "Get the total number of KeyPairs across all connections.",
@@ -4674,6 +4737,428 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Result of the size increase operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dnszone": {
+            "get": {
+                "description": "Retrieve a list of Public DNS Zones associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "List DNS Zones",
+                "operationId": "list-dnszone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list DNS Zones for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of DNS Zones",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Public Authoritative DNS Zone(Hosted Zone) for the given domain name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Create DNS Zone",
+                "operationId": "create-dnszone",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a DNS Zone",
+                        "name": "DNSZoneCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created DNS Zone",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dnszone/{DNSZoneName}/record": {
+            "post": {
+                "description": "Add a new record(ex: A, CNAME) to an existing Public DNS Zone.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Add DNS Record",
+                "operationId": "add-dnsrecord",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the DNS Zone to add the record to",
+                        "name": "DNSZoneName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for adding a DNS Record",
+                        "name": "DNSRecordAddRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSRecordAddRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the DNS Zone including the added record",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dnszone/{DNSZoneName}/record/{RecordName}": {
+            "put": {
+                "description": "Change the value/TTL of an existing record(by Name) in a Public DNS Zone.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Change DNS Record",
+                "operationId": "change-dnsrecord",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the DNS Zone",
+                        "name": "DNSZoneName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CB-Spider name of the DNS Record to change",
+                        "name": "RecordName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for changing a DNS Record",
+                        "name": "DNSRecordChangeRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSRecordChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the DNS Zone including the changed record",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove an existing record from a Public DNS Zone.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Remove DNS Record",
+                "operationId": "remove-dnsrecord",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the DNS Zone",
+                        "name": "DNSZoneName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CB-Spider name of the DNS Record to remove",
+                        "name": "RecordName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the record. ex) true or false(default: false)",
+                        "name": "force",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Request body for removing a DNS Record",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/dnszone/{Name}": {
+            "get": {
+                "description": "Retrieve a specific Public DNS Zone, including the records CB-Spider manages in it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Get DNS Zone",
+                "operationId": "get-dnszone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the DNS Zone to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the requested DNS Zone",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a Public DNS Zone, including every record CB-Spider or the CSP has in it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Delete DNS Zone",
+                "operationId": "delete-dnszone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the DNS Zone to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the DNS Zone. ex) true or false(default: false)",
+                        "name": "force",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Request body for deleting a DNS Zone",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
                         "schema": {
                             "$ref": "#/definitions/spider.BooleanInfo"
                         }
@@ -8974,6 +9459,119 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The name of the Disk to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regdnszone": {
+            "post": {
+                "description": "Register an existing Public DNS Zone with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Register DNS Zone",
+                "operationId": "register-dnszone",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a DNS Zone",
+                        "name": "DNSZoneRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered DNS Zone",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DNSZoneInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regdnszone/{Name}": {
+            "delete": {
+                "description": "Unregister a DNS Zone with the specified name, without deleting it from the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[DNS Management]"
+                ],
+                "summary": "Unregister DNS Zone",
+                "operationId": "unregister-dnszone",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a DNS Zone",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the DNS Zone to unregister",
                         "name": "Name",
                         "in": "path",
                         "required": true
@@ -14925,6 +15523,125 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.DNSRecordInfo": {
+            "type": "object",
+            "required": [
+                "IId",
+                "Name",
+                "Type",
+                "Value"
+            ],
+            "properties": {
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "www.example.com"
+                },
+                "TTL": {
+                    "type": "integer",
+                    "example": 300
+                },
+                "Type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.DNSRecordType"
+                        }
+                    ],
+                    "example": "A"
+                },
+                "Value": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "203.0.113.10"
+                    ]
+                }
+            }
+        },
+        "spider.DNSRecordType": {
+            "type": "string",
+            "enum": [
+                "A",
+                "AAAA",
+                "CNAME",
+                "MX",
+                "TXT",
+                "NS",
+                "SRV",
+                "CAA"
+            ],
+            "x-enum-varnames": [
+                "DNSRecordTypeA",
+                "DNSRecordTypeAAAA",
+                "DNSRecordTypeCNAME",
+                "DNSRecordTypeMX",
+                "DNSRecordTypeTXT",
+                "DNSRecordTypeNS",
+                "DNSRecordTypeSRV",
+                "DNSRecordTypeCAA"
+            ]
+        },
+        "spider.DNSZoneInfo": {
+            "type": "object",
+            "required": [
+                "DomainName",
+                "IId",
+                "RecordInfoList"
+            ],
+            "properties": {
+                "DomainName": {
+                    "type": "string",
+                    "example": "example.com"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "NameServers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "RecordInfoList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.DNSRecordInfo"
+                    }
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
         "spider.DiskInfo": {
             "type": "object",
             "required": [
@@ -16429,7 +17146,9 @@ const docTemplate = `{
                 "filesystem",
                 "rdbms",
                 "publicip",
-                "nic"
+                "nic",
+                "dns",
+                "dnsrecord"
             ],
             "x-enum-varnames": [
                 "ALL",
@@ -16448,7 +17167,9 @@ const docTemplate = `{
                 "FILESYSTEM",
                 "RDBMS",
                 "PUBLICIP",
-                "NIC"
+                "NIC",
+                "DNS",
+                "DNSRECORD"
             ]
         },
         "spider.RegionInfo": {
@@ -18156,6 +18877,184 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.DNSRecordAddRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Host",
+                        "Name",
+                        "Type",
+                        "Value"
+                    ],
+                    "properties": {
+                        "Host": {
+                            "type": "string",
+                            "example": "www.example.com"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "my-a-record"
+                        },
+                        "TTL": {
+                            "type": "integer",
+                            "example": 300
+                        },
+                        "Type": {
+                            "type": "string",
+                            "example": "A"
+                        },
+                        "Value": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "203.0.113.10"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "spider.DNSRecordChangeRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Host",
+                        "Type",
+                        "Value"
+                    ],
+                    "properties": {
+                        "Host": {
+                            "type": "string",
+                            "example": "www.example.com"
+                        },
+                        "TTL": {
+                            "type": "integer",
+                            "example": 300
+                        },
+                        "Type": {
+                            "type": "string",
+                            "example": "A"
+                        },
+                        "Value": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "203.0.113.20"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "spider.DNSZoneCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "DomainName",
+                        "Name"
+                    ],
+                    "properties": {
+                        "DomainName": {
+                            "type": "string",
+                            "example": "example.com"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "my-zone"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "spider.DNSZoneListResponse": {
+            "type": "object",
+            "required": [
+                "dnszone"
+            ],
+            "properties": {
+                "dnszone": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.DNSZoneInfo"
+                    }
+                }
+            }
+        },
+        "spider.DNSZoneRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "/hostedzone/Z1234567890ABC"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "my-zone"
+                        }
+                    }
+                }
+            }
+        },
         "spider.DiskAttachRequest": {
             "type": "object",
             "required": [
@@ -18346,6 +19245,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "diskHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "dnshandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },

@@ -46,6 +46,7 @@ type NhnCloudConnection struct {
 	FSClient       *nhnsdk.ServiceClient
 	NetworkClient1 *nhnsdk.ServiceClient
 	DBClient       *nhnsdk.ServiceClient
+	DNSClient      *nhnsdk.ServiceClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -195,6 +196,20 @@ func (cloudConn *NhnCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, e
 		DBClient:       cloudConn.DBClient,
 	}
 	return &handler, nil
+}
+
+func (cloudConn *NhnCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("NHN Cloud Driver: called CreateDNSHandler()!")
+
+	if cloudConn.DNSClient == nil {
+		// DNS Plus may not be available in all NHN regions, indicating that
+		// no suitable endpoint was found in the service catalog.
+		return nil, fmt.Errorf("DNSClient is invalid, indicating that no suitable endpoint was found in the service catalog.")
+	}
+
+	dnsHandler := nhnrs.NhnDNSHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, DNSClient: cloudConn.DNSClient}
+
+	return &dnsHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
