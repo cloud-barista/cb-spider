@@ -164,6 +164,22 @@ func createResourceGroup(connectionInfo idrv.ConnectionInfo) error {
 	return nil
 }
 
+// ValidateCredential checks the credential by issuing a token and getting the subscription.
+func (driver *AzureDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	cred, err := getCred(credentialInfo)
+	if err != nil {
+		return err
+	}
+	subscriptionsClient, err := armsubscription.NewSubscriptionsClient(cred, newArmClientOptions())
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	defer cancel()
+	_, err = subscriptionsClient.Get(ctx, credentialInfo.SubscriptionId, nil)
+	return err
+}
+
 func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.

@@ -73,6 +73,19 @@ func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
+// ValidateCredential checks the credential by issuing a Keystone token.
+func (driver *NhnCloudDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	authOpts := nhnsdk.AuthOptions{
+		IdentityEndpoint: credentialInfo.IdentityEndpoint,
+		Username:         credentialInfo.Username,
+		Password:         credentialInfo.Password,
+		DomainName:       credentialInfo.DomainName,
+		TenantID:         credentialInfo.TenantId, // Caution : TenantID spelling for SDK
+	}
+	_, err := ostack.AuthenticatedClient(authOpts)
+	return err
+}
+
 func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.

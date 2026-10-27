@@ -30,6 +30,7 @@ import (
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 
 	tkeprofile "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common/profile"
+	tsts "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/sts/v20180813"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -291,6 +292,23 @@ func getCDBClient(connectionInfo idrv.ConnectionInfo) (*cdb.Client, error) {
 	}
 
 	return client, nil
+}
+
+// ValidateCredential checks the credential with STS GetCallerIdentity (supports permanent keys, no CAM permission required).
+func (driver *TencentDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	credential := common.NewCredential(
+		credentialInfo.ClientId,
+		credentialInfo.ClientSecret,
+	)
+	cpf := tkeprofile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "sts.tencentcloudapi.com"
+	cpf.Language = "en-US"
+	client, err := tsts.NewClient(credential, "ap-guangzhou", cpf)
+	if err != nil {
+		return err
+	}
+	_, err = client.GetCallerIdentity(tsts.NewGetCallerIdentityRequest())
+	return err
 }
 
 func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {

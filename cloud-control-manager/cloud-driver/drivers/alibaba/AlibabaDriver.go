@@ -23,6 +23,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/quotas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/rds"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/sts"
 
 	"time"
 
@@ -86,6 +87,19 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.VPC_CIDR = true
 
 	return drvCapabilityInfo
+}
+
+// ValidateCredential checks the credential with STS GetCallerIdentity (global API, no RAM permission required).
+func (driver *AlibabaDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	client, err := sts.NewClientWithAccessKey("cn-hangzhou", credentialInfo.ClientId, credentialInfo.ClientSecret)
+	if err != nil {
+		return err
+	}
+	request := sts.CreateGetCallerIdentityRequest()
+	request.Scheme = "https"
+	request.Domain = "sts.aliyuncs.com"
+	_, err = client.GetCallerIdentity(request)
+	return err
 }
 
 func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {

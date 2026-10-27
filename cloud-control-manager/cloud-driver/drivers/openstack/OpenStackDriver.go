@@ -76,6 +76,25 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 }
 
 // modifiled by powerkim, 2019.07.29.
+// ValidateCredential checks the credential by issuing a Keystone token.
+func (driver *OpenStackDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	authOpts := gophercloud.AuthOptions{
+		IdentityEndpoint: credentialInfo.IdentityEndpoint,
+		Username:         credentialInfo.Username,
+		Password:         credentialInfo.Password,
+		DomainName:       credentialInfo.DomainName,
+		TenantID:         credentialInfo.ProjectID,
+	}
+	provider, err := openstack.NewClient(authOpts.IdentityEndpoint)
+	if err != nil {
+		return err
+	}
+	provider.HTTPClient = http.Client{
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+	}
+	return openstack.Authenticate(context.Background(), provider, authOpts)
+}
+
 func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.

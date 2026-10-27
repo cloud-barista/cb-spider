@@ -46,6 +46,47 @@ func (OracleDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	}
 }
 
+// OCI has no region-free endpoint and a tenancy can call only its subscribed regions,
+// so the credential is checked on these regions in order until one accepts it.
+var credentialValidateRegions = []string{
+	"us-ashburn-1", "us-phoenix-1", "ap-seoul-1", "ap-chuncheon-1", "ap-tokyo-1", "eu-frankfurt-1",
+}
+
+// ValidateCredential checks the credential by getting the user with the Identity API.
+func (driver *OracleDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	privateKey := normalizePrivateKeyPEM(credentialInfo.ClientSecret)
+
+	var firstErr error
+	for _, region := range credentialValidateRegions {
+		provider := common.NewRawConfigurationProvider(
+			credentialInfo.TenantId,
+			credentialInfo.ClientId,
+			region,
+			credentialInfo.StsToken,
+			privateKey,
+			nil,
+		)
+		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		_, err = identityClient.GetUser(ctx, identity.GetUserRequest{UserId: common.String(credentialInfo.ClientId)})
+		cancel()
+		if err == nil {
+			return nil
+		}
+		// 401 can also mean the region is not subscribed; try the next region
+		if serviceErr, ok := common.IsServiceError(err); !ok || serviceErr.GetHTTPStatusCode() != 401 {
+			return err
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
 func (driver *OracleDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	ors.InitLog()
 	if err := checkConnectionInfo(connectionInfo); err != nil {

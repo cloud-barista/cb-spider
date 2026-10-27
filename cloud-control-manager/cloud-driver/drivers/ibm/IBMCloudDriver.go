@@ -91,6 +91,17 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
+// ValidateCredential checks the ApiKey by requesting an IAM token (global API).
+func (driver *IbmCloudDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	// do not use getIamAuthenticator(): an invalid key must not be cached
+	auth := &core.IamAuthenticator{ApiKey: credentialInfo.ApiKey}
+	if err := auth.Validate(); err != nil {
+		return err
+	}
+	_, err := auth.RequestToken()
+	return err
+}
+
 func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	ibms.InitLog()
 	err := checkConnectionInfo(connectionInfo)

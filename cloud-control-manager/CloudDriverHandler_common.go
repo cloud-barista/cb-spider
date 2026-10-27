@@ -406,30 +406,7 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 	}
 
 	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
-		CredentialInfo: idrv.CredentialInfo{
-			ClientId:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId"),
-			ClientSecret:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret"),
-			StsToken:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "StsToken"),
-			TenantId:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "TenantId"),
-			SubscriptionId:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
-			IdentityEndpoint:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
-			Username:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "Username"),
-			Password:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "Password"),
-			DomainName:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "DomainName"),
-			ProjectID:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ProjectID"),
-			AuthToken:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "AuthToken"),
-			ClientEmail:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail"),
-			PrivateKey:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey"),
-			Host:               KeyValueListGetValue(crdInfo.KeyValueInfoList, "Host"),
-			APIVersion:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			MockName:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "MockName"),
-			ApiKey:             KeyValueListGetValue(crdInfo.KeyValueInfoList, "ApiKey"),
-			ClusterId:          KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
-			RDSUserAccessKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "User Access Key"),
-			RDSSecretAccessKey: KeyValueListGetValue(crdInfo.KeyValueInfoList, "Secret Access Key"),
-			RDSMySQLAppKey:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "mysqlAppKey"),
-			RDSMariaDBAppKey:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "mariadbAppKey"),
-		},
+		CredentialInfo: credentialInfoFromKVList(crdInfo.KeyValueInfoList),
 	}
 
 	// get Provider's Meta Info for default region
@@ -453,6 +430,64 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 	}
 
 	return cldConnection, nil
+}
+
+// credentialInfoFromKVList maps credential key-values (plain text) to the driver's CredentialInfo.
+func credentialInfoFromKVList(kvList []icdrs.KeyValue) idrv.CredentialInfo {
+	return idrv.CredentialInfo{
+		ClientId:           KeyValueListGetValue(kvList, "ClientId"),
+		ClientSecret:       KeyValueListGetValue(kvList, "ClientSecret"),
+		StsToken:           KeyValueListGetValue(kvList, "StsToken"),
+		TenantId:           KeyValueListGetValue(kvList, "TenantId"),
+		SubscriptionId:     KeyValueListGetValue(kvList, "SubscriptionId"),
+		IdentityEndpoint:   KeyValueListGetValue(kvList, "IdentityEndpoint"),
+		Username:           KeyValueListGetValue(kvList, "Username"),
+		Password:           KeyValueListGetValue(kvList, "Password"),
+		DomainName:         KeyValueListGetValue(kvList, "DomainName"),
+		ProjectID:          KeyValueListGetValue(kvList, "ProjectID"),
+		AuthToken:          KeyValueListGetValue(kvList, "AuthToken"),
+		ClientEmail:        KeyValueListGetValue(kvList, "ClientEmail"),
+		PrivateKey:         KeyValueListGetValue(kvList, "PrivateKey"),
+		Host:               KeyValueListGetValue(kvList, "Host"),
+		APIVersion:         KeyValueListGetValue(kvList, "APIVersion"),
+		MockName:           KeyValueListGetValue(kvList, "MockName"),
+		ApiKey:             KeyValueListGetValue(kvList, "ApiKey"),
+		ClusterId:          KeyValueListGetValue(kvList, "ClusterId"),
+		RDSUserAccessKey:   KeyValueListGetValue(kvList, "User Access Key"),
+		RDSSecretAccessKey: KeyValueListGetValue(kvList, "Secret Access Key"),
+		RDSMySQLAppKey:     KeyValueListGetValue(kvList, "mysqlAppKey"),
+		RDSMariaDBAppKey:   KeyValueListGetValue(kvList, "mariadbAppKey"),
+	}
+}
+
+// ValidateCredentialByProvider checks whether the credential key-values (not registered yet)
+// can be authenticated by the CSP, using the driver's ValidateCredential().
+func ValidateCredentialByProvider(providerName string, kvList []icdrs.KeyValue) (err error) {
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
+
+	// use a registered driver of the provider, or the default driver library name
+	cldDrvInfo := dim.CloudDriverInfo{
+		DriverName:        strings.ToLower(providerName) + "-driver-v1.0",
+		ProviderName:      providerName,
+		DriverLibFileName: strings.ToLower(providerName) + "-driver-v1.0.so",
+	}
+	if drvList, listErr := dim.ListCloudDriverByProvider(providerName); listErr == nil && len(drvList) > 0 {
+		cldDrvInfo = *drvList[0]
+	}
+
+	cldDriver, err := getCloudDriver(cldDrvInfo)
+	if err != nil {
+		return err
+	}
+
+	// some drivers may panic with invalid credential formats
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to validate credential: %v", r)
+		}
+	}()
+
+	return cldDriver.ValidateCredential(credentialInfoFromKVList(kvList))
 }
 
 func ListConnectionNameByProviderAndRegion(provider string, region string) ([]string, error) {

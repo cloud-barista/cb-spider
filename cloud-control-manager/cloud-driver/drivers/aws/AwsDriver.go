@@ -375,6 +375,16 @@ func getServiceQuotasClient(connectionInfo idrv.ConnectionInfo) (*servicequotas.
 	return servicequotas.New(sess), nil
 }
 
+// ValidateCredential checks the credential with STS GetCallerIdentity (global API, no IAM permission required).
+func (driver *AwsDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
+	sess, err := newAWSSession(idrv.ConnectionInfo{CredentialInfo: credentialInfo}, "us-east-1")
+	if err != nil {
+		return err
+	}
+	_, err = sts.New(sess).GetCallerIdentity(&sts.GetCallerIdentityInput{})
+	return err
+}
+
 func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
