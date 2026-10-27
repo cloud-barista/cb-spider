@@ -24,6 +24,7 @@ import (
 	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
+	dns "google.golang.org/api/dns/v1"
 	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 )
 
@@ -58,6 +59,7 @@ type GCPCloudConnection struct {
 	CostEstimationClient *cbb.Service
 	FilestoreClient      *filestore.CloudFilestoreManagerClient
 	SQLAdminClient       *sqladmin.Service
+	DNSClient            *dns.Service
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -97,6 +99,17 @@ func (cloudConn *GCPCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 // 	vNicHandler := gcprs.GCPVNicHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VNicClient, cloudConn.Credential}
 // 	return &vNicHandler, nil
 // }
+
+func (cloudConn *GCPCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateDNSHandler()!")
+	dnsHandler := gcprs.GCPDNSHandler{
+		Region:     cloudConn.Region,
+		Ctx:        cloudConn.Ctx,
+		Client:     cloudConn.DNSClient,
+		Credential: cloudConn.Credential,
+	}
+	return &dnsHandler, nil
+}
 
 func (cloudConn *GCPCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := gcprs.GCPNICHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, Credential: cloudConn.Credential}

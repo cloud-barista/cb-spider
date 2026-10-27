@@ -69,6 +69,7 @@ func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // not implemented
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.NICHandler = false
+	drvCapabilityInfo.DNSHandler = true
 
 	return drvCapabilityInfo
 }
@@ -153,6 +154,15 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		}
 	}
 
+	DNSClient, err := getDNSClient(providerClient, connInfo)
+	if err != nil {
+		// DNS Plus(Designate) may not be available in all NHN regions; log and continue
+		var endpointErr *nhnsdk.ErrEndpointNotFound
+		if !errors.As(err, &endpointErr) {
+			return nil, err
+		}
+	}
+
 	iConn := nhncon.NhnCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo, // Note) Need in RegionZoneHandler
 		RegionInfo:     connInfo.RegionInfo,
@@ -163,6 +173,7 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		ClusterClient:  ClusterClient,
 		FSClient:       FSClient,
 		DBClient:       DBClient,
+		DNSClient:      DNSClient,
 	}
 	return &iConn, nil
 }
@@ -243,6 +254,17 @@ func getFSClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.Connection
 
 func getDBClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
 	client, err := ostack.NewDBV1(providerClient, nhnsdk.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client, err
+}
+
+func getDNSClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
+	client, err := ostack.NewDNSV2(providerClient, nhnsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {

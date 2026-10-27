@@ -162,6 +162,10 @@ func (cloudConn *KTCloudVpcConnection) CreateDBSpecHandler() (irs.DBSpecHandler,
 	return nil, fmt.Errorf("KT Cloud VPC Driver does not support DBSpecHandler: KT Cloud DBaaS can only be created and managed through the KT Cloud Console and does not provide a public REST API.")
 }
 
+func (cloudConn *KTCloudVpcConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	return nil, fmt.Errorf("KT Cloud Driver: DNSHandler not supported")
+}
+
 func (cloudConn *KTCloudVpcConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := ktvpcrs.KTVpcNICHandler{RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient, VMClient: cloudConn.VMClient}
 	return &handler, nil

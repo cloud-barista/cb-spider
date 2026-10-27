@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/IBM/cloud-databases-go-sdk/clouddatabasesv5"
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -34,7 +35,12 @@ type IbmCloudConnection struct {
 	SearchService      *globalsearchv2.GlobalSearchV2
 	ResourceController *resourcecontrollerv2.ResourceControllerV2
 	CloudDBService     *clouddatabasesv5.CloudDatabasesV5
-	Ctx                context.Context
+	// Authenticator is threaded through (rather than a pre-built DNS client) so
+	// IbmDNSHandler can lazily construct its zonesv1/dnsrecordsv1 clients once a
+	// CIS instance CRN is available -- see IbmDNSHandler.go's
+	// getCISInstanceCRN() for why that cannot happen here yet.
+	Authenticator core.Authenticator
+	Ctx           context.Context
 }
 
 func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -252,6 +258,17 @@ func (cloudConn *IbmCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, e
 		CloudDBService: cloudConn.CloudDBService,
 	}
 	return &handler, nil
+}
+
+func (cloudConn *IbmCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreateDNSHandler()!")
+	dnsHandler := ibmrs.IbmDNSHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		Authenticator:  cloudConn.Authenticator,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &dnsHandler, nil
 }
 
 func (cloudConn *IbmCloudConnection) CreateNICHandler() (irs.NICHandler, error) {

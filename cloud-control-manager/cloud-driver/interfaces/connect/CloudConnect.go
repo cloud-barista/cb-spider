@@ -49,6 +49,8 @@ type CloudConnection interface {
 
 	CreateNICHandler() (irs.NICHandler, error)
 
+	CreateDNSHandler() (irs.DNSHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }

@@ -34,6 +34,7 @@ import (
 	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
+	dns "google.golang.org/api/dns/v1"
 	"google.golang.org/api/option"
 	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 )
@@ -83,6 +84,8 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.NICHandler = false
+
+	drvCapabilityInfo.DNSHandler = true
 
 	drvCapabilityInfo.VPC_CIDR = false
 
@@ -175,6 +178,14 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		cblog.Warn("Could not create Cloud SQL Admin client: ", err)
 	} else {
 		iConn.SQLAdminClient = sqlAdminClient
+	}
+
+	// Cloud DNS client - initialize after connection struct
+	_, dnsClient, err := getDNSClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		cblog.Warn("Could not create Cloud DNS client: ", err)
+	} else {
+		iConn.DNSClient = dnsClient
 	}
 
 	//cblog.Info("################## resource ConnectionInfo ##################")
@@ -376,6 +387,35 @@ func getFilestoreClient(credential idrv.CredentialInfo) (context.Context, *files
 	}
 
 	return ctx, filestoreClient, nil
+}
+
+// auth scope : ndev.clouddns.readwrite
+func getDNSClient(credential idrv.CredentialInfo) (context.Context, *dns.Service, error) {
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	res, _ := json.Marshal(data)
+	authURL := "https://www.googleapis.com/auth/ndev.clouddns.readwrite"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ctx := context.Background()
+	client := conf.Client(ctx)
+
+	dnsClient, err := dns.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		cblog.Error("dns client create err ", err)
+		return nil, nil, err
+	}
+
+	return ctx, dnsClient, nil
 }
 
 func getSQLAdminClient(credential idrv.CredentialInfo) (*sqladmin.Service, error) {

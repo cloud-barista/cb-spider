@@ -116,6 +116,10 @@ func (cloudConn *OracleConnection) CreateDBSpecHandler() (irs.DBSpecHandler, err
 	return nil, errors.New("Oracle Driver: DBSpecHandler not implemented")
 }
 
+func (cloudConn *OracleConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	return nil, errors.New("Oracle Driver: DNSHandler not supported")
+}
+
 func (cloudConn *OracleConnection) CreateNICHandler() (irs.NICHandler, error) {
 	return nil, errors.New("Oracle Driver: NICHandler not implemented")
 }

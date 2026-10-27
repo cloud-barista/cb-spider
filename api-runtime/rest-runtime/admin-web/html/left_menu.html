@@ -81,6 +81,7 @@
                 s3: "/spider/adminweb/s3",
                 filesystem: "/spider/adminweb/filesystem",
                 rdbms: "/spider/adminweb/rdbms",
+                dns: "/spider/adminweb/dns",
                 topology: "/spider/adminweb/topology"
             };
 
@@ -146,14 +147,15 @@
             'publicip': 'disk',
             'rdbms':    'disk',
             'topology': 'vpc',
-            'filesystem': 'filesystem'
+            'filesystem': 'filesystem',
+            'dns':      'nlb'
         };
         function getIconBase(menu) {
             return menuIconBase[menu] || menu;
         }
 
         function changeSelectedImage(selectedMenu) {
-            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'topology'];
+            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'dns', 'topology'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
                 const menuEl    = imgElement ? imgElement.closest('.menu-item') : null;
@@ -172,7 +174,7 @@
 
         window.addEventListener('message', function(event) {
             if (event.data.type === 'deselectLeftMenu') {
-                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'topology'];
+                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'dns', 'topology'];
                 menus.forEach(menu => {
                     const imgElement = document.getElementById(menu + '-img');
                     const menuEl    = imgElement ? imgElement.closest('.menu-item') : null;
@@ -236,7 +238,11 @@
         <img id="nlb-img" src="./images/left-menu/nlb.png" alt="NLB Icon">
         <div class="menu-text">NLB</div>
     </div>
-    <div class="divider"></div> <!-- Divider after NLB -->
+    <div class="menu-item" onclick="checkConnectionAndRedirect('dns', event)">
+        <img id="dns-img" src="./images/left-menu/nlb.png" alt="DNS Icon">
+        <div class="menu-text">DNS (WIP)</div>
+    </div>
+    <div class="divider"></div> <!-- Divider after NLB/DNS -->
     <div class="menu-item" onclick="checkConnectionAndRedirect('cluster', event)">
         <img id="cluster-img" src="./images/left-menu/cluster.png" alt="Cluster Icon">
         <div class="menu-text">Cluster</div>

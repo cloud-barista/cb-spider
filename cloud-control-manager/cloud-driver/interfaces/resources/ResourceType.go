@@ -37,6 +37,9 @@ const (
 	RDBMS    RSType = "rdbms"
 	PUBLICIP RSType = "publicip"
 	NIC      RSType = "nic"
+
+	DNS       RSType = "dns"
+	DNSRECORD RSType = "dnsrecord"
 )
 
 func RSTypeString(rsType RSType) string {
@@ -73,6 +76,10 @@ func RSTypeString(rsType RSType) string {
 		return "Public IP"
 	case NIC:
 		return "Network Interface Card"
+	case DNS:
+		return "DNS Zone"
+	case DNSRECORD:
+		return "DNS Record"
 	default:
 		return string(rsType) + " is not supported Resource!!"
 
@@ -116,6 +123,10 @@ func StringToRSType(str string) (RSType, error) {
 		return PUBLICIP, nil
 	case "nic":
 		return NIC, nil
+	case "dns":
+		return DNS, nil
+	case "dnsrecord":
+		return DNSRECORD, nil
 	default:
 		return "", fmt.Errorf("%s is not a valid resource type", str)
 	}

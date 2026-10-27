@@ -149,6 +149,10 @@ func (cloudConn *KtCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler, er
 	return nil, fmt.Errorf("KT Classic Cloud Driver: DBSpecHandler not supported")
 }
 
+func (cloudConn *KtCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	return nil, fmt.Errorf("KT Classic Cloud Driver: DNSHandler not supported")
+}
+
 func (cloudConn *KtCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	return nil, fmt.Errorf("KT Classic Cloud Driver: NICHandler not supported")
 }

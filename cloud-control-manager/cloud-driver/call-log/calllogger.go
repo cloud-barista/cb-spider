@@ -75,6 +75,8 @@ const (
 	//=========== PublicIP
 	PUBLICIP RES_TYPE = "PUBLICIP"
 
+	DNSZONE RES_TYPE = "DNS/RECORD"
+
 	//=========== NIC
 	NIC RES_TYPE = "NIC"
 )

@@ -238,6 +238,13 @@ func (cloudConn *NcpVpcCloudConnection) CreateDBSpecHandler() (irs.DBSpecHandler
 	return &handler, nil
 }
 
+func (cloudConn *NcpVpcCloudConnection) CreateDNSHandler() (irs.DNSHandler, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateDNSHandler()!")
+	dnsHandler := ncprs.NcpVpcDNSHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo}
+
+	return &dnsHandler, nil
+}
+
 func (cloudConn *NcpVpcCloudConnection) CreateNICHandler() (irs.NICHandler, error) {
 	handler := ncprs.NcpVpcNICHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VmClient, VpcClient: cloudConn.VpcClient}
 	return &handler, nil

@@ -40,6 +40,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/pricing"
 	"github.com/aws/aws-sdk-go/service/rds"
+	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/servicequotas"
 	"github.com/aws/aws-sdk-go/service/sts"
 	cblogger "github.com/cloud-barista/cb-log"
@@ -84,6 +85,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMariaDBHandler = true
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.DNSHandler = true
 
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER, ires.FILESYSTEM, ires.RDBMS}
@@ -366,6 +368,16 @@ func getRDSClient(connectionInfo idrv.ConnectionInfo) (*rds.RDS, error) {
 	return rds.New(sess), nil
 }
 
+// Route53 is a global(not region-scoped) service; any region works for building the session.
+func getRoute53Client(connectionInfo idrv.ConnectionInfo) (*route53.Route53, error) {
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
+	return route53.New(sess), nil
+}
+
 func getServiceQuotasClient(connectionInfo idrv.ConnectionInfo) (*servicequotas.ServiceQuotas, error) {
 	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
@@ -409,6 +421,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	efsClient, err := getEFSClient(connectionInfo)
 	serviceQuotasClient, err := getServiceQuotasClient(connectionInfo)
 	rdsClient, err := getRDSClient(connectionInfo)
+	route53Client, err := getRoute53Client(connectionInfo)
 	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
 		return nil, err
@@ -452,6 +465,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		FileSystemClient:    efsClient,
 		ServiceQuotasClient: serviceQuotasClient,
 		RDSClient:           rdsClient,
+		Route53Client:       route53Client,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
