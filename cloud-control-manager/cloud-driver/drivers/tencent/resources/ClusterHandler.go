@@ -41,6 +41,12 @@ import (
 const (
 	defaultContainerRuntime = "containerd"
 
+	// defaultNodePoolOs is used when a NodeGroup is requested without an image.
+	// TencentOS Server 4 is TKE's recommended node OS, and the same value as the first
+	// TENCENT k8s entry in cb-tumblebug's assets/cloudimage.csv (as the AWS/GCP/Alibaba
+	// drivers' defaults match their first k8s entries there).
+	defaultNodePoolOs = "tlinux4_x86_64_public"
+
 	// Tencent TKE has no first-class field to attach a Security Group to a cluster,
 	// and ClusterNetworkSettings.SubnetId is only populated for CiliumOverlay/CDC
 	// clusters. Both values are instead persisted as structured cluster Tags so they
@@ -1105,10 +1111,15 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		// 	},
 		// },
 	}
-	if nodeGroupReqInfo.ImageIID.SystemId != "" {
-		// List of registrable image names: https://www.tencentcloud.com/document/product/457/46750
-		request.NodePoolOs = common.StringPtr(nodeGroupReqInfo.ImageIID.SystemId) // ex: "tlinux3.1x86_64"
+	// List of registrable image names: https://www.tencentcloud.com/document/product/457/46750
+	nodePoolOs := nodeGroupReqInfo.ImageIID.SystemId // ex: "tlinux3.1x86_64"
+	if nodePoolOs == "" {
+		// Without NodePoolOs, TKE falls back to "ubuntu16.04.1 LTSx86_64", on which the
+		// kubernetes-proxy pod behind the public endpoint never becomes ready on recent
+		// Kubernetes versions (the endpoint ends up CreateFailed or unreachable).
+		nodePoolOs = defaultNodePoolOs
 	}
+	request.NodePoolOs = common.StringPtr(nodePoolOs)
 	// request.ContainerRuntime = common.StringPtr("docker")
 	// request.RuntimeVersion = common.StringPtr("19.3")
 	// print(request.ToJsonString())
