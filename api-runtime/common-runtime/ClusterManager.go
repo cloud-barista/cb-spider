@@ -942,34 +942,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 		info.NodeGroupList[idx].ImageIID.NameId = ngInfo.ImageIID.SystemId
 
 		// (3) KeyPair
-		var keyIIDInfo KeyIIDInfo
-		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-			var iidInfoList []*KeyIIDInfo
-			err := getAuthIIDInfoList(connectionName, &iidInfoList)
-			if err != nil {
-				cblog.Error(err)
-				return err
-			}
-			// Have to use getMSShortID()
-			// because Azure has different uri of keypair SystemID.
-			// ex) /.../Microsoft.Network/.../ID vs /.../Microsoft.Compute/.../ID
-			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, ngInfo.KeyPairIID.SystemId)
-			if err != nil {
-				cblog.Error(err)
-				return err
-			}
-			keyIIDInfo = *castedIIDInfo.(*KeyIIDInfo)
-		} else {
-			// Have to use getMSShortID()
-			// because Azure has different uri of keypair SystemID.
-			// ex) /.../Microsoft.Network/.../ID vs /.../Microsoft.Compute/.../ID
-			err := infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
-			if err != nil {
-				// cblog.Error(err)
-				// return err
-			}
-		}
-		info.NodeGroupList[idx].KeyPairIID.NameId = keyIIDInfo.NameId
+		info.NodeGroupList[idx].KeyPairIID.NameId = getNodeGroupKeyPairNameId(connectionName, ngInfo.KeyPairIID.SystemId)
 
 		// (4) Set Nodes' NameId to SystemId if NameId is empty
 		for nodeIdx, nodeInfo := range ngInfo.Nodes {
@@ -1750,31 +1723,80 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 	// (2) ImageIID
 	ngInfo.ImageIID.NameId = ngInfo.ImageIID.SystemId
 
-	// (3) Get KeyPair IIDInfo with SystemId
-	var keyIIDInfo KeyIIDInfo
-	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		var iidInfoList []*KeyIIDInfo
-		err := getAuthIIDInfoList(connectionName, &iidInfoList)
-		if err != nil {
-			cblog.Error(err)
-			return cres.NodeGroupInfo{}, err
-		}
-		castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, ngInfo.KeyPairIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return cres.NodeGroupInfo{}, err
-		}
-		keyIIDInfo = *castedIIDInfo.(*KeyIIDInfo)
-	} else {
-		err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return cres.NodeGroupInfo{}, err
-		}
-	}
-	ngInfo.KeyPairIID.NameId = keyIIDInfo.NameId
+	// (3) Get KeyPair NameId with SystemId
+	// The scaling change is already applied, so a KeyPair mapping miss must not fail this call.
+	ngInfo.KeyPairIID.NameId = getNodeGroupKeyPairNameId(connectionName, ngInfo.KeyPairIID.SystemId)
 
 	return ngInfo, nil
+}
+
+// getNodeGroupKeyPairNameId returns the NameId of the node group's KeyPair registered in Spider.
+// It returns "" when the KeyPair cannot be resolved, without failing the caller, as the VM KeyPair
+// mapping does: some CSPs do not expose the KeyPair of a node group (e.g., IBM IKS), and the KeyPair
+// may not be registered in Spider.
+func getNodeGroupKeyPairNameId(connectionName string, keySystemId string) string {
+	if keySystemId == "" {
+		return ""
+	}
+
+	var iidInfoList []*KeyIIDInfo
+	var err error
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+	}
+	if err != nil {
+		cblog.Info(err)
+		return ""
+	}
+
+	// Azure resource IDs are case-insensitive, and Azure APIs return the resource group name
+	// in different cases (e.g., KOREACENTRAL from SSH Public Keys, koreacentral from AKS).
+	ignoreCase := false
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Info(err)
+	} else {
+		ignoreCase = strings.EqualFold(providerName, "AZURE")
+	}
+
+	iidInfo := findKeyIIDInfoBySystemId(iidInfoList, keySystemId, ignoreCase)
+	if iidInfo == nil {
+		cblog.Infof("KeyPair with SystemId '%s' is not registered in connection '%s'. KeyPair NameId will remain empty.", keySystemId, connectionName)
+		return ""
+	}
+	return iidInfo.NameId
+}
+
+// findKeyIIDInfoBySystemId finds the KeyPair whose CSP ID equals keySystemId.
+// The stored SystemId is "<driver NameId>:<CSP ID>". If no CSP ID equals keySystemId,
+// it falls back to a substring match of the stored SystemId.
+func findKeyIIDInfoBySystemId(iidInfoList []*KeyIIDInfo, keySystemId string, ignoreCase bool) *KeyIIDInfo {
+	if keySystemId == "" {
+		return nil
+	}
+
+	normalize := func(s string) string {
+		if ignoreCase {
+			return strings.ToLower(s)
+		}
+		return s
+	}
+	target := normalize(keySystemId)
+
+	for _, iidInfo := range iidInfoList {
+		cspId := getDriverSystemId(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+		if normalize(cspId) == target {
+			return iidInfo
+		}
+	}
+	for _, iidInfo := range iidInfoList {
+		if strings.Contains(normalize(iidInfo.SystemId), target) {
+			return iidInfo
+		}
+	}
+	return nil
 }
 
 func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName string, force string) (bool, error) {
