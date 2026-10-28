@@ -1198,8 +1198,6 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 			if err != nil {
 				return clusterInfo, err
 			}
-			nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // for the test
-
 			nodeGroupList = append(nodeGroupList, nodeGroupInfo)
 		}
 	}
@@ -1303,6 +1301,8 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 		for k, v := range nodePool.Config.Labels {
 			if strings.HasPrefix(k, GCP_PMKS_KEYPAIR_KEY) {
 				keyValueList = append(keyValueList, irs.KeyValue{Key: GCP_PMKS_KEYPAIR_KEY, Value: v})
+				// the label holds the KeyPair SystemId given at node group creation
+				nodeGroupInfo.KeyPairIID = irs.IID{NameId: v, SystemId: v}
 			}
 		}
 	}
@@ -1496,7 +1496,6 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 					nodeList = append(nodeList, nodeIID)
 				}
-				nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // set a default and update it later, since an empty value causes an error
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
 				//cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
