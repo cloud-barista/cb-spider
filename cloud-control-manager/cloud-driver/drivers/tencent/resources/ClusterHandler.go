@@ -16,6 +16,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -195,6 +196,7 @@ func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (
 	}
 	cblogger.Info("DeleteCluster(): ", res)
 	calllogger.Info(call.String(callLogInfo))
+	endpointRetries.reset(clusterHandler.RegionInfo.Region, clusterIID.SystemId)
 
 	return true, nil
 }
@@ -617,6 +619,108 @@ func isClusterNotReadyError(err error) bool {
 		strings.Contains(msg, "KUBE_CLIENT_CONNECTION_ERROR")
 }
 
+const (
+	// maxEndpointRetries bounds how many times a CreateFailed public endpoint is torn
+	// down and re-requested before CB-Spider gives up and only reports the failure.
+	maxEndpointRetries = 3
+)
+
+// endpointRetryBackoff is the minimum wait after the n-th retry (n = attempts made so far)
+// before the next one. The first retry is immediate: by the time Tencent reports
+// CreateFailed (~5 minutes after the request), the worker node is already warmed up.
+var endpointRetryBackoff = []time.Duration{0, 5 * time.Minute, 10 * time.Minute}
+
+type endpointRetryState struct {
+	attempts    int
+	lastRetryAt time.Time
+}
+
+// endpointRetryTracker keeps per-cluster retry state for failed public endpoints.
+// It is in-memory only: a CB-Spider restart simply grants a fresh retry budget.
+type endpointRetryTracker struct {
+	mu     sync.Mutex
+	states map[string]*endpointRetryState
+}
+
+var endpointRetries = &endpointRetryTracker{states: map[string]*endpointRetryState{}}
+
+func (t *endpointRetryTracker) key(region_id, cluster_id string) string {
+	return region_id + "/" + cluster_id
+}
+
+func (t *endpointRetryTracker) reset(region_id, cluster_id string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.states, t.key(region_id, cluster_id))
+}
+
+// acquire reports whether a retry may be issued now and, if so, records it.
+// It returns the attempt number (1-based) of the granted retry, or of the last retry made.
+func (t *endpointRetryTracker) acquire(region_id, cluster_id string, now time.Time) (granted bool, attempt int, nextAt time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	k := t.key(region_id, cluster_id)
+	st, ok := t.states[k]
+	if !ok {
+		st = &endpointRetryState{}
+		t.states[k] = st
+	}
+	if st.attempts >= maxEndpointRetries {
+		return false, st.attempts, time.Time{}
+	}
+	nextAt = st.lastRetryAt.Add(endpointRetryBackoff[st.attempts])
+	if st.attempts > 0 && now.Before(nextAt) {
+		return false, st.attempts, nextAt
+	}
+	st.attempts++
+	st.lastRetryAt = now
+	return true, st.attempts, time.Time{}
+}
+
+// release undoes a granted retry whose teardown request did not go through,
+// so the attempt is not counted against the budget.
+func (t *endpointRetryTracker) release(region_id, cluster_id string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if st, ok := t.states[t.key(region_id, cluster_id)]; ok && st.attempts > 0 {
+		st.attempts--
+		st.lastRetryAt = time.Time{}
+	}
+}
+
+// retryFailedClusterEndpoint recovers a public endpoint that Tencent reports as CreateFailed.
+// Tencent never retries on its own (the status stays CreateFailed indefinitely), and a
+// common cause is transient: e.g. "deployment default/kubernetes-proxy not ready" when the
+// proxy pod TKE deploys for the public endpoint misses its readiness window on a freshly
+// joined node. The failed endpoint is deleted so that the next GetCluster()/ListCluster()
+// sees NotFound and re-requests it through the regular path in getClusterAccessInfo().
+// It returns the message to expose as AccessInfo.Endpoint.
+func retryFailedClusterEndpoint(access_key, access_secret, region_id, cluster_id, errMsg string) string {
+	granted, attempt, nextAt := endpointRetries.acquire(region_id, cluster_id, time.Now())
+	if !granted {
+		if nextAt.IsZero() {
+			return fmt.Sprintf("Endpoint creation failed after %d retries: %s", attempt, errMsg)
+		}
+		return fmt.Sprintf("Endpoint creation failed: %s (retry %d/%d scheduled after %s)",
+			errMsg, attempt+1, maxEndpointRetries, nextAt.Format(time.RFC3339))
+	}
+
+	cblogger.Warnf("cluster %s: public endpoint creation failed (%s); deleting it to retry (%d/%d)",
+		cluster_id, errMsg, attempt, maxEndpointRetries)
+	_, err := tencent.DeleteClusterEndpoint(access_key, access_secret, region_id, cluster_id)
+	if err != nil {
+		endpointRetries.release(region_id, cluster_id)
+		if strings.Contains(err.Error(), "same type task in execution") {
+			cblogger.Info(cluster_id + err.Error())
+			return "Preparing...."
+		}
+		cblogger.Error(fmt.Errorf("Failed to Delete Cluster Endpoint for retry: %v", err))
+		return fmt.Sprintf("Endpoint creation failed: %s (retry error: %v)", errMsg, err)
+	}
+	return fmt.Sprintf("Preparing.... (retrying endpoint creation %d/%d after failure: %s)",
+		attempt, maxEndpointRetries, errMsg)
+}
+
 func getClusterAccessInfo(access_key string, access_secret string, region_id string, cluster_id string, security_group_id string) (accessInfo irs.AccessInfo, err error) {
 
 	defer func() {
@@ -655,8 +759,10 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 	}
 
 	switch *statusRes.Response.Status {
-	case "NotFound":
-		// No external (public) access endpoint has been requested for this cluster yet.
+	case "NotFound", "Deleted":
+		// No external (public) access endpoint has been requested for this cluster yet,
+		// or it was torn down (e.g. by retryFailedClusterEndpoint(); Tencent then reports
+		// the undocumented "Deleted" status instead of "NotFound").
 		// Request one now, by default, so the cluster becomes externally reachable
 		// without requiring a separate explicit call.
 		_, err := tencent.CreateClusterEndpoint(access_key, access_secret, region_id, cluster_id, security_group_id)
@@ -687,11 +793,12 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		if statusRes.Response.ErrorMsg != nil && *statusRes.Response.ErrorMsg != "" {
 			errMsg = *statusRes.Response.ErrorMsg
 		}
-		accessInfo.Endpoint = fmt.Sprintf("Endpoint creation failed: %s", errMsg)
+		accessInfo.Endpoint = retryFailedClusterEndpoint(access_key, access_secret, region_id, cluster_id, errMsg)
 		return accessInfo, nil
 
 	case "Created":
 		// fall through: only now is the endpoint address (and, after that, the Kubeconfig) obtainable.
+		endpointRetries.reset(region_id, cluster_id)
 
 	default:
 		return accessInfo, nil
