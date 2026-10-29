@@ -369,49 +369,8 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 	}
 	cblogger.Debugf("To Delete Cluster is In Progress.")
 
-	//
-	// Cleanup NAT Gateway if there is no more cluster created by CB-SPIDER
-	//
-	cblogger.Debugf("Check if Cluster Created By CB-SPIDER Exists.")
-
-	exist, err := existNotDeletedClusterWithTagInVpc(ach.CsClient, tea.StringValue(cluster.RegionId), tea.StringValue(cluster.VpcId), tagKeyCbSpiderPmksCluster, tagValueOwned)
-	if err != nil {
-		err := fmt.Errorf("Failed to Delete Cluster: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return false, err
-	}
-	if exist == false {
-		cblogger.Debugf("No More Cluster Created By CB-SPIDER.")
-
-		tagKey = tagKeyCbSpiderPmksCluster
-		tagValue = tagValueOwned
-		ngwsRetained, err := getInternetNatGatewaysWithTagInVpc(ach.VpcClient, regionId, vpcId, tagKey, tagValue)
-		if err != nil {
-			err = fmt.Errorf("Failed to Delete Cluster: %v", err)
-			cblogger.Error(err)
-			LoggingError(hiscallInfo, err)
-			return false, err
-		}
-
-		if len(ngwsRetained) == 0 {
-			allNgws, descErr := aliDescribeInternetNatGatewaysInVpc(ach.VpcClient, regionId, vpcId)
-			if descErr == nil {
-				for _, ngw := range allNgws {
-					if strings.Contains(tea.StringValue(ngw.Description), "cb-spider-k8s-"+vpcId) {
-						ngwsRetained = append(ngwsRetained, ngw)
-					}
-				}
-			}
-		}
-
-		for _, ngw := range ngwsRetained {
-			cleanNatGatewayWithEip(ach.VpcClient, tea.StringValue(cluster.RegionId), tea.StringValue(ngw.NatGatewayId))
-			cblogger.Infof("Internet NAT Gateway(ID=%s) will be deleted.", tea.StringValue(ngw.NatGatewayId))
-		}
-	} else {
-		cblogger.Debugf("Cluster Created By CB-SPIDER Exists.")
-	}
+	// The NAT Gateway created by CreateCluster is a VPC resource that other clusters and VMs can use,
+	// so it is kept here and cleaned up by DeleteVPC.
 
 	LoggingInfo(hiscallInfo, start)
 
@@ -2002,6 +1961,83 @@ func cleanCluster(csClient *cs2015.Client, clusterId string) error {
 	}
 
 	return nil
+}
+
+// getClusterNatGatewaysInVpc returns the Internet NAT Gateways that CreateCluster created in the VPC.
+// They are tagged with tagKeyCbSpiderPmksCluster; older ones are found by their description.
+func getClusterNatGatewaysInVpc(vpcClient *vpc2016.Client, regionId, vpcId string) ([]*vpc2016.DescribeNatGatewaysResponseBodyNatGatewaysNatGateway, error) {
+	ngws, err := getInternetNatGatewaysWithTagInVpc(vpcClient, regionId, vpcId, tagKeyCbSpiderPmksCluster, tagValueOwned)
+	if err != nil {
+		return nil, err
+	}
+	if len(ngws) > 0 {
+		return ngws, nil
+	}
+
+	allNgws, err := aliDescribeInternetNatGatewaysInVpc(vpcClient, regionId, vpcId)
+	if err != nil {
+		return nil, err
+	}
+	for _, ngw := range allNgws {
+		if strings.Contains(tea.StringValue(ngw.Description), "cb-spider-k8s-"+vpcId) {
+			ngws = append(ngws, ngw)
+		}
+	}
+	return ngws, nil
+}
+
+// existNotDeletedClusterInVpc reports whether any ACK cluster in the VPC is not deleted or being deleted.
+func existNotDeletedClusterInVpc(csClient *cs2015.Client, regionId, vpcId string) (bool, error) {
+	clusterList, err := aliDescribeClustersV1(csClient, regionId)
+	if err != nil {
+		return false, err
+	}
+	for _, cluster := range clusterList {
+		if strings.EqualFold(tea.StringValue(cluster.State), "deleting") ||
+			strings.EqualFold(tea.StringValue(cluster.State), "deleted") {
+			continue
+		}
+		if strings.EqualFold(tea.StringValue(cluster.VpcId), vpcId) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// existInstanceInVpc reports whether any ECS instance is in the VPC.
+func existInstanceInVpc(ecsClient *ecs2014.Client, regionId, vpcId string) (bool, error) {
+	response, err := ecsClient.DescribeInstances(&ecs2014.DescribeInstancesRequest{
+		RegionId: tea.String(regionId),
+		VpcId:    tea.String(vpcId),
+		PageSize: tea.Int32(1),
+	})
+	if err != nil {
+		return false, err
+	}
+	return tea.Int32Value(response.Body.TotalCount) > 0, nil
+}
+
+// waitUntilNatGatewaysAreDeleted waits until none of the given NAT Gateways is left in the VPC.
+func waitUntilNatGatewaysAreDeleted(vpcClient *vpc2016.Client, regionId, vpcId string, natGatewayIds []string) error {
+	for i := 0; i < 60; i++ {
+		ngws, err := aliDescribeInternetNatGatewaysInVpc(vpcClient, regionId, vpcId)
+		if err != nil {
+			return err
+		}
+		remaining := 0
+		for _, ngw := range ngws {
+			for _, id := range natGatewayIds {
+				if tea.StringValue(ngw.NatGatewayId) == id {
+					remaining++
+				}
+			}
+		}
+		if remaining == 0 {
+			return nil
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("NAT Gateways(IDs=%v) are not deleted in 5 minutes", natGatewayIds)
 }
 
 func cleanNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, natGatewayId string) error {

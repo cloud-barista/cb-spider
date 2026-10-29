@@ -14,11 +14,16 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	//vpc "github.com/alibabacloud-go/vpc-20160428/v6/client"
 
+	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
+	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
+	"github.com/alibabacloud-go/tea/tea"
+	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -35,6 +40,11 @@ import (
 type AlibabaVPCHandler struct {
 	Region idrv.RegionInfo
 	Client *vpc.Client
+
+	// Used by DeleteVPC to clean up the NAT Gateway that CreateCluster creates in the VPC
+	Vpc2016Client *vpc2016.Client
+	CsClient      *cs2015.Client
+	EcsClient     *ecs2014.Client
 }
 
 func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
@@ -532,6 +542,12 @@ func (VPCHandler *AlibabaVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, errVpcInfo
 	}
 
+	// The NAT Gateway created by CreateCluster occupies a VSwitch, so remove it first
+	errNat := VPCHandler.cleanUpClusterNatGateways(vpcIID.SystemId)
+	if errNat != nil {
+		return false, errNat
+	}
+
 	//=================
 	// Subnet삭제
 	//=================
@@ -784,4 +800,44 @@ func (VPCHandler *AlibabaVPCHandler) ListIID() ([]*irs.IID, error) {
 		request.PageNumber = requests.NewInteger(curPage)
 	}
 	return iidList, nil
+}
+
+// cleanUpClusterNatGateways removes the Internet NAT Gateway and its EIPs that CreateCluster created in the VPC.
+// The NAT Gateway serves every cluster and VM in the VPC, so it is kept while any of them remains.
+// In that case the VPC cannot be deleted anyway, and DeleteVpc returns the dependency error.
+func (VPCHandler *AlibabaVPCHandler) cleanUpClusterNatGateways(vpcId string) error {
+	if VPCHandler.Vpc2016Client == nil || VPCHandler.CsClient == nil || VPCHandler.EcsClient == nil {
+		return nil
+	}
+	regionId := VPCHandler.Region.Region
+
+	ngws, err := getClusterNatGatewaysInVpc(VPCHandler.Vpc2016Client, regionId, vpcId)
+	if err != nil {
+		return fmt.Errorf("failed to get the NAT Gateway created for clusters in VPC(%s): %v", vpcId, err)
+	}
+	if len(ngws) == 0 {
+		return nil
+	}
+
+	existCluster, err := existNotDeletedClusterInVpc(VPCHandler.CsClient, regionId, vpcId)
+	if err != nil {
+		return fmt.Errorf("failed to check clusters in VPC(%s): %v", vpcId, err)
+	}
+	existInstance, err := existInstanceInVpc(VPCHandler.EcsClient, regionId, vpcId)
+	if err != nil {
+		return fmt.Errorf("failed to check instances in VPC(%s): %v", vpcId, err)
+	}
+	if existCluster || existInstance {
+		cblogger.Infof("VPC(%s) still has a cluster or an instance. The NAT Gateway created for clusters is kept.", vpcId)
+		return nil
+	}
+
+	var natGatewayIds []string
+	for _, ngw := range ngws {
+		natGatewayId := tea.StringValue(ngw.NatGatewayId)
+		cleanNatGatewayWithEip(VPCHandler.Vpc2016Client, regionId, natGatewayId)
+		cblogger.Infof("Internet NAT Gateway(ID=%s) created for clusters will be deleted.", natGatewayId)
+		natGatewayIds = append(natGatewayIds, natGatewayId)
+	}
+	return waitUntilNatGatewaysAreDeleted(VPCHandler.Vpc2016Client, regionId, vpcId, natGatewayIds)
 }
