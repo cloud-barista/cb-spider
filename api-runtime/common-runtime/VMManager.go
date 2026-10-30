@@ -585,7 +585,7 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 // (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (6) insert spiderIID
 // (7) create userIID
-func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTransformMode string) (*cres.VMInfo, error) {
+func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTransformMode string, windowsTypeHint ...*bool) (*cres.VMInfo, error) {
 	cblog.Info("call StartVM()")
 
 	if os.Getenv("CALL_COUNT") != "" {
@@ -746,15 +746,19 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		return nil, err
 	}
 
-	// check Winddows GuestOS (cached per connection+image; the result is passed to the driver via WindowsType)
+	// check Windows GuestOS (skip CSP API lookup when caller provides explicit WindowsType hint)
 	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOSCached(connectionName, cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
-	if err != nil {
-		if strings.Contains(err.Error(), "yet!") {
-			cblog.Info(err)
-		} else {
-			cblog.Error(err)
-			return nil, err
+	if len(windowsTypeHint) > 0 && windowsTypeHint[0] != nil {
+		isWindowsOS = *windowsTypeHint[0]
+	} else {
+		isWindowsOS, err = checkImageWindowsOSCached(connectionName, cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
+		if err != nil {
+			if strings.Contains(err.Error(), "yet!") {
+				cblog.Info(err)
+			} else {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 	}
 	reqInfoForDriver.WindowsType = isWindowsOS
