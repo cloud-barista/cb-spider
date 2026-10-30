@@ -13,30 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before create VPC/Subnet: '${VPC_NAME}'"
-if [ "$1" = "nhn" ]; then
-curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/regvpc \
-  -H 'Content-Type: application/json' \
-  -d '{
-        "ConnectionName": "'${CONN_CONFIG}'",
-        "ReqInfo": { 
-          "Name": "'${VPC_NAME}'",
-          "CSPId": "'${VPC_CSP_ID}'"
-        }
-      }' | json_pp
-
-curl -u $SPIDER_USERNAME:$SPIDER_PASSWORD -sX POST http://localhost:1024/spider/regsubnet \
-  -H 'Content-Type: application/json' \
-  -d '{
-        "ConnectionName": "'${CONN_CONFIG}'",
-        "ReqInfo": { 
-          "VpcName": "'${VPC_NAME}'",
-          "Name": "'${SUBNET_NAME}'",
-          "CSPId": "'${SUBNET_CSP_ID}'"
-        }
-      }' | json_pp
-
-else
-    $CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD"  vpc create -d \
+$CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD"  vpc create -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -50,7 +27,6 @@ else
         ]
       }
     }' 2> /dev/null
-fi
 
 echo "============== after create VPC/Subnet: '${VPC_NAME}'"
 
