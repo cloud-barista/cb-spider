@@ -91,7 +91,7 @@ func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZo
 */
 func (cloudConn *AlibabaCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateVPCHandler()!")
-	vpcHandler := alirs.AlibabaVPCHandler{cloudConn.Region, cloudConn.VpcClient}
+	vpcHandler := alirs.AlibabaVPCHandler{Region: cloudConn.Region, Client: cloudConn.VpcClient, Vpc2016Client: cloudConn.Vpc2016Client, CsClient: cloudConn.Cs2015Client, EcsClient: cloudConn.Ecs2014Client}
 	return &vpcHandler, nil
 }
 
