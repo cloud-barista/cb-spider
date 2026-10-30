@@ -700,7 +700,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 			MinNodeSize:     minNodeSize,
 			MaxNodeSize:     maxNodeSize,
 			RootDiskSize:    fmt.Sprintf("%d", ncloud.Int32Value(np.StorageSize)),
-			KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName)},
+			KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName), SystemId: ncloud.StringValue(targetCluster.LoginKeyName)}, // NCP KeyPair SystemId is its name
 			OnAutoScaling:   onAutoScaling,
 			Status:          convertNCPNodePoolStatus(ncloud.StringValue(np.Status)),
 			KeyValueList:    nodeGroupKeyValueList,
@@ -1406,7 +1406,7 @@ func (nvch *NcpVpcClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID 
 		DesiredNodeSize: int(ncloud.Int32Value(targetNodePool.NodeCount)),
 		MinNodeSize:     minNodeSize,
 		MaxNodeSize:     maxNodeSize,
-		KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName)},
+		KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName), SystemId: ncloud.StringValue(targetCluster.LoginKeyName)}, // NCP KeyPair SystemId is its name
 		OnAutoScaling:   onAutoScaling,
 		Status:          convertNCPNodePoolStatus(ncloud.StringValue(targetNodePool.Status)),
 		Nodes:           nodeList,
