@@ -774,6 +774,23 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		}
 	}
 
+	// Check the autoscaler config map before creating the worker pool, so that this failure leaves nothing on IBM
+	if nodeGroupReqInfo.OnAutoScaling {
+		kubeConfigStr, getKubeConfigErr := ic.getKubeConfig(irsCluster.IId.SystemId, resourceGroupId)
+		if getKubeConfigErr != nil {
+			cblogger.Error(getKubeConfigErr)
+			LoggingError(hiscallInfo, getKubeConfigErr)
+			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getKubeConfigErr))
+		}
+		_, getConfigMapErr := ic.getAutoScalerConfigMap(kubeConfigStr)
+		if getConfigMapErr != nil {
+			configMapNotExistErr := errors.New(fmt.Sprintf("Failed to Add Node Group. err = Cannot find Auto Scaler Config Map, Please try after autoscaler addon is deployed (%s)", getConfigMapErr))
+			cblogger.Error(configMapNotExistErr)
+			LoggingError(hiscallInfo, configMapNotExistErr)
+			return irs.NodeGroupInfo{}, configMapNotExistErr
+		}
+	}
+
 	convertedSpecName := convertSpecNameForK8sAPI(nodeGroupReqInfo.VMSpecName)
 
 	addNodeGroupResponse, _, addNodeGroupErr := ic.ClusterService.VpcCreateWorkerPoolWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcCreateWorkerPoolOptions{
@@ -796,6 +813,20 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", addNodeGroupErr))
 	}
 
+	// The worker pool now exists on IBM but not in CB-Spider, so remove it when a later step fails
+	removeNewWorkerPool := func(cause error) error {
+		_, removeErr := ic.ClusterService.RemoveWorkerPoolWithContext(ic.Ctx, &kubernetesserviceapiv1.RemoveWorkerPoolOptions{
+			IdOrName:           core.StringPtr(irsCluster.IId.SystemId),
+			PoolidOrName:       addNodeGroupResponse.WorkerPoolID,
+			XAuthResourceGroup: core.StringPtr(resourceGroupId),
+		})
+		if removeErr != nil {
+			cblogger.Error(removeErr)
+			return errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s (failed to remove worker pool %s: %s)", cause, *addNodeGroupResponse.WorkerPoolID, removeErr))
+		}
+		return errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", cause))
+	}
+
 	newNodeGroup, _, getNewNodeGroupErr := ic.ClusterService.VpcGetWorkerPoolWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetWorkerPoolOptions{
 		Cluster:            core.StringPtr(irsCluster.IId.SystemId),
 		Workerpool:         addNodeGroupResponse.WorkerPoolID,
@@ -805,7 +836,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 	if getNewNodeGroupErr != nil {
 		cblogger.Error(getNewNodeGroupErr)
 		LoggingError(hiscallInfo, getNewNodeGroupErr)
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getNewNodeGroupErr))
+		return irs.NodeGroupInfo{}, removeNewWorkerPool(getNewNodeGroupErr)
 	}
 
 	// Apply Node Group autoscaler options
@@ -817,7 +848,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 		if applyAutoScalerOptionErr != nil {
 			cblogger.Error(applyAutoScalerOptionErr)
 			LoggingError(hiscallInfo, applyAutoScalerOptionErr)
-			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", applyAutoScalerOptionErr))
+			return irs.NodeGroupInfo{}, removeNewWorkerPool(applyAutoScalerOptionErr)
 		}
 		minNodeSize, maxNodeSize = nodeGroupReqInfo.MinNodeSize, nodeGroupReqInfo.MaxNodeSize
 	}
@@ -832,7 +863,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 	if getWorkersErr != nil {
 		cblogger.Error(getWorkersErr)
 		LoggingError(hiscallInfo, getWorkersErr)
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("Failed to Add Node Group. err = %s", getWorkersErr))
+		return irs.NodeGroupInfo{}, removeNewWorkerPool(getWorkersErr)
 	}
 
 	var nodesIID []irs.IID
@@ -1057,7 +1088,7 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 		return irs.NodeGroupInfo{}, nodeGroupNotExistErr
 	}
 
-	if DesiredNodeSize != targetNodeGroup.WorkerCount {
+	if DesiredNodeSize != getIBMWorkerPoolSize(*targetNodeGroup) {
 		err := fmt.Errorf("IBM ChangeNodeGroupScaling cannot change DesiredNodeSize; use the IBM worker-pool resize API")
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -1176,7 +1207,7 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 			SystemId: RetrieveUnableErr,
 		},
 		OnAutoScaling:            newNodeGroupInfo[changedNodeGroupIndex].OnAutoScaling,
-		DesiredNodeSize: targetNodeGroup.WorkerCount,
+		DesiredNodeSize: getIBMWorkerPoolSize(*targetNodeGroup),
 		MinNodeSize:     newNodeGroupInfo[changedNodeGroupIndex].MinNodeSize,
 		MaxNodeSize:     newNodeGroupInfo[changedNodeGroupIndex].MaxNodeSize,
 		Status:          ic.getNodeGroupStatusFromString(targetNodeGroup.Lifecycle.DesiredState),
@@ -1912,7 +1943,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 				SystemId: RetrieveUnableErr,
 			},
 			OnAutoScaling:   false,
-			DesiredNodeSize: element.WorkerCount,
+			DesiredNodeSize: getIBMWorkerPoolSize(element),
 			MinNodeSize:     0,
 			MaxNodeSize:     0,
 			Status:          ic.getNodeGroupStatusFromString(element.Lifecycle.DesiredState),
@@ -2433,6 +2464,20 @@ func (ic *IbmClusterHandler) ensureSubnetPublicGateway(subnetId, vpcId string) e
 
 	cblogger.Infof("Successfully attached public gateway %s to subnet %s", publicGatewayId, subnetId)
 	return nil
+}
+
+// getIBMWorkerPoolSize returns the current target size of a worker pool.
+// With autoscaling on, IBM keeps WorkerCount at the size the pool was created with,
+// and the cluster autoscaler changes the per-zone WorkerCount instead.
+func getIBMWorkerPoolSize(pool kubernetesserviceapiv1.GetWorkerPoolsDetailResponse) int {
+	if !pool.AutoscaleEnabled || len(pool.Zones) == 0 {
+		return pool.WorkerCount
+	}
+	size := 0
+	for _, zone := range pool.Zones {
+		size += zone.WorkerCount
+	}
+	return size
 }
 
 func applyIBMNodeGroupScalingInfo(nodeGroups []irs.NodeGroupInfo, data string) error {
