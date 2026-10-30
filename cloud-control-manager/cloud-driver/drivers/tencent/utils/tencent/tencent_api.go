@@ -356,6 +356,23 @@ func CreateClusterEndpoint(secret_id string, secret_key string, region_id string
 	return response, nil
 }
 
+func DeleteClusterEndpoint(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DeleteClusterEndpointResponse, error) {
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, _ := tke.NewClient(credential, region_id, cpf)
+
+	request := tke.NewDeleteClusterEndpointRequest()
+	request.ClusterId = common.StringPtr(cluster_id)
+	request.IsExtranet = common.BoolPtr(true)
+	response, err := client.DeleteClusterEndpoint(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
 func GetClusterEndpoint(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DescribeClusterEndpointsResponse, error) {
 	credential := common.NewCredential(secret_id, secret_key)
 	cpf := profile.NewClientProfile()
