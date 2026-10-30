@@ -21769,6 +21769,11 @@ const docTemplate = `{
                         "VPCName": {
                             "type": "string",
                             "example": "vpc-01"
+                        },
+                        "WindowsType": {
+                            "description": "Optional hint: true (Windows) or false (Linux). If nil, CB-Spider checks the image OS via CheckWindowsImage().",
+                            "type": "boolean",
+                            "example": false
                         }
                     }
                 }
