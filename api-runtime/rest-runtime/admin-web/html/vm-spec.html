@@ -52,9 +52,33 @@
         text-align: left;
         padding-left: 0.2cm; /* Left padding to create a 0.5cm gap */
     }
+    .th-column-Misc {
+        width: 130px;
+        white-space: nowrap;
+        text-align: center;
+    }
     .column-Misc {
-        width: 25%;
+        width: 130px;
         text-align: left;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+    .misc-content.collapsed {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow: hidden;
+    }
+    #miscToggleBtn {
+        margin-left: 8px;
+        font-size: 11px;
+        font-weight: normal;
+        cursor: pointer;
+        background: none;
+        border: 1px solid #999;
+        border-radius: 3px;
+        padding: 1px 6px;
     }
 
     #searchInputWrapper {
@@ -228,6 +252,16 @@
         document.getElementById("searchInput").value = "";
         searchKeyword();
     }
+
+    var miscExpanded = false;
+    function toggleAllMisc() {
+        miscExpanded = !miscExpanded;
+        var cells = document.getElementsByClassName("misc-content");
+        for (var i = 0; i < cells.length; i++) {
+            cells[i].classList.toggle("collapsed", !miscExpanded);
+        }
+        document.getElementById("miscToggleBtn").textContent = miscExpanded ? "[Collapse]" : "[Expand]";
+    }
 </script>
 </head>
 <body>
@@ -254,7 +288,7 @@
         <th class="column-meminfo">Memory (MiB)</th>
         <th class="column-diskinfo">Disk (GB)</th>
         <th>{{if .AccSupported}}Accelerator (GPU/TPU/NPU){{else}}GPU{{end}}</th>
-        <th class="th-column-Misc">Misc</th>
+        <th class="th-column-Misc">Misc <button id="miscToggleBtn" onclick="toggleAllMisc()">[Expand]</button></th>
     </tr>
     {{range $index, $spec := .VMSpecs}}
     <tr data-acc="{{$spec.Accel.Class}}">
@@ -293,9 +327,11 @@
             {{end}}
         </td>
         <td class="column-Misc">
+            <div class="misc-content collapsed">
             {{range $kv := $spec.KeyValueList}}
                 {{$kv.Key}}: {{$kv.Value}}<br>
             {{end}}
+            </div>
         </td>
     </tr>
     {{end}}
