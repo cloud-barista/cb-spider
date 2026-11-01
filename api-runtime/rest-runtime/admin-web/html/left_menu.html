@@ -136,11 +136,6 @@
             parent.postMessage({ type: 'deselectMainMenu' }, '*');
         }
 
-        function openSysStatsInNewWindow() {
-            // Open SysStats in a new window
-            window.open('/spider/adminweb/sysstats', 'SysStatsWindow', 'width=740,height=1400');            
-        }
-
         // Menus without dedicated icons → map to an existing base icon
         const menuIconBase = {
             'nic':      'disk',

@@ -212,10 +212,6 @@ func getRoutes() []route {
 		{"GET", "/ping", healthCheck},
 		{"GET", "/readyz", healthCheck},
 
-		//----------SystemStatsInfo Handler
-		{"GET", "/sysstats/system", FetchSystemInfo},
-		{"GET", "/sysstats/usage", FetchResourceUsage},
-
 		//----------CloudOS
 		{"GET", "/cloudos", ListCloudOS},
 
@@ -725,8 +721,6 @@ func getRoutes() []route {
 			{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
 
 			{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
-
-			{"GET", "/adminweb/sysstats", aw.SystemStatsInfoPage},
 
 			{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
 			{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
