@@ -4,8 +4,6 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// This is a Cloud Driver Example for PoC Test.
-//
 // by CB-Spider Team, 2025.06.
 
 package resources
