@@ -10,9 +10,13 @@
     .header-container img { margin-right: 10px; height: 28px; }
     .header-container h1 { font-size: 16px; margin: 0; }
     .searchContainer { position: relative; display: flex; align-items: center; padding-left: 0.5cm; }
+    .refresh-button { background: #fff; border: 1px solid #ccc; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+    .refresh-button svg { width: 16px; height: 16px; transition: transform 0.5s ease; }
+    .refresh-button:hover { background: #f0f5ff; border-color: #0645AD; color: #0645AD; }
+    .refresh-button:active svg { transform: rotate(180deg); }
     #searchInput { width: 190px; font-family: Arial, sans-serif; padding-right: 2.5cm; }
     #clearSearch { position: absolute; right: 0.1cm; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; }
-    .fixed-action-buttons { display: flex; align-items: center; }
+    .fixed-action-buttons { display: flex; align-items: center; margin-top: 20px; margin-bottom: 10px; }
     .fixed-action-buttons button { margin-left: 10px; }
     .header-with-progress { display: flex; align-items: center; margin-bottom: 0px; }
     .progress-bar-container { width: 600px; margin-left: 10px; margin-bottom: 0px; margin-top: 10px; height: 22px; background: #f0f5ff; border-radius: 4px; overflow: hidden; display: none; position: relative; z-index: 2000; }
@@ -209,6 +213,12 @@
                 <button id="clearSearch" onclick="clearSearchInput()">X</button>
             </div>
         </div>
+        <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                <polyline points="21 3 21 9 15 9"></polyline>
+            </svg>
+        </button>
     </div>
 
     <div class="content">

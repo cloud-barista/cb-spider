@@ -108,19 +108,17 @@ func DBSpec(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var info struct {
-		ResultList []*cres.DBSpecInfo `json:"dbspec"`
+	// Check for an error response before the success shape: echo.NewHTTPError responses
+	// are {"message": "..."} and have no "dbspec" field, but that's still valid JSON --
+	// unmarshaling it into the success struct below would NOT fail, it would just leave
+	// ResultList nil, which is indistinguishable from a legitimately empty DBSpec list.
+	// So the "message" field must be checked explicitly rather than relying on a JSON
+	// unmarshal error to detect this case.
+	var errBody struct {
+		Message string `json:"message"`
 	}
-	if err := json.Unmarshal(resBody, &info); err != nil {
-		// e.g. the CSP driver does not support DBSpecHandler, or the engine is
-		// not supported: the /dbspec API returns an error body instead of {"dbspec": [...]}.
-		var errBody struct {
-			Message string `json:"message"`
-		}
-		json.Unmarshal(resBody, &errBody)
-		if errBody.Message == "" {
-			errBody.Message = string(resBody)
-		}
+	json.Unmarshal(resBody, &errBody)
+	if errBody.Message != "" {
 		data := struct {
 			ConnConfig    string
 			DBEngine      string
@@ -131,6 +129,27 @@ func DBSpec(c echo.Context) error {
 			ConnConfig:    connConfig,
 			DBEngine:      dbEngine,
 			ErrMessage:    errBody.Message,
+			EngineSupport: engineSupport,
+		}
+		return renderDBSpecTemplate(c, data)
+	}
+
+	var info struct {
+		ResultList []*cres.DBSpecInfo `json:"dbspec"`
+	}
+	if err := json.Unmarshal(resBody, &info); err != nil {
+		// Genuinely malformed/unexpected body (not the {"message": "..."} shape handled
+		// above) -- surface the raw body so it's still visible instead of silently empty.
+		data := struct {
+			ConnConfig    string
+			DBEngine      string
+			ErrMessage    string
+			DBSpecs       []*cres.DBSpecInfo
+			EngineSupport map[string]bool
+		}{
+			ConnConfig:    connConfig,
+			DBEngine:      dbEngine,
+			ErrMessage:    string(resBody),
 			EngineSupport: engineSupport,
 		}
 		return renderDBSpecTemplate(c, data)
