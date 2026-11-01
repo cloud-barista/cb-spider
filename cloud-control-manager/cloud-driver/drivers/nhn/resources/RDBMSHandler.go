@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -442,6 +443,26 @@ func (handler *NhnCloudRDBMSHandler) rdsEndpointForEngine(dbEngine string) func(
 	return handler.rdsEndpoint
 }
 
+// wrapRDSCallError turns a DNS resolution failure against an NHN RDS endpoint into a clearer,
+// actionable error. A plain "no such host" otherwise reads as a CB-Spider bug when it usually
+// means the RDS product -- especially the separate "RDS for MariaDB" service -- isn't offered
+// in this region or hasn't been activated for this account/subscription.
+func wrapRDSCallError(endpoint, region string, err error) error {
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+		if strings.Contains(endpoint, "rds-mariadb") {
+			return fmt.Errorf("NHN Cloud RDS for MariaDB endpoint (%s) could not be resolved. "+
+				"RDS for MariaDB is a separate NHN Cloud product from RDS for MySQL and may not be "+
+				"offered in region '%s', or not yet activated for this account/subscription. Check "+
+				"the NHN Console (RDS for MariaDB) or try a region where it is confirmed available "+
+				"(e.g., kr1): %w", endpoint, region, err)
+		}
+		return fmt.Errorf("NHN Cloud RDS endpoint (%s) could not be resolved. Check that RDS is "+
+			"available and activated in region '%s': %w", endpoint, region, err)
+	}
+	return fmt.Errorf("failed to call NHN Cloud RDS API: %w", err)
+}
+
 // getRDSWithEndpoint sends a GET request to the given NHN RDS endpoint (MySQL or MariaDB).
 func (handler *NhnCloudRDBMSHandler) getRDSWithEndpoint(ctx context.Context, endpointFn func() (string, error), path string, v interface{}) error {
 	endpoint, err := endpointFn()
@@ -459,7 +480,7 @@ func (handler *NhnCloudRDBMSHandler) getRDSWithEndpoint(ctx context.Context, end
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to call NHN Cloud RDS API: %w", err)
+		return wrapRDSCallError(endpoint, handler.RegionInfo.Region, err)
 	}
 	defer resp.Body.Close()
 
@@ -1086,7 +1107,7 @@ func (handler *NhnCloudRDBMSHandler) postRDSWithEndpoint(ctx context.Context, en
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to call NHN Cloud RDS API: %w", err)
+		return wrapRDSCallError(endpoint, handler.RegionInfo.Region, err)
 	}
 	defer resp.Body.Close()
 
@@ -1128,7 +1149,7 @@ func (handler *NhnCloudRDBMSHandler) putRDS(ctx context.Context, path string, bo
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to call NHN Cloud RDS API: %w", err)
+		return wrapRDSCallError(endpoint, handler.RegionInfo.Region, err)
 	}
 	defer resp.Body.Close()
 
@@ -1200,7 +1221,7 @@ func (handler *NhnCloudRDBMSHandler) deleteRDSWithEndpoint(ctx context.Context, 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to call NHN Cloud RDS API: %w", err)
+		return wrapRDSCallError(endpoint, handler.RegionInfo.Region, err)
 	}
 	defer resp.Body.Close()
 
