@@ -1112,14 +1112,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 		// },
 	}
 	// List of registrable image names: https://www.tencentcloud.com/document/product/457/46750
-	nodePoolOs := nodeGroupReqInfo.ImageIID.SystemId // ex: "tlinux3.1x86_64"
-	if nodePoolOs == "" {
-		// Without NodePoolOs, TKE falls back to "ubuntu16.04.1 LTSx86_64", on which the
-		// kubernetes-proxy pod behind the public endpoint never becomes ready on recent
-		// Kubernetes versions (the endpoint ends up CreateFailed or unreachable).
-		nodePoolOs = defaultNodePoolOs
-	}
-	request.NodePoolOs = common.StringPtr(nodePoolOs)
+	request.NodePoolOs = common.StringPtr(resolveNodePoolOs(nodeGroupReqInfo.ImageIID.SystemId)) // ex: "tlinux3.1x86_64"
 	// request.ContainerRuntime = common.StringPtr("docker")
 	// request.RuntimeVersion = common.StringPtr("19.3")
 	// print(request.ToJsonString())
@@ -1137,6 +1130,20 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 // 		CloudOSAPI:   apiName,
 // 	}
 // }
+
+// resolveNodePoolOs returns the TKE NodePoolOs for the requested NodeGroup image.
+// An empty image or "default" (case-insensitive, as in the AWS/GCP drivers) means
+// "no image" and resolves to defaultNodePoolOs. Without NodePoolOs, TKE falls back to
+// "ubuntu16.04.1 LTSx86_64", on which the kubernetes-proxy pod behind the public endpoint
+// never becomes ready on recent Kubernetes versions (the endpoint ends up CreateFailed or
+// unreachable); "default" itself is not a valid NodePoolOs and TKE rejects it.
+func resolveNodePoolOs(imageSystemId string) string {
+	nodePoolOs := strings.TrimSpace(imageSystemId)
+	if nodePoolOs == "" || strings.EqualFold(nodePoolOs, "default") {
+		return defaultNodePoolOs
+	}
+	return nodePoolOs
+}
 
 func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 	if clusterInfo.IId.NameId == "" {
