@@ -375,6 +375,22 @@ func toStrPtr(input string) *string {
 	return &input
 }
 
+// singleOrFirstStr returns *single when it is set. Otherwise it returns the
+// first non-nil value of plural, or "" when neither is set.
+// Azure fills either the singular field (e.g. AddressPrefix) or the plural
+// field (e.g. AddressPrefixes), so readers must not assume the singular one.
+func singleOrFirstStr(single *string, plural []*string) string {
+	if single != nil {
+		return *single
+	}
+	for _, v := range plural {
+		if v != nil {
+			return *v
+		}
+	}
+	return ""
+}
+
 func toInt32Ptr(input int) *int32 {
 	inputInt32 := int32(input)
 
