@@ -38,8 +38,12 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup *armnetwork
 	}
 
 	var securityRuleArr []irs.SecurityRuleInfo
-	for _, sgRule := range securityGroup.Properties.SecurityRules {
-		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+	var sgRules []*armnetwork.SecurityRule
+	if securityGroup.Properties != nil {
+		sgRules = securityGroup.Properties.SecurityRules
+	}
+	for _, sgRule := range sgRules {
+		if isAllowRule(sgRule) {
 			ruleInfo, _ := convertRuleInfoAZToCB(sgRule)
 			securityRuleArr = append(securityRuleArr, ruleInfo)
 		} // else {
@@ -609,34 +613,40 @@ func generateRuleName(direct string) string {
 	return fmt.Sprintf("%s-rules-%s", direct, strconv.FormatInt(rand.Int63n(100000), 10))
 }
 
+func isAllowRule(rule *armnetwork.SecurityRule) bool {
+	return rule != nil && rule.Properties != nil && rule.Properties.Access != nil &&
+		*rule.Properties.Access == armnetwork.SecurityRuleAccessAllow
+}
+
 func convertRuleInfoAZToCB(rawRule *armnetwork.SecurityRule) (irs.SecurityRuleInfo, error) {
-	protocols := convertRuleProtocolAZToCB(fmt.Sprint(*rawRule.Properties.Protocol))
-	fromPort, toPort := convertRulePortRangeAZToCB(*rawRule.Properties.DestinationPortRange, protocols)
-	direction, err := convertRuleDirectionAZToCB(*rawRule.Properties.Direction)
+	if rawRule == nil || rawRule.Properties == nil {
+		return irs.SecurityRuleInfo{}, errors.New("invalid rule: empty properties")
+	}
+	props := rawRule.Properties
+	protocol := ""
+	if props.Protocol != nil {
+		protocol = string(*props.Protocol)
+	}
+	protocols := convertRuleProtocolAZToCB(protocol)
+	portRange := singleOrFirstStr(props.DestinationPortRange, props.DestinationPortRanges)
+	fromPort, toPort := convertRulePortRangeAZToCB(portRange, protocols)
+	var azDirection armnetwork.SecurityRuleDirection
+	if props.Direction != nil {
+		azDirection = *props.Direction
+	}
+	direction, err := convertRuleDirectionAZToCB(azDirection)
 	if err != nil {
 		return irs.SecurityRuleInfo{}, err
 	}
-	cidr := convertRuleCIDRAZToCB(*rawRule.Properties.SourceAddressPrefix)
-	if *rawRule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
-		RuleInfo := irs.SecurityRuleInfo{
-			IPProtocol: protocols,
-			Direction:  direction,
-			CIDR:       cidr,
-			FromPort:   fromPort,
-			ToPort:     toPort,
-		}
-		return RuleInfo, nil
-	} else {
-		RuleInfo := irs.SecurityRuleInfo{
-			IPProtocol: protocols,
-			Direction:  direction,
-			CIDR:       cidr,
-			FromPort:   fromPort,
-			ToPort:     toPort,
-		}
-		return RuleInfo, nil
+	cidr := convertRuleCIDRAZToCB(singleOrFirstStr(props.SourceAddressPrefix, props.SourceAddressPrefixes))
+	RuleInfo := irs.SecurityRuleInfo{
+		IPProtocol: protocols,
+		Direction:  direction,
+		CIDR:       cidr,
+		FromPort:   fromPort,
+		ToPort:     toPort,
 	}
-
+	return RuleInfo, nil
 }
 
 func convertRuleInfoCBToAZ(rule irs.SecurityRuleInfo, priority int) (armnetwork.SecurityRule, error) {
@@ -708,7 +718,7 @@ type securityRuleInfoWithName struct {
 func getRuleInfoWithNames(rawRules []*armnetwork.SecurityRule) (*[]securityRuleInfoWithName, error) {
 	var ruleInfoWithNames []securityRuleInfoWithName
 	for _, sgRule := range rawRules {
-		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+		if isAllowRule(sgRule) {
 			ruleInfo, err := convertRuleInfoAZToCB(sgRule)
 			if err != nil {
 				return nil, err
