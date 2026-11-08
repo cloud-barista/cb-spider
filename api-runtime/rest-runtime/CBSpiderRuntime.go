@@ -49,6 +49,11 @@ var cblog *logrus.Logger
 // AdminWeb enabled flag
 var adminWebEnabled bool
 
+// API mode: "managed" (default, ConnectionName + IID mapping) or "stateless"
+// (inline CSP-native credential/IDs on every call, no MetaDB mapping). The two modes
+// are mutually exclusive: only one route set is ever registered for a running server.
+var apiMode string
+
 // @title CB-Spider REST API
 // @version latest
 // @description **🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [API Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Examples)**
@@ -86,6 +91,9 @@ func init() {
 
 	// Initialize AdminWeb setting
 	initAdminWebSetting()
+
+	// Initialize API mode setting (managed vs stateless)
+	initAPIModeSetting()
 }
 
 // ex) {"POST", "/driver", registerCloudDriver}
@@ -192,8 +200,31 @@ func initAdminWebSetting() {
 	}
 }
 
-// getRoutes returns the routes list based on AdminWeb setting
+// initAPIModeSetting reads SPIDER_API_MODE ("managed" or "stateless") and sets apiMode.
+// Default is "managed" (today's ConnectionName + IID-mapping behavior) when unset.
+func initAPIModeSetting() {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("SPIDER_API_MODE")))
+	switch mode {
+	case "", "managed":
+		apiMode = "managed"
+	case "stateless":
+		apiMode = "stateless"
+	default:
+		cblog.Warnf("Invalid SPIDER_API_MODE setting: %s, defaulting to 'managed'", mode)
+		apiMode = "managed"
+	}
+
+	cblog.Infof("API mode: %s", apiMode)
+}
+
+// getRoutes returns the routes list based on the API mode (managed vs stateless) and,
+// in managed mode, the AdminWeb setting. The two API modes never share a route table:
+// a running server registers exactly one of them.
 func getRoutes() []route {
+	if apiMode == "stateless" {
+		return getStatelessRoutes()
+	}
+
 	routes := []route{
 		//----------root
 		// {"GET", "", aw.SpiderInfo},
@@ -790,6 +821,41 @@ func getRoutes() []route {
 	}
 
 	return routes
+}
+
+// getStatelessRoutes returns the Stateless Mode route set: no ConnectionName-based management APIs
+// (Driver/Credential/Region/ConnectionConfig registration, AdminWeb), only operational
+// endpoints plus the Stateless resource APIs, which take Provider/Credential/Region inline and
+// persist no IID mapping.
+func getStatelessRoutes() []route {
+	return []route{
+		//----------EndpointInfo
+		{"GET", "/endpointinfo", endpointInfo},
+
+		//---------- Server VersionInfo
+		{"GET", "/ver", versionInfo},
+		{"GET", "/version", versionInfo},
+
+		//----------healthcheck
+		{"GET", "/healthcheck", healthCheck},
+		{"GET", "/health", healthCheck},
+		{"GET", "/ping", healthCheck},
+		{"GET", "/readyz", healthCheck},
+
+		//----------CloudOS
+		{"GET", "/cloudos", ListCloudOS},
+
+		//----------CloudDriver CapabilityInfo
+		{"GET", "/driver/capability", GetDriverCapability},
+
+		//----------Stateless VPC/Subnet Handler (no ConnectionName, no IID mapping persisted)
+		{"POST", "/stateless/vpc", StatelessCreateVPC},
+		{"GET", "/stateless/vpc", StatelessListVPC},
+		{"GET", "/stateless/vpc/:SystemId", StatelessGetVPC},
+		{"DELETE", "/stateless/vpc/:SystemId", StatelessDeleteVPC},
+		{"POST", "/stateless/vpc/:SystemId/subnet", StatelessAddSubnet},
+		{"DELETE", "/stateless/vpc/:SystemId/subnet/:SubnetSystemId", StatelessRemoveSubnet},
+	}
 }
 
 func RunServer() {
