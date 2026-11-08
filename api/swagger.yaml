@@ -298,6 +298,110 @@ definitions:
       zone:
         type: string
     type: object
+  github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo:
+    properties:
+      apiKey:
+        description: Ibm
+        type: string
+      apiversion:
+        description: Docker
+        type: string
+      authToken:
+        description: Cloudit Credential
+        type: string
+      cisinstanceCRN:
+        description: '----- DNS Access Info'
+        type: string
+      clientEmail:
+        description: GCP
+        type: string
+      clientId:
+        description: |-
+          @todo TBD
+          key-value pairs
+        type: string
+      clientSecret:
+        description: Azure Credential
+        type: string
+      clusterId:
+        description: Cloudit
+        type: string
+      connectionName:
+        description: MINI
+        type: string
+      domainName:
+        description: OpenStack Credential
+        type: string
+      host:
+        description: Docker
+        type: string
+      identityEndpoint:
+        description: OpenStack Credential
+        type: string
+      mockName:
+        description: Mock
+        type: string
+      password:
+        description: OpenStack Credential
+        type: string
+      privateKey:
+        description: GCP
+        type: string
+      projectID:
+        description: OpenStack Credential
+        type: string
+      rdsmariaDBAppKey:
+        description: RDS MariaDB-specific AppKey (e.g., NHN Cloud RDS for MariaDB;
+          falls back to RDSMySQLAppKey if empty)
+        type: string
+      rdsmySQLAppKey:
+        description: RDS MySQL-specific AppKey (e.g., NHN Cloud RDS for MySQL)
+        type: string
+      rdssecretAccessKey:
+        description: RDS Secret Access Key
+        type: string
+      rdsuserAccessKey:
+        description: '----- RDS Access Info'
+        type: string
+      s3AccessKey:
+        description: S3 Access Key
+        type: string
+      s3Endpoint:
+        description: '----- S3 Access Info'
+        type: string
+      s3RegionRequired:
+        description: S3 Region Required or not
+        type: boolean
+      s3SecretKey:
+        description: S3 Secret Key
+        type: string
+      s3UseSSL:
+        description: Use SSL
+        type: boolean
+      stsToken:
+        description: STS SessionToekn field in AWS, Alibaba
+        type: string
+      subscriptionId:
+        description: Azure Credential
+        type: string
+      tenantId:
+        description: Azure Credential
+        type: string
+      username:
+        description: OpenStack Credential, Ibm
+        type: string
+    type: object
+  github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo:
+    properties:
+      region:
+        description: Azure uses region as ResourceGroup
+        type: string
+      targetZone:
+        description: Used for Zone-Level Control(Ex. DiskHandler)
+        type: string
+      zone:
+        type: string
+    type: object
   spider.AcceleratorInfo:
     properties:
       Count:
@@ -2286,6 +2390,23 @@ definitions:
     - IId
     - IPv4_CIDR
     - SubnetInfoList
+    type: object
+  spider.VPCReqInfo:
+    properties:
+      iid:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      ipv4_CIDR:
+        type: string
+      subnetInfoList:
+        items:
+          $ref: '#/definitions/spider.SubnetInfo'
+        type: array
+      tagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
     type: object
   spider.ZoneInfo:
     properties:
@@ -4763,6 +4884,63 @@ definitions:
         type: string
     required:
     - message
+    type: object
+  spider.StatelessConnectionRequest:
+    properties:
+      CredentialInfo:
+        $ref: '#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo'
+      ProviderName:
+        example: AWS
+        type: string
+      RegionInfo:
+        $ref: '#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo'
+    required:
+    - CredentialInfo
+    - ProviderName
+    - RegionInfo
+    type: object
+  spider.StatelessSubnetAddRequest:
+    properties:
+      CredentialInfo:
+        $ref: '#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo'
+      ProviderName:
+        example: AWS
+        type: string
+      RegionInfo:
+        $ref: '#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo'
+      ReqInfo:
+        $ref: '#/definitions/spider.SubnetInfo'
+    required:
+    - CredentialInfo
+    - ProviderName
+    - RegionInfo
+    - ReqInfo
+    type: object
+  spider.StatelessVPCCreateRequest:
+    properties:
+      CredentialInfo:
+        $ref: '#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo'
+      ProviderName:
+        example: AWS
+        type: string
+      RegionInfo:
+        $ref: '#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo'
+      ReqInfo:
+        $ref: '#/definitions/spider.VPCReqInfo'
+    required:
+    - CredentialInfo
+    - ProviderName
+    - RegionInfo
+    - ReqInfo
+    type: object
+  spider.StatelessVPCListResponse:
+    properties:
+      vpc:
+        items:
+          $ref: '#/definitions/spider.VPCInfo'
+        type: array
+    required:
+    - vpc
     type: object
   spider.StorageDriverEnableRequest:
     properties:
@@ -13985,6 +14163,221 @@ paths:
       summary: List Security Groups in a Specific VPC
       tags:
       - '[SecurityGroup Management]'
+  /stateless/vpc:
+    get:
+      consumes:
+      - application/json
+      description: List every VPC visible to the given Provider/Credential/Region,
+        read directly from the CSP (no MetaDB involved).
+      operationId: stateless-list-vpc
+      parameters:
+      - description: Provider/Credential/Region info
+        in: body
+        name: StatelessConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.StatelessConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of VPCs
+          schema:
+            $ref: '#/definitions/spider.StatelessVPCListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: '[Stateless Mode] List VPCs'
+      tags:
+      - '[Stateless Mode] VPC'
+    post:
+      consumes:
+      - application/json
+      description: Create a VPC directly through the CSP driver using inline Provider/Credential/Region
+        info. No ConnectionName is used and no IID mapping is stored; the returned
+        IId.SystemId is the raw CSP-native resource ID.
+      operationId: stateless-create-vpc
+      parameters:
+      - description: Request body for creating a VPC in Stateless Mode
+        in: body
+        name: StatelessVPCCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.StatelessVPCCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created VPC
+          schema:
+            $ref: '#/definitions/spider.VPCInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: '[Stateless Mode] Create VPC'
+      tags:
+      - '[Stateless Mode] VPC'
+  /stateless/vpc/{SystemId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a VPC by its CSP-native SystemId. No MetaDB cleanup is needed
+        since nothing was stored.
+      operationId: stateless-delete-vpc
+      parameters:
+      - description: The CSP-native SystemId of the VPC
+        in: path
+        name: SystemId
+        required: true
+        type: string
+      - description: Provider/Credential/Region info
+        in: body
+        name: StatelessConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.StatelessConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: '[Stateless Mode] Delete VPC'
+      tags:
+      - '[Stateless Mode] VPC'
+    get:
+      consumes:
+      - application/json
+      description: Get a single VPC by its CSP-native SystemId, read directly from
+        the CSP (no MetaDB involved).
+      operationId: stateless-get-vpc
+      parameters:
+      - description: The CSP-native SystemId of the VPC
+        in: path
+        name: SystemId
+        required: true
+        type: string
+      - description: Provider/Credential/Region info
+        in: body
+        name: StatelessConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.StatelessConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the VPC
+          schema:
+            $ref: '#/definitions/spider.VPCInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: '[Stateless Mode] Get VPC'
+      tags:
+      - '[Stateless Mode] VPC'
+  /stateless/vpc/{SystemId}/subnet:
+    post:
+      consumes:
+      - application/json
+      description: Add a Subnet to an existing VPC, identified by its CSP-native SystemId.
+      operationId: stateless-add-subnet
+      parameters:
+      - description: The CSP-native SystemId of the owning VPC
+        in: path
+        name: SystemId
+        required: true
+        type: string
+      - description: Request body for adding a Subnet in Stateless Mode
+        in: body
+        name: StatelessSubnetAddRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.StatelessSubnetAddRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the VPC including the added Subnet
+          schema:
+            $ref: '#/definitions/spider.VPCInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: '[Stateless Mode] Add Subnet'
+      tags:
+      - '[Stateless Mode] VPC'
+  /stateless/vpc/{SystemId}/subnet/{SubnetSystemId}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a Subnet from a VPC, both identified by their CSP-native
+        SystemId.
+      operationId: stateless-remove-subnet
+      parameters:
+      - description: The CSP-native SystemId of the owning VPC
+        in: path
+        name: SystemId
+        required: true
+        type: string
+      - description: The CSP-native SystemId of the Subnet to remove
+        in: path
+        name: SubnetSystemId
+        required: true
+        type: string
+      - description: Provider/Credential/Region info
+        in: body
+        name: StatelessConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.StatelessConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: '[Stateless Mode] Remove Subnet'
+      tags:
+      - '[Stateless Mode] VPC'
   /tag:
     get:
       consumes:

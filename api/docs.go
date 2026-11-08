@@ -12463,6 +12463,319 @@ const docTemplate = `{
                 }
             }
         },
+        "/stateless/vpc": {
+            "get": {
+                "description": "List every VPC visible to the given Provider/Credential/Region, read directly from the CSP (no MetaDB involved).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Stateless Mode] VPC"
+                ],
+                "summary": "[Stateless Mode] List VPCs",
+                "operationId": "stateless-list-vpc",
+                "parameters": [
+                    {
+                        "description": "Provider/Credential/Region info",
+                        "name": "StatelessConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatelessConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of VPCs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatelessVPCListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a VPC directly through the CSP driver using inline Provider/Credential/Region info. No ConnectionName is used and no IID mapping is stored; the returned IId.SystemId is the raw CSP-native resource ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Stateless Mode] VPC"
+                ],
+                "summary": "[Stateless Mode] Create VPC",
+                "operationId": "stateless-create-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a VPC in Stateless Mode",
+                        "name": "StatelessVPCCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatelessVPCCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VPCInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/stateless/vpc/{SystemId}": {
+            "get": {
+                "description": "Get a single VPC by its CSP-native SystemId, read directly from the CSP (no MetaDB involved).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Stateless Mode] VPC"
+                ],
+                "summary": "[Stateless Mode] Get VPC",
+                "operationId": "stateless-get-vpc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The CSP-native SystemId of the VPC",
+                        "name": "SystemId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Provider/Credential/Region info",
+                        "name": "StatelessConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatelessConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VPCInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a VPC by its CSP-native SystemId. No MetaDB cleanup is needed since nothing was stored.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Stateless Mode] VPC"
+                ],
+                "summary": "[Stateless Mode] Delete VPC",
+                "operationId": "stateless-delete-vpc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The CSP-native SystemId of the VPC",
+                        "name": "SystemId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Provider/Credential/Region info",
+                        "name": "StatelessConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatelessConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/stateless/vpc/{SystemId}/subnet": {
+            "post": {
+                "description": "Add a Subnet to an existing VPC, identified by its CSP-native SystemId.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Stateless Mode] VPC"
+                ],
+                "summary": "[Stateless Mode] Add Subnet",
+                "operationId": "stateless-add-subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The CSP-native SystemId of the owning VPC",
+                        "name": "SystemId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for adding a Subnet in Stateless Mode",
+                        "name": "StatelessSubnetAddRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatelessSubnetAddRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the VPC including the added Subnet",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VPCInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/stateless/vpc/{SystemId}/subnet/{SubnetSystemId}": {
+            "delete": {
+                "description": "Remove a Subnet from a VPC, both identified by their CSP-native SystemId.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Stateless Mode] VPC"
+                ],
+                "summary": "[Stateless Mode] Remove Subnet",
+                "operationId": "stateless-remove-subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The CSP-native SystemId of the owning VPC",
+                        "name": "SystemId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP-native SystemId of the Subnet to remove",
+                        "name": "SubnetSystemId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Provider/Credential/Region info",
+                        "name": "StatelessConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatelessConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/tag": {
             "get": {
                 "description": "Retrieve a list of tags for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER, RDBMS\n※ RDBMS: tagging support (mysql, mariadb, etc.) varies by CSP driver — check GetMetaInfo().SupportsTag before use",
@@ -15003,6 +15316,143 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "specName": {
+                    "type": "string"
+                },
+                "zone": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo": {
+            "type": "object",
+            "properties": {
+                "apiKey": {
+                    "description": "Ibm",
+                    "type": "string"
+                },
+                "apiversion": {
+                    "description": "Docker",
+                    "type": "string"
+                },
+                "authToken": {
+                    "description": "Cloudit Credential",
+                    "type": "string"
+                },
+                "cisinstanceCRN": {
+                    "description": "----- DNS Access Info",
+                    "type": "string"
+                },
+                "clientEmail": {
+                    "description": "GCP",
+                    "type": "string"
+                },
+                "clientId": {
+                    "description": "@todo TBD\nkey-value pairs",
+                    "type": "string"
+                },
+                "clientSecret": {
+                    "description": "Azure Credential",
+                    "type": "string"
+                },
+                "clusterId": {
+                    "description": "Cloudit",
+                    "type": "string"
+                },
+                "connectionName": {
+                    "description": "MINI",
+                    "type": "string"
+                },
+                "domainName": {
+                    "description": "OpenStack Credential",
+                    "type": "string"
+                },
+                "host": {
+                    "description": "Docker",
+                    "type": "string"
+                },
+                "identityEndpoint": {
+                    "description": "OpenStack Credential",
+                    "type": "string"
+                },
+                "mockName": {
+                    "description": "Mock",
+                    "type": "string"
+                },
+                "password": {
+                    "description": "OpenStack Credential",
+                    "type": "string"
+                },
+                "privateKey": {
+                    "description": "GCP",
+                    "type": "string"
+                },
+                "projectID": {
+                    "description": "OpenStack Credential",
+                    "type": "string"
+                },
+                "rdsmariaDBAppKey": {
+                    "description": "RDS MariaDB-specific AppKey (e.g., NHN Cloud RDS for MariaDB; falls back to RDSMySQLAppKey if empty)",
+                    "type": "string"
+                },
+                "rdsmySQLAppKey": {
+                    "description": "RDS MySQL-specific AppKey (e.g., NHN Cloud RDS for MySQL)",
+                    "type": "string"
+                },
+                "rdssecretAccessKey": {
+                    "description": "RDS Secret Access Key",
+                    "type": "string"
+                },
+                "rdsuserAccessKey": {
+                    "description": "----- RDS Access Info",
+                    "type": "string"
+                },
+                "s3AccessKey": {
+                    "description": "S3 Access Key",
+                    "type": "string"
+                },
+                "s3Endpoint": {
+                    "description": "----- S3 Access Info",
+                    "type": "string"
+                },
+                "s3RegionRequired": {
+                    "description": "S3 Region Required or not",
+                    "type": "boolean"
+                },
+                "s3SecretKey": {
+                    "description": "S3 Secret Key",
+                    "type": "string"
+                },
+                "s3UseSSL": {
+                    "description": "Use SSL",
+                    "type": "boolean"
+                },
+                "stsToken": {
+                    "description": "STS SessionToekn field in AWS, Alibaba",
+                    "type": "string"
+                },
+                "subscriptionId": {
+                    "description": "Azure Credential",
+                    "type": "string"
+                },
+                "tenantId": {
+                    "description": "Azure Credential",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "OpenStack Credential, Ibm",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo": {
+            "type": "object",
+            "properties": {
+                "region": {
+                    "description": "Azure uses region as ResourceGroup",
+                    "type": "string"
+                },
+                "targetZone": {
+                    "description": "Used for Zone-Level Control(Ex. DiskHandler)",
                     "type": "string"
                 },
                 "zone": {
@@ -17733,6 +18183,34 @@ const docTemplate = `{
                     }
                 },
                 "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
+        "spider.VPCReqInfo": {
+            "type": "object",
+            "properties": {
+                "iid": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "ipv4_CIDR": {
+                    "type": "string"
+                },
+                "subnetInfoList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.SubnetInfo"
+                    }
+                },
+                "tagList": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/spider.KeyValue"
@@ -21140,6 +21618,88 @@ const docTemplate = `{
                 "message": {
                     "type": "string",
                     "example": "Any message"
+                }
+            }
+        },
+        "spider.StatelessConnectionRequest": {
+            "type": "object",
+            "required": [
+                "CredentialInfo",
+                "ProviderName",
+                "RegionInfo"
+            ],
+            "properties": {
+                "CredentialInfo": {
+                    "$ref": "#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo"
+                },
+                "ProviderName": {
+                    "type": "string",
+                    "example": "AWS"
+                },
+                "RegionInfo": {
+                    "$ref": "#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo"
+                }
+            }
+        },
+        "spider.StatelessSubnetAddRequest": {
+            "type": "object",
+            "required": [
+                "CredentialInfo",
+                "ProviderName",
+                "RegionInfo",
+                "ReqInfo"
+            ],
+            "properties": {
+                "CredentialInfo": {
+                    "$ref": "#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo"
+                },
+                "ProviderName": {
+                    "type": "string",
+                    "example": "AWS"
+                },
+                "RegionInfo": {
+                    "$ref": "#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo"
+                },
+                "ReqInfo": {
+                    "$ref": "#/definitions/spider.SubnetInfo"
+                }
+            }
+        },
+        "spider.StatelessVPCCreateRequest": {
+            "type": "object",
+            "required": [
+                "CredentialInfo",
+                "ProviderName",
+                "RegionInfo",
+                "ReqInfo"
+            ],
+            "properties": {
+                "CredentialInfo": {
+                    "$ref": "#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.CredentialInfo"
+                },
+                "ProviderName": {
+                    "type": "string",
+                    "example": "AWS"
+                },
+                "RegionInfo": {
+                    "$ref": "#/definitions/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces.RegionInfo"
+                },
+                "ReqInfo": {
+                    "$ref": "#/definitions/spider.VPCReqInfo"
+                }
+            }
+        },
+        "spider.StatelessVPCListResponse": {
+            "type": "object",
+            "required": [
+                "vpc"
+            ],
+            "properties": {
+                "vpc": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.VPCInfo"
+                    }
                 }
             }
         },
