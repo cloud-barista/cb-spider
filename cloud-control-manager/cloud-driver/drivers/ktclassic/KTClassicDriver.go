@@ -10,7 +10,6 @@ package ktclassic
 
 import (
 	"errors"
-	"os"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -86,19 +85,19 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, erro
 
 	if len(apiurl) == 0 {
 		cblogger.Error("KT Cloud API URL Not Found!!")
-		os.Exit(1)
+		return nil, errors.New("KT Cloud API URL Not Found")
 	}
 
 	apikey := connectionInfo.CredentialInfo.ClientId
 	if len(apikey) == 0 {
 		cblogger.Error("KT Cloud API Key Not Found!!")
-		os.Exit(1)
+		return nil, errors.New("KT Cloud API Key Not Found")
 	}
 
 	secretkey := connectionInfo.CredentialInfo.ClientSecret
 	if len(secretkey) == 0 {
 		cblogger.Error("KT Cloud Secret Key Not Found!!")
-		os.Exit(1)
+		return nil, errors.New("KT Cloud Secret Key Not Found")
 	}
 
 	// NOTE for just test
@@ -126,19 +125,19 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, err
 
 	if len(apiurl) == 0 {
 		cblogger.Error("KT Cloud API URL Not Found!!")
-		os.Exit(1)
+		return nil, errors.New("KT Cloud API URL Not Found")
 	}
 
 	apikey := connectionInfo.CredentialInfo.ClientId
 	if len(apikey) == 0 {
 		cblogger.Error("KT Cloud API Key Not Found!!")
-		os.Exit(1)
+		return nil, errors.New("KT Cloud API Key Not Found")
 	}
 
 	secretkey := connectionInfo.CredentialInfo.ClientSecret
 	if len(secretkey) == 0 {
 		cblogger.Error("KT Cloud Secret Key Not Found!!")
-		os.Exit(1)
+		return nil, errors.New("KT Cloud Secret Key Not Found")
 	}
 
 	// NOTE for just test
@@ -155,7 +154,6 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, err
 
 // ValidateCredential checks the API key with the ListZones API (KT Cloud has no auth-only API).
 func (driver *KtCloudDriver) ValidateCredential(credentialInfo idrv.CredentialInfo) error {
-	// check here: getVMClient() exits the process with an empty key
 	if credentialInfo.ClientId == "" || credentialInfo.ClientSecret == "" {
 		return errors.New("ClientId and ClientSecret are required")
 	}
