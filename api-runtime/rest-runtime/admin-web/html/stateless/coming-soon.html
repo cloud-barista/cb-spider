@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CB-Spider AdminWeb Tool - {{.ResourceName}} (Stateless Mode)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .wrap {
+            padding: 40px 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            font-size: 1.4em;
+        }
+        p {
+            color: #666;
+        }
+        a.swagger-link {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 10px 20px;
+            background: #b35c00;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        a.swagger-link:hover {
+            background: #8f4900;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>{{.ResourceName}} (Stateless Mode)</h1>
+        <p>A dedicated AdminWeb page for this resource isn't built yet.<br>Use the Swagger UI's "Try it out" to call the Stateless {{.ResourceName}} API directly.</p>
+        <a class="swagger-link" href="/spider/api/index.html" target="_blank">Open Swagger UI</a>
+    </div>
+</body>
+</html>
