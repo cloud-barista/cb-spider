@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CB-Spider AdminWeb Tool - Stateless Mode</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        header {
+            background-color: #b35c00;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        h2 {
+            margin: 0;
+            font-size: 1.3em;
+            margin-top: 10px;
+            color: #ffe0b2;
+        }
+        main {
+            padding: 20px;
+        }
+        section {
+            margin-bottom: 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h3 {
+            color: #333;
+            font-size: 1.2em;
+            margin-top: 0;
+        }
+        ol, ul {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 1em;
+        }
+        li {
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        a.swagger-link {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 8px 16px;
+            background: #b35c00;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        a.swagger-link:hover {
+            background: #8f4900;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CB-Spider AdminWeb Tool</h1>
+        <h2>Stateless Mode</h2>
+    </header>
+    <main>
+        <section>
+            <h3>What's different in Stateless Mode</h3>
+            <ul>
+                <li>No ConnectionName is registered or selected. Every call supplies <code>ProviderName</code> + CSP-native <code>CredentialInfo</code>/<code>RegionInfo</code> inline.</li>
+                <li>No IID mapping is persisted to the MetaDB. The <code>SystemId</code> returned is always the raw CSP-native resource ID.</li>
+                <li>This server only ever runs one mode at a time; the badge in the top bar shows which one.</li>
+            </ul>
+        </section>
+        <section>
+            <h3>Available now</h3>
+            <ol>
+                <li>VPC/Subnet &mdash; via the left menu (currently points to Swagger UI; a dedicated form is planned).</li>
+            </ol>
+            <p>
+                <a class="swagger-link" href="/spider/api/index.html" target="_blank">Open Swagger UI (Try it out)</a>
+            </p>
+        </section>
+        <section>
+            <h3>Planned</h3>
+            <p>SecurityGroup, VM, and the remaining resource handlers will get their own Stateless-mode pages here over time, following the same pattern as VPC/Subnet.</p>
+        </section>
+    </main>
+</body>
+</html>

@@ -28,6 +28,7 @@ import (
 	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
+	awsl "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/stateless"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
 
 	"github.com/sirupsen/logrus"
@@ -215,6 +216,9 @@ func initAPIModeSetting() {
 	}
 
 	cblog.Infof("API mode: %s", apiMode)
+
+	// Mirror into the admin-web package so AdminWeb can badge the running mode.
+	aw.SetAPIMode(apiMode)
 }
 
 // getRoutes returns the routes list based on the API mode (managed vs stateless) and,
@@ -828,7 +832,7 @@ func getRoutes() []route {
 // endpoints plus the Stateless resource APIs, which take Provider/Credential/Region inline and
 // persist no IID mapping.
 func getStatelessRoutes() []route {
-	return []route{
+	routes := []route{
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
 
@@ -852,10 +856,49 @@ func getStatelessRoutes() []route {
 		{"POST", "/stateless/vpc", StatelessCreateVPC},
 		{"GET", "/stateless/vpc", StatelessListVPC},
 		{"GET", "/stateless/vpc/:SystemId", StatelessGetVPC},
+		// POST aliases of the two reads above, same handlers: browsers' fetch()/XHR either
+		// reject or silently drop a body on GET, but List/Get read Provider/CredentialInfo/
+		// RegionInfo from the body (can't go in the URL - CredentialInfo carries secrets).
+		// curl/Swagger/scripts can keep using GET+body; AdminWeb uses these POST paths.
+		{"POST", "/stateless/vpc/query", StatelessListVPC},
+		{"POST", "/stateless/vpc/:SystemId/query", StatelessGetVPC},
 		{"DELETE", "/stateless/vpc/:SystemId", StatelessDeleteVPC},
 		{"POST", "/stateless/vpc/:SystemId/subnet", StatelessAddSubnet},
 		{"DELETE", "/stateless/vpc/:SystemId/subnet/:SubnetSystemId", StatelessRemoveSubnet},
 	}
+
+	// AdminWeb + Swagger (conditional, mirrors getRoutes()'s managed-mode block). The shell
+	// (main page, login/session, left menu, body frame) is shared code, but LeftMenu/BodyFrame
+	// use Stateless-specific handlers+templates (admin-web/stateless/*) since the managed-mode
+	// ones hard-code a ConnectionName selection flow. Every future Stateless resource page
+	// (SecurityGroup, VM, ...) gets its own route here under /adminweb/stateless/<resource>.
+	if adminWebEnabled {
+		adminWebRoutes := []route{
+			//----------Swagger
+			{"GET", "/api", func(c echo.Context) error {
+				return c.Redirect(http.StatusMovedPermanently, "/spider/api/index.html")
+			}},
+			{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+			{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+
+			//----------AdminWeb shell (shared with managed mode)
+			{"GET", "/adminweb", aw.MainPage},
+			{"GET", "/adminweb/", aw.MainPage},
+			{"GET", "/adminweb/authinfo", aw.AuthInfo},
+			{"POST", "/adminweb/login", aw.Login},
+			{"GET", "/adminweb/logout", aw.Logout},
+
+			//----------AdminWeb shell (Stateless-specific: no ConnectionName selection)
+			{"GET", "/adminweb/left_menu", awsl.LeftMenu},
+			{"GET", "/adminweb/body_frame", awsl.BodyFrame},
+
+			//----------Stateless resource pages
+			{"GET", "/adminweb/stateless/vpc", awsl.VPCManagement},
+		}
+		routes = append(routes, adminWebRoutes...)
+	}
+
+	return routes
 }
 
 func RunServer() {

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VPC/Subnet Management (Stateless Mode)</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        margin: 0;
+        padding: 16px;
+        background: #f5f5f5;
+    }
+    h1 {
+        font-size: 16px;
+        margin: 0 0 4px 0;
+    }
+    .panel {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+    }
+    .panel-title {
+        font-weight: bold;
+        font-size: 13px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .field-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 8px;
+        align-items: flex-end;
+    }
+    .field {
+        display: flex;
+        flex-direction: column;
+        min-width: 160px;
+    }
+    .field label {
+        font-size: 11px;
+        color: #555;
+        margin-bottom: 3px;
+    }
+    .field input, .field select {
+        padding: 5px 7px;
+        font-size: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    button {
+        padding: 6px 14px;
+        font-size: 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        background: #0645AD;
+        color: white;
+    }
+    button:hover { background: #053a8c; }
+    button.secondary {
+        background: #888;
+    }
+    button.secondary:hover { background: #666; }
+    button.danger {
+        background: #c0392b;
+        padding: 4px 10px;
+    }
+    button.danger:hover { background: #962d22; }
+    button.link-btn {
+        background: none;
+        color: #0645AD;
+        padding: 0;
+        font-size: 11px;
+        text-decoration: underline;
+    }
+    .subnet-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 6px;
+        align-items: flex-end;
+    }
+    .subnet-row .field { min-width: 120px; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 6px;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 6px 8px;
+        font-size: 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    th { background: #f2f2f2; }
+    .center-align { text-align: center; }
+    .subnet-list { margin: 0; padding-left: 16px; }
+    .status-line {
+        font-size: 11px;
+        color: #666;
+        margin: 6px 0;
+        min-height: 14px;
+    }
+    .status-line.error { color: #c0392b; }
+    .connected-badge {
+        font-size: 11px;
+        font-weight: bold;
+        color: #1b7a1b;
+    }
+    .empty-row td {
+        text-align: center;
+        color: #888;
+        padding: 16px;
+    }
+    .collapsible-title {
+        cursor: pointer;
+        user-select: none;
+        /* extend to the panel's own padding so the whole header reads as one clickable bar,
+           not just the "Create VPC" text and the far-right "+" as separate targets */
+        margin: -14px -16px 10px -16px;
+        padding: 14px 16px 10px 16px;
+        border-radius: 6px 6px 0 0;
+        transition: background 0.1s;
+    }
+    .collapsible-title:hover {
+        background: #f3f6fc;
+    }
+    .collapse-toggle {
+        font-size: 16px;
+        font-weight: bold;
+        color: #0645AD;
+        width: 18px;
+        text-align: center;
+    }
+    .remove-field-btn {
+        cursor: pointer;
+        color: #c0392b;
+        font-weight: bold;
+        margin-left: 4px;
+    }
+    .search-clear-btn {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #888;
+        font-size: 15px;
+        font-weight: bold;
+        line-height: 1;
+    }
+    .search-clear-btn:hover { color: #333; }
+    .tab-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 4px;
+        margin-bottom: -1px;
+    }
+    .tab-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        background: #e9ecf2;
+        border: 1px solid #ddd;
+        border-bottom: none;
+        border-radius: 6px 6px 0 0;
+        font-size: 12px;
+        color: #444;
+        cursor: pointer;
+    }
+    .tab-item:hover {
+        background: #f0f2f7;
+    }
+    .tab-item.active {
+        background: white;
+        color: #0645AD;
+        font-weight: bold;
+        border-color: #ddd;
+    }
+    .tab-item.dragging {
+        opacity: 0.4;
+    }
+    .tab-close-btn {
+        color: #888;
+        font-weight: bold;
+        line-height: 1;
+        padding: 0 2px;
+    }
+    .tab-close-btn:hover { color: #c0392b; }
+    .tab-add-btn {
+        padding: 7px 12px;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-bottom: none;
+        border-radius: 6px 6px 0 0;
+        font-size: 14px;
+        font-weight: bold;
+        color: #0645AD;
+        cursor: pointer;
+    }
+    .tab-add-btn:hover { background: #eef1f8; }
+    .spinner-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.4);
+        z-index: 3000;
+        align-items: center;
+        justify-content: center;
+    }
+    .spinner-overlay.active { display: flex; }
+    .spinner {
+        width: 36px;
+        height: 36px;
+        border: 4px solid #ddd;
+        border-top-color: #0645AD;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+</head>
+<body>
+    <h1>VPC/Subnet Management</h1>
+
+    <div id="spinnerOverlay" class="spinner-overlay"><div class="spinner"></div></div>
+
+    <div id="tabBar" class="tab-bar"></div>
+
+    <div class="panel">
+        <div class="panel-title collapsible-title" onclick="toggleConnectionPanel()">
+            <span>Connection <span id="connectionToggleIcon" class="collapse-toggle" style="display:inline-block; margin-left:4px;">+</span></span>
+            <span id="connStatus" class="status-line" onclick="event.stopPropagation()"></span>
+        </div>
+        <div id="connectionBody" style="display:none;">
+            <div class="field-row" id="quickPickRow" style="display:none;">
+                <div class="field" style="min-width:280px;">
+                    <label>Or pick a saved connection</label>
+                    <select id="quickPickSelect" onchange="if (this.value) switchToConnection(this.value); this.value='';">
+                        <option value="">— Select a saved connection —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Provider</label>
+                    <select id="providerSelect" onchange="renderCredentialFields()"></select>
+                </div>
+                <div class="field">
+                    <label>Region</label>
+                    <input type="text" id="regionInput" placeholder="e.g. ap-northeast-2">
+                </div>
+                <div class="field">
+                    <label>Zone</label>
+                    <input type="text" id="zoneInput" placeholder="e.g. ap-northeast-2a" oninput="syncSubnetZonesToConnection()">
+                </div>
+            </div>
+            <div id="credentialFields" class="field-row"></div>
+            <div class="field-row">
+                <button class="link-btn" type="button" onclick="addCustomCredentialField()">+ Add custom credential field</button>
+            </div>
+            <div class="field-row">
+                <button onclick="connectAndList()">Connect &amp; List VPCs</button>
+                <button class="secondary" onclick="clearConnection()">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title collapsible-title" onclick="toggleCreatePanel()">
+            <span>Create VPC</span>
+            <span id="createToggleIcon" class="collapse-toggle">+</span>
+        </div>
+        <div id="createVpcBody" style="display:none;">
+            <div class="field-row">
+                <div class="field">
+                    <label>VPC Name</label>
+                    <input type="text" id="vpcName" value="spider-vpc-01">
+                </div>
+                <div class="field">
+                    <label>VPC IPv4 CIDR</label>
+                    <input type="text" id="vpcCIDR" value="10.0.0.0/16">
+                </div>
+            </div>
+            <div id="subnetRows"></div>
+            <div class="field-row">
+                <button class="link-btn" type="button" onclick="addSubnetRow()">+ Add subnet</button>
+            </div>
+            <div class="field-row">
+                <button onclick="createVPC()">Create VPC</button>
+            </div>
+            <div id="createStatus" class="status-line"></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">
+            <span>VPCs</span>
+            <button class="secondary" onclick="listVPCs()">Refresh</button>
+        </div>
+        <div class="field-row">
+            <div class="field" style="flex:1; min-width:260px; position:relative;">
+                <input type="text" id="vpcSearchInput" placeholder="Search by name, SystemId, CIDR, or subnet..." oninput="filterVPCTable()" style="padding-right:26px;">
+                <span id="vpcSearchClearBtn" class="search-clear-btn" style="display:none;" title="Clear search" onclick="clearVPCSearch()">&times;</span>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:18%" class="center-align">Name</th>
+                    <th style="width:18%" class="center-align">SystemId</th>
+                    <th style="width:12%" class="center-align">CIDR</th>
+                    <th style="width:40%" class="center-align">Subnets</th>
+                    <th style="width:12%" class="center-align">Action</th>
+                </tr>
+            </thead>
+            <tbody id="vpcTableBody">
+                <tr class="empty-row"><td colspan="5">Enter a connection above and click "Connect &amp; List VPCs".</td></tr>
+            </tbody>
+        </table>
+        <div id="listStatus" class="status-line"></div>
+    </div>
+
+<script>
+    // ---- Basic Auth passthrough for /spider/* calls (session cookie covers AdminWeb itself,
+    // but the underlying Spider REST API is protected separately by HTTP Basic Auth) ----
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        options = options || {};
+        if (url.startsWith('/spider/')) {
+            if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+                options.headers = Object.assign({}, options.headers, {
+                    'Authorization': 'Basic ' + btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD)
+                });
+            }
+        }
+        return originalFetch(url, options);
+    };
+
+    // Saved connections (Provider+Region+Zone -> last-used Credential) persist only in this
+    // browser tab's sessionStorage, as a list so the user can switch between several without
+    // retyping credentials. Same Provider/Region/Zone overwrites the previous entry's
+    // credentials (it's a "recently used" list, not distinct named profiles).
+    const HISTORY_KEY = 'statelessVpcConnections';
+    const OPEN_TABS_KEY = 'statelessVpcOpenTabs';
+    const ACTIVE_TAB_KEY = 'statelessVpcActiveTab';
+    let currentLabel = '';
+
+    // Field presets mirror idrv.CredentialInfo's field names exactly - no translation needed
+    // on the server side. Providers not listed here can still be used via the "custom field"
+    // button, which lets the user type any CredentialInfo field name directly.
+    // Covers every provider actually wired into the static driver switch
+    // (cloud-control-manager/CloudDriverHandler_static.go). SCP is deliberately left out -
+    // its case is commented out there, so no driver is compiled in for it yet.
+    const PROVIDER_FIELDS = {
+        AWS:      [{key:'ClientId', label:'Access Key ID'}, {key:'ClientSecret', label:'Secret Access Key', secret:true}, {key:'StsToken', label:'Session Token (optional)', secret:true, optional:true}],
+        AZURE:    [{key:'ClientId', label:'Client ID'}, {key:'ClientSecret', label:'Client Secret', secret:true}, {key:'TenantId', label:'Tenant ID'}, {key:'SubscriptionId', label:'Subscription ID'}],
+        GCP:      [{key:'ClientEmail', label:'Client Email'}, {key:'PrivateKey', label:'Private Key', secret:true}],
+        ALIBABA:  [{key:'ClientId', label:'Access Key ID'}, {key:'ClientSecret', label:'Access Key Secret', secret:true}],
+        TENCENT:  [{key:'ClientId', label:'Secret Id'}, {key:'ClientSecret', label:'Secret Key', secret:true}],
+        IBM:      [{key:'ApiKey', label:'API Key', secret:true}, {key:'Username', label:'Username (optional)', optional:true}],
+        ORACLE:   [{key:'TenantId', label:'Tenancy OCID'}, {key:'ClientId', label:'User OCID'}, {key:'StsToken', label:'Fingerprint', secret:true}, {key:'ClientSecret', label:'Private Key (PEM)', secret:true}, {key:'ProjectID', label:'Compartment OCID'}],
+        OPENSTACK:[{key:'IdentityEndpoint', label:'Identity Endpoint'}, {key:'Username', label:'Username'}, {key:'Password', label:'Password', secret:true}, {key:'DomainName', label:'Domain Name'}, {key:'ProjectID', label:'Project ID'}],
+        NCP:      [{key:'ClientId', label:'Access Key'}, {key:'ClientSecret', label:'Secret Key', secret:true}],
+        NHN:      [{key:'IdentityEndpoint', label:'Identity Endpoint'}, {key:'Username', label:'Username'}, {key:'Password', label:'Password', secret:true}, {key:'DomainName', label:'Domain Name'}, {key:'TenantId', label:'Tenant ID'}],
+        KT:       [{key:'IdentityEndpoint', label:'Identity Endpoint'}, {key:'Username', label:'Username'}, {key:'Password', label:'Password', secret:true}, {key:'DomainName', label:'Domain Name'}, {key:'ProjectID', label:'Project ID (Tenant ID)'}],
+        KTCLASSIC:[{key:'ClientId', label:'API Key'}, {key:'ClientSecret', label:'Secret Key', secret:true}],
+        MOCK:     [{key:'MockName', label:'Mock Name'}]
+    };
+
+    function renderCredentialFields(prefill) {
+        const provider = document.getElementById('providerSelect').value;
+        const container = document.getElementById('credentialFields');
+        container.innerHTML = '';
+        container.dataset.customCount = '0';
+        const fields = PROVIDER_FIELDS[provider] || [];
+        fields.forEach(f => {
+            const div = document.createElement('div');
+            div.className = 'field';
+            div.innerHTML = `<label>${f.label}</label><input type="${f.secret ? 'password' : 'text'}" data-cred-key="${f.key}" autocomplete="off">`;
+            container.appendChild(div);
+        });
+        if (prefill) {
+            Object.keys(prefill).forEach(key => {
+                let input = container.querySelector(`[data-cred-key="${key}"]`);
+                if (!input) {
+                    input = addCustomCredentialField(key);
+                }
+                if (input) input.value = prefill[key];
+            });
+        }
+    }
+
+    function addCustomCredentialField(presetKey) {
+        const container = document.getElementById('credentialFields');
+        const n = (parseInt(container.dataset.customCount || '0') + 1);
+        container.dataset.customCount = String(n);
+        const div = document.createElement('div');
+        div.className = 'field';
+        div.innerHTML = `
+            <label style="display:flex; align-items:center; gap:4px;">
+                <input type="text" placeholder="Field name" class="custom-cred-name" style="font-size:10px; border:none; border-bottom:1px solid #ccc; width:100%; padding:0;" value="${presetKey || ''}">
+                <span class="remove-field-btn" title="Remove this field" onclick="if(confirm('Remove this credential field?')) this.closest('.field').remove()">&times;</span>
+            </label>
+            <input type="password" data-cred-custom="1" autocomplete="off">`;
+        container.appendChild(div);
+        const nameInput = div.querySelector('.custom-cred-name');
+        const valueInput = div.querySelector('[data-cred-custom]');
+        nameInput.addEventListener('input', () => valueInput.setAttribute('data-cred-key', nameInput.value.trim()));
+        if (presetKey) valueInput.setAttribute('data-cred-key', presetKey);
+        return valueInput;
+    }
+
+    function collectCredentialInfo() {
+        const cred = {};
+        document.querySelectorAll('#credentialFields [data-cred-key]').forEach(input => {
+            const key = input.getAttribute('data-cred-key');
+            if (key && input.value) cred[key] = input.value;
+        });
+        return cred;
+    }
+
+    function buildConnectionEnvelope() {
+        return {
+            ProviderName: document.getElementById('providerSelect').value,
+            CredentialInfo: collectCredentialInfo(),
+            RegionInfo: {
+                Region: document.getElementById('regionInput').value,
+                Zone: document.getElementById('zoneInput').value
+            }
+        };
+    }
+
+    function connectionLabel(conn) {
+        const region = conn.RegionInfo.Region || 'no region';
+        const zone = conn.RegionInfo.Zone ? ' / ' + conn.RegionInfo.Zone : '';
+        return `${conn.ProviderName} / ${region}${zone}`;
+    }
+
+    // Two separate lists: HISTORY_KEY holds every connection ever successfully used (kept
+    // for the rest of the browser session regardless of tabs), OPEN_TABS_KEY holds which of
+    // those are currently shown as a tab. Closing a tab only removes it from the latter -
+    // the saved credentials in HISTORY_KEY are untouched, so it can be reopened via "+"
+    // without retyping anything.
+    function loadHistory() {
+        try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) { return []; }
+    }
+
+    function saveHistory(list) {
+        sessionStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    }
+
+    function loadOpenTabs() {
+        try { return JSON.parse(sessionStorage.getItem(OPEN_TABS_KEY) || '[]'); } catch (e) { return []; }
+    }
+
+    function saveOpenTabs(labels) {
+        sessionStorage.setItem(OPEN_TABS_KEY, JSON.stringify(labels));
+    }
+
+    // Called only after a connection has proven to work (a successful List/Create response),
+    // so the tab bar never fills up with typos. An existing saved connection is updated in
+    // place (its credentials and cached VPC list refresh, but its position doesn't change);
+    // only a brand new label is appended. Also ensures it's in the open-tabs list and
+    // remembers which tab was last active, so reloading the page returns to it.
+    function rememberConnection(conn, vpcList) {
+        const label = connectionLabel(conn);
+        const history = loadHistory();
+        const idx = history.findIndex(e => e.label === label);
+        const entry = Object.assign({ label: label }, conn, { vpcList: vpcList });
+        if (idx >= 0) {
+            history[idx] = entry;
+        } else {
+            history.push(entry);
+        }
+        saveHistory(history);
+
+        const openTabs = loadOpenTabs();
+        if (!openTabs.includes(label)) {
+            openTabs.push(label);
+            saveOpenTabs(openTabs);
+        }
+
+        currentLabel = label;
+        sessionStorage.setItem(ACTIVE_TAB_KEY, label);
+        renderTabBar();
+        renderQuickPick();
+    }
+
+    // Renders only the open tabs (not every saved connection - closed ones live on in
+    // "saved connections" and show up in the quick-pick instead). Titled with each
+    // connection's Provider/Region/Zone so it's obvious which CSP/account a tab is on.
+    // Tracks the tab currently being dragged, so a drop elsewhere knows what to reorder.
+    let draggedTabLabel = null;
+
+    function renderTabBar() {
+        const history = loadHistory();
+        const openTabs = loadOpenTabs();
+        const bar = document.getElementById('tabBar');
+        bar.innerHTML = '';
+        openTabs.forEach(label => {
+            const entry = history.find(e => e.label === label);
+            if (!entry) return;
+            const tab = document.createElement('div');
+            tab.className = 'tab-item' + (label === currentLabel ? ' active' : '');
+            tab.title = label;
+            tab.draggable = true;
+            tab.onclick = () => switchToConnection(label);
+            tab.innerHTML = `<span>${label}</span><span class="tab-close-btn" title="Close tab">&times;</span>`;
+            const closeBtn = tab.querySelector('.tab-close-btn');
+            closeBtn.draggable = false; // don't let a drag start from the × hit area
+            closeBtn.onclick = (event) => closeTab(label, event);
+
+            // Drag-to-reorder: HTML5 drag/drop. A plain click (no real drag) never fires
+            // dragstart, so the onclick switch-to handler above is unaffected.
+            tab.addEventListener('dragstart', () => {
+                draggedTabLabel = label;
+                tab.classList.add('dragging');
+            });
+            tab.addEventListener('dragend', () => {
+                draggedTabLabel = null;
+                tab.classList.remove('dragging');
+            });
+            tab.addEventListener('dragover', (event) => {
+                event.preventDefault(); // required for drop to fire
+            });
+            tab.addEventListener('drop', (event) => {
+                event.preventDefault();
+                if (draggedTabLabel && draggedTabLabel !== label) {
+                    reorderOpenTabs(draggedTabLabel, label);
+                }
+            });
+
+            bar.appendChild(tab);
+        });
+        const addTab = document.createElement('div');
+        addTab.className = 'tab-add-btn';
+        addTab.title = 'New connection tab';
+        addTab.textContent = '+';
+        addTab.onclick = startNewTab;
+        bar.appendChild(addTab);
+    }
+
+    // Moves draggedLabel to targetLabel's position in the open-tabs order.
+    function reorderOpenTabs(draggedLabel, targetLabel) {
+        const openTabs = loadOpenTabs();
+        const fromIdx = openTabs.indexOf(draggedLabel);
+        const toIdx = openTabs.indexOf(targetLabel);
+        if (fromIdx === -1 || toIdx === -1) return;
+        openTabs.splice(fromIdx, 1);
+        openTabs.splice(toIdx, 0, draggedLabel);
+        saveOpenTabs(openTabs);
+        renderTabBar();
+    }
+
+    // On the blank "+" tab (no active tab yet) this lists every saved connection that isn't
+    // already open as a tab, so reopening one doesn't require retyping credentials just
+    // because its tab was closed - matches the old pre-tabs dropdown's convenience.
+    function renderQuickPick() {
+        const row = document.getElementById('quickPickRow');
+        const select = document.getElementById('quickPickSelect');
+        const openTabs = loadOpenTabs();
+        const closedSaved = loadHistory().filter(e => !openTabs.includes(e.label));
+        if (currentLabel || closedSaved.length === 0) {
+            row.style.display = 'none';
+            return;
+        }
+        select.innerHTML = '<option value="">— Select a saved connection —</option>';
+        closedSaved.forEach(entry => {
+            const opt = document.createElement('option');
+            opt.value = entry.label;
+            opt.textContent = entry.label;
+            select.appendChild(opt);
+        });
+        row.style.display = 'flex';
+    }
+
+    // Loads a saved connection into the form and (re)opens it as a tab if it wasn't already
+    // one. Bound to each tab's click and to the quick-pick dropdown. Shows that connection's
+    // last-loaded VPC list (if any) as-is, without calling the CSP again - switching tabs
+    // (including the back-and-forth of just glancing at one) should be free. The user gets
+    // fresh data with "Connect & List VPCs" / "Refresh" when they actually want it.
+    function switchToConnection(label) {
+        const entry = loadHistory().find(e => e.label === label);
+        if (!entry) return;
+        const openTabs = loadOpenTabs();
+        if (!openTabs.includes(label)) {
+            openTabs.push(label);
+            saveOpenTabs(openTabs);
+        }
+        currentLabel = label;
+        sessionStorage.setItem(ACTIVE_TAB_KEY, label);
+        document.getElementById('providerSelect').value = entry.ProviderName;
+        document.getElementById('regionInput').value = entry.RegionInfo.Region || '';
+        document.getElementById('zoneInput').value = entry.RegionInfo.Zone || '';
+        renderCredentialFields(entry.CredentialInfo || {});
+        syncSubnetZonesToConnection();
+        renderTabBar();
+        renderQuickPick();
+        document.getElementById('vpcSearchInput').value = '';
+        document.getElementById('vpcSearchClearBtn').style.display = 'none';
+        if (entry.vpcList) {
+            lastVpcList = entry.vpcList;
+            setStatus('connStatus', `Connected (${entry.ProviderName} / ${entry.RegionInfo.Region || 'no region'}) · from browser cache`, false);
+            document.getElementById('connStatus').className = 'connected-badge';
+            filterVPCTable();
+        } else {
+            lastVpcList = [];
+            setStatus('connStatus', '', false);
+            document.getElementById('vpcTableBody').innerHTML = '<tr class="empty-row"><td colspan="5">Click "Connect &amp; List VPCs" to load.</td></tr>';
+        }
+    }
+
+    // The "+" tab: blanks the Connection form for a brand new tab (not yet saved - it only
+    // becomes a real tab once a List/Create call succeeds, via rememberConnection()).
+    function startNewTab() {
+        clearConnection();
+    }
+
+    // Keeps every subnet row's Zone in step with the Connection panel's Zone - switching
+    // connections (or just retyping the Zone) previously left stale subnet Zones behind
+    // (e.g. a leftover Alibaba zone after switching to an AWS connection), which the CSP
+    // then rejected as invalid.
+    function syncSubnetZonesToConnection() {
+        const zone = document.getElementById('zoneInput').value || '';
+        document.querySelectorAll('#subnetRows .subnet-zone').forEach(input => {
+            input.value = zone;
+        });
+    }
+
+    // Closes a tab (its × button). Stops the click from also triggering the tab's own
+    // switch-to handler. Closing the active tab falls back to another tab, or a blank one.
+    // Closes a tab (its × button): only removes it from the open-tabs list. The underlying
+    // saved connection (credentials + cached list) stays in history and reappears in the
+    // "+" tab's quick-pick, so closing a tab never means re-entering anything.
+    function closeTab(label, event) {
+        event.stopPropagation();
+        if (!confirm(`Close the "${label}" tab? The saved connection itself is kept - reopen it anytime from the "+" tab.`)) return;
+        const wasActive = (label === currentLabel);
+        const openTabs = loadOpenTabs().filter(l => l !== label);
+        saveOpenTabs(openTabs);
+        if (!wasActive) {
+            renderTabBar();
+            renderQuickPick();
+            return;
+        }
+        currentLabel = '';
+        sessionStorage.removeItem(ACTIVE_TAB_KEY);
+        if (openTabs.length > 0) {
+            switchToConnection(openTabs[openTabs.length - 1]);
+        } else {
+            clearConnection();
+        }
+    }
+
+    // Blanks the form for entering a brand new connection. Does not touch saved history or
+    // open tabs - close a tab's × to remove it from the tab bar (the connection is kept).
+    function clearConnection() {
+        currentLabel = '';
+        sessionStorage.removeItem(ACTIVE_TAB_KEY);
+        document.getElementById('providerSelect').value = 'AWS';
+        document.getElementById('regionInput').value = '';
+        document.getElementById('zoneInput').value = '';
+        renderCredentialFields();
+        syncSubnetZonesToConnection();
+        document.getElementById('connStatus').textContent = '';
+        document.getElementById('vpcSearchInput').value = '';
+        document.getElementById('vpcSearchClearBtn').style.display = 'none';
+        lastVpcList = [];
+        document.getElementById('vpcTableBody').innerHTML = '<tr class="empty-row"><td colspan="5">Enter a connection above and click "Connect &amp; List VPCs".</td></tr>';
+        setConnectionPanelExpanded(true);
+        renderTabBar();
+        renderQuickPick();
+    }
+
+    function toggleCreatePanel() {
+        const body = document.getElementById('createVpcBody');
+        const icon = document.getElementById('createToggleIcon');
+        const expanded = body.style.display !== 'none';
+        body.style.display = expanded ? 'none' : 'block';
+        icon.textContent = expanded ? '+' : '−';
+    }
+
+    function setConnectionPanelExpanded(expanded) {
+        document.getElementById('connectionBody').style.display = expanded ? 'block' : 'none';
+        document.getElementById('connectionToggleIcon').textContent = expanded ? '−' : '+';
+    }
+
+    function toggleConnectionPanel() {
+        const expanded = document.getElementById('connectionBody').style.display !== 'none';
+        setConnectionPanelExpanded(!expanded);
+    }
+
+    function setStatus(elId, message, isError) {
+        const el = document.getElementById(elId);
+        el.textContent = message || '';
+        el.className = 'status-line' + (isError ? ' error' : '');
+    }
+
+    function showSpinner() {
+        document.getElementById('spinnerOverlay').classList.add('active');
+    }
+
+    function hideSpinner() {
+        document.getElementById('spinnerOverlay').classList.remove('active');
+    }
+
+    function apiCall(method, path, body) {
+        // Browsers refuse to send a real body on GET: fetch() throws synchronously, and
+        // XHR silently drops it (per spec, "if method is GET or HEAD, set body to null").
+        // Provider/CredentialInfo/RegionInfo can't move to the URL either (CredentialInfo
+        // carries secrets). So List/Get are called here via their POST alias routes
+        // (/stateless/vpc/query, /stateless/vpc/:SystemId/query) instead of GET+body.
+        const opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+        if (body !== undefined) opts.body = JSON.stringify(body);
+        showSpinner();
+        return fetch(path, opts).then(resp => resp.json().catch(() => ({})).then(data => {
+            if (!resp.ok) throw new Error(data.message || ('HTTP ' + resp.status));
+            return data;
+        })).finally(hideSpinner);
+    }
+
+    // Holds the full, unfiltered result of the last successful list call, so the search box
+    // can filter purely client-side without re-calling the CSP on every keystroke.
+    let lastVpcList = [];
+
+    function vpcMatchesQuery(vpc, q) {
+        if ((vpc.IId.NameId || '').toLowerCase().includes(q)) return true;
+        if ((vpc.IId.SystemId || '').toLowerCase().includes(q)) return true;
+        if ((vpc.IPv4_CIDR || '').toLowerCase().includes(q)) return true;
+        return (vpc.SubnetInfoList || []).some(s =>
+            (s.IId.NameId || '').toLowerCase().includes(q) ||
+            (s.IId.SystemId || '').toLowerCase().includes(q) ||
+            (s.IPv4_CIDR || '').toLowerCase().includes(q) ||
+            (s.Zone || '').toLowerCase().includes(q)
+        );
+    }
+
+    function filterVPCTable() {
+        const q = (document.getElementById('vpcSearchInput').value || '').trim().toLowerCase();
+        document.getElementById('vpcSearchClearBtn').style.display = q ? 'inline' : 'none';
+        const list = q ? lastVpcList.filter(vpc => vpcMatchesQuery(vpc, q)) : lastVpcList;
+        renderVPCTable(list, q ? 'No VPCs match your search.' : 'No VPCs found for this Provider/Region.');
+    }
+
+    function clearVPCSearch() {
+        document.getElementById('vpcSearchInput').value = '';
+        filterVPCTable();
+    }
+
+    function renderVPCTable(vpcList, emptyMessage) {
+        const body = document.getElementById('vpcTableBody');
+        body.innerHTML = '';
+        if (!vpcList || vpcList.length === 0) {
+            body.innerHTML = `<tr class="empty-row"><td colspan="5">${emptyMessage || 'No VPCs found for this Provider/Region.'}</td></tr>`;
+            return;
+        }
+        vpcList.forEach(vpc => {
+            const tr = document.createElement('tr');
+            const subnets = (vpc.SubnetInfoList || []).map(s =>
+                `<li>${s.IId.NameId || '(no name)'} — ${s.IId.SystemId} (${s.IPv4_CIDR}, ${s.Zone || 'n/a'})</li>`
+            ).join('');
+            tr.innerHTML = `
+                <td class="center-align">${vpc.IId.NameId || '(no name)'}</td>
+                <td class="center-align">${vpc.IId.SystemId}</td>
+                <td class="center-align">${vpc.IPv4_CIDR || ''}</td>
+                <td><ul class="subnet-list">${subnets || '<li>(none)</li>'}</ul></td>
+                <td class="center-align"><button class="danger" onclick="deleteVPC('${vpc.IId.SystemId}')">Delete</button></td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+
+    function connectAndList() {
+        listVPCs();
+    }
+
+    function listVPCs() {
+        const conn = buildConnectionEnvelope();
+        if (!conn.ProviderName) { setStatus('connStatus', 'Select a Provider first.', true); return; }
+        setStatus('connStatus', 'Loading...', false);
+        setStatus('listStatus', '', false);
+        apiCall('POST', '/spider/stateless/vpc/query', conn)
+            .then(data => {
+                lastVpcList = data.vpc || [];
+                rememberConnection(conn, lastVpcList);
+                setStatus('connStatus', `Connected (${conn.ProviderName} / ${conn.RegionInfo.Region || 'no region'})`, false);
+                document.getElementById('connStatus').className = 'connected-badge';
+                filterVPCTable();
+            })
+            .catch(err => {
+                setStatus('connStatus', '', false);
+                setStatus('listStatus', 'Failed to list VPCs: ' + err.message, true);
+            });
+    }
+
+    function addSubnetRow(prefill) {
+        const container = document.getElementById('subnetRows');
+        const index = container.children.length + 1;
+        const row = document.createElement('div');
+        row.className = 'subnet-row';
+        row.innerHTML = `
+            <div class="field"><label>Subnet Name</label><input type="text" class="subnet-name"></div>
+            <div class="field"><label>Zone</label><input type="text" class="subnet-zone"></div>
+            <div class="field"><label>Subnet IPv4 CIDR</label><input type="text" class="subnet-cidr"></div>
+            <button class="danger" type="button" onclick="if(confirm('Remove this subnet row?')) this.parentElement.remove()">Remove</button>
+        `;
+        container.appendChild(row);
+        // Defaults so the row is submittable as-is; the Zone default tracks the current
+        // connection's Zone (the earlier hardcoded placeholder didn't, which was misleading
+        // once a non-AWS region/zone was selected).
+        row.querySelector('.subnet-name').value = (prefill && prefill.name) || `spider-subnet-${String(index).padStart(2, '0')}`;
+        row.querySelector('.subnet-zone').value = (prefill && prefill.zone) || document.getElementById('zoneInput').value || '';
+        row.querySelector('.subnet-cidr').value = (prefill && prefill.cidr) || `10.0.${index}.0/24`;
+    }
+
+    function collectSubnets() {
+        return Array.from(document.querySelectorAll('#subnetRows .subnet-row')).map(row => ({
+            IId: { NameId: row.querySelector('.subnet-name').value },
+            Zone: row.querySelector('.subnet-zone').value,
+            IPv4_CIDR: row.querySelector('.subnet-cidr').value
+        })).filter(s => s.IId.NameId && s.IPv4_CIDR);
+    }
+
+    function createVPC() {
+        const conn = buildConnectionEnvelope();
+        const vpcName = document.getElementById('vpcName').value.trim();
+        const vpcCIDR = document.getElementById('vpcCIDR').value.trim();
+        if (!conn.ProviderName) { setStatus('createStatus', 'Fill in the Connection panel first.', true); return; }
+        if (!vpcName || !vpcCIDR) { setStatus('createStatus', 'VPC Name and CIDR are required.', true); return; }
+
+        const body = Object.assign({}, conn, {
+            ReqInfo: {
+                IId: { NameId: vpcName },
+                IPv4_CIDR: vpcCIDR,
+                SubnetInfoList: collectSubnets()
+            }
+        });
+
+        setStatus('createStatus', 'Creating...', false);
+        apiCall('POST', '/spider/stateless/vpc', body)
+            .then(data => {
+                setStatus('createStatus', `Created: SystemId=${data.IId.SystemId}`, false);
+                document.getElementById('vpcName').value = 'spider-vpc-01';
+                document.getElementById('vpcCIDR').value = '10.0.0.0/16';
+                document.getElementById('subnetRows').innerHTML = '';
+                addSubnetRow();
+                listVPCs();
+            })
+            .catch(err => setStatus('createStatus', 'Failed to create VPC: ' + err.message, true));
+    }
+
+    function deleteVPC(systemId) {
+        if (!confirm(`Delete VPC ${systemId}? This calls the CSP directly and cannot be undone.`)) return;
+        const conn = buildConnectionEnvelope();
+        setStatus('listStatus', 'Deleting...', false);
+        apiCall('DELETE', '/spider/stateless/vpc/' + encodeURIComponent(systemId), conn)
+            .then(() => { setStatus('listStatus', '', false); listVPCs(); })
+            .catch(err => setStatus('listStatus', 'Failed to delete VPC: ' + err.message, true));
+    }
+
+    // ---- init ----
+    (function init() {
+        const select = document.getElementById('providerSelect');
+        Object.keys(PROVIDER_FIELDS).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p; opt.textContent = p;
+            select.appendChild(opt);
+        });
+        renderCredentialFields();
+        addSubnetRow();
+
+        renderTabBar();
+        renderQuickPick();
+        const openTabs = loadOpenTabs();
+        // Collapsed by default when a tab is already open (nothing to fill in), expanded
+        // by default when starting from scratch (so the fields are immediately visible).
+        setConnectionPanelExpanded(openTabs.length === 0);
+        if (openTabs.length > 0) {
+            const lastActive = sessionStorage.getItem(ACTIVE_TAB_KEY);
+            const target = (lastActive && openTabs.includes(lastActive))
+                ? lastActive
+                : openTabs[openTabs.length - 1];
+            switchToConnection(target);
+        }
+    })();
+</script>
+</body>
+</html>

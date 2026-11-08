@@ -366,6 +366,31 @@
         .about-login-form.shake {
             animation: shake 0.4s ease-in-out;
         }
+
+        /* API Mode badge (managed vs stateless) */
+        .api-mode-badge {
+            display: none;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .api-mode-badge.mode-managed {
+            background: #eaf1fb;
+            color: #0645AD;
+            border-color: #b9cdf0;
+        }
+        .api-mode-badge.mode-stateless {
+            background: #fff3e0;
+            color: #b35c00;
+            border-color: #f0c98a;
+        }
+        #apiModeBadgeLogin {
+            margin: 10px auto 0 auto;
+        }
     </style>
 
 <script>
@@ -522,6 +547,7 @@
                 </div>
                 <div class="top-menu-right">
                     <div class="dynamic-menu"></div>
+                    <div id="apiModeBadgeTop" class="api-mode-badge mode-managed"></div>
                     <div class="separator"></div>
                     <div class="dropdown">
                         <span>Help</span>
@@ -560,6 +586,7 @@
             <img src="/spider/adminweb/images/logo.png" class="about-logo" alt="CB-Spider Logo" onclick="restartAnimation()" style="cursor: pointer;">
             <div class="tagline">"One-Code, Multi-Cloud"</div>
             <div class="version" id="spiderVersion">Loading version...</div>
+            <div id="apiModeBadgeLogin" class="api-mode-badge mode-managed"></div>
             <div class="copyright">
                 <p>© Cloud-Barista Community</p>
             </div>
@@ -739,6 +766,22 @@
             });
         }
 
+        // Badge the server's current API mode ("managed" or "stateless") on both the
+        // login/About overlay and the persistent top bar.
+        function applyApiModeBadge(mode) {
+            var isStateless = (mode === 'stateless');
+            var label = isStateless ? 'STATELESS MODE' : 'MANAGED MODE';
+            var cls = isStateless ? 'mode-stateless' : 'mode-managed';
+            ['apiModeBadgeLogin', 'apiModeBadgeTop'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = label;
+                el.classList.remove('mode-managed', 'mode-stateless');
+                el.classList.add(cls);
+                el.style.display = 'inline-block';
+            });
+        }
+
         function doLogout() {
             sessionStorage.removeItem('skipAbout');
             window.location.href = '/spider/adminweb/logout';
@@ -780,6 +823,12 @@
             fetch('/spider/adminweb/authinfo')
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
+                    applyApiModeBadge(data.apiMode);
+                    if (data.apiMode === 'stateless') {
+                        // Stateless mode has no pre-registered ConnectionName to "select", so
+                        // this managed-mode prompt (and the top-bar area it occupies) doesn't apply.
+                        document.getElementById('selectedConfigName').innerHTML = '';
+                    }
                     if (data.authEnabled) {
                         if (data.loggedIn) {
                             // Server session is valid - skip overlay entirely

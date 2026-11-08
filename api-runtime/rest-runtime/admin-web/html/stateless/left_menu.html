@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .menu-item {
+            margin: 0;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #0645AD;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+        .menu-item:hover {
+            background-color: #f0f0f0;
+        }
+        .menu-item img {
+            vertical-align: middle;
+            height: 35px;
+            width: auto;
+        }
+        .logo img {
+            margin-top: 0;
+            margin-bottom: 0;
+            height: 50px;
+            width: auto;
+        }
+        .menu-text {
+            margin-top: 0;
+            text-align: center;
+            font-size: 11px;
+        }
+        .divider {
+            width: 80%;
+            height: 1px;
+            background-color: #666;
+            margin: 5px auto;
+        }
+        .mode-tag {
+            text-align: center;
+            font-size: 9px;
+            font-weight: bold;
+            color: #b35c00;
+            letter-spacing: 0.3px;
+            margin: -4px 0 4px 0;
+        }
+    </style>
+    <script>
+        // Stateless Mode menu items never require a pre-selected ConnectionName, so
+        // navigation here is always a direct body_frame redirect (no connection gate).
+        function statelessSelectMenu(url) {
+            parent.postMessage({ type: 'showProgressBar' }, '*');
+            const iframe = parent.frames['body_frame'];
+            iframe.onload = function() {
+                parent.postMessage({ type: 'iframeLoaded' }, '*');
+            };
+            iframe.location.href = url;
+        }
+    </script>
+</head>
+<body>
+    <a href="/spider/adminweb" target="_top" class="menu-item logo" onclick="sessionStorage.setItem('skipAbout', 'true');">
+        <img src="./images/logo.png" border="0">
+    </a>
+    <div class="mode-tag">STATELESS</div>
+    <div class="divider"></div>
+    <!-- No Dashboard item here: the managed-mode Dashboard is built from registered
+         ConnectionConfig/MetaDB data, which Stateless mode has none of. -->
+    <!-- Each Stateless-mode resource gets its own menu item here as it's added
+         (SecurityGroup, VM, ...), pointing at /spider/adminweb/stateless/<resource>. -->
+    <div class="menu-item" onclick="statelessSelectMenu('/spider/adminweb/stateless/vpc')">
+        <img src="./images/left-menu/vpc.png" alt="VPC Icon">
+        <div class="menu-text">VPC/Subnet</div>
+    </div>
+</body>
+</html>

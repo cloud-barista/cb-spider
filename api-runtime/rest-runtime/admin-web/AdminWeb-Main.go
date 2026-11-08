@@ -33,6 +33,17 @@ var (
 	sessionStore = map[string]sessionEntry{} // token -> entry
 )
 
+// APIMode mirrors restruntime's apiMode ("managed" or "stateless"). AdminWeb cannot import
+// restruntime (restruntime already imports this package), so restruntime sets this once at
+// startup via SetAPIMode(). AuthInfo exposes it so the UI can badge which mode the server
+// (and therefore this running AdminWeb instance) is in.
+var APIMode = "managed"
+
+// SetAPIMode is called once by restruntime at startup to mirror its apiMode setting here.
+func SetAPIMode(mode string) {
+	APIMode = mode
+}
+
 type sessionEntry struct {
 	Username string
 	Expires  time.Time
@@ -229,6 +240,7 @@ func AuthInfo(c echo.Context) error {
 		"username":    sessionUser,
 		"authEnabled": authEnabled,
 		"loggedIn":    loggedIn,
+		"apiMode":     APIMode,
 	})
 }
 
