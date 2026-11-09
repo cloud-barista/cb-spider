@@ -18,7 +18,9 @@ AZURE_KEY_VALUES='[
   {"Key":"ClientId", "Value":"'"$azure_client_id"'"},
   {"Key":"ClientSecret", "Value":"'"$azure_client_secret"'"},
   {"Key":"TenantId", "Value":"'"$azure_tenant_id"'"},
-  {"Key":"SubscriptionId", "Value":"'"$azure_subscription_id"'"}
+  {"Key":"SubscriptionId", "Value":"'"$azure_subscription_id"'"},
+  {"Key":"StorageAccountName", "Value":"'"$azure_storage_account_name"'"},
+  {"Key":"StorageAccountKey", "Value":"'"$azure_storage_account_key"'"}
 ]'
 register_credential "azure-credential" "AZURE" "$AZURE_KEY_VALUES"
 

@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 	cblogger "github.com/cloud-barista/cb-log"
@@ -204,6 +205,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	locationsClient, err := getLocationsClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	Ctx, VMClient, err := getVMClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
@@ -349,6 +354,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		Region:                          connectionInfo.RegionInfo,
 		Ctx:                             Ctx,
 		SubscriptionsClient:             subscriptionsClient,
+		LocationsClient:                 locationsClient,
 		VMClient:                        VMClient,
 		ImageClient:                     imageClient,
 		PublicIPClient:                  publicIPClient,
@@ -396,6 +402,16 @@ func getCred(credential idrv.CredentialInfo) (*azidentity.ClientSecretCredential
 	}
 
 	return cred, nil
+}
+
+// getLocationsClient returns a Subscriptions client using api-version 2022-12-01,
+// whose ListLocations response includes availabilityZoneMappings (region + zones in a single call).
+func getLocationsClient(credential idrv.CredentialInfo) (*armsubscriptions.Client, error) {
+	cred, err := getCred(credential)
+	if err != nil {
+		return nil, err
+	}
+	return armsubscriptions.NewClient(cred, newArmClientOptions())
 }
 
 func getSubscriptionClient(credential idrv.CredentialInfo) (context.Context, *armsubscription.SubscriptionsClient, error) {

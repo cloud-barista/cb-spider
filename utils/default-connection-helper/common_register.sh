@@ -70,10 +70,9 @@ register_regions_and_configs() {
 
   TMP_DONE_LOG=$(mktemp)
 
-  echo "$REGIONZONE_JSON" | jq -r '
-  .regionzone[] | .Name as $region |
-  select(.ZoneList != null) |
-  .ZoneList[] | "\($region):\(.Name)"' | while IFS=":" read -r REGION ZONE; do
+  # NOTE: use process substitution (not a pipe) so that background jobs belong to
+  #       this shell and the 'wait' below really waits for all registrations.
+  while IFS=":" read -r REGION ZONE; do
   (
     REGION_ID="$PREFIX.${REGION}.${ZONE}"
     echo "[START] $REGION_ID"
@@ -101,7 +100,10 @@ register_regions_and_configs() {
 
     echo "[DONE]  $REGION_ID" >> "$TMP_DONE_LOG"
   ) &
-  done
+  done < <(echo "$REGIONZONE_JSON" | jq -r '
+  .regionzone[] | .Name as $region |
+  select(.ZoneList != null) |
+  .ZoneList[] | "\($region):\(.Name)"')
 
   wait
   sort "$TMP_DONE_LOG"

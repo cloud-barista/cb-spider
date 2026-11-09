@@ -21,7 +21,11 @@ NHN_KEY_VALUES='[
   {"Key":"DomainName", "Value":"'"$nhn_domain_name"'"},
   {"Key":"TenantId", "Value":"'"$nhn_tenant_id"'"},
   {"Key":"Access Key", "Value":"'"$nhn_access_key"'"},
-  {"Key":"Secret Key", "Value":"'"$nhn_secret_key"'"}
+  {"Key":"Secret Key", "Value":"'"$nhn_secret_key"'"},
+  {"Key":"User Access Key", "Value":"'"$nhn_rds_user_access_key"'"},
+  {"Key":"Secret Access Key", "Value":"'"$nhn_rds_secret_access_key"'"},
+  {"Key":"mysqlAppKey", "Value":"'"$nhn_rds_mysql_app_key"'"},
+  {"Key":"mariadbAppKey", "Value":"'"$nhn_rds_mariadb_app_key"'"}
 ]'
 register_credential "nhn-credential" "NHN" "$NHN_KEY_VALUES"
 
