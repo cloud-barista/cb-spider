@@ -404,3 +404,10 @@ func toBoolPtr(input bool) *bool {
 const (
 	AzureStorageAccountPrefix = "cbspider"
 )
+
+func toStrValue(input *string) string {
+	if input == nil {
+		return ""
+	}
+	return *input
+}

@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"sort"
 	"strings"
-	"sync"
 )
 
 type AzureRegionZoneHandler struct {
@@ -23,129 +23,96 @@ type AzureRegionZoneHandler struct {
 	SubscriptionsClient *armsubscription.SubscriptionsClient
 	GroupsClient        *armresources.ResourceGroupsClient
 	ResourceSkusClient  *armcompute.ResourceSKUsClient
+	LocationsClient     *armsubscriptions.Client
+}
+
+// listLocationsWithZones returns the subscription's locations and their availability zones.
+//   - Locations: Subscriptions API (api-version 2016-06-01), same region set as before.
+//     (the newer API also returns canary/staging regions such as eastus2euap, eastusstg)
+//   - Zones: Subscriptions API (api-version 2022-12-01) availabilityZoneMappings.
+//
+// Previously the Resource SKUs API was called once per region to extract zones, which took 1~5 minutes.
+// Now it takes two fast calls in total.
+func (regionZoneHandler *AzureRegionZoneHandler) listLocationsWithZones() ([]*armsubscription.Location, map[string][]string, error) {
+	var locationList []*armsubscription.Location
+
+	pager := regionZoneHandler.SubscriptionsClient.NewListLocationsPager(regionZoneHandler.CredentialInfo.SubscriptionId, nil)
+	for pager.More() {
+		page, err := pager.NextPage(regionZoneHandler.Ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, location := range page.Value {
+			if location != nil && location.Name != nil {
+				locationList = append(locationList, location)
+			}
+		}
+	}
+
+	zoneMap := make(map[string][]string)
+
+	pager2 := regionZoneHandler.LocationsClient.NewListLocationsPager(regionZoneHandler.CredentialInfo.SubscriptionId, nil)
+	for pager2.More() {
+		page, err := pager2.NextPage(regionZoneHandler.Ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, location := range page.Value {
+			if location == nil || location.Name == nil {
+				continue
+			}
+			var zones []string
+			for _, m := range location.AvailabilityZoneMappings {
+				if m != nil && m.LogicalZone != nil {
+					zones = append(zones, *m.LogicalZone)
+				}
+			}
+			zones = removeDuplicateStr(zones)
+			sort.Strings(zones)
+			zoneMap[strings.ToLower(*location.Name)] = zones
+		}
+	}
+
+	return locationList, zoneMap, nil
+}
+
+// toZoneInfoList converts zone names into a ZoneInfo list.
+func toZoneInfoList(zones []string) []irs.ZoneInfo {
+	var zoneList []irs.ZoneInfo
+	for _, zone := range zones {
+		zoneList = append(zoneList, irs.ZoneInfo{
+			Name:         zone,
+			DisplayName:  zone,
+			Status:       irs.NotSupported,
+			KeyValueList: []irs.KeyValue{},
+		})
+	}
+	return zoneList
 }
 
 func (regionZoneHandler *AzureRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
 	hiscallInfo := GetCallLogScheme(regionZoneHandler.Region, call.REGIONZONE, "RegionZone", "ListRegionZone()")
 	start := call.Start()
 
-	var locationList []*armsubscription.Location
-
-	pager := regionZoneHandler.SubscriptionsClient.NewListLocationsPager(regionZoneHandler.CredentialInfo.SubscriptionId, nil)
-
-	for pager.More() {
-		page, err := pager.NextPage(regionZoneHandler.Ctx)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get RegionZone. err = %s", err))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return []*irs.RegionZoneInfo{}, getErr
-		}
-
-		for _, location := range page.Value {
-			locationList = append(locationList, location)
-		}
-	}
-
-	var regionZoneInfo []*irs.RegionZoneInfo
-
-	var routineMax = 50
-	var wait sync.WaitGroup
-	var mutex = &sync.Mutex{}
-	var lenLocations = len(locationList)
-	var zoneErrorOccurred bool
-
-	for i := 0; i < lenLocations; {
-		if lenLocations-i < routineMax {
-			routineMax = lenLocations - i
-		}
-
-		wait.Add(routineMax)
-
-		for j := 0; j < routineMax; j++ {
-			go func(wait *sync.WaitGroup, loc *armsubscription.Location) {
-				if loc == nil {
-					wait.Done()
-					return
-				}
-
-				var zones []string
-				var zoneList []irs.ZoneInfo
-
-				var skuList []*armcompute.ResourceSKU
-
-				pager2 := regionZoneHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
-					Filter: toStrPtr("location eq '" + *loc.Name + "'"),
-				})
-
-				for pager2.More() {
-					page, err := pager2.NextPage(regionZoneHandler.Ctx)
-					if err != nil {
-						zoneErrorOccurred = true
-						wait.Done()
-						return
-					}
-
-					for _, sku := range page.Value {
-						skuList = append(skuList, sku)
-					}
-				}
-
-				for _, sku := range skuList {
-					for _, locInfo := range sku.LocationInfo {
-						locName := strings.ToLower(*loc.Name)
-						locloc := strings.ToLower(*locInfo.Location)
-
-						if locName == locloc && locInfo.Zones != nil {
-							for _, zone := range locInfo.Zones {
-								zones = append(zones, *zone)
-							}
-							break
-						}
-					}
-				}
-
-				zones = removeDuplicateStr(zones)
-
-				for _, zone := range zones {
-					zoneList = append(zoneList, irs.ZoneInfo{
-						Name:         zone,
-						DisplayName:  zone,
-						Status:       irs.NotSupported,
-						KeyValueList: []irs.KeyValue{},
-					})
-				}
-
-				mutex.Lock()
-				regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
-					Name:         *loc.Name,
-					DisplayName:  *loc.DisplayName,
-					ZoneList:     zoneList,
-					KeyValueList: []irs.KeyValue{},
-				})
-				mutex.Unlock()
-
-				wait.Done()
-			}(&wait, locationList[i])
-
-			i++
-			if i == lenLocations {
-				break
-			}
-		}
-
-		wait.Wait()
-	}
-
-	if zoneErrorOccurred {
-		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s",
-			"Error occurred while getting zone info."))
+	locationList, zoneMap, err := regionZoneHandler.listLocationsWithZones()
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List RegionZone. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+		return []*irs.RegionZoneInfo{}, getErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
+
+	var regionZoneInfo []*irs.RegionZoneInfo
+	for _, loc := range locationList {
+		regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
+			Name:         *loc.Name,
+			DisplayName:  toStrValue(loc.DisplayName),
+			ZoneList:     toZoneInfoList(zoneMap[strings.ToLower(*loc.Name)]),
+			KeyValueList: []irs.KeyValue{},
+		})
+	}
 
 	sort.Slice(regionZoneInfo, func(i, j int) bool {
 		return strings.Compare(regionZoneInfo[i].Name, regionZoneInfo[j].Name) < 0
@@ -158,49 +125,17 @@ func (regionZoneHandler *AzureRegionZoneHandler) GetRegionZone(Name string) (irs
 	hiscallInfo := GetCallLogScheme(regionZoneHandler.Region, call.REGIONZONE, "RegionZone", "GetRegionZone()")
 	start := call.Start()
 
-	var locationList []*armsubscription.Location
-
-	pager := regionZoneHandler.SubscriptionsClient.NewListLocationsPager(regionZoneHandler.CredentialInfo.SubscriptionId, nil)
-
-	for pager.More() {
-		page, err := pager.NextPage(regionZoneHandler.Ctx)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to Get RegionZone. err = %s", err))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return irs.RegionZoneInfo{}, getErr
-		}
-
-		for _, location := range page.Value {
-			locationList = append(locationList, location)
-		}
-	}
-
-	var skuList []*armcompute.ResourceSKU
-
-	pager2 := regionZoneHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
-		Filter: toStrPtr("location eq '" + Name + "'"),
-	})
-
-	for pager2.More() {
-		page, err := pager2.NextPage(regionZoneHandler.Ctx)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to get RegionZone. err = %s", err))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return irs.RegionZoneInfo{}, getErr
-		}
-
-		for _, sku := range page.Value {
-			skuList = append(skuList, sku)
-		}
+	locationList, zoneMap, err := regionZoneHandler.listLocationsWithZones()
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get RegionZone. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.RegionZoneInfo{}, getErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
 
 	var location *armsubscription.Location
-	var regionZoneInfo irs.RegionZoneInfo
-
 	for _, loc := range locationList {
 		if *loc.Name == Name {
 			location = loc
@@ -215,47 +150,15 @@ func (regionZoneHandler *AzureRegionZoneHandler) GetRegionZone(Name string) (irs
 		return irs.RegionZoneInfo{}, getErr
 	}
 
-	regionZoneInfo.Name = *location.Name
-	regionZoneInfo.DisplayName = *location.DisplayName
-
-	var zones []string
-
-	for _, sku := range skuList {
-		for _, locInfo := range sku.LocationInfo {
-			locName := strings.ToLower(Name)
-			locloc := strings.ToLower(*locInfo.Location)
-
-			if locName == locloc {
-				for _, zone := range locInfo.Zones {
-					zones = append(zones, *zone)
-				}
-				break
-			}
-		}
-	}
-
-	zones = removeDuplicateStr(zones)
-
-	for _, zone := range zones {
-		regionZoneInfo.ZoneList = append(regionZoneInfo.ZoneList, irs.ZoneInfo{
-			Name:         zone,
-			DisplayName:  zone,
-			Status:       irs.NotSupported,
-			KeyValueList: []irs.KeyValue{},
-		})
-	}
-
-	regionZoneInfo.KeyValueList = append(regionZoneInfo.KeyValueList, irs.KeyValue{
-		Key:   "Latitude",
-		Value: *location.Latitude,
-	})
-
-	regionZoneInfo.KeyValueList = append(regionZoneInfo.KeyValueList, irs.KeyValue{
-		Key:   "Longitude",
-		Value: *location.Longitude,
-	})
-
-	return regionZoneInfo, nil
+	return irs.RegionZoneInfo{
+		Name:        *location.Name,
+		DisplayName: toStrValue(location.DisplayName),
+		ZoneList:    toZoneInfoList(zoneMap[strings.ToLower(*location.Name)]),
+		KeyValueList: []irs.KeyValue{
+			{Key: "Latitude", Value: toStrValue(location.Latitude)},
+			{Key: "Longitude", Value: toStrValue(location.Longitude)},
+		},
+	}, nil
 }
 
 func (regionZoneHandler *AzureRegionZoneHandler) ListOrgRegion() (string, error) {

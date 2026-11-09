@@ -19,6 +19,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 
@@ -41,6 +42,7 @@ type AzureCloudConnection struct {
 	Region                          idrv.RegionInfo
 	Ctx                             context.Context
 	SubscriptionsClient             *armsubscription.SubscriptionsClient
+	LocationsClient                 *armsubscriptions.Client // api-version 2022-12-01: Locations with availabilityZoneMappings
 	VMClient                        *armcompute.VirtualMachinesClient
 	ImageClient                     *armcompute.ImagesClient
 	VMImageClient                   *armcompute.VirtualMachineImagesClient
@@ -232,6 +234,7 @@ func (cloudConn *AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZone
 		Region:              cloudConn.Region,
 		Ctx:                 cloudConn.Ctx,
 		SubscriptionsClient: cloudConn.SubscriptionsClient,
+		LocationsClient:     cloudConn.LocationsClient,
 		GroupsClient:        cloudConn.ResourceGroupsClient,
 		ResourceSkusClient:  cloudConn.ResourceSKUsClient,
 	}
