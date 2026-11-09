@@ -2112,7 +2112,9 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//nodeGroup.LaunchTemplate // unused
 	//clusterName := nodeGroup.ClusterName
 	//capacityType := nodeGroup.CapacityType // "ON_DEMAND"
-	nodeGroupInfo.ImageIID.NameId = *nodeGroup.AmiType // AL2_x86_64"
+	// The runtime builds the response ImageIID.NameId from SystemId, so set both (same as GCP/Azure).
+	amiType := aws.StringValue(nodeGroup.AmiType) // e.g. AL2023_x86_64_STANDARD, AL2023_ARM_64_STANDARD
+	nodeGroupInfo.ImageIID = irs.IID{NameId: amiType, SystemId: amiType}
 	//createTime := nodeGroup.CreatedAt
 	//health := nodeGroup.Health // Code, Message, ResourceIds	// ,"Health":{"Issues":[{"Code":"NodeCreationFailure","Message":"Unhealthy nodes in the kubernetes cluster",
 	//labelList := nodeGroup.Labels
