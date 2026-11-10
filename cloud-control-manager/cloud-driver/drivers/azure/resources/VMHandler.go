@@ -9,6 +9,7 @@ package resources
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -299,6 +300,10 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 						},
 					},
 				},
+			}
+			if vmReqInfo.UserData != "" {
+				customData := base64.StdEncoding.EncodeToString([]byte(vmReqInfo.UserData))
+				vmOpts.Properties.OSProfile.CustomData = &customData
 			}
 			vmOpts.Tags = map[string]*string{
 				"keypair":   &vmReqInfo.KeyPairIID.NameId,

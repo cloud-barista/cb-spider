@@ -170,6 +170,7 @@ type VMStartRequest struct {
 		VMUserId     string `json:"VMUserId,omitempty" validate:"omitempty" example:"Administrator"`    // Administrator, Windows Only
 		VMUserPasswd string `json:"VMUserPasswd,omitempty" validate:"omitempty" example:"password1234"` // Windows Only
 		WindowsType  *bool  `json:"WindowsType,omitempty" validate:"omitempty" example:"false"`         // Optional hint: true (Windows) or false (Linux). If nil, CB-Spider checks the image OS via CheckWindowsImage().
+		UserData     string `json:"UserData,omitempty" validate:"omitempty" example:"#!/bin/bash\necho hello"` // Linux only. Replaces the driver's default init script.
 
 		TagList []cres.KeyValue `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`
@@ -233,6 +234,7 @@ func StartVM(c echo.Context) error {
 
 		VMUserId:     req.ReqInfo.VMUserId,
 		VMUserPasswd: req.ReqInfo.VMUserPasswd,
+		UserData:     req.ReqInfo.UserData,
 
 		TagList: req.ReqInfo.TagList,
 	}

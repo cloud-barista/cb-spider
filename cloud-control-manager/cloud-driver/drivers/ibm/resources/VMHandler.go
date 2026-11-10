@@ -135,6 +135,9 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		userData = string(fileDataCloudInit)
 		userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
 		userData = strings.ReplaceAll(userData, "{{public_key}}", *key.PublicKey)
+		if vmReqInfo.UserData != "" {
+			userData = vmReqInfo.UserData
+		}
 	}
 
 	// 2.Create VM

@@ -241,6 +241,10 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		winOsMeta := "net user \"administrator\" \"" + vmReqInfo.VMUserPasswd + "\"\nnet user administrator /active:yes"
 		winOsPwd := compute.MetadataItems{Key: "windows-startup-script-cmd", Value: &winOsMeta}
 		instance.Metadata.Items = append(instance.Metadata.Items, &winOsPwd)
+	} else if vmReqInfo.UserData != "" {
+		// startup-script runs on every boot via the guest agent, regardless of cloud-init support in the image.
+		userData := vmReqInfo.UserData
+		instance.Metadata.Items = append(instance.Metadata.Items, &compute.MetadataItems{Key: "startup-script", Value: &userData})
 	}
 
 	// imageType이 MyImage인 경우 SourceMachineImage Setting

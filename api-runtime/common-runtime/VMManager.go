@@ -1129,6 +1129,7 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 		VMUserId:     reqInfo.VMUserId,
 		VMUserPasswd: reqInfo.VMUserPasswd,
+		UserData:     reqInfo.UserData,
 
 		AssignPublicIP: reqInfo.AssignPublicIP,
 

@@ -195,6 +195,10 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		}
 	}
 
+	if vmReqInfo.UserData != "" && !vmReqInfo.WindowsType {
+		userData := vmReqInfo.UserData
+		initUserData = &userData
+	}
 	vmCreateOpts.UserData = []byte(*initUserData) // Apply cloud-init script
 	createOpts.CreateOptsBuilder = vmCreateOpts
 

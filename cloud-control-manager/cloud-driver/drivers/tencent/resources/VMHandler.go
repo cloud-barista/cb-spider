@@ -382,8 +382,9 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, err
 	}
 	userData := string(fileDataCloudInit)
-	//userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
-	//userData = strings.ReplaceAll(userData, "{{public_key}}", keyPairInfo.PublicKey)
+	if vmReqInfo.UserData != "" && !vmReqInfo.WindowsType {
+		userData = vmReqInfo.UserData
+	}
 	userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
 	cblogger.Debugf("cloud-init data : [%s]", userDataBase64)
 	request.UserData = common.StringPtr(userDataBase64)

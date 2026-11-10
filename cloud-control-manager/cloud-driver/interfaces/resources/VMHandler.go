@@ -61,6 +61,7 @@ type VMReqInfo struct {
 	VMUserId     string
 	VMUserPasswd string
 	WindowsType  bool
+	UserData     string // Linux init script (cloud-init user data). Empty: the driver's default account setup is used.
 
 	AssignPublicIP *bool // nil or true: assign a Public IP at creation (default, current behavior). false: do not assign.
 
