@@ -39,6 +39,59 @@ type ResourceCounts struct {
 	S3Buckets            int    `json:"s3Buckets"`
 	RDBMSInstances       int    `json:"rdbmsInstances"`
 	DNSZones             int    `json:"dnsZones"`
+	// NA marks resources that the connection's driver does not support (key: resource name, ex: "cluster").
+	// Derived from the Driver Capability API on every render, so it follows driver changes dynamically.
+	NA map[string]bool `json:"na"`
+}
+
+// resourceCapabilityKey maps a dashboard resource to its Driver Capability flag.
+// Resources not listed here (ex: s3) have no capability flag and are always treated as supported.
+var resourceCapabilityKey = map[string]string{
+	"vpc":           "VPCHandler",
+	"subnet":        "VPCHandler",
+	"securitygroup": "SecurityHandler",
+	"vm":            "VMHandler",
+	"keypair":       "KeyPairHandler",
+	"disk":          "DiskHandler",
+	"nlb":           "NLBHandler",
+	"publicip":      "PublicIPHandler",
+	"nic":           "NICHandler",
+	"cluster":       "ClusterHandler",
+	"myimage":       "MyImageHandler",
+	"rdbms":         "RDBMSHandler",
+	"dnszone":       "DNSHandler",
+}
+
+// fetchUnsupportedResources returns the resources not supported by the connection's driver,
+// using the Driver Capability API (GET /spider/driver/capability?ConnectionName=xxx).
+// On any error it returns an empty map, so the dashboard falls back to showing counts.
+func fetchUnsupportedResources(connectionName string) map[string]bool {
+	na := make(map[string]bool)
+
+	url := fmt.Sprintf("%s/spider/driver/capability?ConnectionName=%s", spiderBaseURL(), connectionName)
+	resp, err := httpGetWithAuth(url)
+	if err != nil {
+		fmt.Printf("Error: fetching driver capability for %s: %v\n", connectionName, err)
+		return na
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Error: received non-OK status %d while fetching driver capability for %s\n", resp.StatusCode, connectionName)
+		return na
+	}
+
+	var capability map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&capability); err != nil {
+		fmt.Printf("Error: decoding driver capability for %s: %v\n", connectionName, err)
+		return na
+	}
+
+	for resource, key := range resourceCapabilityKey {
+		if supported, ok := capability[key].(bool); ok && !supported {
+			na[resource] = true
+		}
+	}
+	return na
 }
 
 // DashboardData aggregates the data for rendering the dashboard
@@ -92,7 +145,13 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 	baseURL := spiderBaseURL() + "/spider"
 	resources := []string{"vpc", "subnet", "securitygroup", "vm", "keypair", "disk", "nlb", "publicip", "nic", "cluster", "myimage", "s3", "rdbms", "dnszone"}
 
+	// resources not supported by the driver are shown as "NA" (and their counts are not fetched)
+	counts.NA = fetchUnsupportedResources(config.ConfigName)
+
 	for _, resource := range resources {
+		if counts.NA[resource] {
+			continue
+		}
 		url := fmt.Sprintf("%s/count%s/%s", baseURL, resource, config.ConfigName)
 		resp, err := httpGetWithAuth(url)
 		if err != nil {

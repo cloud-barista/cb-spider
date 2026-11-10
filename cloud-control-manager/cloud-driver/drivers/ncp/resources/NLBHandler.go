@@ -106,7 +106,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	}
 
 	// Caution!! : ### Need a Subnet for 'LB Only'('LB Type' Subnet) to create a LB
-	lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*ncpVPCInfo.VpcNo)
+	lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*ncpVPCInfo.VpcNo, lbNetType, false)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the SubnetId of LB Type subnet : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -1169,7 +1169,15 @@ func (nlbHandler *NcpVpcNLBHandler) getNcpVpcInfoWithName(vpcName string) (*vpc.
 }
 
 // Get SubnetId for 'LB Only' subnet('LB Type' subnet)
-func (nlbHandler *NcpVpcNLBHandler) getSubnetIdForNlbOnly(vpcId string) (string, error) {
+//   - lbNetType: 'PUBLIC' | 'PRIVATE' => only an LB Type subnet of the same subnet type is selected.
+//     (A VPC may also have LB Type subnets created by other services, ex) NKS Cluster creates
+//     both PRIVATE and PUBLIC LB Type subnets. Using a PRIVATE LB subnet for a PUBLIC LB fails with
+//     '1200044: The subnet type is invalid.')
+//     For 'PRIVATE', any LB Type subnet is used as a fallback (subnets created by this driver are 'PUBLIC').
+//     "" => any subnet type.
+//   - nlbOwnedOnly: true => only the subnet created by this NLB driver (name prefix: LbTypeSubnetDefaultName),
+//     ex) when deleting the LB Type subnet, so that LB subnets of other services are not deleted.
+func (nlbHandler *NcpVpcNLBHandler) getSubnetIdForNlbOnly(vpcId string, lbNetType string, nlbOwnedOnly bool) (string, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called getSubnetIdForNlbOnly()")
 
 	vpcHandler := NcpVpcVPCHandler{
@@ -1190,19 +1198,46 @@ func (nlbHandler *NcpVpcNLBHandler) getSubnetIdForNlbOnly(vpcId string) (string,
 		return "", newErr
 	}
 
-	var subnetId string
-	for _, subnetInfo := range subnetInfoList {
-		// Use Key/Value info of the subnetInfo
+	subnetId := selectLbTypeSubnetId(subnetInfoList, lbNetType, nlbOwnedOnly)
+	cblogger.Infof("### LB Type subnet for LB network type [%s] (NLB owned only: %v) : [%s]", lbNetType, nlbOwnedOnly, subnetId)
+	return subnetId, nil
+}
+
+// selectLbTypeSubnetId selects an LB Type subnet from the subnet list (cf. getSubnetIdForNlbOnly).
+func selectLbTypeSubnetId(subnetInfoList []*irs.SubnetInfo, lbNetType string, nlbOwnedOnly bool) string {
+	// Ex) KeyValue : "UsageType" => "{code:GEN,codeName:General}" or "{code:LOADB,codeName:LoadBalancer Only}"
+	//                "SubnetType" => "{code:PUBLIC,codeName:Public}" or "{code:PRIVATE,codeName:Private}"
+	//     due to irs.StructToKeyValueList(subnet)
+	kvValue := func(subnetInfo *irs.SubnetInfo, key string) string {
 		for _, keyInfo := range subnetInfo.KeyValueList {
-			if strings.EqualFold(keyInfo.Key, "UsageType") {
-				if strings.Contains(keyInfo.Value, "LOADB") { // Ex) Value : "{code:GEN,codeName:General}" or "{code:LOADB,codeName:LoadBalancer Only}" due to irs.StructToKeyValueList(subnet)
-					subnetId = subnetInfo.IId.SystemId
-					break
-				}
+			if strings.EqualFold(keyInfo.Key, key) {
+				return keyInfo.Value
 			}
 		}
+		return ""
 	}
-	return subnetId, nil
+
+	var matchedId, fallbackId string
+	for _, subnetInfo := range subnetInfoList {
+		if subnetInfo == nil || !strings.Contains(kvValue(subnetInfo, "UsageType"), "LOADB") {
+			continue
+		}
+		if nlbOwnedOnly && !strings.HasPrefix(subnetInfo.IId.NameId, LbTypeSubnetDefaultName) {
+			continue
+		}
+		if lbNetType == "" || strings.Contains(kvValue(subnetInfo, "SubnetType"), "code:"+lbNetType) {
+			if matchedId == "" {
+				matchedId = subnetInfo.IId.SystemId
+			}
+		} else if fallbackId == "" {
+			fallbackId = subnetInfo.IId.SystemId
+		}
+	}
+
+	if matchedId == "" && strings.EqualFold(lbNetType, NcpInternalLbType) {
+		matchedId = fallbackId
+	}
+	return matchedId
 }
 
 func (nlbHandler *NcpVpcNLBHandler) waitToGetNlbInfo(nlbIID irs.IID) (bool, error) {
@@ -1467,12 +1502,17 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 	// #### Note!!
 	// If the deleted LB was the last one to delete, Need to delete the 'LB Type' Subnet.
 	if nlbCount == 0 {
-		lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*vpcId)
+		lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*vpcId, "", true) // only the subnet created by this NLB driver
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the SubnetId of LB Type subnet : [%v]", err)
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return false, newErr
+		}
+		if lbTypeSubnetId == "" {
+			// ex) the NLB used an LB Type subnet of another service (NKS Cluster): do not delete it
+			cblogger.Info("# No LB Type subnet created by the NLB driver. Skip deleting the LB Type subnet.")
+			return true, nil
 		}
 
 		cblogger.Info("# Start to Delete the LB Type Subnet!!")

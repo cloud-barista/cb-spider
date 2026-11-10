@@ -1686,6 +1686,7 @@ func (ic *IbmClusterHandler) getDefaultResourceGroupId() (string, error) {
 		if err != nil {
 			return "", err
 		}
+		SetIbmHTTPTimeout(resourceManagerService.Service)
 
 		lookupCtx, cancel := context.WithTimeout(ic.Ctx, IBM_RESOURCE_GROUP_LOOKUP_TIMEOUT)
 		defer cancel()
