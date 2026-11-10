@@ -165,7 +165,10 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 			return irs.VMInfo{}, newErr
 		}
 	}
-	// cblogger.Infof("init UserData : [%s]", *initUserData)
+	if vmReqInfo.UserData != "" && !vmReqInfo.WindowsType {
+		userData := vmReqInfo.UserData
+		initUserData = &userData
+	}
 
 	// Preparing VM Creation Options
 	serverCreateOpts := servers.CreateOpts{

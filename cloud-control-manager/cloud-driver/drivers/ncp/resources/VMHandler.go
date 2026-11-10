@@ -108,7 +108,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			}
 		} else {
 			var createErr error
-			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId, true)
+			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId, true, vmReqInfo.UserData)
 			if createErr != nil {
 				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
 				cblogger.Error(newErr.Error())
@@ -183,7 +183,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			}
 		} else {
 			var createErr error
-			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId, false)
+			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId, false, vmReqInfo.UserData)
 			if createErr != nil {
 				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
 				cblogger.Error(newErr.Error())
@@ -1144,7 +1144,7 @@ func (vmHandler *NcpVpcVMHandler) probePublicImageTypeQuiet(imageNo string) (boo
 	return strings.EqualFold(ncloud.StringValue(image.ServerImageType.Code), "NCP"), true, nil
 }
 
-func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPairId string, isPublicImage bool) (*string, error) {
+func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPairId string, isPublicImage bool, userData string) (*string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called createLinuxInitScript()!!")
 
 	var originImagePlatform string
@@ -1241,6 +1241,9 @@ func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPai
 	// Set cloud-init script
 	cmdString = strings.ReplaceAll(cmdString, "{{username}}", lnxUserName)
 	cmdString = strings.ReplaceAll(cmdString, "{{public_key}}", keyValue.Value)
+	if userData != "" {
+		cmdString = userData
+	}
 	// cblogger.Info("cmdString : ", cmdString)
 
 	// Create Cloud-Init Script

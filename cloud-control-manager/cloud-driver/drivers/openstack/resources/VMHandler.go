@@ -1094,7 +1094,7 @@ func checkWindowVMReqInfo(vmReqInfo irs.VMReqInfo) error {
 	return nil
 }
 
-func linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt servers.CreateOpts, keyPairIID irs.IID, computeClient *gophercloud.ServiceClient) (keypairs.CreateOptsExt, error) {
+func linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt servers.CreateOpts, keyPairIID irs.IID, userData string, computeClient *gophercloud.ServiceClient) (keypairs.CreateOptsExt, error) {
 	keyPair, err := GetRawKey(computeClient, keyPairIID)
 	if err != nil {
 		return keypairs.CreateOptsExt{}, err
@@ -1107,6 +1107,9 @@ func linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt servers.Creat
 	fileStr := string(fileData)
 	fileStr = strings.ReplaceAll(fileStr, "{{username}}", SSHDefaultUser)
 	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)
+	if userData != "" {
+		fileStr = userData
+	}
 
 	baseServerCreateOpt.UserData = []byte(fileStr)
 	createOptsExt := keypairs.CreateOptsExt{
@@ -1152,7 +1155,7 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 		}
 		// Linux
 		baseServerCreateOpt.BlockDevice = blockDeviceSet
-		createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+		createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, vmReqInfo.UserData, computeClient)
 		if err != nil {
 			return servers.Server{}, err
 		}
@@ -1164,7 +1167,7 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 	} else {
 		// Disk Size 변경 X
 		if VolumeClient == nil { // Disk Size 변경 X && VolumeClient == nil
-			createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+			createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, vmReqInfo.UserData, computeClient)
 			if err != nil {
 				return servers.Server{}, err
 			}
@@ -1182,7 +1185,7 @@ func severCreatePublicImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReq
 				rootBlockDeviceSet,
 			}
 			baseServerCreateOpt.BlockDevice = blockDeviceSet
-			createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+			createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, vmReqInfo.UserData, computeClient)
 			if err != nil {
 				return servers.Server{}, err
 			}
@@ -1298,7 +1301,7 @@ func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo
 		return servers.Server{}, errors.New(fmt.Sprintf("Failed to startVM err = this Openstack cannot provide VolumeClient. BlockDevice information is located within the snapshot."))
 	}
 
-	createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, computeClient)
+	createOptsExt, err := linuxServerCreatOptConvertKeyPairWrapping(baseServerCreateOpt, vmReqInfo.KeyPairIID, vmReqInfo.UserData, computeClient)
 	server, err := servers.Create(context.TODO(), computeClient, createOptsExt, nil).Extract()
 	if err != nil {
 		return servers.Server{}, err

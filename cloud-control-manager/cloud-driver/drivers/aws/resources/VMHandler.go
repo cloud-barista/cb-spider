@@ -233,6 +233,9 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Debugf("Windows Cloud-Init : [%s]", userData)
 	} else {
 		userData = string(fileDataCloudInit)
+		if vmReqInfo.UserData != "" {
+			userData = vmReqInfo.UserData
+		}
 	}
 
 	//userData = strings.ReplaceAll(userData, "{{username}}", CBDefaultVmUserName)
