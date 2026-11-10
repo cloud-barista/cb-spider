@@ -123,7 +123,7 @@ func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMySQLHandler = false
 	drvCapabilityInfo.RDBMSMariaDBHandler = false
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.NICHandler = false
 
 	return drvCapabilityInfo

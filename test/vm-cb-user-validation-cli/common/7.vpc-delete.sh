@@ -9,7 +9,7 @@ if [ "$1" = "" ]; then
 fi
 
 # common setup.env path
-SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
+SETUP_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)   # this common/ directory (independent of CBSPIDER_ROOT)
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete VPC/Subnet: '${VPC_NAME}'"

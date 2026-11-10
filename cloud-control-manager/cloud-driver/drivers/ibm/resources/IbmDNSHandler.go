@@ -90,10 +90,15 @@ func (dnsHandler *IbmDNSHandler) newZonesService() (*zonesv1.ZonesV1, error) {
 	if err != nil {
 		return nil, err
 	}
-	return zonesv1.NewZonesV1(&zonesv1.ZonesV1Options{
+	service, err := zonesv1.NewZonesV1(&zonesv1.ZonesV1Options{
 		Authenticator: dnsHandler.Authenticator,
 		Crn:           core.StringPtr(crn),
 	})
+	if err != nil {
+		return nil, err
+	}
+	SetIbmHTTPTimeout(service.Service)
+	return service, nil
 }
 
 // newDNSRecordsService lazily builds the CIS DNS Records client. Unlike ZonesV1,
@@ -105,11 +110,16 @@ func (dnsHandler *IbmDNSHandler) newDNSRecordsService(zoneId string) (*dnsrecord
 	if err != nil {
 		return nil, err
 	}
-	return dnsrecordsv1.NewDnsRecordsV1(&dnsrecordsv1.DnsRecordsV1Options{
+	service, err := dnsrecordsv1.NewDnsRecordsV1(&dnsrecordsv1.DnsRecordsV1Options{
 		Authenticator:  dnsHandler.Authenticator,
 		Crn:            core.StringPtr(crn),
 		ZoneIdentifier: core.StringPtr(zoneId),
 	})
+	if err != nil {
+		return nil, err
+	}
+	SetIbmHTTPTimeout(service.Service)
+	return service, nil
 }
 
 func (dnsHandler *IbmDNSHandler) ListIID() ([]*irs.IID, error) {

@@ -5208,6 +5208,12 @@ definitions:
             items:
               $ref: '#/definitions/spider.KeyValue'
             type: array
+          UserData:
+            description: Linux only. Replaces the driver's default init script.
+            example: |-
+              #!/bin/bash
+              echo hello
+            type: string
           VMSpecName:
             example: t2.micro
             type: string

@@ -64,7 +64,7 @@ func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMySQLHandler = true
 	drvCapabilityInfo.RDBMSMariaDBHandler = true
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // not implemented
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.NICHandler = false
 	drvCapabilityInfo.DNSHandler = true
 

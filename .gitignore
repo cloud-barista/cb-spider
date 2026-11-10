@@ -72,5 +72,5 @@ cloud-control-manager/cloud-driver/drivers/nhn/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/kt/main/config/config.yaml
 cloud-control-manager/cloud-driver/drivers/ktclassic/main/config/config.yaml
 
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.*-credential
+test/vm-cb-user-validation-cli/2.10-csp-test/connection/.*-credential
 utils/default-connection-helper/.*-credential

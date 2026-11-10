@@ -106,6 +106,8 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 	drvCapabilityInfo.PublicIPHandler = true
 
+	drvCapabilityInfo.NICHandler = true
+
 	drvCapabilityInfo.VPC_CIDR = true
 
 	drvCapabilityInfo.DNSHandler = true

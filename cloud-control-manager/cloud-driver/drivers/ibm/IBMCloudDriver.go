@@ -82,6 +82,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMariaDBHandler = false
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
 	drvCapabilityInfo.PublicIPHandler = true
+	drvCapabilityInfo.NICHandler = true
 	drvCapabilityInfo.DNSHandler = true
 
 	drvCapabilityInfo.TagHandler = true
@@ -125,6 +126,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		if err != nil {
 			return nil, err
 		}
+		ibms.SetIbmHTTPTimeout(initVpcService.Service)
 		getRegionOptions := &vpcv1.GetRegionOptions{}
 		getRegionOptions.SetName(connectionInfo.RegionInfo.Region)
 		region, _, err := initVpcService.GetRegionWithContext(ctx, getRegionOptions)
@@ -150,24 +152,28 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	if err != nil {
 		return nil, err
 	}
+	ibms.SetIbmHTTPTimeout(vpcService.Service)
 	clusterService, err := kubernetesserviceapiv1.NewKubernetesServiceApiV1(&kubernetesserviceapiv1.KubernetesServiceApiV1Options{
 		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
 	}
+	ibms.SetIbmHTTPTimeout(clusterService.Service)
 	taggingService, err := globaltaggingv1.NewGlobalTaggingV1(&globaltaggingv1.GlobalTaggingV1Options{
 		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
 	}
+	ibms.SetIbmHTTPTimeout(taggingService.Service)
 	searchService, err := globalsearchv2.NewGlobalSearchV2(&globalsearchv2.GlobalSearchV2Options{
 		Authenticator: auth,
 	})
 	if err != nil {
 		return nil, err
 	}
+	ibms.SetIbmHTTPTimeout(searchService.Service)
 
 	resourceControllerService, err := resourcecontrollerv2.NewResourceControllerV2(&resourcecontrollerv2.ResourceControllerV2Options{
 		Authenticator: auth,
@@ -175,6 +181,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	if err != nil {
 		return nil, err
 	}
+	ibms.SetIbmHTTPTimeout(resourceControllerService.Service)
 
 	cloudDBService, err := clouddatabasesv5.NewCloudDatabasesV5(&clouddatabasesv5.CloudDatabasesV5Options{
 		Authenticator: auth,
@@ -182,6 +189,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	if err != nil {
 		return nil, err
 	}
+	ibms.SetIbmHTTPTimeout(cloudDBService.Service)
 
 	iConn := connect.IbmCloudConnection{
 		CredentialInfo:     connectionInfo.CredentialInfo,

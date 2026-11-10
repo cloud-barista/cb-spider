@@ -2047,8 +2047,18 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		return false, err
 	}
 
+	// Hold the write lock only while looking up the IID and requesting the deletion to the CSP.
+	// The wait until the cluster disappears is read-only polling, so it runs without the lock,
+	// otherwise GET/List of this cluster would be blocked for the whole deletion time.
 	clusterSPLock.Lock(connectionName, nameID)
-	defer clusterSPLock.Unlock(connectionName, nameID)
+	locked := true
+	unlock := func() {
+		if locked {
+			clusterSPLock.Unlock(connectionName, nameID)
+			locked = false
+		}
+	}
+	defer unlock()
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo *ClusterIIDInfo
@@ -2101,6 +2111,9 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		}
 	}
 
+	// release the lock while waiting for the CSP to finish the deletion
+	unlock()
+
 	// Wait until the cluster is not found in CSP, like VM deletion flow.
 	waiter := NewWaiter(15, 600)
 	for {
@@ -2125,6 +2138,10 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 			break
 		}
 	}
+
+	// re-acquire the lock to delete the metadata
+	clusterSPLock.Lock(connectionName, nameID)
+	locked = true
 
 	// (3) delete IID
 	// delete all nodegroups of target Cluster first

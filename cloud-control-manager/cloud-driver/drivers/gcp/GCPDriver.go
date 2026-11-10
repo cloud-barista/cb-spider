@@ -79,7 +79,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RDBMSMySQLHandler = true
 	drvCapabilityInfo.RDBMSMariaDBHandler = false    // not implemented: GCP Cloud SQL does not support mariadb
 	drvCapabilityInfo.RDBMSPostgreSQLHandler = false // implemented but not yet validated
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.NICHandler = false
 
 	drvCapabilityInfo.DNSHandler = true

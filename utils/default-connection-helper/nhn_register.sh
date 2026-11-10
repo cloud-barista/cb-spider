@@ -10,6 +10,11 @@ check_credential_file "$NHN_CREDENTIAL_FILE" "NHN Cloud credential file not foun
 # Check required variables
 check_required_vars "nhn_identity_endpoint" "nhn_username" "nhn_password" "nhn_domain_name" "nhn_tenant_id"
 
+# NHN driver requires the versioned identity endpoint (ex: https://api-identity-infrastructure.nhncloudservice.com/v2.0)
+# => append "/v2.0" when the endpoint has no version path
+nhn_identity_endpoint="${nhn_identity_endpoint%/}"
+[[ "$nhn_identity_endpoint" =~ /v[0-9]+(\.[0-9]+)?$ ]] || nhn_identity_endpoint="${nhn_identity_endpoint}/v2.0"
+
 # Register NHN Cloud driver
 register_driver "nhn-driver" "NHN" "nhn-driver-v1.0.so"
 

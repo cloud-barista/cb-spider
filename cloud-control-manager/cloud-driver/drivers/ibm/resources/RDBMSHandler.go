@@ -1098,6 +1098,7 @@ func (handler *IbmRDBMSHandler) getDefaultResourceGroupId() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	SetIbmHTTPTimeout(resourceManagerService.Service)
 
 	resourceGroups, _, err := resourceManagerService.ListResourceGroupsWithContext(handler.getContext(), &resourcemanagerv2.ListResourceGroupsOptions{Default: core.BoolPtr(true)})
 	if err != nil {

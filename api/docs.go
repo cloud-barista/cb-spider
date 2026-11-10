@@ -22095,6 +22095,11 @@ const docTemplate = `{
                                 "$ref": "#/definitions/spider.KeyValue"
                             }
                         },
+                        "UserData": {
+                            "description": "Linux only. Replaces the driver's default init script.",
+                            "type": "string",
+                            "example": "#!/bin/bash\necho hello"
+                        },
                         "VMSpecName": {
                             "type": "string",
                             "example": "t2.micro"

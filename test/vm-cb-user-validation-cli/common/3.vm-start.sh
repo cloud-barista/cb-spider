@@ -9,12 +9,21 @@ if [ "$1" = "" ]; then
 fi
 
 # common setup.env path
-SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
+SETUP_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)   # this common/ directory (independent of CBSPIDER_ROOT)
 source $SETUP_PATH/setup.env $1
+
+source $SETUP_PATH/rest_func.sh
 
 VM_NAME=${VM_NAME}-$2
 
-echo "============== before start VM: '${VM_NAME}'"
+# "__prefix:<prefix>" => resolve the latest image name (cf. spiderwatch)
+IMAGE_NAME=$(resolve_image_name "${IMAGE_NAME}")
+if [ -z "$IMAGE_NAME" ]; then
+	echo "[FAIL] cannot resolve image name for $1"
+	exit 1
+fi
+
+echo "============== before start VM: '${VM_NAME}' (image: ${IMAGE_NAME}, spec: ${SPEC_NAME})"
 
 $CLIPATH/spctl -u "$SPIDER_USERNAME" -p "$SPIDER_PASSWORD"  vm start -d \
     "{
