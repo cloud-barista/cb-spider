@@ -1093,6 +1093,22 @@ func (ac *AzureClusterHandler) generateDnsZone(clusterName string) (string, erro
 	return *resp.Zone.ID, nil
 }
 
+// deleteDnsZone best-effort deletes the <clusterName>.com DNS zone created by
+// generateDnsZone. Failures are only logged.
+func (ac *AzureClusterHandler) deleteDnsZone(clusterName string) {
+	zoneName := fmt.Sprintf("%s.com", clusterName)
+	poller, err := ac.DnsZonesClient.BeginDelete(ac.Ctx, ac.Region.Region, zoneName, nil)
+	if err != nil {
+		cblogger.Warnf("failed to begin deleting DNS zone %q during cluster creation cleanup: %v", zoneName, err)
+		return
+	}
+	if _, err := poller.PollUntilDone(ac.Ctx, nil); err != nil {
+		cblogger.Warnf("failed to delete DNS zone %q during cluster creation cleanup: %v", zoneName, err)
+		return
+	}
+	cblogger.Infof("DNS zone %q deleted during cluster creation cleanup", zoneName)
+}
+
 func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachineSizesClient *armcompute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// nodegroup 확인
 	err := checkValidationNodeGroups(clusterReqInfo.NodeGroupList, virtualMachineSizesClient, regionInfo, ctx)
@@ -1103,8 +1119,8 @@ func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachine
 	return nil
 }
 
-func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) error {
-	err := checkValidationCreateCluster(clusterReqInfo, ac.VirtualMachineSizesClient, ac.Region, ac.Ctx)
+func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) (err error) {
+	err = checkValidationCreateCluster(clusterReqInfo, ac.VirtualMachineSizesClient, ac.Region, ac.Ctx)
 	if err != nil {
 		return err
 	}
@@ -1136,6 +1152,14 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 	if err != nil {
 		return fmt.Errorf("failed to create dns zone: %v", err)
 	}
+	// The DNS zone is created before the cluster. If a later step fails, the
+	// caller (CreateCluster) does not run CleanCluster, so remove the zone here
+	// to avoid leaving an orphaned <clusterName>.com zone.
+	defer func() {
+		if err != nil {
+			ac.deleteDnsZone(clusterReqInfo.IId.NameId)
+		}
+	}()
 
 	ingressProfile := generateIngressProfile(&zoneID)
 
