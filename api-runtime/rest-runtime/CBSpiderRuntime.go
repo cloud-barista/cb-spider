@@ -770,6 +770,9 @@ func getRoutes() []route {
 			{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
 			{"GET", "/adminweb/publicip/:ConnectConfig", aw.PublicIPManagement},
 			{"GET", "/adminweb/nic/:ConnectConfig", aw.NICManagement},
+			{"GET", "/adminweb/topology-all", aw.TopologyAllManagement},
+			{"GET", "/adminweb/topology-conns", aw.TopologyConnections},
+			{"GET", "/adminweb/topology-data/:ConnectConfig", aw.TopologyConnData},
 			{"GET", "/adminweb/topology/:ConnectConfig", aw.TopologyManagement},
 			{"GET", "/adminweb/dns/:ConnectConfig", aw.DNSZoneManagement},
 

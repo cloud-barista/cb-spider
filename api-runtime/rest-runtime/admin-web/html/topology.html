@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Cloud Resource Topology</title>
+<title>Multi-Cloud Resource Topology</title>
 <!-- Cytoscape.js (MIT License) - https://cytoscape.org -->
 <script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"
   onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.29.2/cytoscape.min.js'">
@@ -21,40 +21,96 @@
     .header-left img { height: 28px; }
 
     .toolbar {
-        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
     }
     .toolbar button {
-        font-size: 12px; padding: 4px 10px; border-radius: 4px; border: 1px solid #ccc;
-        background: white; cursor: pointer;
+        font-size: 12px; height: 26px; padding: 0 9px; border-radius: 6px; border: 1px solid #cbd5e1;
+        background: white; color: #334155; cursor: pointer; white-space: nowrap;
     }
-    .toolbar button:hover { background: #e8e8e8; }
-    .toolbar button.active { background: #007bff; color: white; border-color: #007bff; }
-    .toolbar select { font-size: 12px; padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc; }
+    .toolbar button:hover { background: #f1f5f9; }
+    .toolbar button.active { background: #2563eb; color: white; border-color: #2563eb; }
+    .toolbar select { font-size: 12px; height: 26px; padding: 0 6px; border-radius: 6px; border: 1px solid #cbd5e1; color: #334155; }
+    /* joined button groups */
+    .seg { display: inline-flex; }
+    .seg button { border-radius: 0; margin-left: -1px; }
+    .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+    .seg button:last-child { border-radius: 0 6px 6px 0; }
+    .seg button.active { position: relative; z-index: 1; }
+    .toolbar .icon-btn { width: 28px; padding: 0; font-size: 14px; }
+    .toolbar .icon-btn.round { border-radius: 50%; font-weight: 700; font-size: 13px; }
+    /* drop-down menu */
+    .menu-wrap { position: relative; display: inline-block; }
+    .menu-pop { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 2000; min-width: 170px;
+                background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px;
+                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15); }
+    .menu-pop.open { display: block; }
+    .toolbar .menu-pop button { display: block; width: 100%; text-align: left; border: none; border-radius: 6px; height: 28px; }
+    .menu-sep { height: 1px; background: #e2e8f0; margin: 4px 2px; }
 
     #cy-container {
-        position: fixed; top: 52px; left: 0; right: 280px; bottom: 0;
-        background: #f8fafc;
+        position: fixed; top: var(--header-h, 52px); left: 0; right: var(--panel-w, 280px); bottom: 0;
+        transition: right 0.2s ease;
+        background-color: #f8fafc;
+        background-image: radial-gradient(#d5dbe5 1px, transparent 1px);
+        background-size: 18px 18px;
     }
-    #cy { width: 100%; height: 100%; }
+    #cy { width: 100%; height: 100%; opacity: 0; }   /* hidden until the first layout is done */
+    #cy.ready { opacity: 1; transition: opacity 0.15s ease-in; }
 
     /* Legend + Detail panel */
     #side-panel {
-        position: fixed; top: 52px; right: 0; width: 280px; bottom: 0;
+        position: fixed; top: var(--header-h, 52px); right: 0; width: 280px; bottom: 0;
         background: white; border-left: 1px solid #ddd; overflow-y: auto;
         display: flex; flex-direction: column;
+        transition: transform 0.2s ease;
     }
+    /* side panel slid out to the right: the canvas takes the whole width */
+    body.panel-hidden { --panel-w: 0px; }
+    body.panel-hidden #side-panel { transform: translateX(100%); }
+    #panel-toggle {
+        position: fixed; z-index: 900; right: var(--panel-w, 280px); top: calc(var(--header-h, 52px) + 50%);
+        transform: translateY(-50%); width: 18px; height: 56px; padding: 0;
+        border: 1px solid #cbd5e1; border-right: none; border-radius: 8px 0 0 8px;
+        background: #fff; color: #64748b; font-size: 13px; cursor: pointer;
+        box-shadow: -2px 0 6px rgba(15, 23, 42, 0.08); transition: right 0.2s ease;
+    }
+    #panel-toggle:hover { background: #f1f5f9; color: #334155; }
     .panel-section { padding: 12px; border-bottom: 1px solid #eee; }
     .panel-section h3 { font-size: 13px; color: #333; margin-bottom: 8px; }
 
     /* Legend */
     .legend-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px; }
-    .legend-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
-    .legend-dot.vpc      { background: #3b82f6; opacity: 0.3; border: 2px solid #3b82f6; }
-    .legend-dot.subnet   { background: #06b6d4; opacity: 0.3; border: 2px solid #06b6d4; }
-    .legend-dot.sg       { background: #f97316; border: 2px solid #f97316; border-radius: 50%; }
-    .legend-dot.vm       { background: #22c55e; border: 2px solid #22c55e; border-radius: 50%; }
-    .legend-dot.nic      { background: #8b5cf6; border: 2px solid #8b5cf6; border-radius: 2px; }
-    .legend-dot.publicip { background: #ef4444; border: 2px solid #ef4444; border-radius: 50%; }
+    .legend-dot {
+        width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
+        color: white; font-size: 8px; font-weight: bold;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .legend-dot.vpc      { background: #3b82f6; }
+    .legend-dot.subnet   { background: #06b6d4; }
+    .legend-dot.sg       { background: #f97316; }
+    .legend-dot.vm       { background: #16a34a; }
+    .legend-dot.nic      { background: #8b5cf6; }
+    .legend-dot.publicip { background: #ef4444; }
+    .legend-dot.nlb      { background: #ca8a04; }
+    .legend-dot.rdbms    { background: #0d9488; }
+    .legend-dot.cluster  { background: #326ce5; }
+    .legend-dot.nodegroup { background: #4f46e5; }
+    .legend-dot.k8snode  { background: #64748b; }
+    .legend-dot.public-mark { background: #fff; border: 2px solid #ef4444; font-size: 10px; }
+    .legend-item.toggle { cursor: pointer; border-radius: 4px; padding: 1px 2px; }
+    .legend-item.toggle:hover { background: #f1f5f9; }
+    .legend-item.off { opacity: 0.35; text-decoration: line-through; }
+    .legend-note { color: #94a3b8; font-size: 10px; }
+    .legend-hint { color: #94a3b8; font-size: 10px; margin-top: 6px; }
+    .howto-wrap { position: relative; display: inline-block; }
+    .howto-pop { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 2000; width: 380px;
+                 background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;
+                 box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15); text-align: left; }
+    .howto-pop.open { display: block; }
+    .howto-pop ul { margin: 0; padding-left: 16px; font-size: 12px; color: #475569; line-height: 1.55; }
+    .howto-pop li { margin-bottom: 4px; }
+    .howto-pop kbd { font-size: 10px; border: 1px solid #cbd5e1; border-bottom-width: 2px; border-radius: 3px;
+                 padding: 0 3px; background: #f8fafc; }
 
     /* Detail info */
     #detail-panel { flex: 1; padding: 12px; }
@@ -86,6 +142,11 @@
         width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.3); position:relative;
     }
     .vdialog-title { font-size:15px; font-weight:bold; color:#1e293b; margin-bottom:14px; }
+    .spec-link { color:#2563eb; text-decoration:underline; cursor:pointer; }
+    .spec-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .spec-table th { text-align:left; color:#64748b; font-weight:600; padding:6px 10px 6px 0; width:38%; vertical-align:top; }
+    .spec-table td { color:#1e293b; padding:6px 0; word-break:break-all; }
+    .spec-table tr + tr { border-top:1px solid #f1f5f9; }
     .vdialog-close {
         position:absolute; top:12px; right:14px; background:none; border:none;
         font-size:20px; cursor:pointer; color:#64748b;
@@ -129,6 +190,44 @@
     .thumb-del:hover { background:#b91c1c; }
     .vdialog-empty { text-align:center; color:#94a3b8; padding:30px 0; font-size:13px; }
 
+    /* Delete */
+    .del-btn {
+        margin-top: 12px; width: 100%; padding: 6px 10px; font-size: 12px; font-weight: bold;
+        color: #b91c1c; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 5px; cursor: pointer;
+    }
+    .del-btn:hover { background: #fee2e2; }
+    .del-btn:disabled { color: #94a3b8; background: #f8fafc; border-color: #e2e8f0; cursor: not-allowed; }
+    .del-note { margin-top: 6px; font-size: 10px; color: #94a3b8; }
+    .conn-select { font-size: 12px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 8px;
+                   background: #fff; color: #1e293b; min-width: 220px; cursor: pointer; }
+    .conn-spinner { display: none; width: 16px; height: 16px; border-radius: 50%;
+                    border: 2.5px solid #bfdbfe; border-top-color: #2563eb; animation: conn-spin 0.8s linear infinite; }
+    .conn-spinner.on { display: inline-block; }
+
+    .box-spinner { position: absolute; z-index: 5; pointer-events: none; box-sizing: border-box; border-radius: 50%;
+                   background: #fff; border: 3px solid #bfdbfe; border-top-color: #2563eb; animation: conn-spin 0.8s linear infinite; }
+    @keyframes conn-spin { to { transform: rotate(360deg); } }
+    .conn-select:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
+    .col-btn {
+        margin-top: 12px; width: 100%; padding: 6px 10px; font-size: 12px; font-weight: bold;
+        color: #0e7490; background: #ecfeff; border: 1px solid #67e8f9; border-radius: 5px; cursor: pointer;
+    }
+    .col-btn:hover { background: #cffafe; }
+    .del-target { font-size: 13px; margin-bottom: 10px; }
+    .del-target b { color: #b91c1c; word-break: break-all; }
+    .del-section { font-size: 12px; color: #475569; margin: 8px 0 4px; font-weight: bold; }
+    .del-related { font-size: 12px; color: #334155; max-height: 160px; overflow-y: auto;
+        border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; background: #f8fafc; }
+    .del-related div { margin: 2px 0; }
+    .del-warn { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d;
+        border-radius: 4px; padding: 8px; margin: 8px 0; }
+    .del-block { font-size: 12px; color: #991b1b; background: #fef2f2; border: 1px solid #fca5a5;
+        border-radius: 4px; padding: 8px; margin: 8px 0; }
+    .del-force { font-size: 12px; color: #475569; margin: 6px 0 12px; display: flex; gap: 6px; align-items: flex-start; }
+    .vbtn-danger { background: #dc2626; color: white; }
+    .vbtn-danger:hover { background: #b91c1c; }
+    .vbtn-danger:disabled { background: #fca5a5; cursor: not-allowed; }
+
     /* Toast notification */
     #toast {
         position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -151,35 +250,72 @@
 
 <div class="fixed-header">
     <div class="header-left">
-        <img src="/spider/adminweb/images/left-menu/vpc.png" alt="Topology" onerror="this.style.display='none'">
-        <h1>☁ Cloud Resource Topology</h1>
-        <span style="font-size:11px;color:#888;">{{.ConnectionConfig}}</span>
+        <h1>Multi-Cloud Resource Topology</h1>
+        <select id="conn-select" class="conn-select" onchange="switchConnection(this.value)"
+                title="All connections (those with resources, as on the Dashboard) or one connection"></select>
+        <span id="conn-spinner" class="conn-spinner" title="Loading topology..."></span>
     </div>
     <div class="toolbar">
-        <button onclick="cy.fit()" title="Fit all">⊞ Fit</button>
-        <button onclick="cy.zoom(cy.zoom()*1.2)" title="Zoom in">＋</button>
-        <button onclick="cy.zoom(cy.zoom()*0.8)" title="Zoom out">－</button>
-        <button id="btn-cose"   class="active" onclick="applyLayout('cose')">Auto</button>
-        <button id="btn-dagre"  onclick="applyLayout('dagre')">Hierarchy</button>
-        <button id="btn-circle" onclick="applyLayout('circle')">Circle</button>
-        <button id="btn-grid"   onclick="applyLayout('grid')">Grid</button>
-        <button onclick="cy.fit();showAll()" style="background:#28a745;color:white;border-color:#28a745;">↺ Reset</button>
-        <button onclick="showSaveDialog()" style="background:#6366f1;color:white;border-color:#6366f1;" title="Save layout version to server">💾 Save</button>
-        <button onclick="showLoadDialog()"  style="background:#0891b2;color:white;border-color:#0891b2;" title="Load saved version from server">📂 Load</button>
-        <button onclick="exportPNG()"        style="background:#0d9488;color:white;border-color:#0d9488;" title="Save current view as PNG">🖼 PNG</button>
-        <button onclick="exportLayout()"    style="background:#64748b;color:white;border-color:#64748b;" title="Download layout as JSON">⬇ Export</button>
-        <label style="display:none;"><input type="file" id="importFile" accept=".json" onchange="importLayout(event)"></label>
-        <button onclick="document.getElementById('importFile').click()" style="background:#64748b;color:white;border-color:#64748b;" title="Import layout from JSON">⬆ Import</button>
-        <label style="font-size:11px;color:#666;">Filter:</label>
-        <select id="filterKind" onchange="applyFilter()" style="font-size:11px;">
-            <option value="all">All</option>
+        <!-- view -->
+        <div class="seg">
+            <button onclick="fitOverview()" title="Fit: show everything">⊞</button>
+            <button onclick="cy.zoom(cy.zoom()*1.2)" title="Zoom in">＋</button>
+            <button onclick="cy.zoom(cy.zoom()*0.8)" title="Zoom out">－</button>
+        </div>
+        <!-- layout algorithm -->
+        <div class="seg">
+            <button id="btn-cose"   class="active" onclick="applyLayout('cose')" title="Auto layout (force-directed)">Auto</button>
+            <button id="btn-dagre"  onclick="applyLayout('dagre')" title="Hierarchy layout">Hierarchy</button>
+            <button id="btn-circle" onclick="applyLayout('circle')" title="Circle layout">Circle</button>
+            <button id="btn-grid"   onclick="applyLayout('grid')" title="Grid layout">Grid</button>
+        </div>
+        <button class="icon-btn" onclick="showAll();fitAll()" title="Reset view: clear the filter and hidden types, then fit">↺</button>
+        <select id="filterKind" onchange="applyFilter()" title="Filter: highlight one resource type">
+            <option value="all">Filter: All</option>
             <option value="vpc">VPC</option>
             <option value="subnet">Subnet</option>
             <option value="sg">SecurityGroup</option>
             <option value="vm">VM</option>
             <option value="nic">NIC</option>
             <option value="publicip">PublicIP</option>
+            <option value="nlb">NLB</option>
+            <option value="rdbms">RDBMS</option>
+            <option value="cluster">Cluster</option>
+            <option value="nodegroup">NodeGroup</option>
+            <option value="k8snode">K8s Node</option>
         </select>
+        <!-- saved layouts and files -->
+        <div class="menu-wrap">
+            <button onclick="toggleMenuPop('layout-menu', event)" title="Save / load the layout, export as JSON or PNG">Layout ▾</button>
+            <div id="layout-menu" class="menu-pop">
+                <button onclick="closeMenuPops(); showSaveDialog()">💾 Save version…</button>
+                <button onclick="closeMenuPops(); showLoadDialog()">📂 Load version…</button>
+                <div class="menu-sep"></div>
+                <button onclick="closeMenuPops(); exportLayout()">⬆ Export JSON</button>
+                <button onclick="closeMenuPops(); document.getElementById('importFile').click()">⬇ Import JSON…</button>
+                <div class="menu-sep"></div>
+                <button onclick="closeMenuPops(); exportPNG()">🖼 Save as PNG</button>
+            </div>
+        </div>
+        <label style="display:none;"><input type="file" id="importFile" accept=".json" onchange="importLayout(event)"></label>
+        <div class="howto-wrap">
+            <button id="howto-btn" class="icon-btn round" onclick="toggleHowTo(event)" title="How to Use">?</button>
+            <div id="howto" class="howto-pop">
+                <ul>
+                    <li><b>Pan the canvas</b> — drag the empty canvas or the <b>body</b> of an expanded box
+                        (Connection, VPC, Subnet, Cluster, Node Group).</li>
+                    <li><b>Move a box</b> — drag its <b>header</b> (the icon and name row).
+                        A collapsed box moves from anywhere.</li>
+                    <li><b>Move several items</b> — hold <kbd>Shift</kbd> and drag to <b>box-select</b>,
+                        then drag any selected item.</li>
+                    <li><b>Expand / Collapse</b> — click <b>+</b> / <b>−</b> in the header, or double-click the box.</li>
+                    <li><b>Refresh</b> — click <b>⟳</b> in a Connection header.</li>
+                    <li><b>Zoom</b> — mouse wheel or <b>＋</b> / <b>－</b>; <b>⊞</b> (Fit) shows everything.</li>
+                    <li><b>Layout</b> — Auto / Hierarchy / Circle / Grid; <b>Layout ▾</b> saves, loads, exports.</li>
+                    <li><b>Details / Delete</b> — click an item for <b>Node Detail</b>; right-click to delete.</li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -188,6 +324,7 @@
 
 <div id="cy-container"><div id="cy"></div></div>
 
+<button id="panel-toggle" onclick="toggleSidePanel()" title="Hide the side panel (Resources, Legend, Node Detail)">›</button>
 <div id="side-panel">
     <div class="panel-section">
         <h3>📊 Resources</h3>
@@ -195,12 +332,19 @@
     </div>
     <div class="panel-section">
         <h3>🔑 Legend</h3>
-        <div class="legend-item"><div class="legend-dot vpc"></div> VPC</div>
-        <div class="legend-item"><div class="legend-dot subnet"></div> Subnet</div>
-        <div class="legend-item"><div class="legend-dot sg"></div> Security Group</div>
-        <div class="legend-item"><div class="legend-dot vm"></div> VM</div>
-        <div class="legend-item"><div class="legend-dot nic"></div> NIC</div>
-        <div class="legend-item"><div class="legend-dot publicip"></div> Public IP</div>
+        <div class="legend-item"><div class="legend-dot vpc">VPC</div> VPC</div>
+        <div class="legend-item"><div class="legend-dot subnet">SUB</div> Subnet</div>
+        <div class="legend-item toggle" data-kind="sg"><div class="legend-dot sg">SG</div> Security Group</div>
+        <div class="legend-item toggle" data-kind="vm"><div class="legend-dot vm">VM</div> VM <span class="legend-note">💾 = data disks</span></div>
+        <div class="legend-item toggle" data-kind="nic"><div class="legend-dot nic">NIC</div> NIC</div>
+        <div class="legend-item toggle" data-kind="publicip"><div class="legend-dot publicip">IP</div> Public IP</div>
+        <div class="legend-item toggle" data-kind="nlb"><div class="legend-dot nlb">NLB</div> NLB</div>
+        <div class="legend-item toggle" data-kind="rdbms"><div class="legend-dot rdbms">DB</div> RDBMS</div>
+        <div class="legend-item toggle" data-kind="cluster"><div class="legend-dot cluster">K8S</div> Cluster</div>
+        <div class="legend-item toggle" data-kind="nodegroup"><div class="legend-dot nodegroup">NG</div> Node Group</div>
+        <div class="legend-item toggle" data-kind="k8snode"><div class="legend-dot k8snode">N</div> K8s Node</div>
+        <div class="legend-item"><div class="legend-dot public-mark">🌐</div> Public access <span class="legend-note">(red border)</span></div>
+        <div class="legend-hint">Click an item to show/hide it</div>
     </div>
     <div id="detail-panel">
         <h3>ℹ️ Node Detail</h3>
@@ -234,9 +378,59 @@
   </div>
 </div>
 
+<!-- VM Spec Dialog -->
+<div id="spec-dialog" class="vdialog-overlay" onclick="if(event.target===this)closeSpecDialog()">
+  <div class="vdialog-box" style="max-width:460px;">
+    <button class="vdialog-close" onclick="closeSpecDialog()">✕</button>
+    <div class="vdialog-title" id="spec-title">🖥 VM Spec</div>
+    <div id="spec-body"></div>
+  </div>
+</div>
+
+<!-- Delete Dialog -->
+<div id="delete-dialog" class="vdialog-overlay" onclick="if(event.target===this)closeDeleteDialog()">
+  <div class="vdialog-box" style="max-width:520px;">
+    <button class="vdialog-close" onclick="closeDeleteDialog()">✕</button>
+    <div class="vdialog-title" id="del-title">🗑 Delete</div>
+    <div class="del-target" id="del-target"></div>
+    <div id="del-related-wrap">
+      <div class="del-section">Connected / contained resources</div>
+      <div class="del-related" id="del-related"></div>
+    </div>
+    <div class="del-block" id="del-block" style="display:none;"></div>
+    <div id="del-confirm-wrap">
+      <div class="del-warn">This deletes the <b>actual cloud resource</b> and cannot be undone.</div>
+      <div class="del-section">Type the name to confirm</div>
+      <input id="del-confirm" class="vname-input" type="text" autocomplete="off" spellcheck="false"
+             oninput="updateDeleteButton()" onkeydown="if(event.key==='Enter')doDelete()">
+      <label class="del-force"><input type="checkbox" id="del-force">
+        <span><b>force</b> — remove it from Spider even if the CSP delete fails
+        (the cloud resource may be left behind)</span></label>
+    </div>
+    <div class="vdialog-actions">
+      <button class="vbtn vbtn-secondary" onclick="closeDeleteDialog()">Cancel</button>
+      <button class="vbtn vbtn-danger" id="del-ok" onclick="doDelete()" disabled>Delete</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const rawNodes = {{.NodesJSON}};
-const rawEdges = {{.EdgesJSON}};
+const rawNodes = {{.NodesJSON}} || [];
+// Delete actions need the Spider name of each node, which the server sends only for registered
+// resources. (This page is served only in managed API mode; stateless mode has no resource routes.)
+let DELETE_ENABLED = rawNodes.some(n => n.name);   // updated when a connection is loaded later
+// All-connections view: every Dashboard connection is a top-level "conn" group holding its graph
+const ALL_MODE = '{{.ConnectionConfig}}' === '__all__';
+// One-connection view: the graph is shown inside its connection box too (like the all-connections
+// view), so the box header carries the collapse and refresh buttons. Node ids are not changed.
+const SINGLE_CONN_ID = ALL_MODE ? null : 'conn:{{.ConnectionConfig}}';
+function wrapInConnBox(nodes, provider) {
+    nodes.forEach(n => { if (!n.parent) n.parent = SINGLE_CONN_ID; });
+    nodes.unshift({ id: SINGLE_CONN_ID, label: '{{.ConnectionConfig}}', kind: 'conn', parent: '',
+                    status: provider || '', info: provider ? { Provider: provider } : {} });
+}
+if (!ALL_MODE) wrapInConnBox(rawNodes, '');
+const rawEdges = {{.EdgesJSON}} || [];
 
 // ---- Basic Auth for Spider API calls ----
 const SPIDER_USERNAME = '{{.APIUsername}}';
@@ -253,6 +447,117 @@ window.fetch = function(url, options) {
     return _origFetch(url, options);
 };
 
+// ---- Connection selector: "All connections" first, then the connections with resources ----
+// (same list as the Dashboard / all-connections view). The current view is preselected
+// (all-connections view → "All connections", otherwise its connection, listed even if empty).
+// Picking a connection also makes it the selected connection of AdminWeb (top menu), like the Dashboard.
+const _connInfo = {};   // name → { provider, region }
+(function initConnSelect() {
+    const sel = document.getElementById('conn-select');
+    const current = '{{.ConnectionConfig}}';
+    const opt = (value, text) => { const o = document.createElement('option'); o.value = value; o.textContent = text; return o; };
+    const fill = (list, known) => {   // list: [{name, provider, region}]; known: list is the full list
+        while (sel.options.length) sel.remove(0);
+        sel.appendChild(opt('', known ? `All connections (${list.length})` : 'All connections'));
+        if (!ALL_MODE && !list.some(c => c.name === current)) list = list.concat([{ name: current, provider: '' }]);
+        list.forEach(c => {
+            _connInfo[c.name] = { provider: c.provider, region: c.region };
+            if (!ALL_MODE && c.name === current && c.provider) setSingleConnProvider(c.provider, c.region);
+            sel.appendChild(opt(c.name, c.provider ? `${c.provider} / ${c.name}` : c.name));
+        });
+        sel.value = ALL_MODE ? '' : current;
+    };
+    // shown right away; replaced by the server list
+    fill(ALL_MODE
+        ? rawNodes.filter(n => n.kind === 'conn').map(n => ({ name: n.label, provider: n.status }))
+        : [], ALL_MODE);
+    fetch('/spider/adminweb/topology-conns')
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(list => { if (Array.isArray(list)) fill(list, true); })
+        .catch(() => {});
+})();
+
+window.addEventListener('pageshow', () => {
+    document.getElementById('conn-spinner').classList.remove('on');
+    document.getElementById('conn-select').disabled = false;
+});
+// ---- One-connection view: the box's refresh button ----
+// Fetches the connection again and redraws it, keeping positions of known resources and the
+// collapsed groups (new resources are arranged by re-running the current layout).
+function setSingleConnProvider(provider, region) {
+    const raw = rawNodes.find(n => n.id === SINGLE_CONN_ID);
+    if (raw) { raw.status = provider; raw.info = { Provider: provider, ...(region ? { Region: region } : {}) }; }
+    try {                               // (cy may not exist yet while the page is starting)
+        const g = cy.getElementById(SINGLE_CONN_ID);
+        if (g.length) { g.data('status', provider); refreshGroupHeaders(); }
+    } catch (e) {}
+}
+
+function refreshSingle() {
+    if (ALL_MODE || LOADING.has(SINGLE_CONN_ID)) return;
+    const name = CONN_CONFIG, prefix = name + '/', group = 'conn:' + name;
+    const box = rawNodes.find(n => n.id === SINGLE_CONN_ID) || {};
+    connBusy(SINGLE_CONN_ID, true);
+    showToast(`⟳ Refreshing ${name}…`, 2000);
+    fetch('/spider/adminweb/topology-data/' + encodeURIComponent(name))
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(d => {
+            if (d.error) throw new Error(d.error);
+            const strip = id => id.startsWith(prefix) ? id.slice(prefix.length) : id;
+            // server ids are prefixed for the all-connections view; this view uses the plain ids
+            const nodes = (d.nodes || []).map(n => ({ ...n, id: strip(n.id),
+                parent: n.parent === group ? SINGLE_CONN_ID : strip(n.parent || ''), conn: undefined }));
+            nodes.unshift({ ...box });
+            const edges = (d.edges || []).map(e => ({ ...e, source: strip(e.source), target: strip(e.target) }));
+
+            // remember positions (leaf cards / compact bars) and collapsed groups
+            const prev = {};
+            ORIGINAL.nodes().forEach(n => { if (n.isChildless()) prev[n.id()] = { ...n.position() }; });
+            const known = new Set(ORIGINAL.nodes().map(n => n.id()));
+            const keepCollapsed = new Set(COLLAPSED);
+
+            // replace the whole graph
+            cy.elements().remove();
+            rawNodes.length = 0; rawEdges.length = 0;
+            Object.keys(PARENT_OF).forEach(k => delete PARENT_OF[k]);
+            COLLAPSED.clear(); DELETED.clear();
+            nodes.forEach(n => { rawNodes.push(n); if (n.parent) PARENT_OF[n.id] = n.parent; });
+            edges.forEach(e => rawEdges.push(e));
+            ORIGINAL = cy.add(nodes.map(nodeElement).concat(edges.map(edgeElement)));
+            DELETE_ENABLED = nodes.some(n => n.name);
+            cy.edges().toggleClass('taxi', _currentLayout === 'dagre');
+            nodes.forEach(n => {
+                if (keepCollapsed.has(n.id) || (K8S_GROUP(n.kind) && !known.has(n.id))) COLLAPSED.add(n.id);
+            });
+            connBusy(SINGLE_CONN_ID, false);
+            applyCollapse();
+            updateStats();
+            document.getElementById('detail-content').innerHTML = '<span style="color:#aaa">Click a node to see details</span>';
+
+            const leaves = cy.nodes().filter(n => n.isChildless());
+            if (leaves.length && leaves.every(n => prev[n.id()])) {
+                leaves.positions(n => prev[n.id()]);                 // nothing new: keep the picture
+            } else {
+                layoutReadable(_currentLayout);                      // new resources: arrange again
+            }
+            showToast(`✅ ${name} refreshed`, 1800);
+        })
+        .catch(err => { connBusy(SINGLE_CONN_ID, false); showToast(`❌ Failed to refresh ${name}: ${err.message}`, 4000); });
+}
+
+function switchConnection(name) {
+    // loading the next topology can take a while (it queries the CSPs): show a spinner meanwhile
+    document.getElementById('conn-spinner').classList.add('on');
+    document.getElementById('conn-select').disabled = true;
+    if (window.parent !== window) window.parent.postMessage({ type: 'showProgressBar' }, '*');
+    if (!name) { location.href = '/spider/adminweb/topology-all'; return; }
+    const info = _connInfo[name];
+    if (info && window.parent !== window) {
+        window.parent.postMessage({ type: 'updateTopMenu', configName: name, provider: info.provider, region: info.region }, '*');
+    }
+    location.href = '/spider/adminweb/topology/' + encodeURIComponent(name);
+}
+
 // CDN check + loading hide
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
@@ -266,163 +571,389 @@ window.addEventListener('DOMContentLoaded', () => {
     }, 8000); // 8s timeout
 });
 
-// ---- Color & Shape mapping ----
-const KIND_STYLE = {
-    vpc:      { bg: '#dbeafe', border: '#3b82f6', shape: 'roundrectangle', fsize: 13, fw: 'bold' },
-    subnet:   { bg: '#cffafe', border: '#06b6d4', shape: 'roundrectangle', fsize: 12, fw: 'bold' },
-    sg:       { bg: '#fed7aa', border: '#f97316', shape: 'ellipse',       fsize: 11, fw: 'normal' },
-    vm:       { bg: '#bbf7d0', border: '#22c55e', shape: 'ellipse',       fsize: 12, fw: 'bold' },
-    nic:      { bg: '#ede9fe', border: '#8b5cf6', shape: 'diamond',       fsize: 10, fw: 'normal' },
-    privateip:{ bg: '#f3f4f6', border: '#9ca3af', shape: 'rectangle',     fsize: 9,  fw: 'normal' },
-    publicip: { bg: '#fecaca', border: '#ef4444', shape: 'ellipse',       fsize: 11, fw: 'bold' },
+// ---- Color & Icon mapping ----
+// Leaf resources (SG/VM/NIC/PublicIP) are drawn as white cards with a colored icon tile.
+// VPC/Subnet are drawn as light rounded group boxes.
+// Resource icons: Google Material Symbols (Rounded, filled, weight 400), Apache License 2.0.
+//   https://github.com/google/material-design-icons  (packaged as @material-symbols/svg-400@0.48.0)
+// Path data is in the 0..960 / -960..0 viewBox of the original SVGs.
+const MS_ICON = {
+    vpc:       "M251-160q-88 0-149.5-61.5T40-371q0-78 50-137t127-71q20-97 94-158.5T482-799q112 0 189 81.5T748-522v24q72-2 122 46.5T920-329q0 69-50 119t-119 50H251Z", // cloud
+    subnet:    "M120-140v-150q0-24.75 17.63-42.38Q155.25-350 180-350h60v-100q0-24.75 17.63-42.38Q275.25-510 300-510h150v-100h-60q-24.75 0-42.37-17.63Q330-645.25 330-670v-150q0-24.75 17.63-42.38Q365.25-880 390-880h180q24.75 0 42.38 17.62Q630-844.75 630-820v150q0 24.75-17.62 42.37Q594.75-610 570-610h-60v100h150q24.75 0 42.38 17.62Q720-474.75 720-450v100h60q24.75 0 42.38 17.62Q840-314.75 840-290v150q0 24.75-17.62 42.37Q804.75-80 780-80H600q-24.75 0-42.37-17.63Q540-115.25 540-140v-150q0-24.75 17.63-42.38Q575.25-350 600-350h60v-100H300v100h60q24.75 0 42.38 17.62Q420-314.75 420-290v150q0 24.75-17.62 42.37Q384.75-80 360-80H180q-24.75 0-42.37-17.63Q120-115.25 120-140Z", // lan
+    sg:        "M470.5-85q-4.5-1-9.5-3-139-47-220-168.5T160-523v-196q0-19 11-34.5t28-22.5l260-97q11-4 21-4t21 4l260 97q17 7 28 22.5t11 34.5v196q0 145-81 266.5T499-88q-5 2-9.5 3t-9.5 1q-5 0-9.5-1Z", // shield
+    vm:        "M286.88-717q-20.88 0-35.38 14.62-14.5 14.62-14.5 35.5 0 20.88 14.62 35.38 14.62 14.5 35.5 14.5 20.88 0 35.38-14.62 14.5-14.62 14.5-35.5 0-20.88-14.62-35.38-14.62-14.5-35.5-14.5Zm0 414q-20.88 0-35.38 14.62-14.5 14.62-14.5 35.5 0 20.88 14.62 35.38 14.62 14.5 35.5 14.5 20.88 0 35.38-14.62 14.5-14.62 14.5-35.5 0-20.88-14.62-35.38-14.62-14.5-35.5-14.5ZM154-839h651q16 0 25.5 9.5t9.5 25.81V-535q0 17.42-9.5 29.21T805-494H154q-15 0-24.5-11.79T120-535v-268.69q0-16.31 9.5-25.81T154-839Zm0 413h647q15 0 27 12.5t12 28.53V-121q0 20-12 30.5T801-80H159q-16 0-27.5-10.5T120-121v-263.97q0-16.03 9.5-28.53T154-426Z", // dns
+    nic:       "M834-480 659-657q-8-9-8.5-21t8.5-21q9-9 21-9t21 9l198 198q5 5 7 10t2 11q0 6-2 11t-7 10L701-261q-9 9-21 9t-21-9q-9-9-8.5-21t8.5-21l175-177Zm-708 0 175 177q8 9 8.5 21t-8.5 21q-9 9-21 9t-21-9L61-459q-5-5-7-10t-2-11q0-6 2-11t7-10l198-198q9-9 21-9t21 9q9 9 8.5 21t-8.5 21L126-480Zm169.5 24.5Q285-466 285-480t10.5-24.5Q306-515 320-515t24.5 10.5Q355-494 355-480t-10.5 24.5Q334-445 320-445t-24.5-10.5Zm160 0Q445-466 445-480t10.5-24.5Q466-515 480-515t24.5 10.5Q515-494 515-480t-10.5 24.5Q494-445 480-445t-24.5-10.5Zm160 0Q605-466 605-480t10.5-24.5Q626-515 640-515t24.5 10.5Q675-494 675-480t-10.5 24.5Q654-445 640-445t-24.5-10.5Z", // settings_ethernet
+    publicip:  "M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5ZM437-141v-82q-35 0-59-26t-24-61v-44L149-559q-5 20-7 39.5t-2 39.5q0 130 84.5 227T437-141Zm294-108q44-48 66.5-107.5T820-480q0-106-58-192.5T607-799v18q0 35-24 61t-59 26h-87v87q0 17-13.5 28T393-568h-83v88h258q17 0 28 13t11 30v127h43q29 0 51 17t30 44Z", // public
+    nlb:       "M450-110v-170q0-48-16-79t-49-64l43-43q13 11 27.5 30t24.5 35q17-26 33.5-45t31.5-32q58-47 83.5-113.5T648-766l-69 69q-9 9-21 9t-21-9q-9-9-9-21t9-21l120-120q5-5 10-7t11-2q6 0 11 2t10 7l120 120q9 9 9 21t-9 21q-9 9-21 9t-21-9l-69-69q5 126-24.5 198.5T585-432q-44 40-59.5 73T510-280v170q0 13-8.5 21.5T480-80q-13 0-21.5-8.5T450-110ZM258-636q-4-18-6.5-52.5T251-765l-68 68q-9 9-21 9t-21-9q-9-9-9-21t9-21l120-120q5-5 10-7t11-2q6 0 11 2t10 7l120 120q9 9 9 21t-9 21q-9 9-21 9t-21-9l-69-69q-2 38-1 66.5t5 49.5l-58 14Zm84 171q-17-18-37.5-47.5T273-577l59-15q9 25 24 48t28 37l-42 42Z", // alt_route
+    nodegroup: "M465.5-419.5Q459-421 452-425L90-619q-8-5-11.5-11.5T75-645q0-8 3.5-14.5T90-671l362-194q7-4 13.5-5.5T480-872q8 0 14.5 1.5T508-865l362 194q8 5 12 11.5t4 14.5q0 8-4 14.5T870-619L508-425q-7 4-13.5 5.5T480-418q-8 0-14.5-1.5ZM480-313l339-181q2-1 14-3 12 0 21 8.5t9 21.5q0 8-4 14.5T847-441L508-260q-7 4-13.5 5.5T480-253q-8 0-14.5-1.5T452-260L114-441q-8-5-12-11.5T98-467q0-13 9-21.5t21-8.5q4 0 7.5 1t6.5 3l338 180Zm0 165 339-181q2-1 14-3 12 0 21 8.5t9 21.5q0 8-4 14.5T847-276L508-95q-7 4-13.5 5.5T480-88q-8 0-14.5-1.5T452-95L114-276q-8-5-12-11.5T98-302q0-13 9-21.5t21-8.5q4 0 7.5 1t6.5 3l338 180Z", // stacks
+    k8snode:   "M450-85 150-258q-14.25-8.43-22.12-22.21Q120-294 120-310v-340q0-16 7.88-29.79Q135.75-693.57 150-702l300-173q14.33-8 30.16-8 15.84 0 29.84 8l300 173q14.25 8.43 22.13 22.21Q840-666 840-650v340q0 16-7.87 29.79Q824.25-266.43 810-258L510-85q-14.33 8-30.16 8Q464-77 450-85Zm0-378v309l30 17 30-17v-309.16L780-620v-30l-34-19-266 155-267-155-33 18.66V-619l270 156Z", // deployed_code
+    conn:      "M153-73q-33-33-33-81t33-81q33-33 81-33 14 0 24.5 2.5T280-258l85-106q-19-23-29-52.5t-5-61.5l-121-41q-15 25-39.5 39T114-466q-48 0-81-33T0-580q0-48 33-81t81-33q48 0 81 33t33 81v4l122 42q18-32 43.5-49t56.5-24v-129q-39-11-61.5-43T366-846q0-48 33-81t81-33q48 0 81 33t33 81q0 35-23 67t-61 43v129q31 7 57 24t44 49l121-42v-4q0-48 33-81t81-33q48 0 81 33t33 81q0 48-33 81t-81 33q-32 0-57-14t-39-39l-121 41q5 32-4.5 61.5T595-364l85 106q11-5 21.5-7.5T726-268q48 0 81 33t33 81q0 48-33 81t-81 33q-48 0-81-33t-33-81q0-20 5.5-36t15.5-31l-85-106q-32 17-68.5 17T411-327l-84 107q10 15 15.5 30.5T348-154q0 48-33 81t-81 33q-48 0-81-33Z", // hub
+    rdbms:     "M740.5-569Q840-618 840-680q0-63-99.5-111.5T480-840q-161 0-260.5 48.5T120-680q0 62 99.5 111T480-520q161 0 260.5-49ZM592-428.5q62-8.5 117.5-26.5t93-46.5Q840-530 840-570v100q0 40-37.5 68.5t-93 46.5Q654-337 592-328.5T480.5-320q-49.5 0-112-8.5t-118-27q-55.5-18.5-93-47T120-470v-100q0 39 37.5 67.5t93 47q55.5 18.5 118 27t112 8.5q49.5 0 111.5-8.5Zm0 200q62-8.5 117.5-26.5t93-46.5Q840-330 840-370v100q0 40-37.5 68.5t-93 46.5Q654-137 592-128.5T480.5-120q-49.5 0-112-8.5t-118-27q-55.5-18.5-93-47T120-270v-100q0 39 37.5 67.5t93 47q55.5 18.5 118 27t112 8.5q49.5 0 111.5-8.5Z", // database
 };
+
+// White glyph (or text fallback) on a colored rounded tile of `size` px.
+function tileSVG(color, kind, text, size) {
+    const g = MS_ICON[kind];
+    const pad = size * 0.18, gs = size - 2 * pad;   // glyph box
+    const inner = g
+        ? `<path fill="#ffffff" transform="translate(${pad} ${pad + gs}) scale(${gs / 960})" d="${g}"/>`
+        : `<text x="${size / 2}" y="${size * 0.63}" font-family="Arial, Helvetica, sans-serif" `
+          + `font-size="${size * (text.length > 2 ? 0.32 : 0.39)}" font-weight="700" fill="#ffffff" text-anchor="middle">${text}</text>`;
+    return `<rect width="${size}" height="${size}" rx="${size / 4}" ry="${size / 4}" fill="${color}"/>${inner}`;
+}
+function iconURI(color, text, kind) {
+    // 4x intrinsic size: the canvas rasterizes SVGs at their intrinsic size, so this keeps icons sharp when zoomed
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112" viewBox="0 0 28 28">${tileSVG(color, kind, text, 28)}</svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+const KIND_STYLE = {
+    vpc:      { border: '#3b82f6', abbr: 'VPC' },
+    subnet:   { border: '#06b6d4', abbr: 'SUB' },
+    sg:       { border: '#f97316', abbr: 'SG'  },
+    vm:       { border: '#16a34a', abbr: 'VM'  },
+    nic:      { border: '#8b5cf6', abbr: 'NIC' },
+    privateip:{ border: '#9ca3af', abbr: 'IP'  },
+    publicip: { border: '#ef4444', abbr: 'IP'  },
+    nlb:      { border: '#ca8a04', abbr: 'NLB' },
+    rdbms:    { border: '#0d9488', abbr: 'DB'  },
+    conn:     { border: '#475569', abbr: 'CON' },
+    nodegroup:{ border: '#4f46e5', abbr: 'NG'  },
+    k8snode:  { border: '#64748b', abbr: 'N'   },
+    cluster:  { border: '#326ce5', abbr: 'K8S' },
+};
+Object.entries(KIND_STYLE).forEach(([kind, s]) => { s.icon = iconURI(s.border, s.abbr, kind); });
+
+// Kubernetes logo (unmodified icon, color) for Cluster nodes.
+// Source: CNCF artwork, projects/kubernetes/icon/color/kubernetes-icon-color.svg
+//   https://github.com/cncf/artwork/tree/main/projects/kubernetes
+// Used only to identify Kubernetes cluster resources, under the Linux Foundation trademark usage
+// guidelines (https://www.linuxfoundation.org/trademark-usage/); it does not imply endorsement.
+// Only width/height attributes were added so browsers keep its aspect ratio when scaling.
+const K8S_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="230" height="223" role="img" viewBox="-0.17 0.08 230.10 223.35"><defs><style>.cls-1{fill:#fff}.cls-2{fill:#326ce5}</style></defs><path d="M134.358 126.466a3.59 3.59 0 0 0-.855-.065 3.685 3.685 0 0 0-1.425.37 3.725 3.725 0 0 0-1.803 4.825l-.026.037 8.528 20.603a43.53 43.53 0 0 0 17.595-22.102l-21.976-3.714zm-34.194 2.92a3.72 3.72 0 0 0-3.568-2.894 3.656 3.656 0 0 0-.733.065l-.037-.045-21.785 3.698a43.695 43.695 0 0 0 17.54 21.946l8.442-20.4-.066-.08a3.683 3.683 0 0 0 .207-2.29zm18.245 8a3.718 3.718 0 0 0-6.557.008h-.018l-10.713 19.372a43.637 43.637 0 0 0 23.815 1.225q2.197-.5 4.292-1.2l-10.738-19.406zm33.914-45l-16.483 14.753.009.047a3.725 3.725 0 0 0 1.46 6.395l.02.089 21.35 6.15a44.278 44.278 0 0 0-6.356-27.432zM121.7 94.039a3.725 3.725 0 0 0 5.913 2.84l.065.027 18.036-12.788a43.85 43.85 0 0 0-25.287-12.19l1.253 22.105zm-19.1 2.921a3.72 3.72 0 0 0 5.904-2.85l.092-.043 1.253-22.14a44.682 44.682 0 0 0-4.501.776 43.467 43.467 0 0 0-20.937 11.409l18.154 12.869zm-9.678 16.729a3.72 3.72 0 0 0 1.462-6.396l.018-.088-16.574-14.824a43.454 43.454 0 0 0-6.168 27.51l21.245-6.13zm16.098 6.512l6.114 2.94 6.096-2.934 1.514-6.581-4.219-5.276h-6.79l-4.231 5.268z" class="cls-2"/><path d="M216.208 133.167l-17.422-75.675a13.602 13.602 0 0 0-7.293-9.073l-70.521-33.67a13.589 13.589 0 0 0-11.705 0L38.76 48.437a13.598 13.598 0 0 0-7.295 9.072l-17.394 75.673a13.315 13.315 0 0 0-.004 5.81 13.506 13.506 0 0 0 .491 1.718 13.1 13.1 0 0 0 1.343 2.726c.239.365.491.72.765 1.064l48.804 60.678c.213.264.448.505.681.75a13.423 13.423 0 0 0 2.574 2.133 13.924 13.924 0 0 0 3.857 1.677 13.298 13.298 0 0 0 3.43.473h.759l77.504-.018a12.993 12.993 0 0 0 1.41-.083 13.47 13.47 0 0 0 1.989-.378 13.872 13.872 0 0 0 1.381-.442c.353-.135.705-.27 1.045-.433a13.941 13.941 0 0 0 1.479-.822 13.303 13.303 0 0 0 3.237-2.865l1.488-1.85 47.299-58.84a13.185 13.185 0 0 0 2.108-3.785 13.67 13.67 0 0 0 .5-1.724 13.282 13.282 0 0 0-.004-5.81zm-73.147 29.432a14.516 14.516 0 0 0 .703 1.703 3.314 3.314 0 0 0-.327 2.49 39.372 39.372 0 0 0 3.742 6.7 35.06 35.06 0 0 1 2.263 3.364c.17.315.392.803.553 1.136a4.24 4.24 0 1 1-7.63 3.607c-.161-.33-.385-.77-.522-1.082a35.275 35.275 0 0 1-1.225-3.868 39.305 39.305 0 0 0-2.896-7.097 3.335 3.335 0 0 0-2.154-1.307c-.135-.233-.635-1.15-.903-1.623a54.617 54.617 0 0 1-38.948-.1l-.955 1.73a3.429 3.429 0 0 0-1.819.887 29.517 29.517 0 0 0-3.268 7.582 34.9 34.9 0 0 1-1.218 3.868c-.135.31-.361.744-.522 1.073v.009l-.007.008a4.238 4.238 0 1 1-7.619-3.616c.159-.335.372-.82.54-1.135a35.177 35.177 0 0 1 2.262-3.373 41.228 41.228 0 0 0 3.82-6.866 4.188 4.188 0 0 0-.376-2.387l.768-1.84a54.922 54.922 0 0 1-24.338-30.387l-1.839.313a4.68 4.68 0 0 0-2.428-.855 39.524 39.524 0 0 0-7.356 2.165 35.589 35.589 0 0 1-3.787 1.45c-.305.084-.745.168-1.093.244-.028.01-.052.022-.08.029a.605.605 0 0 1-.065.006 4.236 4.236 0 1 1-1.874-8.224l.061-.015.037-.01c.353-.083.805-.2 1.127-.262a35.27 35.27 0 0 1 4.05-.326 39.388 39.388 0 0 0 7.564-1.242 5.835 5.835 0 0 0 1.814-1.83l1.767-.516a54.613 54.613 0 0 1 8.613-38.073l-1.353-1.206a4.688 4.688 0 0 0-.848-2.436 39.366 39.366 0 0 0-6.277-4.41 35.25 35.25 0 0 1-3.499-2.046c-.256-.191-.596-.478-.874-.704l-.063-.044a4.473 4.473 0 0 1-1.038-6.222 4.066 4.066 0 0 1 3.363-1.488 5.03 5.03 0 0 1 2.942 1.11c.287.225.68.526.935.745a35.253 35.253 0 0 1 2.78 2.95 39.383 39.383 0 0 0 5.69 5.142 3.333 3.333 0 0 0 2.507.243q.754.55 1.522 1.082A54.289 54.289 0 0 1 102.86 61.89a55.052 55.052 0 0 1 7.63-1.173l.1-1.784a4.6 4.6 0 0 0 1.37-2.184 39.476 39.476 0 0 0-.47-7.654 35.466 35.466 0 0 1-.576-4.014c-.011-.307.006-.731.01-1.081 0-.04-.01-.08-.01-.118a4.242 4.242 0 1 1 8.441-.004c0 .37.022.86.009 1.2a35.109 35.109 0 0 1-.579 4.013 39.533 39.533 0 0 0-.478 7.656 3.344 3.344 0 0 0 1.379 2.11c.015.305.065 1.323.102 1.884a55.309 55.309 0 0 1 35.032 16.927l1.606-1.147a4.69 4.69 0 0 0 2.56-.278 39.532 39.532 0 0 0 5.69-5.148 35.004 35.004 0 0 1 2.787-2.95c.259-.222.65-.52.936-.746a4.242 4.242 0 1 1 5.258 6.598c-.283.229-.657.548-.929.75a35.095 35.095 0 0 1-3.507 2.046 39.495 39.495 0 0 0-6.277 4.41 3.337 3.337 0 0 0-.792 2.39c-.235.216-1.06.947-1.497 1.343a54.837 54.837 0 0 1 8.792 37.983l1.704.496a4.745 4.745 0 0 0 1.82 1.83 39.464 39.464 0 0 0 7.568 1.246 35.64 35.64 0 0 1 4.046.324c.355.065.868.207 1.23.29a4.236 4.236 0 1 1-1.878 8.223l-.061-.008c-.028-.007-.054-.022-.083-.03-.348-.075-.785-.151-1.09-.231a35.14 35.14 0 0 1-3.785-1.462 39.477 39.477 0 0 0-7.363-2.165 3.337 3.337 0 0 0-2.362.877q-.9-.171-1.804-.316a54.92 54.92 0 0 1-24.328 30.605z" class="cls-2"/><path d="M225.407 135.107L206.4 52.547a14.838 14.838 0 0 0-7.958-9.9l-76.935-36.73a14.825 14.825 0 0 0-12.771 0L31.808 42.669a14.838 14.838 0 0 0-7.961 9.895L4.873 135.129a14.668 14.668 0 0 0 1.995 11.185c.261.4.538.788.838 1.162l53.246 66.205a14.98 14.98 0 0 0 11.499 5.487l85.387-.02a14.986 14.986 0 0 0 11.5-5.48l53.227-66.211a14.72 14.72 0 0 0 2.842-12.347zm-9.197 3.866a13.677 13.677 0 0 1-.498 1.723 13.184 13.184 0 0 1-2.11 3.786l-47.299 58.838-1.486 1.852a13.305 13.305 0 0 1-3.24 2.865 13.945 13.945 0 0 1-1.474.822q-.513.237-1.045.43a13.873 13.873 0 0 1-1.383.445 13.473 13.473 0 0 1-1.989.379 12.988 12.988 0 0 1-1.41.082l-77.504.018h-.76a13.298 13.298 0 0 1-3.429-.472 13.925 13.925 0 0 1-3.855-1.679 13.424 13.424 0 0 1-2.576-2.132c-.233-.246-.468-.487-.68-.75l-48.805-60.679q-.408-.514-.765-1.066a13.102 13.102 0 0 1-1.343-2.726 13.505 13.505 0 0 1-.491-1.719 13.315 13.315 0 0 1 .004-5.809l17.394-75.675a13.598 13.598 0 0 1 7.295-9.07l70.508-33.685a13.589 13.589 0 0 1 11.705 0l70.519 33.67a13.602 13.602 0 0 1 7.293 9.073l17.422 75.674a13.282 13.282 0 0 1 .002 5.807z" class="cls-1"/><path d="M185.814 127.106c-.36-.083-.874-.225-1.227-.29a35.642 35.642 0 0 0-4.046-.326 39.464 39.464 0 0 1-7.57-1.242 4.745 4.745 0 0 1-1.82-1.832l-1.704-.496a54.837 54.837 0 0 0-8.79-37.983c.436-.396 1.262-1.127 1.495-1.342a3.338 3.338 0 0 1 .792-2.39 39.495 39.495 0 0 1 6.277-4.41 35.095 35.095 0 0 0 3.507-2.046c.272-.202.644-.522.929-.75a4.242 4.242 0 1 0-5.256-6.6c-.288.227-.68.525-.936.747a35.004 35.004 0 0 0-2.789 2.95 39.533 39.533 0 0 1-5.69 5.148 4.69 4.69 0 0 1-2.56.278l-1.606 1.147a55.309 55.309 0 0 0-35.032-16.927c-.039-.561-.087-1.577-.102-1.884a3.344 3.344 0 0 1-1.377-2.11 39.533 39.533 0 0 1 .478-7.656 35.112 35.112 0 0 0 .575-4.012c.013-.34-.007-.834-.007-1.201a4.242 4.242 0 1 0-8.441.004c0 .04.009.078.01.118-.004.35-.021.774-.01 1.08a35.476 35.476 0 0 0 .576 4.015 39.475 39.475 0 0 1 .47 7.654 4.601 4.601 0 0 1-1.37 2.182l-.1 1.786a55.052 55.052 0 0 0-7.63 1.173 54.289 54.289 0 0 0-27.574 15.754q-.77-.531-1.526-1.082a3.333 3.333 0 0 1-2.506-.243 39.383 39.383 0 0 1-5.69-5.141 35.255 35.255 0 0 0-2.777-2.95c-.257-.22-.65-.52-.938-.75a5.03 5.03 0 0 0-2.942-1.11 4.066 4.066 0 0 0-3.363 1.49 4.473 4.473 0 0 0 1.038 6.222l.065.046c.276.226.616.515.872.702a35.256 35.256 0 0 0 3.499 2.048 39.367 39.367 0 0 1 6.276 4.412 4.69 4.69 0 0 1 .849 2.434l1.351 1.208a54.613 54.613 0 0 0-8.611 38.073l-1.767.514a5.835 5.835 0 0 1-1.814 1.827 39.39 39.39 0 0 1-7.565 1.247 35.266 35.266 0 0 0-4.049.326c-.324.06-.774.174-1.127.262l-.037.008-.06.018a4.236 4.236 0 1 0 1.875 8.224l.063-.01c.028-.006.052-.02.08-.025.348-.08.786-.163 1.092-.246a35.59 35.59 0 0 0 3.786-1.451 39.527 39.527 0 0 1 7.358-2.165 4.68 4.68 0 0 1 2.426.857l1.84-.315a54.922 54.922 0 0 0 24.34 30.387l-.769 1.84a4.188 4.188 0 0 1 .377 2.387 41.228 41.228 0 0 1-3.82 6.864 35.183 35.183 0 0 0-2.263 3.372c-.168.318-.381.805-.542 1.138a4.238 4.238 0 1 0 7.621 3.616l.007-.008v-.01c.16-.33.387-.763.522-1.072a34.903 34.903 0 0 0 1.218-3.868 29.517 29.517 0 0 1 3.268-7.582 3.43 3.43 0 0 1 1.819-.888l.957-1.73a54.617 54.617 0 0 0 38.946.099c.268.478.768 1.392.9 1.623a3.335 3.335 0 0 1 2.155 1.31 39.306 39.306 0 0 1 2.898 7.096 35.275 35.275 0 0 0 1.225 3.868c.137.312.36.75.522 1.082a4.24 4.24 0 1 0 7.63-3.607c-.161-.333-.383-.82-.55-1.136a35.06 35.06 0 0 0-2.263-3.364 39.372 39.372 0 0 1-3.742-6.7 3.314 3.314 0 0 1 .324-2.49 14.519 14.519 0 0 1-.703-1.703 54.92 54.92 0 0 0 24.328-30.605c.546.087 1.497.253 1.806.316a3.337 3.337 0 0 1 2.36-.877 39.476 39.476 0 0 1 7.36 2.165 35.135 35.135 0 0 0 3.788 1.462c.305.08.74.156 1.09.233.029.008.055.02.083.028l.06.009a4.236 4.236 0 1 0 1.878-8.224zm-40.1-42.987l-18.037 12.787-.063-.03a3.723 3.723 0 0 1-5.913-2.838l-.02-.01-1.253-22.103a43.85 43.85 0 0 1 25.285 12.194zm-33.978 24.228h6.788l4.22 5.276-1.513 6.58-6.096 2.934-6.114-2.94-1.516-6.583zm-6.386-35.648a44.672 44.672 0 0 1 4.503-.774l-1.255 22.137-.092.044a3.72 3.72 0 0 1-5.904 2.852l-.035.02-18.154-12.872a43.467 43.467 0 0 1 20.937-11.407zm-27.52 19.68l16.574 14.824-.018.09a3.72 3.72 0 0 1-1.462 6.395l-.017.072-21.245 6.13a43.454 43.454 0 0 1 6.168-27.51zm22.191 39.38l-8.441 20.397a43.696 43.696 0 0 1-17.536-21.948l21.783-3.7.037.049a3.655 3.655 0 0 1 .73-.065 3.72 3.72 0 0 1 3.364 5.185zm24.916 26.23a43.637 43.637 0 0 1-23.815-1.223l10.713-19.372h.018a3.725 3.725 0 0 1 6.557-.006h.08l10.74 19.404q-2.091.698-4.293 1.199zm13.841-5.751l-8.528-20.605.026-.037a3.725 3.725 0 0 1 1.803-4.823 3.685 3.685 0 0 1 1.425-.37 3.59 3.59 0 0 1 .855.063l.037-.046 21.977 3.714a43.53 43.53 0 0 1-17.595 22.105zm19.903-32.42l-21.352-6.15-.02-.09a3.725 3.725 0 0 1-1.46-6.395l-.008-.043 16.482-14.751a44.279 44.279 0 0 1 6.357 27.43z" class="cls-1"/></svg>`;
+KIND_STYLE.cluster.icon = 'data:image/svg+xml;utf8,' + encodeURIComponent(K8S_LOGO_SVG);
+document.querySelectorAll('.legend-item .legend-dot').forEach(el => {
+    const kind = Object.keys(KIND_STYLE).find(k => el.classList.contains(k));
+    if (!kind || kind === 'cluster' || !MS_ICON[kind]) return;
+    el.textContent = '';
+    el.style.background = `center / contain no-repeat url("${KIND_STYLE[kind].icon}")`;
+});
+document.querySelectorAll('.legend-dot.cluster').forEach(el => {
+    el.textContent = '';
+    el.style.background = `center / contain no-repeat url("${KIND_STYLE.cluster.icon}")`;
+});
+
 const EDGE_COLOR = {
     'vm-nic':  '#8b5cf6',
     'nic-sg':  '#f97316',
     'nic-pub': '#ef4444',
+    'nlb-vm':  '#ca8a04',
+    'rdbms-sg':   '#f97316',
+    'cluster-sg': '#f97316',
+    'nlb-subnet':     '#06b6d4',
+    'rdbms-subnet':   '#06b6d4',
+    'cluster-subnet': '#06b6d4',
     default:   '#94a3b8',
 };
 
-// Build Cytoscape elements
-const elements = [];
+// Group header (VPC/Subnet): badge tile + name, drawn as an SVG at the box's top-left.
+const GROUP_TEXT = { conn: { color: '#1e293b', size: 14 }, vpc: { color: '#1d4ed8', size: 13 }, subnet: { color: '#0e7490', size: 12 },
+                     cluster: { color: '#1e40af', size: 12 }, nodegroup: { color: '#3730a3', size: 12 } };
+const _measureCtx = document.createElement('canvas').getContext('2d');
+function xmlEscape(t) {
+    return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// btn: '+' (collapsed), '-' (expandable/collapsible), or null (empty group: nothing to toggle)
+// note: extra grey text after the name (ex: "7 hidden")
+const GROUP_BTN = 20;   // +/- button size (header units)
+// refresh: also draw a round refresh button right of the +/- button (connection groups)
+const REFRESH_PATH = "M480-160q-133 0-226.5-93.5T160-480q0-133 93.5-226.5T480-800q85 0 149 34.5T740-671v-99q0-13 8.5-21.5T770-800q13 0 21.5 8.5T800-770v194q0 13-8.5 21.5T770-546H576q-13 0-21.5-8.5T546-576q0-13 8.5-21.5T576-606h138q-38-60-97-97t-137-37q-109 0-184.5 75.5T220-480q0 109 75.5 184.5T480-220q75 0 140-39.5T717-366q5-11 16.5-16.5t22.5-.5q12 5 16 16.5t-1 23.5q-39 84-117.5 133.5T480-160Z";
+function groupHeader(kind, name, btn, note, refresh) {
+    const s = KIND_STYLE[kind], t = GROUP_TEXT[kind];
+    const tile = 24, gap = 8;
+    _measureCtx.font = `700 ${t.size}px Arial, Helvetica, sans-serif`;
+    let w = tile + gap + Math.ceil(_measureCtx.measureText(name).width);
+    let noteSVG = '';
+    if (note) {
+        _measureCtx.font = `600 11px Arial, Helvetica, sans-serif`;
+        noteSVG = `<text x="${w + 8}" y="${tile / 2 + 4}" font-family="Arial, Helvetica, sans-serif" `
+            + `font-size="11" font-weight="600" fill="#64748b">${xmlEscape(note)}</text>`;
+        w += 8 + Math.ceil(_measureCtx.measureText(note).width);
+    }
+    let btnSVG = '', btnX = null;
+    if (btn) {
+        btnX = w + 10;
+        const b = GROUP_BTN, y0 = (tile - b) / 2, cx = btnX + b / 2, cy0 = y0 + b / 2;
+        btnSVG = `<rect x="${btnX}" y="${y0}" width="${b}" height="${b}" rx="5" ry="5" fill="#ffffff" stroke="${s.border}" stroke-width="1.5"/>`
+            + `<path d="M${cx - 5} ${cy0}H${cx + 5}${btn === '+' ? `M${cx} ${cy0 - 5}V${cy0 + 5}` : ''}" `
+            + `stroke="${s.border}" stroke-width="2" stroke-linecap="round"/>`;
+        w = btnX + b;
+    }
+    let refreshX = null;
+    if (refresh) {
+        refreshX = w + (btn ? 6 : 10);
+        const b = GROUP_BTN, y0 = (tile - b) / 2, g = 14, o = (b - g) / 2;
+        btnSVG += `<circle cx="${refreshX + b / 2}" cy="${y0 + b / 2}" r="${b / 2 - 0.75}" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>`
+            + `<path fill="#475569" transform="translate(${refreshX + o} ${y0 + o + g}) scale(${g / 960})" d="${REFRESH_PATH}"/>`;
+        w = refreshX + b;
+    }
+    w += 4;
+    const tileMarkup = kind === 'cluster'
+        ? K8S_LOGO_SVG.replace(/ width="\d+" height="\d+"/, ` x="0" y="0" width="${tile}" height="${tile}"`)
+        : tileSVG(s.border, kind, s.abbr, tile);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w * 4}" height="${tile * 4}" viewBox="0 0 ${w} ${tile}">`
+        + tileMarkup
+        + `<text x="${tile + gap}" y="${tile / 2 + t.size * 0.36}" font-family="Arial, Helvetica, sans-serif" `
+        + `font-size="${t.size}" font-weight="700" fill="${t.color}">${xmlEscape(name)}</text>`
+        + noteSVG + btnSVG + `</svg>`;
+    return { uri: 'data:image/svg+xml;utf8,' + encodeURIComponent(svg), w: w, h: tile, btnX: btnX, refreshX: refreshX };
+}
 
-// Nodes
-rawNodes.forEach(n => {
+// Card geometry (shared by stylesheet and hierarchy layout)
+const CARD_W = 200, CARD_H = 48, ICON_SIZE = 28, ICON_LEFT = 12;
+const GROUP_PAD = { conn: 52, vpc: 48, subnet: 46, cluster: 44, nodegroup: 42 };   // must clear the 10px + 24px header
+const HDR_X = 12, HDR_Y = 10;                 // header (badge + name + button) offset inside a group box
+const COMPACT_PAD = 10;                       // padding of a compact (empty / collapsed) group bar
+
+// Card scale: cards, fonts and group paddings are drawn at SCALE x their base size.
+// Layouts keep the gaps between items unscaled, so a larger SCALE makes the picture denser;
+// layoutReadable() raises SCALE until cards stay readable while the whole graph fits the screen.
+let SCALE = 1;
+const sc = v => v * SCALE;
+const gpad = kind => sc(GROUP_PAD[kind] || 30);
+
+// Build Cytoscape elements (also used for connections loaded later in the all-connections view)
+function nodeElement(n) {
     const s = KIND_STYLE[n.kind] || KIND_STYLE.vpc;
-    const isCompound = (n.kind === 'vpc' || n.kind === 'subnet');
-    const el = {
-        data: {
-            id: n.id, label: n.label, kind: n.kind,
-            privateIP: n.privateIP, publicIP: n.publicIP, status: n.status,
-            ...(n.parent ? { parent: n.parent } : {}),
-            _bg: s.bg, _border: s.border, _shape: s.shape, _fsize: s.fsize, _fw: s.fw,
-            _compound: isCompound,
-        }
-    };
-    elements.push({ group: 'nodes', data: el.data });
-});
-
-// Edges
-rawEdges.forEach((e, i) => {
-    elements.push({
+    const hdr = GROUP_TEXT[n.kind] ? groupHeader(n.kind, String(n.label).split('\n')[0]) : null;
+    return { group: 'nodes', data: {
+        id: n.id, label: n.label, kind: n.kind, name: n.name || '',
+        privateIP: n.privateIP, publicIP: n.publicIP, status: n.status,
+        ...(n.public ? { public: true } : {}),
+        ...(n.conn ? { conn: n.conn } : {}),
+        ...(n.parent ? { parent: n.parent } : {}),
+        _border: s.border, _icon: hdr ? hdr.uri : s.icon,
+        ...(hdr ? { _hdrW: hdr.w, _hdrH: hdr.h } : {}),
+    }};
+}
+let _edgeSeq = 0;
+function edgeElement(e) {
+    return {
         group: 'edges',
         data: {
-            id: 'e' + i,
+            id: 'e' + (_edgeSeq++),
             source: e.source, target: e.target,
             label: e.label || '', kind: e.kind || 'default',
             _color: EDGE_COLOR[e.kind] || EDGE_COLOR.default,
         }
-    });
-});
+    };
+}
+const elements = rawNodes.map(nodeElement).concat(rawEdges.map(edgeElement));
 
 // ---- Init Cytoscape ----
-document.getElementById('loading').style.display = 'none';
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
 const cy = cytoscape({
     container: document.getElementById('cy'),
     elements: elements,
     style: [
         {
+            // Leaf resource card
             selector: 'node',
             style: {
+                'shape': 'round-rectangle',
+                'corner-radius': () => sc(10),
+                'width': () => sc(CARD_W),
+                'height': () => sc(CARD_H),
+                'background-color': '#ffffff',
+                'border-width': () => sc(1.5),
+                'border-color': '#e2e8f0',
+                'background-image': 'data(_icon)',
+                'background-width': () => sc(ICON_SIZE),
+                'background-height': () => sc(ICON_SIZE),
+                'background-position-x': () => sc(ICON_LEFT) + 'px',
+                'background-position-y': '50%',
+                'background-fit': 'none',
+                'background-clip': 'none',
                 'label': 'data(label)',
-                'text-valign': 'center',
-                'text-halign': 'center',
-                'font-size': 'data(_fsize)',
-                'font-weight': 'data(_fw)',
-                'text-wrap': 'wrap',
-                'text-max-width': '120px',
-                'background-color': 'data(_bg)',
-                'border-color': 'data(_border)',
-                'border-width': 2,
-                'shape': 'data(_shape)',
-                'min-width': 60,
-                'min-height': 30,
-                'padding': '12px',
+                'font-family': FONT,
+                'font-size': () => sc(12),
+                'font-weight': 600,
                 'color': '#1e293b',
+                'text-wrap': 'wrap',
+                'text-max-width': () => sc(CARD_W - ICON_LEFT - ICON_SIZE - 22) + 'px',
+                'text-justification': 'left',
+                'line-height': 1.3,
+                // label starts right after the icon tile
+                'text-halign': 'right',
+                'text-valign': 'center',
+                'text-margin-x': () => -sc(CARD_W - ICON_LEFT - ICON_SIZE - 10),
+                'underlay-color': '#0f172a',
+                'underlay-opacity': 0.03,
+                'underlay-padding': () => sc(2),
+                'underlay-shape': 'round-rectangle',
             }
         },
         {
-            // Compound nodes (VPC, Subnet) — larger, more padding
-            selector: 'node[_compound = "true"]',
+            // Internet-facing resources (public NLB, publicly accessible RDBMS)
+            selector: 'node[?public]',
+            style: { 'border-color': '#ef4444', 'border-width': () => sc(2) }
+        },
+        {
+            selector: 'node[status = "unregistered"]',
+            style: { 'border-style': 'dashed' }
+        },
+        {
+            // Group boxes (VPC, Subnet)
+            // Header (badge + name) is the background image; padding leaves room for it.
+            selector: 'node[kind = "conn"], node[kind = "vpc"], node[kind = "subnet"], node[kind = "cluster"], node[kind = "nodegroup"]',
             style: {
-                'text-valign': 'top',
-                'text-halign': 'left',
-                'text-margin-x': 10,
-                'text-margin-y': 14,
-                'padding': '36px',
-                'background-opacity': 0.25,
-                'border-style': 'dashed',
+                'label': '',
+                'background-width': n => sc(n.data('_hdrW')),
+                'background-height': n => sc(n.data('_hdrH')),
+                'background-position-x': () => sc(HDR_X) + 'px',
+                'background-position-y': () => sc(HDR_Y) + 'px',
+                'underlay-opacity': 0,
+                'corner-radius': () => sc(16),
+                'width': () => sc(CARD_W),
+                'height': () => sc(80),
+            }
+        },
+        {
+            // Kubernetes cluster → node groups → worker nodes (collapsed by default)
+            selector: 'node[kind = "cluster"]',
+            style: {
+                'padding': () => gpad('cluster') + 'px',
+                'background-color': '#eef2ff', 'background-opacity': 0.85,
+                'border-color': '#93a5f5', 'border-width': 1.5,
+            }
+        },
+        {
+            selector: 'node[kind = "nodegroup"]',
+            style: {
+                'padding': () => gpad('nodegroup') + 'px',
+                'background-color': '#f5f3ff', 'background-opacity': 0.95,
+                'border-color': '#c4b5fd', 'border-width': 1.5,
+            }
+        },
+        {
+            // Connection group (all-connections view)
+            selector: 'node[kind = "conn"]',
+            style: {
+                'padding': () => gpad('conn') + 'px',
+                'background-color': '#ffffff',
+                'background-opacity': 0.6,
+                'border-color': '#94a3b8',
                 'border-width': 2,
-                'min-width': 160,
-                'min-height': 100,
+                'corner-radius': () => sc(20),
             }
         },
         {
             selector: 'node[kind = "vpc"]',
             style: {
-                'text-valign': 'top',
-                'text-halign': 'center',
-                'text-margin-x': 0,
+                'padding': () => gpad('vpc') + 'px',
+                'background-color': '#eff6ff',
+                'background-opacity': 0.7,
+                'border-color': '#93c5fd',
+                'border-width': 1.5,
+                'font-size': 14,
+                'font-weight': 700,
+                'color': '#1d4ed8',
                 'text-margin-y': -6,
-                'font-size': 13,
-                'font-weight': 'bold',
-                'color': '#1e40af',
             }
         },
         {
             selector: 'node[kind = "subnet"]',
             style: {
-                'text-valign': 'top',
-                'text-halign': 'center',
-                'text-margin-x': 0,
-                'text-margin-y': -5,
-                'font-size': 11,
+                'padding': () => gpad('subnet') + 'px',
+                'background-color': '#ecfeff',
+                'background-opacity': 0.9,
+                'border-color': '#67e8f9',
+                'border-width': 1.5,
+                'font-size': () => sc(12),
+                'font-weight': 600,
                 'color': '#0e7490',
+                'text-margin-y': -4,
             }
         },
         {
-            selector: 'node:selected',
+            // Empty or collapsed VPC/Subnet: a compact bar just big enough for its header
+            selector: 'node[kind = "conn"]:childless, node[kind = "vpc"]:childless, node[kind = "subnet"]:childless, '
+                    + 'node[kind = "cluster"]:childless, node[kind = "nodegroup"]:childless',
             style: {
-                'border-width': 4,
-                'border-color': '#f59e0b',
-                'background-opacity': 0.9,
+                'width': n => sc(n.data('_hdrW') + 2 * HDR_X - 2 * COMPACT_PAD),
+                'height': () => sc(24 + 2 * HDR_Y - 2 * COMPACT_PAD),
+                'padding': () => sc(COMPACT_PAD) + 'px',
+                'corner-radius': () => sc(10),
             }
+        },
+        {
+            selector: 'node.collapsed',
+            style: { 'border-style': 'dashed' }
+        },
+        {
+            selector: 'node.hover',
+            style: { 'border-color': 'data(_border)', 'border-width': () => sc(2) }
+        },
+        {
+            selector: 'node:selected',
+            style: { 'border-width': () => sc(2.5), 'border-color': '#f59e0b' }
         },
         {
             selector: 'edge',
             style: {
-                'width': 1.5,
+                'width': () => sc(1.6),
                 'line-color': 'data(_color)',
                 'target-arrow-color': 'data(_color)',
                 'target-arrow-shape': 'triangle',
+                'arrow-scale': () => sc(0.8),
                 'curve-style': 'bezier',
-                'label': 'data(label)',
-                'font-size': 9,
-                'color': '#64748b',
-                'text-background-color': 'rgba(255,255,255,0.85)',
+                'opacity': 0.75,
+                'font-family': FONT,
+                'font-size': () => sc(10),
+                'color': '#475569',
+                'text-background-color': '#ffffff',
                 'text-background-opacity': 1,
                 'text-background-padding': '2px',
-                'opacity': 0.85,
-                'text-halign': 'center',
-                'text-valign': 'center',
-                'source-text-offset': 40,
+                'text-background-shape': 'round-rectangle',
             }
         },
         {
-            // NIC→PublicIP edges: show label near source (inside subnet)
-            selector: 'edge[kind = "nic-pub"]',
+            // Orthogonal, rounded edges for the left-to-right Hierarchy view
+            selector: 'edge.taxi',
             style: {
-                'text-rotation': 'autorotate',
-                'source-label': 'data(label)',
-                'source-text-offset': 50,
-                'label': '',   // hide center label; use source-label instead
-                'font-size': 9,
-                'color': '#94a3b8',
+                'curve-style': 'taxi',
+                'taxi-direction': 'horizontal',
+                'taxi-turn': '50%',
+                'taxi-radius': () => sc(12),
+                'source-endpoint': '90deg',
+                'target-endpoint': '270deg',
             }
         },
         {
+            // Service → Subnet placement links (NLB/RDBMS/Cluster): dashed, straight to the subnet box
+            selector: 'edge[kind $= "-subnet"]',
+            style: {
+                'curve-style': 'straight',
+                'line-style': 'dashed',
+                'line-dash-pattern': [6, 4],
+                'source-endpoint': 'outside-to-node',
+                'target-endpoint': 'outside-to-node',
+                'target-arrow-shape': 'none',
+                'width': () => sc(1.4),
+            }
+        },
+        {
+            // Edge labels only for highlighted (selected node) edges
             selector: 'edge.highlighted',
-            style: { 'width': 3, 'opacity': 1 }
+            style: { 'width': () => sc(2.4), 'opacity': 1, 'label': 'data(label)' }
+        },
+        {
+            selector: 'node.deleting',
+            style: { 'opacity': 0.4, 'border-style': 'dashed', 'border-color': '#dc2626' }
+        },
+        {
+            // Hidden via legend toggle
+            selector: '.kind-hidden',
+            style: { 'display': 'none' }
         },
         {
             selector: '.faded',
@@ -432,10 +963,699 @@ const cy = cytoscape({
     layout: { name: 'preset' },
 });
 
+// ---- Collapse / expand VPC & Subnet ----
+// The visible graph is rebuilt from the original elements on every toggle: nodes inside a collapsed
+// group are removed, and each original edge that touches them is redrawn between the "visible
+// representatives" (the outermost collapsed group, or the node itself), de-duplicated per kind.
+let ORIGINAL = cy.elements();                   // snapshot of every original node/edge (grows when a connection is loaded)
+const PARENT_OF = {};
+rawNodes.forEach(n => { if (n.parent) PARENT_OF[n.id] = n.parent; });
+const COLLAPSED = new Set();                    // collapsed group ids
+const DELETED = new Set();                      // ids removed by the delete action
+const isGroupKind = k => k === 'conn' || k === 'vpc' || k === 'subnet' || k === 'cluster' || k === 'nodegroup';
+// Kubernetes groups start collapsed (node groups / worker nodes are shown on expand)
+const K8S_GROUP = k => k === 'cluster' || k === 'nodegroup';
+
+function repOf(id) {
+    let rep = id;
+    for (let p = PARENT_OF[id]; p; p = PARENT_OF[p]) if (COLLAPSED.has(p)) rep = p;
+    return rep;
+}
+function hiddenCount(gid) {
+    let c = 0;
+    ORIGINAL.nodes().forEach(n => {
+        if (DELETED.has(n.id())) return;
+        for (let p = PARENT_OF[n.id()]; p; p = PARENT_OF[p]) if (p === gid) { c++; return; }
+    });
+    return c;
+}
+
+function applyCollapse() {
+    cy.batch(() => {
+        cy.edges('.meta').remove();
+        ORIGINAL.nodes().filter(n => n.removed() && !DELETED.has(n.id())).restore();
+        ORIGINAL.edges().filter(e => e.removed()
+            && !DELETED.has(e.data('source')) && !DELETED.has(e.data('target'))).restore();
+        cy.nodes().filter(n => repOf(n.id()) !== n.id()).remove();     // hide contents of collapsed groups
+
+        const seen = new Set();
+        ORIGINAL.edges().filter(e => e.removed()).forEach(e => {
+            const src = e.data('source'), tgt = e.data('target');
+            if (DELETED.has(src) || DELETED.has(tgt)) return;
+            const rs = repOf(src), rt = repOf(tgt);
+            if (rs === rt) return;                                       // both inside the same collapsed group
+            const key = `${rs}|${rt}|${e.data('kind')}`;
+            if (seen.has(key) || !cy.getElementById(rs).length || !cy.getElementById(rt).length) return;
+            seen.add(key);
+            // a visible edge already links the same pair (ex: NLB → subnet) → no extra merged edge
+            if (cy.getElementById(rs).edgesTo(cy.getElementById(rt)).length) return;
+            cy.add({ group: 'edges', classes: 'meta', data: {
+                id: 'meta:' + key, source: rs, target: rt, kind: e.data('kind'), label: '', _color: e.data('_color'),
+            }});
+        });
+
+        refreshGroupHeaders();
+        // keep legend show/hide choices for restored nodes
+        document.querySelectorAll('.legend-item.off').forEach(i =>
+            cy.nodes(`[kind = "${i.dataset.kind}"]`).addClass('kind-hidden'));
+        cy.elements().removeClass('faded highlighted');
+    });
+}
+
+// Header per state: collapsed → "+" and hidden count, has contents → "-", empty → no button
+function refreshGroupHeaders() {
+    cy.nodes().filter(n => isGroupKind(n.data('kind'))).forEach(g => {
+        const c = COLLAPSED.has(g.id());
+        g.toggleClass('collapsed', c);
+        const btn = c ? '+' : (g.children().length ? '-' : null);
+        const notes = [];
+        const isConn = g.data('kind') === 'conn';
+        if (isConn) notes.push(g.data('status'));          // provider
+        if (LOADING.has(g.id()))   notes.push('loading…');
+        else if (LAZY.has(g.id())) notes.push('not loaded');
+        else if (c) notes.push(`${hiddenCount(g.id())} hidden`);
+        const [title, sub] = String(g.data('label')).split('\n');
+        if (sub) notes.unshift(sub);                          // ex: "k8s 1.30", "t3.medium · 2 node(s)"
+        const hdr = groupHeader(g.data('kind'), title, btn, notes.join(' · '), isConn);
+        g.data({ _icon: hdr.uri, _hdrW: hdr.w, _hdrH: hdr.h, _btnX: hdr.btnX, _refreshX: hdr.refreshX });
+        preloadHeader(hdr.uri);
+        // an open box pans the canvas when dragged by its body (only its header bar moves it);
+        // a compact bar (collapsed / empty) is all header, so it moves from anywhere
+        if (g.children().length) g.panify(); else g.unpanify();
+    });
+}
+
+// ---- Drag on a box: header bar → move the box, body → pan the canvas ----
+// Cytoscape decides grab-vs-pan before its own events fire, so the choice is made on the native
+// mousedown/touchstart (capture phase): the open box whose header bar is under the pointer is made
+// grabbable for this one gesture; every other open box stays "pannable".
+const HDR_BAND = HDR_Y + 24 + 8;    // header bar height inside a box (header units)
+function boxHeaderAt(clientX, clientY) {
+    const rect = cy.container().getBoundingClientRect();
+    const z = cy.zoom(), pan = cy.pan();
+    const x = (clientX - rect.left - pan.x) / z, y = (clientY - rect.top - pan.y) / z;
+    let best = null;
+    cy.nodes().filter(n => isGroupKind(n.data('kind')) && n.children().length && n.visible()).forEach(g => {
+        const bb = g.boundingBox({ includeLabels: false, includeOverlays: false });
+        if (x < bb.x1 || x > bb.x2 || y < bb.y1 || y > bb.y1 + HDR_BAND * SCALE) return;
+        if (!best || g.ancestors().anySame(best)) best = g;   // innermost header wins
+    });
+    return best;
+}
+let _headerGrab = null;
+function onBoxPointerDown(ev) {
+    const pt = ev.touches ? ev.touches[0] : ev;
+    if (!pt) return;
+    const g = boxHeaderAt(pt.clientX, pt.clientY);
+    if (g) { g.unpanify(); _headerGrab = g; }
+}
+function onBoxPointerUp() {
+    const g = _headerGrab;
+    _headerGrab = null;
+    // after Cytoscape has released the box
+    if (g) setTimeout(() => { if (g.children().length) g.panify(); }, 0);
+}
+cy.container().addEventListener('mousedown', onBoxPointerDown, true);
+cy.container().addEventListener('touchstart', onBoxPointerDown, true);
+window.addEventListener('mouseup', onBoxPointerUp, true);
+window.addEventListener('touchend', onBoxPointerUp, true);
+
+// Cytoscape's live canvas sometimes never requests a node's new background image (seen when a VPC
+// turns into a compact bar), leaving the header blank. A tiny offscreen render (cy.png) makes the
+// renderer load the image into its own cache, which then redraws the live canvas.
+const _loadedHeaders = new Set();
+let _hdrRefreshTimer = null;
+function preloadHeader(uri) {
+    if (_loadedHeaders.has(uri)) return;
+    const im = new Image();
+    im.onload = () => {
+        _loadedHeaders.add(uri);
+        clearTimeout(_hdrRefreshTimer);
+        _hdrRefreshTimer = setTimeout(() => { try { cy.png({ scale: 0.01 }); } catch (e) {} }, 30);
+    };
+    im.src = uri;
+}
+
+// Which header button was tapped: 'toggle' (+/-), 'refresh', or null.
+// (header is drawn at (HDR_X, HDR_Y) inside the box)
+function groupButtonHit(evt) {
+    const g = evt.target;
+    if (!isGroupKind(g.data('kind')) || !evt.position) return null;
+    const bb = g.boundingBox({ includeLabels: false, includeOverlays: false });
+    const lx = (evt.position.x - bb.x1) / SCALE - HDR_X, ly = (evt.position.y - bb.y1) / SCALE - HDR_Y;
+    if (ly < -2 || ly > 26) return null;
+    const hit = x0 => x0 != null && lx >= x0 - 3 && lx <= x0 + GROUP_BTN + 3;
+    if (hit(g.data('_refreshX'))) return 'refresh';
+    if (hit(g.data('_btnX'))) return 'toggle';
+    return null;
+}
+
+function toggleCollapse(id) {
+    const n = cy.getElementById(id);
+    if (!n.length || !isGroupKind(n.data('kind'))) return;
+    if (LAZY.has(id)) { loadConn(id, true); return; }      // first expand: fetch the connection's graph
+    if (COLLAPSED.has(id)) COLLAPSED.delete(id);
+    else if (n.children().length) COLLAPSED.add(id);
+    else return;                                   // nothing inside to collapse
+    const wasCollapsed = !COLLAPSED.has(id);       // state before this toggle
+    const bb = n.boundingBox({ includeLabels: false, includeOverlays: false });
+    applyCollapse();
+    document.getElementById('detail-content').innerHTML = '<span style="color:#aaa">Click a node to see details</span>';
+    if (!_userArranged) { layoutReadable(_currentLayout); return; }
+    // The user has moved things: toggle in place, keeping the group's top-left where it is now.
+    const g = cy.getElementById(id);
+    if (wasCollapsed) {
+        // expanding: restored contents keep their old relative arrangement → shift them under the bar.
+        // Contents that were never laid out (ex: node groups / worker nodes collapsed from the start)
+        // sit on top of each other: arrange them first, so no card hides another.
+        const leaves = g.descendants().filter(d => d.children().length === 0);
+        const seen = new Set();
+        const stacked = leaves.some(d => {
+            const k = Math.round(d.position('x')) + ',' + Math.round(d.position('y'));
+            if (seen.has(k)) return true;
+            seen.add(k); return false;
+        });
+        if (stacked) {
+            placeGroupBox(g, bb.x1, bb.y1);
+        } else {
+            const nb = g.boundingBox({ includeLabels: false, includeOverlays: false });
+            const dx = bb.x1 - nb.x1, dy = bb.y1 - nb.y1;
+            leaves.positions(d => ({ x: d.position('x') + dx, y: d.position('y') + dy }));
+        }
+    } else {
+        // collapsing: the compact bar takes the group's old top-left corner
+        g.position({ x: bb.x1 + g.outerWidth() / 2, y: bb.y1 + g.outerHeight() / 2 });
+    }
+    resolveBoxOverlaps(g);                         // an expanded box may now cover other VPCs / connections
+}
+
+function appendCollapseButton(n) {
+    if (!isGroupKind(n.data('kind'))) return;
+    const collapsed = COLLAPSED.has(n.id());
+    if (!collapsed && !n.children().length) return;
+    const btn = document.createElement('button');
+    btn.className = 'col-btn';
+    btn.textContent = LAZY.has(n.id()) ? '▸ Load & expand'
+        : collapsed ? `▸ Expand (${hiddenCount(n.id())} hidden)` : '▾ Collapse';
+    btn.addEventListener('click', () => toggleCollapse(n.id()));
+    document.getElementById('detail-content').appendChild(btn);
+    if (n.data('kind') === 'conn') {
+        const rb = document.createElement('button');
+        rb.className = 'col-btn';
+        rb.style.marginLeft = '6px';
+        rb.textContent = '⟳ Refresh';
+        rb.addEventListener('click', () => refreshConn(n.id()));
+        document.getElementById('detail-content').appendChild(rb);
+    }
+}
+
+// ---- All-connections view: load a connection's graph on demand / refresh it ----
+// Only the first connection is loaded with the page; the others start collapsed ("not loaded")
+// and are fetched the first time they are expanded. The refresh button re-fetches one connection.
+const LAZY = new Set(rawNodes.filter(n => n.kind === 'conn' && n.lazy).map(n => n.id));
+const LOADING = new Set();
+LAZY.forEach(id => COLLAPSED.add(id));
+rawNodes.forEach(n => { if (K8S_GROUP(n.kind)) COLLAPSED.add(n.id); });
+applyCollapse();
+
+function connBusy(id, on) {
+    if (on) LOADING.add(id); else LOADING.delete(id);
+    refreshGroupHeaders();
+    placeBoxSpinners();
+}
+
+// Spinner on the connection box being loaded/refreshed: an HTML overlay drawn over the box's
+// refresh button (the canvas cannot animate), kept in place on pan/zoom/move.
+const _boxSpinners = {};   // conn id → element
+function placeBoxSpinners() {
+    const host = document.getElementById('cy-container');
+    Object.keys(_boxSpinners).forEach(id => {
+        if (!LOADING.has(id)) { _boxSpinners[id].remove(); delete _boxSpinners[id]; }
+    });
+    LOADING.forEach(id => {
+        const g = cy.getElementById(id);
+        if (!g.length) return;
+        let el = _boxSpinners[id];
+        if (!el) { el = document.createElement('div'); el.className = 'box-spinner'; host.appendChild(el); _boxSpinners[id] = el; }
+        const z = cy.zoom() * SCALE, pan = cy.pan();
+        const bb = g.boundingBox({ includeLabels: false, includeOverlays: false });
+        const bx = g.data('_refreshX') != null ? g.data('_refreshX') : g.data('_btnX');
+        const size = GROUP_BTN * z;
+        el.style.width = el.style.height = size + 'px';
+        el.style.borderWidth = Math.max(2, size * 0.14) + 'px';
+        el.style.left = (bb.x1 * cy.zoom() + pan.x + (HDR_X + bx) * z) + 'px';
+        el.style.top  = (bb.y1 * cy.zoom() + pan.y + (HDR_Y + 2) * z) + 'px';
+    });
+}
+cy.on('viewport position render', () => { if (LOADING.size) placeBoxSpinners(); });
+
+function fetchConnGraph(id) {
+    const name = cy.getElementById(id).data('label');
+    return fetch('/spider/adminweb/topology-data/' + encodeURIComponent(name))
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(d => {
+            if (d.error) showToast(`⚠ ${name}: ${d.error}`, 5000);
+            const raw = rawNodes.find(x => x.id === id);
+            if (raw) { raw.info = raw.info || {}; if (d.error) raw.info.Error = d.error; else delete raw.info.Error; }
+            return { nodes: d.nodes || [], edges: d.edges || [] };
+        });
+}
+
+// Remove everything inside a connection group (all of its nodes/edges, shown or hidden)
+function dropConnGraph(id) {
+    const name = cy.getElementById(id).data('label'), prefix = name + '/';
+    const old = ORIGINAL.filter(e => e.isNode() ? e.id().startsWith(prefix)
+        : e.data('source').startsWith(prefix) || e.data('target').startsWith(prefix));
+    const pos = {};
+    old.nodes().forEach(n => { if (n.isChildless()) pos[n.id()] = { ...n.position() }; });
+    cy.edges('.meta').filter(e => e.data('source').startsWith(prefix) || e.data('target').startsWith(prefix)).remove();
+    old.filter(e => !e.removed()).remove();
+    ORIGINAL = ORIGINAL.not(old);
+    for (let i = rawNodes.length - 1; i >= 0; i--) if (rawNodes[i].id.startsWith(prefix)) rawNodes.splice(i, 1);
+    for (let i = rawEdges.length - 1; i >= 0; i--) if (rawEdges[i].source.startsWith(prefix)) rawEdges.splice(i, 1);
+    Object.keys(PARENT_OF).forEach(k => { if (k.startsWith(prefix)) delete PARENT_OF[k]; });
+    return pos;
+}
+
+// Add a connection's graph inside its group. Contents are arranged (hierarchy) with their top-left
+// at the group's current top-left, or keep their previous positions (refresh) when all are known.
+function addConnGraph(id, g, prevPos, knownIds) {
+    const grp = cy.getElementById(id);
+    const bb = grp.boundingBox({ includeLabels: false, includeOverlays: false });
+    // Kubernetes groups that are new here start collapsed; the connection itself stays open while
+    // its contents are arranged, then gets its own collapsed state back below
+    g.nodes.forEach(n => { if (K8S_GROUP(n.kind) && !(knownIds && knownIds.has(n.id))) COLLAPSED.add(n.id); });
+    const connCollapsed = COLLAPSED.delete(id);
+    g.nodes.forEach(n => { rawNodes.push(n); if (n.parent) PARENT_OF[n.id] = n.parent; });
+    g.edges.forEach(e => rawEdges.push(e));
+    const added = cy.add(g.nodes.map(nodeElement).concat(g.edges.map(edgeElement)));
+    ORIGINAL = ORIGINAL.union(added);
+    if (g.nodes.some(n => n.name)) DELETE_ENABLED = true;
+    added.edges().toggleClass('taxi', _currentLayout === 'dagre');
+    applyCollapse();
+    cy.style().update();
+    const leaves = grp.descendants().filter(d => d.isChildless());
+    if (prevPos && leaves.length && leaves.every(n => prevPos[n.id()])) {
+        leaves.positions(n => prevPos[n.id()]);
+        // hidden contents of collapsed groups: their saved positions, shown when expanded
+        added.nodes().filter(n => n.removed() && prevPos[n.id()]).forEach(n => n.position(prevPos[n.id()]));
+    } else if (leaves.length) {
+        hierarchyLayoutIn(grp);
+        const nb = grp.boundingBox({ includeLabels: false, includeOverlays: false });
+        const dx = bb.x1 - nb.x1, dy = bb.y1 - nb.y1;
+        leaves.positions(n => ({ x: n.position('x') + dx, y: n.position('y') + dy }));
+    }
+    if (connCollapsed) COLLAPSED.add(id);
+    applyCollapse();
+    // still collapsed (contents hidden again): keep the compact bar where it was
+    if (grp.isChildless()) grp.position({ x: bb.x1 + grp.outerWidth() / 2, y: bb.y1 + grp.outerHeight() / 2 });
+    resolveBoxOverlaps(grp);
+    updateStats();
+}
+
+function loadConn(id, expand) {
+    if (LOADING.has(id)) return Promise.resolve();
+    const name = cy.getElementById(id).data('label');
+    connBusy(id, true);
+    showToast(`⏳ Loading ${name}… (this may take a while)`, 2500);
+    return fetchConnGraph(id).then(g => {
+        connBusy(id, false);
+        LAZY.delete(id);
+        // a loaded layout (Load / Import) may already hold this connection's arrangement
+        let prev = null, known = null;
+        if (_savedLayout) {
+            prev = _savedLayout.positions;
+            known = new Set(g.nodes.filter(n => prev[n.id]).map(n => n.id));
+            g.nodes.forEach(n => { if (_savedLayout.collapsed.has(n.id)) COLLAPSED.add(n.id); });
+        }
+        addConnGraph(id, g, prev, known);
+        if (expand && COLLAPSED.has(id) && cy.getElementById(id).length) {
+            if (cy.getElementById(id).children().length || hiddenCount(id)) toggleCollapse(id);
+            else { COLLAPSED.delete(id); applyCollapse(); }      // nothing to show inside
+        }
+    }).catch(err => {
+        connBusy(id, false);
+        showToast(`❌ Failed to load ${name}: ${err.message}`, 4000);
+    });
+}
+
+function refreshConn(id) {
+    if (!ALL_MODE) { refreshSingle(); return; }               // one-connection view
+    if (!cy.getElementById(id).length) return;
+    if (LAZY.has(id)) { loadConn(id, false); return; }      // not loaded yet: just load (stay collapsed)
+    if (LOADING.has(id)) return;
+    const name = cy.getElementById(id).data('label');
+    connBusy(id, true);
+    showToast(`⟳ Refreshing ${name}…`, 2000);
+    fetchConnGraph(id).then(g => {
+        connBusy(id, false);
+        const keep = new Set(COLLAPSED);
+        const known = new Set(ORIGINAL.nodes().map(n => n.id()));
+        const prev = dropConnGraph(id);
+        keep.forEach(cid => { if (!ORIGINAL.some(e => e.id() === cid)) COLLAPSED.delete(cid); });
+        // collapsed groups inside are restored first so their contents get positions
+        const inner = [...COLLAPSED].filter(cid => cid !== id && cid.startsWith(name + '/'));
+        inner.forEach(cid => COLLAPSED.delete(cid));
+        const wasCollapsed = COLLAPSED.has(id);
+        COLLAPSED.delete(id);
+        applyCollapse();
+        addConnGraph(id, g, prev, known);
+        inner.forEach(cid => { if (cy.getElementById(cid).length) COLLAPSED.add(cid); });
+        if (wasCollapsed) COLLAPSED.add(id);
+        applyCollapse();
+        showToast(`✅ ${name} refreshed`, 1800);
+    }).catch(err => {
+        connBusy(id, false);
+        showToast(`❌ Failed to refresh ${name}: ${err.message}`, 4000);
+    });
+}
+
+refreshGroupHeaders();
+
+// Double-click a VPC/Subnet box (or click its +/- button) to collapse / expand it
+cy.on('dbltap', 'node[kind = "conn"], node[kind = "vpc"], node[kind = "subnet"], node[kind = "cluster"], node[kind = "nodegroup"]', evt => toggleCollapse(evt.target.id()));
+
+// ---- Delete a resource from the topology ----
+// Uses the same Spider REST APIs as the resource pages: DELETE /spider/<resource>/<name>
+// with body {ConnectionName}. Only resources registered in Spider (node has a Spider name) can be
+// deleted; VPC/Subnet only when nothing (other than empty subnets) is left inside.
+const DELETE_API = {
+    vm: 'vm', nlb: 'nlb', rdbms: 'rdbms', cluster: 'cluster', sg: 'securitygroup',
+    vpc: 'vpc', nic: 'nic', publicip: 'publicip',
+};
+const KIND_LABEL = {
+    vpc: 'VPC', subnet: 'Subnet', sg: 'Security Group', vm: 'VM', nic: 'NIC', publicip: 'Public IP',
+    nlb: 'NLB', rdbms: 'RDBMS', cluster: 'Cluster', nodegroup: 'Node Group',
+};
+const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Returns { url, blocked } for a node, or null when the node has no delete action at all.
+function deleteTarget(n) {
+    if (!DELETE_ENABLED) return null;
+    const kind = n.data('kind'), name = n.data('name');
+    if (!KIND_LABEL[kind]) return null;
+    if (!name) return { blocked: 'This resource is not registered in Spider (shown from VM/NIC data), so it cannot be deleted here.' };
+    if (n.hasClass('deleting')) return { blocked: 'A delete request for this resource is already in progress.' };
+    // a cluster / node group is deleted as a whole, so it does not need to be expanded first
+    if (!K8S_GROUP(kind) && (COLLAPSED.has(n.id()) || n.descendants().some(d => COLLAPSED.has(d.id())))) {
+        return { blocked: 'Expand the collapsed VPC/Subnet first to see what is inside before deleting.' };
+    }
+    let url;
+    if (kind === 'subnet') {
+        const vpcName = n.parent().data('name');
+        if (!vpcName) return { blocked: 'Cannot find the VPC of this subnet.' };
+        url = `/spider/vpc/${encodeURIComponent(vpcName)}/subnet/${encodeURIComponent(name)}`;
+    } else if (kind === 'nodegroup') {
+        const clusterName = cy.getElementById(PARENT_OF[n.id()] || '').data('name');
+        if (!clusterName) return { blocked: 'Cannot find the cluster of this node group.' };
+        url = `/spider/cluster/${encodeURIComponent(clusterName)}/nodegroup/${encodeURIComponent(name)}`;
+    } else {
+        url = `/spider/${DELETE_API[kind]}/${encodeURIComponent(name)}`;
+    }
+    if (kind === 'subnet' && n.children().length) {
+        return { url, blocked: `Delete the ${n.children().length} resource(s) inside this subnet first.` };
+    }
+    if (kind === 'vpc') {
+        const inside = n.descendants().filter(d => !(d.data('kind') === 'subnet' && d.isChildless()));
+        if (inside.length) return { url, blocked: `Delete the ${inside.length} resource(s) inside this VPC first (empty subnets are deleted with the VPC).` };
+    }
+    return { url };
+}
+
+function appendDeleteButton(n) {
+    const t = deleteTarget(n);
+    if (!t) return;
+    const box = document.getElementById('detail-content');
+    const btn = document.createElement('button');
+    btn.className = 'del-btn';
+    btn.textContent = `🗑 Delete ${KIND_LABEL[n.data('kind')]}`;
+    btn.addEventListener('click', () => openDeleteDialog(n.id()));
+    box.appendChild(btn);
+    const note = document.createElement('div');
+    note.className = 'del-note';
+    note.textContent = 'Right-click a node to delete it, too.';
+    box.appendChild(note);
+}
+
+// Related resources shown in the confirm dialog
+function relatedList(n) {
+    const rows = [];
+    n.connectedEdges().forEach(e => {
+        const out = e.source().same(n);
+        const other = out ? e.target() : e.source();
+        rows.push(`${out ? '→' : '←'} ${esc(KIND_LABEL[other.data('kind')] || other.data('kind'))}: `
+            + `<b>${esc(String(other.data('label')).split('\n')[0])}</b>`);
+    });
+    n.descendants().forEach(d => rows.push(`⊂ ${esc(KIND_LABEL[d.data('kind')] || d.data('kind'))}: `
+        + `<b>${esc(String(d.data('label')).split('\n')[0])}</b>`));
+    const raw = rawNodes.find(x => x.id === n.id()) || {};
+    if (raw.info && raw.info['Data Disks']) rows.push(`💾 Data Disks: <b>${esc(raw.info['Data Disks'])}</b>`);
+    return rows;
+}
+
+let _deleteNodeId = null;
+function openDeleteDialog(id) {
+    const n = cy.getElementById(id);
+    const t = n.length ? deleteTarget(n) : null;
+    if (!t) return;
+    _deleteNodeId = id;
+    const kind = KIND_LABEL[n.data('kind')];
+    document.getElementById('del-title').textContent = `🗑 Delete ${kind}`;
+    document.getElementById('del-target').innerHTML =
+        `${esc(kind)} <b>${esc(n.data('name') || String(n.data('label')).split('\n')[0])}</b> · connection ${esc(n.data('conn') || CONN_CONFIG)}`;
+    const rows = relatedList(n);
+    document.getElementById('del-related-wrap').style.display = rows.length ? '' : 'none';
+    document.getElementById('del-related').innerHTML = rows.map(r => `<div>${r}</div>`).join('');
+    const block = document.getElementById('del-block');
+    block.style.display = t.blocked ? '' : 'none';
+    block.textContent = t.blocked || '';
+    document.getElementById('del-confirm-wrap').style.display = t.blocked ? 'none' : '';
+    document.getElementById('del-ok').style.display = t.blocked ? 'none' : '';
+    const input = document.getElementById('del-confirm');
+    input.value = '';
+    input.placeholder = n.data('name') || '';
+    document.getElementById('del-force').checked = false;
+    updateDeleteButton();
+    document.getElementById('delete-dialog').style.display = 'flex';
+    if (!t.blocked) setTimeout(() => input.focus(), 50);
+}
+function closeDeleteDialog() {
+    document.getElementById('delete-dialog').style.display = 'none';
+    _deleteNodeId = null;
+}
+function updateDeleteButton() {
+    const n = _deleteNodeId ? cy.getElementById(_deleteNodeId) : null;
+    document.getElementById('del-ok').disabled =
+        !n || !n.length || document.getElementById('del-confirm').value !== n.data('name');
+}
+
+function doDelete() {
+    const n = _deleteNodeId ? cy.getElementById(_deleteNodeId) : null;
+    if (!n || !n.length || document.getElementById('del-confirm').value !== n.data('name')) return;
+    const t = deleteTarget(n);
+    if (!t || t.blocked) return;
+    const force = document.getElementById('del-force').checked;
+    const kind = KIND_LABEL[n.data('kind')], name = n.data('name');
+    closeDeleteDialog();
+
+    n.addClass('deleting');
+    showToast(`🗑 Deleting ${kind} "${name}"… (this may take a while)`, 4000);
+    fetch(t.url + (force ? '?force=true' : ''), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ConnectionName: n.data('conn') || CONN_CONFIG }),
+    })
+    .then(async r => {
+        const txt = await r.text();
+        let d; try { d = JSON.parse(txt); } catch (e) { d = { Message: txt }; }
+        if (r.ok && (d.Result === true || d.Result === 'true')) return;
+        throw new Error(d.Message || d.message || txt || ('HTTP ' + r.status));
+    })
+    .then(() => {
+        removeDeletedNode(n);
+        showToast(`✅ Deleted ${kind} "${name}"`, 3000);
+    })
+    .catch(err => {
+        n.removeClass('deleting');
+        showToast(`❌ Failed to delete ${kind} "${name}": ${err.message}`, 8000);
+        if (n.selected() || document.getElementById('detail-content').textContent.includes(name)) {
+            const box = document.getElementById('detail-content');
+            const e = document.createElement('div');
+            e.className = 'del-block';
+            e.textContent = `Delete failed: ${err.message}`;
+            box.appendChild(e);
+        }
+    });
+}
+
+// Remove the deleted node, then unregistered helper nodes left without an owner
+// (VM-derived NICs with no VM, and their unregistered Public IPs with no NIC).
+function removeDeletedNode(n) {
+    const gone = n;
+    const orphanNics = cy.nodes('[kind = "nic"]').filter(x => !x.data('name') && x.incomers('node[kind = "vm"]').every(v => v.same(n)));
+    const orphanPubs = cy.nodes('[kind = "publicip"]').filter(x => !x.data('name')
+        && x.connectedEdges().every(e => e.connectedNodes().some(m => m.same(n) || orphanNics.contains(m))));
+    gone.union(orphanNics).union(orphanPubs).forEach(x => DELETED.add(x.id()));
+    // contents of a deleted group (cluster → node groups → nodes), including hidden (collapsed) ones
+    ORIGINAL.nodes().forEach(x => {
+        for (let p = PARENT_OF[x.id()]; p; p = PARENT_OF[p]) if (p === n.id()) { DELETED.add(x.id()); return; }
+    });
+    gone.union(orphanNics).union(orphanPubs).remove();
+    for (let i = rawNodes.length - 1; i >= 0; i--) {
+        if (DELETED.has(rawNodes[i].id)) rawNodes.splice(i, 1);   // hidden (collapsed) nodes stay
+    }
+    applyCollapse();                                              // refresh merged edges / hidden counts
+    updateStats();
+    cy.elements().removeClass('faded highlighted');
+    document.getElementById('detail-content').innerHTML = '<span style="color:#aaa">Click a node to see details</span>';
+}
+
+// ---- VM spec dialog (VM Spec link in the detail panel) ----
+document.getElementById('detail-content').addEventListener('click', ev => {
+    const a = ev.target.closest('.spec-link');
+    if (!a) return;
+    ev.preventDefault();
+    if (a.dataset.image) showImageDialog(a.dataset.image, a.dataset.type, a.dataset.conn);
+    else showSpecDialog(a.dataset.spec, a.dataset.conn);
+});
+
+// ---- Image dialog (Image link): PublicImage → /spider/vmimage, MyImage → /spider/myimage ----
+function showImageDialog(image, type, conn) {
+    const box = document.getElementById('spec-body');
+    const my = type === 'MyImage';
+    document.getElementById('spec-title').textContent = `💿 ${my ? 'My Image' : 'Image'}: ${image}`;
+    box.innerHTML = '<div style="color:#94a3b8;padding:8px 0;">⏳ Loading…</div>';
+    document.getElementById('spec-dialog').style.display = 'flex';
+    const key = 'img|' + conn + '|' + type + '|' + image;
+    const url = `/spider/${my ? 'myimage' : 'vmimage'}/${encodeURIComponent(image)}?ConnectionName=${encodeURIComponent(conn)}`;
+    const p = _specCache[key] || (_specCache[key] = fetch(url)
+        .then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.message || d.Message || 'HTTP ' + r.status); return d; }));
+    p.then(d => { box.innerHTML = imageTable(d, conn, my); })
+     .catch(err => { delete _specCache[key]; box.innerHTML = `<div style="color:#dc2626;">❌ ${esc(err.message)}</div>`; });
+}
+function imageTable(d, conn, my) {
+    const na = v => v == null || v === '' || v === '-1' || v === 'NA';
+    const rows = [['Connection', conn]];
+    if (my) {
+        rows.push(['Status', d.Status], ['Source VM', d.SourceVM && (d.SourceVM.NameId || d.SourceVM.SystemId)],
+                  ['Created', d.CreatedTime && !String(d.CreatedTime).startsWith('0001') ? new Date(d.CreatedTime).toLocaleString() : ''],
+                  ['System ID', d.IId && d.IId.SystemId]);
+    } else {
+        rows.push(['OS', d.OSDistribution], ['Platform', d.OSPlatform], ['Architecture', d.OSArchitecture],
+                  ['OS Disk', [d.OSDiskType, !na(d.OSDiskSizeGB) ? `min ${d.OSDiskSizeGB} GB` : ''].filter(x => !na(x)).join(' · ')],
+                  ['Status', d.ImageStatus], ['Image ID', d.IId && (d.IId.SystemId || d.IId.NameId)]);
+    }
+    return '<table class="spec-table">' + rows.filter(r => !na(r[1]))
+        .map(r => `<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join('') + '</table>';
+}
+const _specCache = {};
+function showSpecDialog(spec, conn) {
+    const box = document.getElementById('spec-body');
+    document.getElementById('spec-title').textContent = `🖥 VM Spec: ${spec}`;
+    box.innerHTML = '<div style="color:#94a3b8;padding:8px 0;">⏳ Loading…</div>';
+    document.getElementById('spec-dialog').style.display = 'flex';
+    const key = conn + '|' + spec;
+    const p = _specCache[key] || (_specCache[key] = fetch(`/spider/vmspec/${encodeURIComponent(spec)}?ConnectionName=${encodeURIComponent(conn)}`)
+        .then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.message || d.Message || 'HTTP ' + r.status); return d; }));
+    p.then(d => { box.innerHTML = specTable(d, conn); })
+     .catch(err => { delete _specCache[key]; box.innerHTML = `<div style="color:#dc2626;">❌ ${esc(err.message)}</div>`; });
+}
+function specTable(d, conn) {
+    const na = v => v == null || v === '' || v === '-1' || v === 'NA';
+    const rows = [['Connection', conn], ['Region', d.Region]];
+    const cpu = d.VCpu || {};
+    if (!na(cpu.Count)) rows.push(['vCPU', cpu.Count + (!na(cpu.ClockGHz) ? ` (${cpu.ClockGHz} GHz)` : '')]);
+    if (!na(d.MemSizeMiB)) {
+        const mib = Number(d.MemSizeMiB);
+        rows.push(['Memory', isNaN(mib) ? d.MemSizeMiB : (mib >= 1024 ? `${+(mib / 1024).toFixed(2)} GiB` : `${mib} MiB`)]);
+    }
+    if (!na(d.DiskSizeGB)) rows.push(['Disk', d.DiskSizeGB + ' GB']);
+    const acc = (d.Accelerator && d.Accelerator.length ? d.Accelerator : (d.Gpu || []).map(g => ({ ...g, Type: 'GPU' })));
+    acc.forEach(a => {
+        const parts = [a.Mfr, a.Model].filter(x => !na(x)).join(' ');
+        const mem = !na(a.MemSizeGB) ? ` · ${a.MemSizeGB} GB` : '';
+        rows.push([a.Type || 'GPU', `${!na(a.Count) ? a.Count + ' × ' : ''}${parts}${mem}`]);
+    });
+    // Useful extras from the CSP key/values. Some CSPs put structs there as text
+    // (ex: ProcessorInfo "{Manufacturer:Intel,SupportedArchitectures:[i386,x86_64],...}"), so a field
+    // is looked up as its own key first, then inside those values.
+    const kv = d.KeyValueList || [];
+    const field = name => {
+        const own = kv.find(x => x.Key === name);
+        if (own && !na(own.Value) && !String(own.Value).startsWith('{')) return String(own.Value);
+        for (const x of kv) {
+            const m = String(x.Value || '').match(new RegExp('[{,]\\s*' + name + ':(\\[[^\\]]*\\]|[^,}]+)'));
+            if (m && !na(m[1]) && m[1] !== 'null') return m[1].replace(/^\[|\]$/g, '').replace(/,/g, ', ');
+        }
+        return '';
+    };
+    [['Processor', 'Manufacturer'], ['Architecture', 'SupportedArchitectures'], ['Network', 'NetworkPerformance'],
+     ['Hypervisor', 'Hypervisor'], ['Burstable', 'BurstablePerformanceSupported']]
+        .forEach(([label, name]) => { const v = field(name); if (v) rows.push([label, v]); });
+    return '<table class="spec-table">' + rows.filter(r => !na(r[1]))
+        .map(r => `<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join('') + '</table>';
+}
+function closeSpecDialog() { document.getElementById('spec-dialog').style.display = 'none'; }
+
+// Right-click (or long-press) a node → delete dialog
+cy.on('cxttap', 'node', evt => {
+    const t = deleteTarget(evt.target);
+    if (t) openDeleteDialog(evt.target.id());
+});
+
+// ---- Keep canvas/side panel below the fixed header ----
+// The toolbar wraps to more lines on narrow windows or high zoom, which makes the header taller.
+(function trackHeaderHeight() {
+    const header = document.querySelector('.fixed-header');
+    const apply = () => {
+        document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
+        cy.resize();
+    };
+    apply();
+    if (window.ResizeObserver) new ResizeObserver(apply).observe(header);
+    else window.addEventListener('resize', apply);
+})();
+
+// ---- Legend: click a leaf kind to show/hide it (its edges hide with it) ----
+document.querySelectorAll('.legend-item.toggle').forEach(item => {
+    item.addEventListener('click', () => {
+        const off = item.classList.toggle('off');
+        cy.nodes(`[kind = "${item.dataset.kind}"]`).toggleClass('kind-hidden', off);
+    });
+});
+
+// ---- Toolbar pop-ups ("Layout ▾" menu, "?" How to Use): closed by default, one open at a time ----
+function closeMenuPops(except) {
+    document.querySelectorAll('.menu-pop.open, .howto-pop.open').forEach(p => { if (p.id !== except) p.classList.remove('open'); });
+}
+function toggleMenuPop(id, ev) {
+    ev.stopPropagation();
+    closeMenuPops(id);
+    document.getElementById(id).classList.toggle('open');
+}
+function toggleHowTo(ev) { toggleMenuPop('howto', ev); }
+document.addEventListener('click', ev => {
+    document.querySelectorAll('.menu-pop.open, .howto-pop.open').forEach(p => { if (!p.contains(ev.target)) p.classList.remove('open'); });
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeMenuPops(); });
+
+// ---- Side panel (Resources / Legend / Node Detail): slide out to the right and back ----
+function toggleSidePanel() {
+    const hidden = document.body.classList.toggle('panel-hidden');
+    const btn = document.getElementById('panel-toggle');
+    btn.textContent = hidden ? '‹' : '›';
+    btn.title = hidden ? 'Show the side panel (Resources, Legend, Node Detail)'
+                       : 'Hide the side panel (Resources, Legend, Node Detail)';
+    // let the canvas follow its new width (after the slide)
+    setTimeout(() => cy.resize(), 220);
+}
+
 // ---- Stats bar ----
 function updateStats() {
-    const kinds = ['vpc','subnet','sg','vm','nic','publicip'];
-    const labels = { vpc:'VPC', subnet:'Subnet', sg:'SG', vm:'VM', nic:'NIC', publicip:'PublicIP' };
+    const kinds = ['conn','vpc','subnet','sg','vm','nic','publicip','nlb','rdbms','cluster','nodegroup','k8snode'];
+    const labels = { conn:'Connection', vpc:'VPC', subnet:'Subnet', sg:'SG', vm:'VM', nic:'NIC', publicip:'PublicIP',
+                     nlb:'NLB', rdbms:'RDBMS', cluster:'Cluster', nodegroup:'NodeGroup', k8snode:'K8s Node' };
     const counts = {};
     rawNodes.forEach(n => { counts[n.kind] = (counts[n.kind]||0)+1; });
     const bar = document.getElementById('stats-bar');
@@ -444,19 +1664,51 @@ function updateStats() {
     ).join('');
 }
 updateStats();
-document.getElementById('loading').style.display = 'none';
+
+// The graph stays invisible until the first layout has placed and sized everything,
+// so the raw initial positions are never shown.
+function revealGraph() {
+    const el = document.getElementById('cy');
+    if (el.classList.contains('ready')) return;
+    el.classList.add('ready');
+    document.getElementById('loading').style.display = 'none';
+}
+setTimeout(revealGraph, 5000);   // safety net: never stay hidden if a layout fails
 
 // ---- Node click → detail panel ----
 cy.on('tap', 'node', function(evt) {
+    const hitBtn = groupButtonHit(evt);
+    if (hitBtn === 'toggle')  { toggleCollapse(evt.target.id()); return; }
+    if (hitBtn === 'refresh') { refreshConn(evt.target.id()); return; }
     const n = evt.target.data();
     const s = KIND_STYLE[n.kind] || {};
     const rawNode = rawNodes.find(x => x.id === n.id) || {};
 
     let html = `<div style="margin-bottom:6px;font-weight:bold;font-size:13px;color:${s.border||'#333'}">${n.label.replace(/\n/g,'<br>')}</div>`;
-    html += `<div class="detail-row"><span class="detail-key">Type</span><span class="detail-val">${n.kind.toUpperCase()}</span></div>`;
-    if (rawNode.status) html += `<div class="detail-row"><span class="detail-key">Status</span><span class="detail-val">${rawNode.status}</span></div>`;
+    html += `<div class="detail-row"><span class="detail-key">Type</span><span class="detail-val">${n.kind === 'conn' ? 'CONNECTION' : n.kind.toUpperCase()}</span></div>`;
+    if (n.conn) html += `<div class="detail-row"><span class="detail-key">Connection</span><span class="detail-val">${esc(n.conn)}</span></div>`;
+    if (n.kind === 'conn' && ALL_MODE) html += `<a class="col-btn" style="display:inline-block;text-decoration:none;margin:4px 0 6px;" `
+        + `href="/spider/adminweb/topology/${encodeURIComponent(n.label)}">↗ Open this connection only</a>`;
+    if (rawNode.status && n.kind !== 'conn') html += `<div class="detail-row"><span class="detail-key">Status</span><span class="detail-val">${rawNode.status}</span></div>`;
     if (rawNode.privateIP) html += `<div class="detail-row"><span class="detail-key">Private IP</span><span class="detail-val">${rawNode.privateIP}</span></div>`;
     if (rawNode.publicIP) html += `<div class="detail-row"><span class="detail-key">Public IP</span><span class="detail-val">${rawNode.publicIP}</span></div>`;
+    // Info in the server's display order (most useful first), then any other keys sorted
+    const info = rawNode.info || {};
+    const order = (rawNode.infoOrder || []).filter(k => k in info && !k.startsWith('_'));
+    const conn = esc(n.conn || CONN_CONFIG);
+    order.concat(Object.keys(info).filter(k => !order.includes(k) && !k.startsWith('_')).sort()).forEach(k => {
+        const v = esc(info[k]);
+        let val = v;
+        if (k === 'VM Spec') {
+            val = `<a href="#" class="spec-link" data-spec="${v}" data-conn="${conn}" title="Show this VM spec">${v}</a>`;
+        } else if (k === 'Image' && !K8S_GROUP(n.kind) && n.kind !== 'k8snode') {
+            // VM: PublicImage / MyImage. Kubernetes node groups / nodes get no link: their image is
+            // usually an image type chosen by the cloud (ex: AL2023_x86_64_STANDARD), not a VM image.
+            const type = info._imageType || 'PublicImage';
+            val = `<a href="#" class="spec-link" data-image="${v}" data-type="${esc(type)}" data-conn="${conn}" title="Show this image">${v}</a>`;
+        }
+        html += `<div class="detail-row"><span class="detail-key">${esc(k)}</span><span class="detail-val">${val}</span></div>`;
+    });
 
     // Show connected nodes
     const connectedEdges = cy.edges().filter(e => e.source().id()===n.id || e.target().id()===n.id);
@@ -475,6 +1727,8 @@ cy.on('tap', 'node', function(evt) {
     }
 
     document.getElementById('detail-content').innerHTML = html;
+    appendCollapseButton(evt.target);
+    appendDeleteButton(evt.target);
 
     // Highlight selected + neighbors
     cy.elements().addClass('faded');
@@ -482,6 +1736,7 @@ cy.on('tap', 'node', function(evt) {
     const neighborhood = evt.target.closedNeighborhood();
     neighborhood.removeClass('faded');
     neighborhood.edges().addClass('highlighted');
+    unfadeAncestors(neighborhood.nodes());
 });
 
 cy.on('tap', function(evt) {
@@ -493,130 +1748,484 @@ cy.on('tap', function(evt) {
 
 // ---- Layout switch ----
 const layoutConfigs = {
-    cose:   { name:'cose', animate:true, animationDuration:500, nodeRepulsion:8000, idealEdgeLength:100, gravity:1, numIter:1000, padding:40 },
-    dagre:  { name:'preset' }, // fallback — dagre requires plugin
+    cose:   { name:'cose', animate:true, animationDuration:500, nodeRepulsion:20000, idealEdgeLength:160, nodeOverlap:20, gravity:1, numIter:1000, padding:40, fit:false },
     circle: { name:'circle', animate:true, padding:40 },
     grid:   { name:'grid', animate:true, padding:40 },
 };
 
-function applyLayout(name) {
+function setActiveLayoutButton(name) {
     document.querySelectorAll('.toolbar button[id^="btn-"]').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById('btn-'+name);
+    const btn = document.getElementById('btn-' + name);
     if (btn) btn.classList.add('active');
+}
 
-    let cfg = layoutConfigs[name] || layoutConfigs.cose;
+function applyLayout(name) {
+    setActiveLayoutButton(name);
+    layoutReadable(name);
+}
 
-    // Hierarchical: manually position VPC→Subnet→VM/NIC
-    if (name === 'dagre') {
-        hierarchyLayout();
-        return;
+// ---- Readable layout ----
+// The whole graph always fits the screen, and cards never look smaller than MIN_CARD_ZOOM
+// (on-screen card size = SCALE x zoom; card text 12px -> at least ~10px).
+// Card size (SCALE) and layout spacing are decoupled: when the fitted zoom makes cards too small,
+// cards/fonts are enlarged and the layout is recomputed with the same (unscaled) gaps, which makes
+// the picture denser, then fitted again. Repeats until cards are readable.
+const MIN_CARD_ZOOM   = 0.8;   // target on-screen card scale (layout tries to reach it)
+const CARD_ZOOM_FLOOR = 0.6;   // hard floor: below this, keep readable size and scroll instead of fitting
+const MAX_CARD_ZOOM   = 1.25;  // cap: few resources (or collapsed groups) must not blow cards up
+                               // (manual zoom with +/wheel is not limited)
+const MAX_SCALE       = 4;
+let _layoutSeq = 0;
+
+function placeOnce(name) {
+    if (name === 'dagre') { hierarchyLayout(); return Promise.resolve(); }
+    if (name === 'circle' || name === 'grid') { nestedLayout(name); return Promise.resolve(); }
+    const layout = cy.layout({ ...(layoutConfigs[name] || layoutConfigs.cose), animate: false, fit: false });
+    const done = layout.promiseOn('layoutstop').then(() => {
+        // physics layouts may pile up the cards inside a node group: line them up (keeps the box's top-left)
+        cy.nodes('[kind = "nodegroup"]').filter(g => g.children().length).forEach(g => {
+            const bb = g.boundingBox({ includeLabels: false, includeOverlays: false });
+            placeGroupBox(g, bb.x1, bb.y1);
+        });
+        packConnGroups();
+    });
+    layout.run();
+    return done;
+}
+
+let _currentLayout = 'dagre';
+// true once the user drags a node (or loads saved positions): collapse/expand then works in place
+// instead of re-running the layout, so the user's arrangement is kept
+let _userArranged = false;
+cy.on('dragfree', 'node', () => { _userArranged = true; });
+async function layoutReadable(name) {
+    const seq = ++_layoutSeq;
+    _currentLayout = name;
+    _userArranged = false;
+    cy.edges().toggleClass('taxi', name === 'dagre');
+    SCALE = 1;
+    let prevEff = 0;
+    for (let i = 0; i < 8; i++) {
+        cy.style().update();
+        await placeOnce(name);
+        if (seq !== _layoutSeq) return;        // a newer layout request took over
+        cy.fit(cy.elements(':visible'), 50);
+        const eff = SCALE * cy.zoom();
+        // stop when readable, at the cap, or when enlarging no longer helps (graph is all cards)
+        if (eff >= MIN_CARD_ZOOM * 0.98 || SCALE >= MAX_SCALE || eff <= prevEff * 1.02) break;
+        prevEff = eff;
+        SCALE = Math.min(MAX_SCALE, SCALE * MIN_CARD_ZOOM / eff);
     }
-    cy.layout(cfg).run();
+    fitAll();
+    revealGraph();
+}
+
+// After a fit: if cards would look larger than MAX_CARD_ZOOM, zoom out to the cap and center.
+function capCardZoom(eles) {
+    if (SCALE * cy.zoom() <= MAX_CARD_ZOOM) return false;
+    cy.zoom(MAX_CARD_ZOOM / SCALE);
+    cy.center(eles);
+    return true;
+}
+
+// "Fit" button: whole graph on screen (cards may get small), but never larger than the cap
+function fitOverview() {
+    const eles = cy.elements(':visible');
+    if (!eles.length) return;
+    cy.fit(eles, 50);
+    capCardZoom(eles);
+}
+
+// Fit everything. Only if cards would fall below CARD_ZOOM_FLOOR (too many resources for the screen)
+// keep the target readable size and show from the top-left; drag to move, "Fit" for the full overview.
+let _readableHintShown = false;
+function fitAll() {
+    const eles = cy.elements(':visible');
+    if (!eles.length) return;
+    cy.fit(eles, 50);
+    if (capCardZoom(eles)) return;
+    if (SCALE * cy.zoom() >= CARD_ZOOM_FLOOR) return;
+    const z = MIN_CARD_ZOOM / SCALE;
+    const bb = eles.boundingBox();
+    cy.zoom(z);
+    cy.pan({ x: 40 - bb.x1 * z, y: 40 - bb.y1 * z });
+    if (!_readableHintShown) {
+        _readableHintShown = true;
+        showToast('🔍 Too many resources to fit at a readable size — drag to move, ⊞ Fit for the full overview', 4500);
+    }
+}
+
+// ---- Nested Circle / Grid ----
+// Cytoscape's built-in circle/grid ignore VPC/Subnet groups and spread every node over one huge
+// circle/grid. Instead, lay out each group's children locally (recursively), then arrange the
+// groups and loose nodes at the next level, so groups stay compact and cards stay readable.
+const NEST_GAP  = 40;            // gap between items at the same level
+const KIND_ORDER = ['vpc', 'subnet', 'nlb', 'vm', 'nic', 'rdbms', 'cluster', 'nodegroup', 'k8snode', 'sg', 'publicip'];
+
+function nestedLayout(mode) {
+    // Each item: { w, h: footprint size, place(cx, cy): put the item centered at (cx, cy) }
+    const arrangeGrid = (items) => {
+        // Shelf packing: fill rows up to a target width, each item keeps its own size
+        const area = items.reduce((sum, it) => sum + (it.w + NEST_GAP) * (it.h + NEST_GAP), 0);
+        const target = Math.max(Math.max(...items.map(it => it.w)), Math.sqrt(area) * 1.3);
+        const rows = [];
+        let row = { items: [], w: 0, h: 0 };
+        items.forEach(it => {
+            if (row.items.length && row.w + NEST_GAP + it.w > target) { rows.push(row); row = { items: [], w: 0, h: 0 }; }
+            row.w += (row.items.length ? NEST_GAP : 0) + it.w;
+            row.h = Math.max(row.h, it.h);
+            row.items.push(it);
+        });
+        rows.push(row);
+        const W = Math.max(...rows.map(r => r.w));
+        const H = rows.reduce((sum, r) => sum + r.h, 0) + (rows.length - 1) * NEST_GAP;
+        return {
+            w: W, h: H,
+            place: (cx, cy) => {
+                let y = cy - H / 2;
+                rows.forEach(r => {
+                    let x = cx - W / 2;
+                    r.items.forEach(it => { it.place(x + it.w / 2, y + r.h / 2); x += it.w + NEST_GAP; });
+                    y += r.h + NEST_GAP;
+                });
+            },
+        };
+    };
+    // Ring: arc per item proportional to its size; grow the radius until neighbors do not overlap.
+    // minR: smallest allowed radius (used to clear a hub placed in the center).
+    const ring = (items, minR) => {
+        const d = items.map(it => Math.max(it.w, it.h));
+        const circ = d.reduce((sum, v) => sum + v + NEST_GAP, 0);
+        const angles = [];
+        let acc = 0;
+        d.forEach(v => { const span = (v + NEST_GAP) / circ * 2 * Math.PI; angles.push(acc + span / 2); acc += span; });
+        let r = Math.max(minR, circ / (2 * Math.PI), items.length > 1 ? Math.max(...d) / 2 + NEST_GAP : 0);
+        for (let iter = 0; iter < 200 && items.length > 1; iter++) {
+            let ok = true;
+            for (let i = 0; i < items.length && ok; i++) {
+                for (let j = i + 1; j < items.length; j++) {
+                    let da = Math.abs(angles[i] - angles[j]);
+                    da = Math.min(da, 2 * Math.PI - da);
+                    if (2 * r * Math.sin(da / 2) < (d[i] + d[j]) / 2 + NEST_GAP) { ok = false; break; }
+                }
+            }
+            if (ok) break;
+            r *= 1.05;
+        }
+        return {
+            r: r, maxD: Math.max(...d),
+            place: (cx, cy) => items.forEach((it, i) => {
+                const a = -Math.PI / 2 + angles[i];   // start at 12 o'clock
+                it.place(cx + r * Math.cos(a), cy + r * Math.sin(a));
+            }),
+        };
+    };
+    const arrangeCircle = (items) => {
+        // Hub mode: if one item (ex: a VPC or a busy subnet) is much larger than the rest,
+        // put it in the center and ring the others around it instead of on the same circle.
+        const sizes = items.map(it => Math.max(it.w, it.h));
+        const hubIdx = sizes.indexOf(Math.max(...sizes));
+        const others = items.filter((_, i) => i !== hubIdx);
+        const second = Math.max(...others.map(it => Math.max(it.w, it.h)));
+        if (items.length >= 3 && sizes[hubIdx] >= 2 * second) {
+            const hub = items[hubIdx];
+            const hubR = Math.hypot(hub.w, hub.h) / 2;   // clear the hub's corners
+            const rg = ring(others, hubR + NEST_GAP + second / 2);
+            const size = 2 * rg.r + rg.maxD;
+            return { w: size, h: size, place: (cx, cy) => { hub.place(cx, cy); rg.place(cx, cy); } };
+        }
+        const rg = ring(items, 0);
+        const size = 2 * rg.r + rg.maxD;
+        return { w: size, h: size, place: rg.place };
+    };
+    const arrange = (items) => items.length === 1 ? items[0]
+        : (mode === 'grid' ? arrangeGrid(items) : arrangeCircle(items));
+
+    const byKind = (a, b) => KIND_ORDER.indexOf(a.data('kind')) - KIND_ORDER.indexOf(b.data('kind'));
+    const build = (node) => {
+        const kids = node.children().sort(byKind);
+        if (!kids.length) {
+            const grp = GROUP_TEXT[node.data('kind')];   // compact (empty/collapsed) VPC/Subnet bar
+            return { w: grp ? node.outerWidth() : sc(CARD_W),
+                     h: grp ? node.outerHeight() : sc(CARD_H),
+                     place: (x, y) => node.position({ x, y }) };
+        }
+        const inner = arrange(kids.map(build));
+        const pad = gpad(node.data('kind'));
+        return { w: inner.w + 2 * pad, h: inner.h + 2 * pad, place: inner.place };
+    };
+
+    // Reset widths set by the hierarchy layout (empty subnets)
+    cy.nodes('[kind = "subnet"]').filter(n => n.isChildless()).removeStyle('width');
+
+    const roots = cy.nodes().orphans().sort(byKind);
+    if (!roots.length) return;
+    arrange(roots.map(build)).place(0, 0);
+}
+
+// Spread items vertically around their preferred y while keeping a minimum pitch.
+function stackByPreferredY(items, pitch) {
+    items.sort((a, b) => a.y - b.y);
+    let last = -Infinity;
+    items.forEach(it => { it.y = Math.max(it.y, last + pitch); last = it.y; });
+    return items;
+}
+
+function avgY(nodes, fallback) {
+    if (!nodes.length) return fallback;
+    let sum = 0;
+    nodes.forEach(n => { sum += n.position().y; });
+    return sum / nodes.length;
+}
+
+// scope: a connection group (all-connections view) → lay out only its contents; null → whole graph
+function hierarchyLayoutIn(scope) {
+    const Q = sel => scope ? scope.descendants(sel) : cy.nodes(sel);
+    const ROOTS = () => scope ? scope.children() : cy.nodes().orphans();
+
+    // Layout constants (must match compound paddings in the stylesheet)
+    const W = sc(CARD_W), H = sc(CARD_H);
+    const PAD       = 60;   // canvas margin
+    const ROW_GAP   = 22;   // vertical gap between cards
+    const COL_GAP   = 90;   // VM column → NIC column
+    const SN_PAD    = gpad('subnet');
+    const SN_LABEL  = 0;    // header is inside the box (covered by padding)
+    const SN_GAP    = 36;   // vertical gap between subnets
+    const SG_GAP    = 100;  // subnets → SG column
+    const VPC_PAD   = gpad('vpc');
+    const VPC_LABEL = 0;    // header is inside the box (covered by padding)
+    const VPC_GAP   = 140;  // horizontal gap between VPCs
+    const PUB_GAP   = 140;  // last VPC → PublicIP column
+    const NLB_GAP   = 100;  // NLB column → subnets
+    const SVC_GAP   = 90;   // subnets → RDBMS/Cluster column
+    const pitch = H + ROW_GAP;
+
+    const top = PAD + VPC_LABEL + VPC_PAD;   // top of the first subnet label area
+    let cursorX = PAD;
+    let maxBottom = top, maxRight = PAD;
+    const placedPubs = new Set();
+
+    Q('[kind = "vpc"]').forEach(vpc => {
+        // Column order: NLB → [Subnets: VM → NIC] → RDBMS/Cluster → SG
+        const nlbs = vpc.children('[kind = "nlb"]');
+        const nlbX = cursorX + VPC_PAD + W / 2;
+        const x0   = cursorX + VPC_PAD + (nlbs.length ? W + NLB_GAP : 0) + SN_PAD;   // left edge of VM column
+        const nicX = x0 + W + COL_GAP + W / 2;
+        const subnets = vpc.children('[kind = "subnet"]');
+        let y = top;
+        let contentW = 0;
+
+        let compactRight = null;   // right edge of compact (empty/collapsed) subnet bars
+        subnets.forEach(sn => {
+            const kids = sn.children();
+            if (!kids.length) {                     // compact bar: header only
+                const bw = sn.outerWidth(), bh = sn.outerHeight();
+                sn.position({ x: x0 - SN_PAD + bw / 2, y: y + bh / 2 });
+                compactRight = Math.max(compactRight ?? -Infinity, x0 - SN_PAD + bw);
+                y += bh + SN_GAP;
+                return;
+            }
+            const rowY = y + SN_LABEL + SN_PAD + H / 2;
+            const vms  = kids.filter('[kind = "vm"]');
+            const nics = kids.filter('[kind = "nic"]');
+            const others = kids.not(vms).not(nics);
+            const placed = new Set();
+            let row = 0;
+
+            // Each VM gets a row; its NICs go to the right on the same row(s).
+            vms.forEach(vm => {
+                const vy = rowY + row * pitch;
+                vm.position({ x: x0 + W / 2, y: vy });
+                let k = 0;
+                vm.outgoers('node[kind = "nic"]').forEach(nic => {
+                    if (placed.has(nic.id()) || !nic.parent().same(sn)) return;
+                    nic.position({ x: nicX, y: vy + k * pitch });
+                    placed.add(nic.id());
+                    k++;
+                });
+                row += Math.max(1, k);
+            });
+            // NICs not attached to any VM in this subnet
+            nics.forEach(nic => {
+                if (placed.has(nic.id())) return;
+                nic.position({ x: nicX, y: rowY + row * pitch });
+                row++;
+            });
+            // A NIC shared by several VMs sits at their vertical center
+            nics.forEach(nic => {
+                const owners = nic.incomers('node[kind = "vm"]');
+                if (owners.length > 1) nic.position({ x: nicX, y: avgY(owners, nic.position().y) });
+            });
+            others.forEach(o => {
+                o.position({ x: x0 + W / 2, y: rowY + row * pitch });
+                row++;
+            });
+
+            const rows = Math.max(1, row);
+            contentW = Math.max(contentW, nics.length ? 2 * W + COL_GAP : W);
+            y = rowY + (rows - 1) * pitch + H / 2 + SN_PAD + SN_GAP;
+        });
+        const subnetsBottom = subnets.length ? y - SN_GAP : top;
+
+
+        // NLB column, each NLB aligned with its backend VMs
+        const nlbItems = stackByPreferredY(nlbs.map(n => ({
+            n: n, y: avgY(n.outgoers('node[kind = "vm"]'), top + H / 2),
+        })), pitch);
+        nlbItems.forEach(it => it.n.position({ x: nlbX, y: it.y }));
+        const nlbBottom = nlbItems.length ? nlbItems[nlbItems.length - 1].y + H / 2 : top;
+
+        // VPC-level RDBMS / Cluster: column between the subnets and the SGs,
+        // each aligned with the subnets it uses (so subnet links never cross other subnets)
+        const svcs = vpc.children('[kind = "rdbms"], [kind = "cluster"]');
+        const subnetsRight = (contentW || compactRight !== null)
+            ? Math.max(contentW ? x0 + contentW + SN_PAD : -Infinity, compactRight ?? -Infinity) : null;
+        const svcX = (subnetsRight !== null ? subnetsRight + SVC_GAP : x0 - SN_PAD) + W / 2;
+        // items keep their own height (an expanded cluster is a box), stacked around their preferred y
+        const svcItems = svcs.map(n => {
+            const sz = isGroupKind(n.data('kind')) ? placeGroupBox(n, 0, 0) : { w: W, h: H };
+            return { n, w: sz.w, h: sz.h, y: avgY(n.outgoers('node[kind = "subnet"]'), top + H / 2) };
+        }).sort((a, b) => a.y - b.y);
+        let svcLast = -Infinity, svcBottom = top, svcRight = svcX + W / 2;
+        svcItems.forEach(it => {
+            const y1 = Math.max(it.y - it.h / 2, svcLast + ROW_GAP);
+            if (isGroupKind(it.n.data('kind'))) placeGroupBox(it.n, svcX - W / 2, y1);
+            else it.n.position({ x: svcX, y: y1 + it.h / 2 });
+            svcLast = y1 + it.h;
+            svcBottom = Math.max(svcBottom, svcLast);
+            svcRight = Math.max(svcRight, svcX - W / 2 + it.w);
+        });
+
+        // Right edge of everything left of the SG column (null = nothing there)
+        const lefts = [];
+        if (subnetsRight !== null) lefts.push(subnetsRight);
+        if (svcs.length)  lefts.push(svcRight);
+        if (nlbs.length)  lefts.push(nlbX + W / 2);
+        const leftRight = lefts.length ? Math.max(...lefts) : null;
+
+        // SG column, each SG aligned with the resources that reference it (NIC, RDBMS, Cluster)
+        const sgs = vpc.children('[kind = "sg"]');
+        const sgX = (leftRight !== null ? leftRight + SG_GAP : cursorX + VPC_PAD) + W / 2;
+        const sgItems = stackByPreferredY(sgs.map(sg => ({
+            n: sg, y: avgY(sg.incomers('node').filter(n => n.ancestors().anySame(vpc)), top + H / 2),
+        })), pitch);
+        sgItems.forEach(it => it.n.position({ x: sgX, y: it.y }));
+        const sgBottom = sgItems.length ? sgItems[sgItems.length - 1].y + H / 2 : top;
+
+        let right;
+        if (sgs.length)               right = sgX + W / 2;
+        else if (leftRight !== null)  right = leftRight;
+        else                          right = cursorX + VPC_PAD + W;
+        if (!vpc.children().length) {          // compact bar (empty or collapsed VPC)
+            const bw = vpc.outerWidth(), bh = vpc.outerHeight();
+            vpc.position({ x: cursorX + bw / 2, y: top - VPC_PAD + bh / 2 });
+            right = cursorX + bw - VPC_PAD;
+        }
+
+        maxBottom = Math.max(maxBottom, subnetsBottom, sgBottom, nlbBottom, svcBottom);
+        maxRight  = Math.max(maxRight, right + VPC_PAD);
+        cursorX   = right + VPC_PAD + VPC_GAP;
+
+        // PublicIPs used by this VPC's NICs: column just right of the VPC
+        const pubs = Q('[kind = "publicip"]').filter(p =>
+            !placedPubs.has(p.id()) && p.incomers('node[kind = "nic"]').some(n => n.ancestors().anySame(vpc)));
+        if (pubs.length) {
+            const pubX = right + VPC_PAD + PUB_GAP + W / 2;
+            stackByPreferredY(pubs.map(p => ({ n: p, y: avgY(p.incomers('node[kind = "nic"]'), top + H / 2) })), pitch)
+                .forEach(it => { it.n.position({ x: pubX, y: it.y }); placedPubs.add(it.n.id()); maxBottom = Math.max(maxBottom, it.y + H / 2); });
+            maxRight = pubX + W / 2;
+            cursorX  = maxRight + VPC_GAP;
+        }
+    });
+
+    // Resources without a VPC/Subnet parent (except PublicIPs): row below everything
+    let orphanX = PAD + W / 2;
+    const orphanY = maxBottom + VPC_PAD + 90;
+    ROOTS().filter(n => n.data('kind') !== 'vpc' && n.data('kind') !== 'publicip' && (n.isChildless() || K8S_GROUP(n.data('kind'))))
+        .forEach(n => {
+            if (!K8S_GROUP(n.data('kind'))) { n.position({ x: orphanX, y: orphanY }); orphanX += W + 40; return; }
+            const sz = placeGroupBox(n, orphanX - W / 2, orphanY - H / 2);
+            orphanX += sz.w + 40;
+        });
+
+    // Remaining PublicIPs (not attached to any VPC's NIC): column at the far right
+    const pubX = maxRight + PUB_GAP + W / 2;
+    const pubItems = stackByPreferredY(Q('[kind = "publicip"]').filter(p => !placedPubs.has(p.id())).map(p => ({
+        n: p, y: avgY(p.incomers('node[kind = "nic"]'), top + H / 2),
+    })), pitch);
+    pubItems.forEach(it => it.n.position({ x: pubX, y: it.y }));
+}
+
+// Hierarchy layout. In the all-connections view each connection group is laid out on its own,
+// then the groups are packed in rows (shelf packing) like cards on a board.
+const CONN_GAP = 120;
+// Place a (cluster / node group) box with its top-left at (x1, y1): cards in rows of two,
+// inner groups stacked below. Collapsed/empty groups are compact bars. Returns its size.
+function placeGroupBox(g, x1, y1) {
+    const kids = g.children();
+    if (!kids.length) {
+        const w = g.outerWidth(), h = g.outerHeight();
+        g.position({ x: x1 + w / 2, y: y1 + h / 2 });
+        return { w, h };
+    }
+    const pad = gpad(g.data('kind')), W = sc(CARD_W), H = sc(CARD_H), GAP = 22, COLS = 2;
+    const groups = kids.filter(k => isGroupKind(k.data('kind')));
+    const cards = kids.not(groups);
+    let y = y1 + pad, innerW = 0;
+    cards.forEach((c, i) => c.position({
+        x: x1 + pad + (i % COLS) * (W + GAP) + W / 2,
+        y: y + Math.floor(i / COLS) * (H + GAP) + H / 2,
+    }));
+    if (cards.length) {
+        y += Math.ceil(cards.length / COLS) * (H + GAP);
+        innerW = Math.min(cards.length, COLS) * (W + GAP) - GAP;
+    }
+    groups.forEach(sub => {
+        const sz = placeGroupBox(sub, x1 + pad, y);
+        y += sz.h + GAP;
+        innerW = Math.max(innerW, sz.w);
+    });
+    y -= GAP;
+    return { w: innerW + 2 * pad, h: y - y1 + pad };
 }
 
 function hierarchyLayout() {
-    document.querySelectorAll('.toolbar button[id^="btn-"]').forEach(b => b.classList.remove('active'));
-    document.getElementById('btn-dagre').classList.add('active');
+    const conns = cy.nodes('[kind = "conn"]');
+    if (!conns.length) { hierarchyLayoutIn(null); return; }
+    conns.forEach(g => { if (g.children().length) hierarchyLayoutIn(g); });
+    packConnGroups();
+}
 
-    // Layout constants
-    const PAD      = 60;    // canvas margin
-    const VPC_GAP  = 100;   // horizontal gap between VPCs
-    const SN_GAP   = 50;    // horizontal gap between subnets
-    const SG_H_GAP = 30;    // horizontal gap between SGs
-    const NODE_W   = 150;   // leaf node width
-    const NODE_H   = 90;    // leaf node height
-    const SN_PAD   = 55;    // subnet inner padding
-    const SG_W     = 80;    // SG node diameter
-    const VPC_LABEL_H = 32; // space for VPC label at top
-    const SG_ROW_H = 110;   // height for SG area (above subnet)
-    const PUB_GAP  = 0;     // vertical gap from VPC bottom to PublicIPs
-
-    const vpcNodes = cy.nodes('[kind = "vpc"]');
-    const pubNodes = cy.nodes('[kind = "publicip"]');
-
-    let vpcCursorX = PAD;
-    let maxVPCBottom = 0;
-
-    vpcNodes.forEach(vpc => {
-        const sgs     = vpc.children('[kind = "sg"]');
-        const subnets = vpc.children('[kind = "subnet"]');
-
-        // --- Per-subnet size calculation ---
-        const snInfos = [];
-        subnets.forEach(sn => {
-            const kids = sn.children();
-            const n    = Math.max(1, kids.length);
-            const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
-            const rows = Math.ceil(n / cols);
-            const snW  = cols * NODE_W + SN_PAD * 2;
-            const snH  = rows * NODE_H + SN_PAD * 2;
-            snInfos.push({ sn, kids, cols, rows, snW, snH });
-        });
-
-        const subnetsTotalW = snInfos.reduce((s, x) => s + x.snW, 0)
-                             + Math.max(0, snInfos.length - 1) * SN_GAP;
-        const sgsTotalW     = sgs.length  * SG_W + Math.max(0, sgs.length - 1) * SG_H_GAP;
-        const vpcContentW   = Math.max(subnetsTotalW, sgsTotalW, 250);
-
-        const vpcY = PAD + VPC_LABEL_H;
-
-        // --- SGs: centered, above subnets ---
-        const sgY = vpcY + SG_W / 2;
-        const sgStartX = vpcCursorX + (vpcContentW - sgsTotalW) / 2;
-        sgs.forEach((sg, i) => {
-            sg.position({
-                x: sgStartX + i * (SG_W + SG_H_GAP) + SG_W / 2,
-                y: sgY,
-            });
-        });
-
-        // --- Subnets: row below SG area ---
-        const snRowY = vpcY + SG_ROW_H;
-        let snX = vpcCursorX;
-        let maxSnBottom = snRowY;
-
-        snInfos.forEach(({ sn, kids, cols, rows, snW, snH }) => {
-            const childStartX = snX + SN_PAD;
-            const childStartY = snRowY + SN_PAD;
-
-            if (kids.length > 0) {
-                kids.forEach((child, i) => {
-                    child.position({
-                        x: childStartX + (i % cols) * NODE_W + NODE_W / 2,
-                        y: childStartY + Math.floor(i / cols) * NODE_H + NODE_H / 2,
-                    });
-                });
-            } else {
-                // Empty subnet: explicitly set its position (compound with no children)
-                sn.position({ x: snX + snW / 2, y: snRowY + snH / 2 });
-            }
-
-            maxSnBottom = Math.max(maxSnBottom, snRowY + snH);
-            snX += snW + SN_GAP;
-        });
-
-        if (!subnets.length) maxSnBottom = snRowY + 150;
-        maxVPCBottom = Math.max(maxVPCBottom, maxSnBottom + SN_PAD);
-
-        // Advance cursor for next VPC
-        vpcCursorX += vpcContentW + VPC_GAP;
+// All-connections view: move each connection group (with its contents) into rows, no overlaps.
+function packConnGroups() {
+    const conns = cy.nodes('[kind = "conn"]');
+    if (!conns.length) return;
+    const items = conns.map(g => {
+        const bb = g.boundingBox({ includeLabels: false, includeOverlays: false });
+        return { g, w: bb.w, h: bb.h, x1: bb.x1, y1: bb.y1 };
     });
-
-    // --- PublicIPs: row below all VPCs ---
-    const pubY = maxVPCBottom + PUB_GAP;
-    let pubX = PAD;
-    pubNodes.forEach(n => {
-        n.position({ x: pubX, y: pubY });
-        pubX += 200;
+    const area = items.reduce((sum, it) => sum + (it.w + CONN_GAP) * (it.h + CONN_GAP), 0);
+    const target = Math.max(Math.max(...items.map(it => it.w)), Math.sqrt(area) * 1.6);
+    let x = 0, y = 0, rowH = 0;
+    items.forEach(it => {
+        if (x > 0 && x + it.w > target) { x = 0; y += rowH + CONN_GAP; rowH = 0; }
+        const dx = x - it.x1, dy = y - it.y1;
+        if (it.g.children().length) {
+            it.g.descendants().filter(d => d.isChildless())
+                .positions(d => ({ x: d.position('x') + dx, y: d.position('y') + dy }));
+        } else {
+            it.g.position({ x: x + it.w / 2, y: y + it.h / 2 });     // compact (collapsed) bar
+        }
+        x += it.w + CONN_GAP;
+        rowH = Math.max(rowH, it.h);
     });
-
-    cy.fit(null, 50);
 }
 
 
 // ---- Filter ----
 function showAll() {
-    cy.elements().removeClass('faded hidden');
+    cy.elements().removeClass('faded hidden kind-hidden');
+    document.querySelectorAll('.legend-item.off').forEach(i => i.classList.remove('off'));
     document.getElementById('filterKind').value = 'all';
 }
 
@@ -628,12 +2237,20 @@ function applyFilter() {
     matched.removeClass('faded');
     matched.connectedEdges().removeClass('faded');
     matched.connectedEdges().connectedNodes().removeClass('faded');
+    unfadeAncestors(matched.union(matched.connectedEdges().connectedNodes()));
+}
+
+// Cytoscape multiplies a compound's opacity into its children, so a faded VPC/Subnet would
+// also fade the highlighted nodes inside it. Keep the groups that contain highlighted nodes
+// unfaded (their other children stay faded individually).
+function unfadeAncestors(nodes) {
+    nodes.ancestors().removeClass('faded');
 }
 
 // ---- Enforce node placement constraints (prevent drag into wrong areas) ----
 
 // PublicIP must NOT be inside any VPC/Subnet bounding box
-function enforcePublicIPPosition(node) {
+function enforcePublicIPPosition(node, animated = true) {
     const vpcNodes = cy.nodes('[kind = "vpc"]');
     let moved = false;
     vpcNodes.forEach(vpc => {
@@ -643,7 +2260,9 @@ function enforcePublicIPPosition(node) {
         // Check if PublicIP center is inside VPC bounding box
         if (pos.x > bb.x1 && pos.x < bb.x2 && pos.y > bb.y1 && pos.y < bb.y2) {
             // Push it just below the VPC
-            node.animate({ position: { x: pos.x, y: bb.y2 + 90 } }, { duration: 200 });
+            const target = { x: pos.x, y: bb.y2 + 90 };
+            if (animated) node.animate({ position: target }, { duration: 200 });
+            else node.position(target);
             moved = true;
         }
     });
@@ -700,36 +2319,18 @@ function repositionSGsAboveSubnets() {
         });
         const sgBB = sg.boundingBox({ includeLabels: false });
         const sgH  = sgBB.y2 - sgBB.y1;
-        const curY = sg.position().y;
-        // Move SG above subnets if not already there
-        if (curY > minSubnetY - sgH) {
+        const pos  = sg.position();
+        // Move SG above subnets only if it overlaps a subnet box
+        const inside = subnets.some(sn => {
+            const bb = sn.boundingBox({ includeLabels: false });
+            return pos.x > bb.x1 && pos.x < bb.x2 && pos.y > bb.y1 && pos.y < bb.y2;
+        });
+        if (inside) {
             sg.position({ x: sg.position().x, y: minSubnetY - sgH / 2 - 30 });
         }
     });
 }
 
-// Enforce no-overlap between VPCs
-function enforceVPCNoOverlap(movedVPC) {
-    const GAP = 30;
-    let moved = true;
-    let iterations = 0;
-    while (moved && iterations < 10) {
-        moved = false;
-        iterations++;
-        cy.nodes('[kind = "vpc"]').not(movedVPC).forEach(other => {
-            const myBB    = movedVPC.boundingBox({ includeLabels: false });
-            const otherBB = other.boundingBox({ includeLabels: false });
-            const overlapX = myBB.x1 < otherBB.x2 + GAP && myBB.x2 > otherBB.x1 - GAP;
-            const overlapY = myBB.y1 < otherBB.y2 + GAP && myBB.y2 > otherBB.y1 - GAP;
-            if (overlapX && overlapY) {
-                // Push movedVPC to the right of other with a gap
-                const shiftX = otherBB.x2 - myBB.x1 + GAP;
-                movedVPC.shift({ x: shiftX, y: 0 });
-                moved = true;
-            }
-        });
-    }
-}
 
 // ---- Enforce parent bounds: cancel drag if moved into another VPC ----
 // Save original position on grab, restore exactly on invalid drop
@@ -792,8 +2393,65 @@ cy.on('dragfree', 'node[kind = "vm"]', function(evt) {
 cy.on('dragfree', 'node[kind = "nic"]', function(evt) {
     enforceChildInParentVPC(evt.target);
 });
-cy.on('dragfree', 'node[kind = "vpc"]', function(evt) {
-    enforceVPCNoOverlap(evt.target);
+// ---- Boxes never overlap their sibling boxes ----
+// Connection boxes (all-connections view) and VPC boxes inside the same parent (a connection box,
+// or the canvas) are kept apart. When a box grows (a resource inside is dragged outward, a group is
+// expanded, a connection is loaded/refreshed) or is dropped onto another, the OTHER boxes are pushed
+// away along the shortest way; pushed boxes push further boxes in turn. The box the user worked on
+// stays put. After VPCs move, their connection box is checked against the other connections.
+const BOX_PUSH_GAP = 40;
+function connOf(n) {
+    if (!n || !n.length) return null;
+    if (n.data('kind') === 'conn') return n;
+    const a = n.ancestors('[kind = "conn"]');
+    return a.length ? a.first() : null;
+}
+function vpcOf(n) {
+    if (!n || !n.length) return null;
+    if (n.data('kind') === 'vpc') return n;
+    const a = n.ancestors('[kind = "vpc"]');
+    return a.length ? a.first() : null;
+}
+function moveBox(g, dx, dy) {
+    if (g.isChildless()) g.position({ x: g.position('x') + dx, y: g.position('y') + dy });
+    else g.descendants().filter(d => d.isChildless())
+        .positions(d => ({ x: d.position('x') + dx, y: d.position('y') + dy }));
+}
+// push the siblings of `fixed` (same kind, same parent) out of each other's way
+function resolveSiblingOverlaps(fixed) {
+    if (!fixed || !fixed.length || fixed.removed()) return;
+    const kind = fixed.data('kind');
+    const parent = fixed.parent();
+    const sibs = (parent.length ? parent.children() : cy.nodes().orphans()).filter(n => n.data('kind') === kind);
+    if (sibs.length < 2) return;
+    const box = g => g.boundingBox({ includeLabels: false, includeOverlays: false });
+    const G = BOX_PUSH_GAP;
+    const queue = [fixed];
+    for (let guard = 0; queue.length && guard < 500; guard++) {
+        const a = queue.shift(), A = box(a);
+        sibs.forEach(b => {
+            if (b.same(a) || b.same(fixed)) return;               // the box the user worked on never moves
+            const B = box(b);
+            if (B.x1 >= A.x2 + G || B.x2 <= A.x1 - G || B.y1 >= A.y2 + G || B.y2 <= A.y1 - G) return;   // apart
+            // shortest way out of a (with the gap): right, left, down or up
+            const moves = [[A.x2 + G - B.x1, 0], [A.x1 - G - B.x2, 0], [0, A.y2 + G - B.y1], [0, A.y1 - G - B.y2]];
+            const [dx, dy] = moves.reduce((m, v) => Math.abs(v[0] + v[1]) < Math.abs(m[0] + m[1]) ? v : m);
+            moveBox(b, dx, dy);
+            queue.push(b);                                        // it may now push others
+        });
+    }
+}
+// after something changed at/inside `n`: VPC level first, then the connection level
+function resolveBoxOverlaps(n) {
+    const v = vpcOf(n);
+    if (v) resolveSiblingOverlaps(v);
+    const c = connOf(n);
+    if (c) resolveSiblingOverlaps(c);
+}
+cy.on('dragfree', 'node', function(evt) {
+    // wait for enforcement moves (they run right after the drop) before checking the boxes
+    const n = evt.target;
+    setTimeout(() => resolveBoxOverlaps(n), 120);
 });
 
 // Also run enforcement after any layout completes
@@ -813,10 +2471,13 @@ function showToast(msg, duration) {
     t._timer = setTimeout(() => t.classList.remove('show'), duration || 2500);
 }
 
-// Collect current node positions
+// Collect node positions: every node, including the contents of collapsed groups (they keep their
+// positions while hidden), so expanding a group after Load / Import shows the saved arrangement.
+// Open groups are left out: their position follows their contents.
 function collectPositions() {
     const positions = {};
-    cy.nodes().forEach(n => {
+    ORIGINAL.nodes().forEach(n => {
+        if (DELETED.has(n.id()) || (!n.removed() && n.children().length)) return;
         const pos = n.position();
         positions[n.id()] = { x: Math.round(pos.x), y: Math.round(pos.y) };
     });
@@ -845,7 +2506,7 @@ function closeSaveDialog() {
     document.getElementById('save-dialog').style.display = 'none';
 }
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closeSaveDialog(); closeLoadDialog(); }
+    if (e.key === 'Escape') { closeSaveDialog(); closeLoadDialog(); closeDeleteDialog(); }
 });
 
 function doSaveLayout() {
@@ -853,7 +2514,7 @@ function doSaveLayout() {
     if (!vname) { showToast('⚠️ Please enter a version name', 2000); return; }
     const positions = collectPositions();
     const thumbnail = generateThumbnail();
-    const layoutJSON = JSON.stringify({ version: 1, savedAt: new Date().toISOString(), positions });
+    const layoutJSON = JSON.stringify({ version: 1, savedAt: new Date().toISOString(), scale: SCALE, collapsed: [...COLLAPSED], positions });
 
     fetch('/spider/topology/layout', {
         method: 'POST',
@@ -907,10 +2568,11 @@ function showLoadDialog() {
             card.innerHTML = `
                 ${imgHTML}
                 <div class="thumb-info">
-                    <div class="thumb-name">${item.VersionName}</div>
+                    <div class="thumb-name">${esc(item.VersionName)}</div>
                     <div class="thumb-date">${ts}</div>
                 </div>
-                <button class="thumb-del" onclick="deleteVersion(event,'${item.VersionName.replace(/'/g,"\'")}')">✕</button>`;
+                <button class="thumb-del">✕</button>`;
+            card.querySelector('.thumb-del').addEventListener('click', ev => deleteVersion(ev, item.VersionName));
 
             card.addEventListener('click', function(e) {
                 if (e.target.classList.contains('thumb-del')) return;
@@ -945,7 +2607,7 @@ function doLoadSelected() {
         if (!data.LayoutJSON) { showToast('⚠️ Layout data is empty', 2500); return; }
         const layout = JSON.parse(data.LayoutJSON);
         if (!layout.positions) { showToast('⚠️ Invalid layout data', 2500); return; }
-        applyPositions(layout.positions);
+        applyPositions(layout.positions, layout.scale, layout.collapsed);
         const ts = data.SavedAt ? data.SavedAt.slice(0,16).replace('T',' ') : '?';
         const loadedName = _selectedVersion;   // save before closeLoadDialog resets it
         closeLoadDialog();
@@ -972,16 +2634,37 @@ function deleteVersion(e, vname) {
     .catch(err => showToast('❌ Delete error: ' + err.message, 3000));
 }
 
+// Last Load / Import: positions and collapsed groups, also applied to connections loaded later
+let _savedLayout = null;
+
 // Apply saved positions to the graph.
 // - Known nodes → restore saved position
 // - New nodes   → place near siblings inside their parent (avoids overlap)
-function applyPositions(positions) {
+function applyPositions(positions, scale, collapsed) {
+    // Restore the card scale and collapsed groups the positions were saved with (older saves: 1, none)
+    _layoutSeq++;                     // cancel a running readable layout
+    SCALE = scale || 1;
+    COLLAPSED.clear();
+    (collapsed || []).forEach(id => { if (ORIGINAL.some(e => e.id() === id) && !DELETED.has(id)) COLLAPSED.add(id); });
+    LAZY.forEach(id => COLLAPSED.add(id));
+    ORIGINAL.nodes().filter(n => K8S_GROUP(n.data('kind'))).forEach(n => {
+        const inner = ORIGINAL.nodes().filter(d => d.data('parent') === n.id());
+        if (inner.length && !inner.some(d => positions[d.id()])) COLLAPSED.add(n.id());
+    });
+    applyCollapse();
+    cy.style().update();
+    // kept for connections loaded later (all-connections view): they get their saved arrangement too
+    _savedLayout = { positions, collapsed: new Set(collapsed || []) };
+    // hidden contents of collapsed groups get their saved positions as well (shown when expanded)
+    ORIGINAL.nodes().forEach(n => {
+        if (n.removed() && positions[n.id()]) n.position(positions[n.id()]);
+    });
     const newNodes = [];
 
     cy.nodes().forEach(n => {
         if (positions[n.id()]) {
-            n.position(positions[n.id()]);
-        } else {
+            if (!n.children().length) n.position(positions[n.id()]);
+        } else if (!n.children().length) {
             newNodes.push(n);
         }
     });
@@ -1005,8 +2688,7 @@ function applyPositions(positions) {
     });
 
     // Notify user about new nodes
-    const newLeafNodes = newNodes.filter(n =>
-        n.data('kind') !== 'vpc' && n.data('kind') !== 'subnet');
+    const newLeafNodes = newNodes.filter(n => !isGroupKind(n.data('kind')));
     if (newLeafNodes.length > 0) {
         const labels = newLeafNodes.map(n => n.data('label').split('\n')[0]).slice(0, 4);
         const extra  = newLeafNodes.length > 4 ? ' (+' + (newLeafNodes.length - 4) + ' more)' : '';
@@ -1014,21 +2696,122 @@ function applyPositions(positions) {
             '🆕 New nodes auto-placed: ' + labels.join(', ') + extra, 4000), 300);
     }
 
-    setTimeout(() => cy.fit(null, 50), 80);
+    _userArranged = true;             // a saved arrangement: collapse/expand keeps it
+    setTimeout(() => { fitAll(); revealGraph(); }, 80);
 }
 
 
 
-// ---- PNG Export ----
-function exportPNG() {
-    const png = cy.png({ output: 'blob', full: true, scale: 2 });
-    const url = URL.createObjectURL(png);
+// ---- PNG Export (graph + legend) ----
+// The graph image gets a legend panel on its right: title (view, date), the resource types that are
+// in the picture with their counts and icons, the "public" border, and the link colors.
+const PNG_LEGEND_KINDS = [
+    ['conn', 'Connection'], ['vpc', 'VPC'], ['subnet', 'Subnet'], ['sg', 'Security Group'], ['vm', 'VM'],
+    ['nic', 'NIC'], ['publicip', 'Public IP'], ['nlb', 'NLB'], ['rdbms', 'RDBMS'], ['cluster', 'Cluster'],
+    ['nodegroup', 'Node Group'], ['k8snode', 'K8s Node'],
+];
+const PNG_LEGEND_LINKS = [
+    ['VM → NIC', EDGE_COLOR['vm-nic'], false], ['→ Security Group', EDGE_COLOR['nic-sg'], false],
+    ['NIC → Public IP', EDGE_COLOR['nic-pub'], false], ['NLB → VM', EDGE_COLOR['nlb-vm'], false],
+    ['→ Subnet (uses)', EDGE_COLOR['nlb-subnet'], true],
+];
+function loadImage(src) {
+    return new Promise((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = src; });
+}
+async function exportPNG() {
+    // Cards are drawn at SCALE x their size, so the whole graph at a fixed scale can exceed the
+    // browser's canvas limit (~16k px per side), which yields an empty (0 byte) image.
+    // Keep the longest side within MAX_PNG_SIDE: as sharp as possible, never empty.
+    const MAX_PNG_SIDE = 8000;
+    const bb = cy.elements(':visible').boundingBox();
+    const scale = Math.min(2, MAX_PNG_SIDE / Math.max(bb.w, bb.h, 1));
+    let graphBlob;
+    try {
+        graphBlob = cy.png({ output: 'blob', full: true, scale, maxWidth: MAX_PNG_SIDE, maxHeight: MAX_PNG_SIDE, bg: '#f8fafc' });
+    } catch (e) { graphBlob = null; }
+    if (!graphBlob || !graphBlob.size) { showToast('❌ PNG export failed: the picture is too large for the browser', 4000); return; }
+
+    let out = graphBlob;
+    try { out = await withLegend(graphBlob) || graphBlob; } catch (e) { out = graphBlob; }   // legend is best effort
+
+    const url = URL.createObjectURL(out);
     const a   = document.createElement('a');
     a.href    = url;
-    a.download = 'topology-' + CONN_CONFIG + '-' + new Date().toISOString().slice(0,16).replace(/[T:]/g,'-') + '.png';
+    const name = ALL_MODE ? 'all-connections' : CONN_CONFIG;
+    a.download = 'topology-' + name + '-' + new Date().toISOString().slice(0,16).replace(/[T:]/g,'-') + '.png';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
-    showToast('🖼 PNG saved');
+    a.remove();
+    // revoke only after the browser has read the file (revoking right away can save 0 bytes)
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    showToast(`🖼 PNG saved (${Math.round(out.size / 1024)} KB)`);
+}
+
+// Graph image + legend panel on the right → PNG blob
+async function withLegend(graphBlob) {
+    const gUrl = URL.createObjectURL(graphBlob);
+    let graph;
+    try { graph = await loadImage(gUrl); } finally { URL.revokeObjectURL(gUrl); }
+
+    const counts = {};
+    rawNodes.forEach(n => { counts[n.kind] = (counts[n.kind] || 0) + 1; });
+    const kinds = PNG_LEGEND_KINDS.filter(([k]) => counts[k]);
+    const icons = await Promise.all(kinds.map(([k]) => loadImage((KIND_STYLE[k] || {}).icon).catch(() => null)));
+    const hasPublic = rawNodes.some(n => n.public);
+
+    // legend size follows the picture so it stays readable on large images
+    // (sized from the longer side: when the whole image is viewed, the legend keeps about the same share)
+    const f = Math.max(1, Math.min(5, Math.max(graph.width, graph.height) / 1900));
+    const pad = 24 * f, row = 30 * f, icon = 20 * f, font = 14 * f;
+    const panelW = Math.round(300 * f);
+    const rows = 2 /* title */ + 1 + kinds.length + (hasPublic ? 1 : 0) + 1 + PNG_LEGEND_LINKS.length;
+    const panelH = Math.round(pad * 2 + rows * row + row);
+    const W = graph.width + panelW, H = Math.max(graph.height, panelH);
+
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(graph, 0, 0);
+    // panel
+    const x0 = graph.width;
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, 0, panelW, H);
+    ctx.fillStyle = '#e2e8f0'; ctx.fillRect(x0, 0, Math.max(1, f), H);
+    const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
+    let y = pad;
+    const text = (t, x, size, weight, color) => {
+        ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y);
+    };
+    const lx = x0 + pad;
+    text('Multi-Cloud Resource Topology', lx, font * 1.15, 700, '#0f172a'); y += row;
+    text(`${ALL_MODE ? 'All connections' : CONN_CONFIG} · ${new Date().toLocaleString()}`, lx, font * 0.85, 500, '#64748b'); y += row * 1.3;
+    text('Legend', lx, font, 700, '#334155'); y += row;
+    kinds.forEach(([k, label], i) => {
+        if (icons[i]) ctx.drawImage(icons[i], lx, y - icon / 2, icon, icon);
+        text(label, lx + icon + 10 * f, font, 500, '#1e293b');
+        ctx.font = `600 ${font}px ${FONT}`;
+        const cnt = String(counts[k]);
+        ctx.fillStyle = '#64748b'; ctx.textAlign = 'right'; ctx.fillText(cnt, x0 + panelW - pad, y); ctx.textAlign = 'left';
+        y += row;
+    });
+    if (hasPublic) {
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2 * f;
+        ctx.strokeRect(lx + 1 * f, y - icon / 2 + 1 * f, icon - 2 * f, icon - 2 * f);
+        text('Public access (red border)', lx + icon + 10 * f, font, 500, '#1e293b');
+        y += row;
+    }
+    y += row * 0.3;
+    text('Links', lx, font, 700, '#334155'); y += row;
+    PNG_LEGEND_LINKS.forEach(([label, color, dashed]) => {
+        ctx.strokeStyle = color; ctx.lineWidth = 2.5 * f; ctx.setLineDash(dashed ? [4 * f, 4 * f] : []);
+        ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx + icon * 1.6, y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = color; ctx.beginPath();                     // arrow head
+        ctx.moveTo(lx + icon * 1.6 + 6 * f, y); ctx.lineTo(lx + icon * 1.6 - 2 * f, y - 5 * f); ctx.lineTo(lx + icon * 1.6 - 2 * f, y + 5 * f); ctx.fill();
+        text(label, lx + icon * 1.6 + 14 * f, font, 500, '#1e293b');
+        y += row;
+    });
+    return await new Promise(resolve => c.toBlob(b => resolve(b && b.size ? b : null), 'image/png'));
 }
 
 // ---- File Export / Import (JSON) ----
@@ -1037,16 +2820,20 @@ function exportLayout() {
         version: 1,
         connConfig: CONN_CONFIG,
         savedAt: new Date().toISOString(),
+        scale: SCALE,
+        collapsed: [...COLLAPSED],
         positions: collectPositions()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = 'topology-' + CONN_CONFIG + '-' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = 'topology-' + (ALL_MODE ? 'all-connections' : CONN_CONFIG) + '-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
-    showToast('⬇ Layout exported as JSON file');
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);   // after the browser has read it
+    showToast('⬆ Layout exported as JSON file');
 }
 
 function importLayout(event) {
@@ -1057,8 +2844,16 @@ function importLayout(event) {
         try {
             const data = JSON.parse(e.target.result);
             if (!data.positions) throw new Error('Invalid format: missing positions');
-            applyPositions(data.positions);
-            showToast('⬆ Layout imported from ' + file.name);
+            // a file from another connection (or the other view) matches none of these nodes
+            const ids = new Set(ORIGINAL.nodes().map(n => n.id()));
+            const hits = Object.keys(data.positions).filter(k => ids.has(k)).length;
+            if (!hits) {
+                const from = data.connConfig === '__all__' ? 'All connections' : (data.connConfig || 'another view');
+                const here = ALL_MODE ? 'All connections' : CONN_CONFIG;
+                throw new Error(`this file is for "${from}", not "${here}"`);
+            }
+            applyPositions(data.positions, data.scale, data.collapsed);
+            showToast('⬇ Layout imported from ' + file.name);
         } catch(err) {
             showToast('❌ Import failed: ' + err.message, 3000);
         }
@@ -1068,28 +2863,15 @@ function importLayout(event) {
 }
 
 // ---- Tooltip on hover ----
-cy.on('mouseover', 'node', function(evt) {
-    evt.target.style('border-width', 4);
-});
-cy.on('mouseout', 'node', function(evt) {
-    if (!evt.target.selected()) evt.target.style('border-width', 2);
-});
+cy.on('mouseover', 'node', function(evt) { evt.target.addClass('hover'); });
+cy.on('mouseout',  'node', function(evt) { evt.target.removeClass('hover'); });
 
 // Central enforcement function: called after every layout
 function enforceAllPositions(animated) {
     // Small delay so Cytoscape updates bounding boxes after layout
     setTimeout(() => {
         cy.nodes('[kind = "publicip"]').forEach(n => {
-            if (animated) enforcePublicIPPosition(n);
-            else {
-                const vpcNodes2 = cy.nodes('[kind = "vpc"]');
-                let maxBottom2 = 0;
-                vpcNodes2.forEach(v => { maxBottom2 = Math.max(maxBottom2, v.boundingBox({includeLabels:false}).y2); });
-                const pos = n.position();
-                if (maxBottom2 > 0 && pos.y < maxBottom2 + 20) {
-                    n.position({ x: pos.x, y: maxBottom2 + 100 });
-                }
-            }
+            enforcePublicIPPosition(n, animated);
         });
         repositionSGsAboveSubnets();
     }, 80);
@@ -1098,13 +2880,7 @@ function enforceAllPositions(animated) {
 // Initial load: use hierarchy layout directly for predictable positioning
 cy.ready(() => {
     // Run hierarchy layout after a tick to ensure compound sizes are calculated
-    setTimeout(() => {
-        hierarchyLayout();
-        setTimeout(() => {
-            enforceAllPositions(false);
-            cy.fit(null, 50);
-        }, 150);
-    }, 50);
+    setTimeout(() => applyLayout('dagre'), 50);
 });
 
 // Move publicip nodes below all VPCs, and ensure SGs are not inside Subnet

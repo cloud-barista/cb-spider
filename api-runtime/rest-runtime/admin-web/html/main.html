@@ -164,6 +164,33 @@
             line-height: 1;
             text-align: center;
         }
+        .mini-dash {
+            position: fixed; z-index: 1500; display: flex; flex-direction: column; box-sizing: border-box;
+            background: #fff; border: 1px solid #94a3b8; border-radius: 10px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.28); min-width: 220px; min-height: 140px;
+        }
+        .mini-dash-bar {
+            flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 6px 4px 10px; background: #1e293b; color: #fff; font-size: 12px; cursor: move; user-select: none;
+        }
+        .mini-dash-btns button {
+            background: transparent; border: none; color: #cbd5e1; font-size: 13px; cursor: pointer; padding: 0 5px;
+        }
+        .mini-dash-btns button:hover { color: #fff; }
+        .mini-dash-btns button.on { color: #7dd3fc; }
+        .mini-dash-body { position: relative; flex: 1 1 auto; overflow: hidden; }
+        .mini-dash-body iframe { position: absolute; top: 0; left: 0; transform-origin: 0 0; border: none; height: auto; }
+        .mini-dash-shield { display: none; position: absolute; inset: 0; }
+        /* resize handles: 6px edges, 12px corners (on top of the content) */
+        .mini-rs { position: absolute; z-index: 2; }
+        .mini-rs.n, .mini-rs.s { left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
+        .mini-rs.e, .mini-rs.w { top: 12px; bottom: 12px; width: 6px; cursor: ew-resize; }
+        .mini-rs.n { top: 0; } .mini-rs.s { bottom: 0; } .mini-rs.e { right: 0; } .mini-rs.w { left: 0; }
+        .mini-rs.ne, .mini-rs.nw, .mini-rs.se, .mini-rs.sw { width: 12px; height: 12px; }
+        .mini-rs.ne { top: 0; right: 0; cursor: nesw-resize; } .mini-rs.sw { bottom: 0; left: 0; cursor: nesw-resize; }
+        .mini-rs.nw { top: 0; left: 0; cursor: nwse-resize; }  .mini-rs.se { bottom: 0; right: 0; cursor: nwse-resize; }
+        .mini-rs.se::after { content: ''; position: absolute; right: 3px; bottom: 3px; width: 7px; height: 7px;
+                             border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; }
         .separator {
             height: 25px;
             border-left: 1px solid #ccc;
@@ -394,12 +421,56 @@
     </style>
 
 <script>
+    // Top-left text while no connection is selected (left_menu checks data-noconn, not this text):
+    //   Home → nothing, pages below → their title (moved up from the page), others → the prompt.
+    // The page's own title is always hidden: the top-left shows the connection info when a
+    // connection is selected, or the page title when none is.
+    const PAGE_TITLES = [
+        { re: /\/adminweb\/dashboard$/,                     title: 'Multi-Cloud Dashboard',          sel: '.fixed-header > h1' },
+        { re: /\/adminweb\/(topology-all|topology\/[^/]+)$/, title: 'Multi-Cloud Resource Topology', sel: '.header-left h1' },
+    ];
+    let _statelessMode = false;
+    function bodyFramePath() {
+        try {
+            return document.querySelector('iframe[name="body_frame"]').contentWindow.location.pathname.replace(/\/+$/, '');
+        } catch (e) { return ''; }
+    }
+    function currentPage() {
+        const path = bodyFramePath();
+        return PAGE_TITLES.find(p => p.re.test(path)) || null;
+    }
+    function hidePageTitle(page) {
+        if (!page) return;
+        try {
+            const win = document.querySelector('iframe[name="body_frame"]').contentWindow;
+            const h1 = win.document.querySelector(page.sel);
+            if (!h1) return;
+            h1.style.display = 'none';
+            // move the content up by the header's new height (dashboard's own offset sync;
+            // the topology page follows its header height by itself)
+            if (typeof win.syncContentOffset === 'function') win.syncContentOffset();
+        } catch (e) {}
+    }
+    function refreshNoConnTitle() {
+        const page = currentPage();
+        hidePageTitle(page);
+        const el = document.getElementById('selectedConfigName');
+        if (!el || el.dataset.noconn !== '1' || _statelessMode) return;
+        const path = bodyFramePath();
+        // still loading (about:blank / unknown) or Home → nothing, so the prompt never flashes on Home
+        let text = '';
+        if (page) text = page.title;
+        else if (/\/adminweb\/./.test(path) && !/\/adminweb\/body_frame$/.test(path)) text = 'Please select a connection first.';
+        el.innerHTML = text ? `<h1 class="selectedConfigName">${text}</h1>` : '';
+    }
+
     function updateTopMenu(configName, provider, region) {
         const selectedConfigNameElement = document.getElementById('selectedConfigName');
         const topMenuRight = document.querySelector('.top-menu-right');
         if (!provider || provider === 'None') {
-            selectedConfigNameElement.innerHTML = '<h1 class="selectedConfigName">Please select a connection first.</h1>';
+            selectedConfigNameElement.dataset.noconn = '1';
             selectedConfigNameElement.classList.remove('hidden');
+            refreshNoConnTitle();
             document.getElementById('selectedProvider').innerHTML = '';
             document.getElementById('selectedRegion').innerHTML = '';
             document.querySelector('.dynamic-menu').innerHTML = '';
@@ -407,6 +478,7 @@
             const providerImg = `<img src="/spider/adminweb/images/${provider.toLowerCase()}.png" alt="${configName}" title="${configName}">`;
             selectedConfigNameElement.innerHTML = configName;
             selectedConfigNameElement.classList.add('hidden');
+            delete selectedConfigNameElement.dataset.noconn;
             document.getElementById('selectedProvider').innerHTML = providerImg;
             document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' +
                                                                     '<div class="region-text">' + region + '</div>' +
@@ -492,6 +564,12 @@
         };
     }
 
+    window.addEventListener('DOMContentLoaded', function() {
+        const f = document.getElementById('body_frame_el');
+        if (f) f.addEventListener('load', refreshNoConnTitle);
+        refreshNoConnTitle();
+    });
+
     window.addEventListener('message', function(event) {
         if (event.data.type === 'deselectMainMenu') {
             const menus = ['region-zone', 'price', 'quota', 'vm-image', 'vm-specs', 'db-specs'];
@@ -526,6 +604,15 @@
 
     window.addEventListener('message', function(event) {
         if (event.data.type === 'toggleAppFullscreen') {
+            const mini = document.getElementById('miniDashFrame');
+            if (mini && event.source === mini.contentWindow) {
+                // from the floating Dashboard: enlarge that window, not the page behind it, and keep the
+                // page's own full-screen setting (shared sessionStorage key) unchanged
+                const app = document.querySelector('.container').classList.contains('app-fullscreen');
+                try { sessionStorage.setItem('dashboardFullscreen', app ? '1' : '0'); } catch (e) {}
+                toggleMiniMax();
+                return;
+            }
             document.querySelector('.container').classList.toggle('app-fullscreen');
         }
     });
@@ -539,9 +626,7 @@
         <div class="right-content">
             <div class="top-menu">
                 <div class="connection-info">
-                    <div id="selectedConfigName" class="">
-                        <h1 class="selectedConfigName">Please select a connection first.</h1>
-                    </div>
+                    <div id="selectedConfigName" class="" data-noconn="1"></div>
                     <div id="selectedProvider"></div>
                     <div id="selectedRegion"></div>
                 </div>
@@ -569,7 +654,7 @@
                 </div>
             </div>
             <div class="body-frame">
-                <iframe src="/spider/adminweb/body_frame" name="body_frame"
+                <iframe src="/spider/adminweb/body_frame" name="body_frame" id="body_frame_el"
                         onload="parent.postMessage({ type: 'iframeLoaded' }, '*')">
                 </iframe>
                 <div class="progress-bar">
@@ -827,6 +912,7 @@
                     if (data.apiMode === 'stateless') {
                         // Stateless mode has no pre-registered ConnectionName to "select", so
                         // this managed-mode prompt (and the top-bar area it occupies) doesn't apply.
+                        _statelessMode = true;
                         document.getElementById('selectedConfigName').innerHTML = '';
                     }
                     if (data.authEnabled) {
@@ -860,5 +946,200 @@
                 });
         });
     </script>
+<!-- Floating (mini) Dashboard: overlaps every page, movable, resizable, closable -->
+<div id="miniDash" class="mini-dash" style="display:none;">
+    <div class="mini-dash-bar" id="miniDashBar">
+        <span class="mini-dash-title">📊 Dashboard</span>
+        <span class="mini-dash-btns">
+            <button onclick="zoomMiniDash(-1)" title="Smaller text">A−</button>
+            <button onclick="zoomMiniDash(1)" title="Larger text">A+</button>
+            <button id="miniDashDockBtn" onclick="toggleMiniDock()" title="Dock to the bottom (keeps the menus visible)">⬓</button>
+            <button id="miniDashMaxBtn" onclick="toggleMiniMax()" title="Maximize">⤢</button>
+            <button onclick="closeMiniDash()" title="Close">✕</button>
+        </span>
+    </div>
+    <div class="mini-dash-body" id="miniDashBody">
+        <iframe id="miniDashFrame" title="Dashboard"></iframe>
+        <div class="mini-dash-shield" id="miniDashShield"></div>
+    </div>
+    <div class="mini-rs n"  data-dir="n"></div><div class="mini-rs s"  data-dir="s"></div>
+    <div class="mini-rs e"  data-dir="e"></div><div class="mini-rs w"  data-dir="w"></div>
+    <div class="mini-rs ne" data-dir="ne"></div><div class="mini-rs nw" data-dir="nw"></div>
+    <div class="mini-rs se" data-dir="se"></div><div class="mini-rs sw" data-dir="sw"></div>
+</div>
+<script>
+    // ---- Floating (mini) Dashboard ----
+    // Always opens at the bottom-right with 1/8 of the window's area (each side × 1/√8); nothing is
+    // remembered between openings. The Dashboard is drawn at a fixed zoom: resizing or maximizing the
+    // window shows more or less of it but never changes the text size — only A− / A+ do.
+    // Drag the title bar to move, drag the bottom-right corner to resize, ⤢ (or the Dashboard's
+    // full-screen button, or double-clicking the title bar) to maximize / restore.
+    const MINI_ZOOM_STEPS = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    const MINI_ZOOM_DEFAULT = 3;       // 0.7
+    let miniBaseIdx = MINI_ZOOM_DEFAULT;
+    let miniRestoreRect = null;        // rect to go back to from a layout mode
+    let miniMode = null;               // null | 'max' (whole window) | 'dock' (bottom strip beside the left menu)
+    function zoomMiniDash(d) {
+        miniBaseIdx = Math.min(MINI_ZOOM_STEPS.length - 1, Math.max(0, miniBaseIdx + d));
+        fitMiniDash();
+    }
+    function miniDashDefaultRect() {
+        const k = 1 / Math.sqrt(8);
+        const w = Math.round(window.innerWidth * k), h = Math.round(window.innerHeight * k);
+        return { left: window.innerWidth - w - 16, top: window.innerHeight - h - 16, width: w, height: h };
+    }
+    function applyMiniDashRect(r) {
+        const el = document.getElementById('miniDash');
+        const w = Math.min(Math.max(r.width, 220), window.innerWidth), h = Math.min(Math.max(r.height, 140), window.innerHeight);
+        el.style.width = w + 'px'; el.style.height = h + 'px';
+        el.style.left = Math.min(Math.max(r.left, 0), window.innerWidth - 80) + 'px';
+        el.style.top  = Math.min(Math.max(r.top, 0), window.innerHeight - 30) + 'px';
+    }
+    function fitMiniDash() {
+        const body = document.getElementById('miniDashBody'), f = document.getElementById('miniDashFrame');
+        const s = MINI_ZOOM_STEPS[miniBaseIdx];
+        f.style.width = (body.clientWidth / s) + 'px';
+        f.style.height = (body.clientHeight / s) + 'px';
+        f.style.transform = `scale(${s})`;
+    }
+    // Rect of a layout mode. 'dock': a strip along the bottom, from the left menu to the right edge,
+    // so the menus stay visible and the page above stays usable.
+    function miniModeRect(mode) {
+        if (mode === 'max') return { left: 8, top: 8, width: window.innerWidth - 16, height: window.innerHeight - 16 };
+        const lm = document.querySelector('.left-menu');
+        const left = (lm ? lm.getBoundingClientRect().right : 0) + 6;
+        const h = Math.max(200, Math.round(window.innerHeight * 0.24));
+        return { left, top: window.innerHeight - h - 6, width: window.innerWidth - left - 6, height: h };
+    }
+    function updateMiniModeButtons() {
+        const mx = document.getElementById('miniDashMaxBtn'), dk = document.getElementById('miniDashDockBtn');
+        mx.textContent = miniMode === 'max' ? '⤡' : '⤢';
+        mx.title = miniMode === 'max' ? 'Restore' : 'Maximize';
+        dk.classList.toggle('on', miniMode === 'dock');
+        dk.title = miniMode === 'dock' ? 'Restore' : 'Dock to the bottom (keeps the menus visible)';
+    }
+    // Same button again → back to the size/place it had before
+    function setMiniMode(mode) {
+        const el = document.getElementById('miniDash');
+        if (miniMode === mode) {
+            if (miniRestoreRect) applyMiniDashRect(miniRestoreRect);
+            miniRestoreRect = null; miniMode = null;
+        } else {
+            if (!miniMode) {
+                const r = el.getBoundingClientRect();
+                miniRestoreRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+            }
+            miniMode = mode;
+            applyMiniDashRect(miniModeRect(mode));
+        }
+        updateMiniModeButtons();
+        fitMiniDash();
+    }
+    function toggleMiniMax() { setMiniMode('max'); }
+    function toggleMiniDock() { setMiniMode('dock'); }
+    // moved or resized by hand: the layout mode ends there
+    function clearMiniMode() {
+        if (!miniMode) return;
+        miniMode = null; miniRestoreRect = null;
+        updateMiniModeButtons();
+    }
+    // The toggle lives on the Dashboard item of the left menu (shown on hover, kept visible while open)
+    function miniToggleState(on) {
+        try { window.frames['left_menu'].document.getElementById('miniDashToggle').classList.toggle('on', on); } catch (e) {}
+    }
+    function toggleMiniDash() {
+        const el = document.getElementById('miniDash');
+        if (el.style.display === 'none') openMiniDash(); else closeMiniDash();
+    }
+    function openMiniDash() {
+        const el = document.getElementById('miniDash');
+        miniBaseIdx = MINI_ZOOM_DEFAULT;
+        miniRestoreRect = null; miniMode = null;
+        updateMiniModeButtons();
+        el.style.display = 'flex';
+        applyMiniDashRect(miniDashDefaultRect());
+        const f = document.getElementById('miniDashFrame');
+        if (!f.getAttribute('src')) f.src = '/spider/adminweb/dashboard';
+        fitMiniDash();
+        miniToggleState(true);
+    }
+    function closeMiniDash() {
+        document.getElementById('miniDash').style.display = 'none';
+        document.getElementById('miniDashFrame').removeAttribute('src');   // stop its auto refresh
+        miniToggleState(false);
+    }
+    // The mini window shows only the tables: hide the Dashboard's own title
+    document.getElementById('miniDashFrame').addEventListener('load', function () {
+        try {
+            const w = this.contentWindow, h1 = w.document.querySelector('.fixed-header > h1');
+            if (h1) h1.style.display = 'none';
+            // its full-screen button would do the same as ⤢ in the title bar: one control is enough
+            const fs = w.document.getElementById('fullscreenBtn');
+            if (fs) fs.style.display = 'none';
+            if (typeof w.syncContentOffset === 'function') w.syncContentOffset();
+        } catch (e) {}
+    });
+    // Move by the title bar. While dragging, a shield covers the iframes so they don't swallow the mouse.
+    (function () {
+        const bar = document.getElementById('miniDashBar'), el = document.getElementById('miniDash');
+        let start = null;
+        const shields = on => {
+            document.getElementById('miniDashShield').style.display = on ? 'block' : 'none';
+            document.querySelectorAll('iframe').forEach(f => { f.style.pointerEvents = on ? 'none' : ''; });
+        };
+        bar.addEventListener('mousedown', ev => {
+            if (ev.target.closest('button')) return;
+            const r = el.getBoundingClientRect();
+            // keep the size taken at the start: moving never changes it
+            start = { x: ev.clientX, y: ev.clientY, left: r.left, top: r.top, width: r.width, height: r.height };
+            shields(true);
+            ev.preventDefault();
+        });
+        window.addEventListener('mousemove', ev => {
+            if (!start) return;
+            applyMiniDashRect({ left: start.left + ev.clientX - start.x, top: start.top + ev.clientY - start.y,
+                                width: start.width, height: start.height });
+        });
+        window.addEventListener('mouseup', ev => {
+            if (!start) return;
+            const moved = Math.abs(ev.clientX - start.x) + Math.abs(ev.clientY - start.y) > 3;
+            start = null; shields(false);
+            if (moved) clearMiniMode();
+        });
+        bar.addEventListener('dblclick', ev => { if (!ev.target.closest('button')) toggleMiniMax(); });
+        // Resize (CSS corner handle): rescale the Dashboard
+        new ResizeObserver(() => { if (el.style.display !== 'none') fitMiniDash(); }).observe(el);
+        // Resize from any edge or corner
+        let rs = null;
+        const MIN_W = 220, MIN_H = 140;
+        el.querySelectorAll('.mini-rs').forEach(h => h.addEventListener('mousedown', ev => {
+            const r = el.getBoundingClientRect();
+            rs = { dir: h.dataset.dir, x: ev.clientX, y: ev.clientY, l: r.left, t: r.top, w: r.width, h: r.height };
+            shields(true);
+            ev.preventDefault(); ev.stopPropagation();
+        }));
+        window.addEventListener('mousemove', ev => {
+            if (!rs) return;
+            const dx = ev.clientX - rs.x, dy = ev.clientY - rs.y;
+            let { l, t, w, h } = { l: rs.l, t: rs.t, w: rs.w, h: rs.h };
+            if (rs.dir.includes('e')) w = Math.max(MIN_W, Math.min(rs.w + dx, window.innerWidth - rs.l));
+            if (rs.dir.includes('s')) h = Math.max(MIN_H, Math.min(rs.h + dy, window.innerHeight - rs.t));
+            if (rs.dir.includes('w')) { const nl = Math.max(0, Math.min(rs.l + dx, rs.l + rs.w - MIN_W)); w = rs.w + rs.l - nl; l = nl; }
+            if (rs.dir.includes('n')) { const nt = Math.max(0, Math.min(rs.t + dy, rs.t + rs.h - MIN_H)); h = rs.h + rs.t - nt; t = nt; }
+            el.style.left = l + 'px'; el.style.top = t + 'px'; el.style.width = w + 'px'; el.style.height = h + 'px';
+        });
+        window.addEventListener('mouseup', () => {
+            if (!rs) return;
+            rs = null; shields(false);
+            clearMiniMode();
+        });
+        window.addEventListener('resize', () => {
+            if (el.style.display === 'none') return;
+            if (miniMode) { applyMiniDashRect(miniModeRect(miniMode)); return; }   // follow the window
+            const r = el.getBoundingClientRect();
+            applyMiniDashRect({ left: r.left, top: r.top, width: r.width, height: r.height });
+        });
+    })();
+</script>
 </body>
 </html>

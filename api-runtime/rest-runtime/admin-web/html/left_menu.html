@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        .dash-item { position: relative; }
+        .mini-dash-pop {
+            display: none; position: absolute; top: 2px; right: 2px; z-index: 2;
+            font-size: 10px; font-weight: 600; line-height: 1; padding: 3px 5px; border-radius: 9px;
+            border: 1px solid #7dd3fc; background: #e0f2fe; color: #0369a1; cursor: pointer;
+        }
+        .mini-dash-pop:hover { background: #bae6fd; }
+        .dash-item:hover .mini-dash-pop { display: block; }
+        .mini-dash-pop.on { display: block; background: #0369a1; color: #fff; border-color: #0369a1; }
         .menu-item {
             margin: 0; /* Remove margin between menu items */
             padding: 5px 2px; /* compact: reduced horizontal padding, slightly larger vertical spacing */
@@ -63,7 +72,9 @@
             const topMenuFrame = parent.document.querySelector('.top-menu');
             const connectionNameElement = topMenuFrame ? topMenuFrame.querySelector('#selectedConfigName') : null;
             const connectionName = connectionNameElement ? connectionNameElement.innerText.replace('Connection Name: ', '') : '';
-            if (!connectionName || connectionName === 'Please select a connection first.') {
+            // main.html marks "no connection selected" with data-noconn (the shown text varies by page)
+            const noConnection = !connectionName || (connectionNameElement && connectionNameElement.dataset.noconn === '1');
+            if (noConnection && menu !== 'topology') {
                 alert('Please select a connection first.');
                 event.preventDefault();
                 return;
@@ -83,11 +94,13 @@
                 s3: "/spider/adminweb/s3",
                 filesystem: "/spider/adminweb/filesystem",
                 rdbms: "/spider/adminweb/rdbms",
-                dns: "/spider/adminweb/dns",
                 topology: "/spider/adminweb/topology"
             };
 
-            const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
+            // Topology without a selected connection: all-connections view (connections with resources)
+            const targetUrl = noConnection
+                ? '/spider/adminweb/topology-all'
+                : `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
             const iframe = parent.frames['body_frame'];
 
             // Show progress bar
@@ -144,15 +157,14 @@
             'publicip': 'disk',
             'rdbms':    'disk',
             'topology': 'vpc',
-            'filesystem': 'filesystem',
-            'dns':      'nlb'
+            'filesystem': 'filesystem'
         };
         function getIconBase(menu) {
             return menuIconBase[menu] || menu;
         }
 
         function changeSelectedImage(selectedMenu) {
-            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'dns', 'topology'];
+            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'topology'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
                 const menuEl    = imgElement ? imgElement.closest('.menu-item') : null;
@@ -171,7 +183,7 @@
 
         window.addEventListener('message', function(event) {
             if (event.data.type === 'deselectLeftMenu') {
-                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'dns', 'topology'];
+                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'publicip', 'nic', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'filesystem', 'rdbms', 'topology'];
                 menus.forEach(menu => {
                     const imgElement = document.getElementById(menu + '-img');
                     const menuEl    = imgElement ? imgElement.closest('.menu-item') : null;
@@ -189,9 +201,13 @@
         <img src="./images/logo.png" border="0">
     </a>
     <div class="divider"></div> <!-- Divider after logo -->
-    <div class="menu-item" onclick="selectLeftMenu('dashboard')">
+    <div class="menu-item dash-item" onclick="selectLeftMenu('dashboard')">
         <img id="dashboard-img" src="./images/left-menu/dashboard.png" alt="Dashboard Icon">
         <div class="menu-text">Dashboard</div>
+        <!-- shown on hover (and while open): floating Mini Dashboard over any page -->
+        <button id="miniDashToggle" class="mini-dash-pop" type="button"
+                onclick="event.stopPropagation(); parent.toggleMiniDash && parent.toggleMiniDash();"
+                title="Mini Dashboard: a floating Dashboard that stays over other menus">⧉ Mini</button>
     </div>
     <div class="menu-item" onclick="selectLeftMenu('connection')">
         <img id="connection-img" src="./images/left-menu/connection.png" alt="Connection Icon">
@@ -235,11 +251,7 @@
         <img id="nlb-img" src="./images/left-menu/nlb.png" alt="NLB Icon">
         <div class="menu-text">NLB</div>
     </div>
-    <div class="menu-item" onclick="checkConnectionAndRedirect('dns', event)">
-        <img id="dns-img" src="./images/left-menu/nlb.png" alt="DNS Icon">
-        <div class="menu-text">DNS (WIP)</div>
-    </div>
-    <div class="divider"></div> <!-- Divider after NLB/DNS -->
+    <div class="divider"></div> <!-- Divider after NLB -->
     <div class="menu-item" onclick="checkConnectionAndRedirect('cluster', event)">
         <img id="cluster-img" src="./images/left-menu/cluster.png" alt="Cluster Icon">
         <div class="menu-text">Cluster</div>

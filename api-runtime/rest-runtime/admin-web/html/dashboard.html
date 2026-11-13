@@ -262,6 +262,20 @@
     .left-controls > * {
         margin-right: 14px;
     }
+    /* keep checkbox labels, the Columns button and the NA legend on one centered line */
+    .left-controls > label, .right-controls > label, .na-legend {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        line-height: 1;
+    }
+    .left-controls > label > input[type="checkbox"], .right-controls > label > input[type="checkbox"] {
+        margin: 0;
+    }
+    .columns-menu {
+        display: inline-flex;
+        align-items: center;
+    }
 </style>
 <style id="hiddenColumnsStyle"></style>
 <script>
@@ -481,8 +495,7 @@
         { key: 'nlb',           label: 'NLBs' },
         { key: 'cluster',       label: 'Clusters' },
         { key: 's3',            label: 'S3 Buckets' },
-        { key: 'rdbms',         label: 'RDBMS' },
-        { key: 'dnszone',       label: 'DNS Zones' }
+        { key: 'rdbms',         label: 'RDBMS' }
     ];
     var HIDDEN_COLUMNS_STORAGE_KEY = 'dashboardHiddenColumns';
 
@@ -635,7 +648,6 @@
                 <th data-col="cluster">Clusters<span class="col-hide" title="Hide column" onclick="hideColumn('cluster')">×</span></th>
                 <th data-col="s3">S3 Buckets<span class="col-hide" title="Hide column" onclick="hideColumn('s3')">×</span></th>
                 <th data-col="rdbms">RDBMS<span class="col-hide" title="Hide column" onclick="hideColumn('rdbms')">×</span></th>
-                <th data-col="dnszone">DNS Zones<span class="col-hide" title="Hide column" onclick="hideColumn('dnszone')">×</span></th>
             </tr>
             {{if index $.ResourceCounts $provider}}
                 {{range $count := index $.ResourceCounts $provider}}
@@ -656,7 +668,6 @@
                     {{if index $count.NA "cluster"}}<td data-col="cluster" class="na" title="Not applicable: not supported by this driver">NA</td>{{else}}<td data-col="cluster" class="{{if gt $count.Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/cluster/{{$count.ConnectionName}}'); return false;">{{$count.Clusters}}</a></td>{{end}}
                     {{if index $count.NA "s3"}}<td data-col="s3" class="na" title="Not applicable: not supported by this driver">NA</td>{{else}}<td data-col="s3" class="{{if gt $count.S3Buckets 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/s3/{{$count.ConnectionName}}'); return false;">{{$count.S3Buckets}}</a></td>{{end}}
                     {{if index $count.NA "rdbms"}}<td data-col="rdbms" class="na" title="Not applicable: not supported by this driver">NA</td>{{else}}<td data-col="rdbms" class="{{if gt $count.RDBMSInstances 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/rdbms/{{$count.ConnectionName}}'); return false;">{{$count.RDBMSInstances}}</a></td>{{end}}
-                    {{if index $count.NA "dnszone"}}<td data-col="dnszone" class="na" title="Not applicable: not supported by this driver">NA</td>{{else}}<td data-col="dnszone" class="{{if gt $count.DNSZones 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/dns/{{$count.ConnectionName}}'); return false;">{{$count.DNSZones}}</a></td>{{end}}
                 </tr>
                 {{end}}
             {{else}}
