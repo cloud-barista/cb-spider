@@ -596,6 +596,46 @@ func setRDBMSSubnetUserIID(connectionName string, vpcIIDInfo VPCIIDInfo, info *c
 	}
 }
 
+// setRDBMSNetworkUserIID sets VPC/Subnet/SG IIDs of info to user-friendly IIDs from metadb.
+// If the owner VPC's metadata no longer exists (e.g., the VPC was force-deleted),
+// the CSP-provided network info is kept as-is and no error is returned, so the
+// RDBMS is still listed and can be deleted.
+func setRDBMSNetworkUserIID(connectionName string, iidInfo *RDBMSIIDInfo, info *cres.RDBMSInfo) error {
+	var vpcIIDInfo VPCIIDInfo
+	var err error
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var vpcIIDInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &vpcIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return err
+		}
+		var castedIIDInfo interface{}
+		castedIIDInfo, err = getAuthIIDInfo(&vpcIIDInfoList, iidInfo.OwnerVPCName)
+		if err == nil {
+			vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+		}
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+	}
+	if err != nil {
+		if checkNotFoundError(err) {
+			cblog.Warnf("RDBMS '%s': owner VPC '%s' metadata not found; keeping CSP network info: %v",
+				iidInfo.NameId, iidInfo.OwnerVPCName, err)
+			return nil
+		}
+		cblog.Error(err)
+		return err
+	}
+	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
+
+	// set SubnetIIDs UserIID
+	setRDBMSSubnetUserIID(connectionName, vpcIIDInfo, info)
+	// set SecurityGroupIIDs UserIID
+	setRDBMSSGUserIID(connectionName, vpcIIDInfo, info)
+	return nil
+}
+
 // setRDBMSSGUserIID sets SecurityGroupIIDs to user-friendly names from metadb
 func setRDBMSSGUserIID(connectionName string, vpcIIDInfo VPCIIDInfo, info *cres.RDBMSInfo) {
 	for idx, sgIID := range info.SecurityGroupIIDs {
@@ -695,34 +735,10 @@ func ListRDBMS(connectionName string, rsType string) ([]*cres.RDBMSInfo, error) 
 		// (3) set ResourceInfo(IID.NameId)
 		info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
-		// set VPC UserIID
-		var vpcIIDInfo VPCIIDInfo
-		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-			var iidInfoList []*VPCIIDInfo
-			err = getAuthIIDInfoList(connectionName, &iidInfoList)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-			vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
-		} else {
-			err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
+		// set VPC, SubnetIIDs, SecurityGroupIIDs UserIID
+		if err := setRDBMSNetworkUserIID(connectionName, iidInfo, &info); err != nil {
+			return nil, err
 		}
-		info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
-
-		// set SubnetIIDs UserIID
-		setRDBMSSubnetUserIID(connectionName, vpcIIDInfo, &info)
-		// set SecurityGroupIIDs UserIID
-		setRDBMSSGUserIID(connectionName, vpcIIDInfo, &info)
 
 		redactRDBMSMasterCredentials(&info)
 
@@ -806,34 +822,10 @@ func GetRDBMS(connectionName string, rsType string, nameID string) (*cres.RDBMSI
 	// (3) set ResourceInfo(IID.NameId)
 	info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
-	// set VPC UserIID
-	var vpcIIDInfo VPCIIDInfo
-	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		var iidInfoList []*VPCIIDInfo
-		err = getAuthIIDInfoList(connectionName, &iidInfoList)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
-	} else {
-		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
+	// set VPC, SubnetIIDs, SecurityGroupIIDs UserIID
+	if err := setRDBMSNetworkUserIID(connectionName, iidInfo, &info); err != nil {
+		return nil, err
 	}
-	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
-
-	// set SubnetIIDs UserIID
-	setRDBMSSubnetUserIID(connectionName, vpcIIDInfo, &info)
-	// set SecurityGroupIIDs UserIID
-	setRDBMSSGUserIID(connectionName, vpcIIDInfo, &info)
 
 	redactRDBMSMasterCredentials(&info)
 

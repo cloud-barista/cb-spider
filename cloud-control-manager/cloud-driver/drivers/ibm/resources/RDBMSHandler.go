@@ -723,14 +723,28 @@ func (handler *IbmRDBMSHandler) GetRDBMS(rdbmsIID irs.IID) (irs.RDBMSInfo, error
 		ID: &rdbmsIID.SystemId,
 	}
 
-	result, _, err := handler.ResourceController.GetResourceInstance(getOpts)
+	result, resp, err := handler.ResourceController.GetResourceInstance(getOpts)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		if resp != nil && (resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone) {
+			err = fmt.Errorf("IBM RDBMS %s(%s) does not exist: %w", rdbmsIID.NameId, rdbmsIID.SystemId, err)
+		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return irs.RDBMSInfo{}, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
+
+	// IBM Resource Controller keeps returning a deleted instance by ID with
+	// state "removed" (or "pending_reclamation") long after deletion, while the
+	// console no longer shows it. Report it as non-existent so callers do not
+	// render a ghost RDBMS built from the stale record and driver defaults.
+	if result != nil && result.State != nil && isIBMInstanceRemovedState(*result.State) {
+		err := fmt.Errorf("IBM RDBMS %s(%s) does not exist (state: %s)", rdbmsIID.NameId, rdbmsIID.SystemId, *result.State)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return irs.RDBMSInfo{}, err
+	}
 
 	info := handler.convertResourceInstanceToRDBMSInfo(result)
 
@@ -767,9 +781,19 @@ func (handler *IbmRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
 		ID: &rdbmsIID.SystemId,
 	}
 
-	_, err := handler.ResourceController.DeleteResourceInstance(deleteOpts)
+	resp, err := handler.ResourceController.DeleteResourceInstance(deleteOpts)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
+		// IBM Resource Controller returns 410 Gone when the instance is already
+		// removed or pending reclamation (e.g., a previous delete succeeded on the
+		// CSP side but the caller timed out and retried, or it was deleted via the
+		// console). The desired end state is reached, so treat it as success.
+		if resp != nil && resp.StatusCode == http.StatusGone {
+			cblogger.Warnf("[IBM] DeleteRDBMS: instance %s(%s) is already removed (410 Gone); treating as deleted",
+				rdbmsIID.NameId, rdbmsIID.SystemId)
+			calllogger.Info(call.String(hiscallInfo))
+			return true, nil
+		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return false, err
@@ -818,7 +842,12 @@ func (handler *IbmRDBMSHandler) listResourceInstances(serviceID string) ([]resou
 			break
 		}
 
-		allInstances = append(allInstances, result.Resources...)
+		for _, inst := range result.Resources {
+			if inst.State != nil && isIBMInstanceRemovedState(*inst.State) {
+				continue
+			}
+			allInstances = append(allInstances, inst)
+		}
 
 		if result.NextURL == nil || *result.NextURL == "" {
 			break
@@ -1052,14 +1081,28 @@ func applyIBMConnectionHosts(info *irs.RDBMSInfo, hosts []clouddatabasesv5.Conne
 	return nil
 }
 
+// isIBMInstanceRemovedState reports whether a Resource Controller instance state
+// means the instance has been deleted (removed, or awaiting reclamation).
+func isIBMInstanceRemovedState(state string) bool {
+	switch strings.ToLower(state) {
+	case "removed", "pending_reclamation":
+		return true
+	}
+	return false
+}
+
 func convertIBMStateToRDBMSStatus(state string) irs.RDBMSStatus {
 	switch state {
 	case "active":
 		return irs.RDBMSAvailable
 	case "provisioning":
 		return irs.RDBMSCreating
-	case "inactive", "removed":
+	case "inactive":
 		return irs.RDBMSStopped
+	case "removed", "pending_reclamation":
+		// Instance has been deleted (or is awaiting reclamation); it is not a
+		// stopped instance that can be resumed.
+		return irs.RDBMSDeleting
 	case "failed":
 		return irs.RDBMSError
 	default:
