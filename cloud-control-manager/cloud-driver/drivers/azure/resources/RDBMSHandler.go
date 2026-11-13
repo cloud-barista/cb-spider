@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	armmysqlfs "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
@@ -375,7 +376,7 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 		// Future optimization: Use a single VNet-level zone (e.g., "privatelink.mysql.database.azure.com")
 		// and add A records per server. If that optimization is implemented, use vpcSharedResourceSPLock
 		// to prevent concurrent zone creation/deletion (similar to GCP).
-		dnsZoneName := rdbmsReqInfo.IId.NameId + ".private.mysql.database.azure.com"
+		dnsZoneName := privateDNSZoneNameForServer(rdbmsReqInfo.IId.NameId)
 		dnsZoneID, err := handler.ensurePrivateDNSZone(resourceGroup, dnsZoneName)
 		if err != nil {
 			return irs.RDBMSInfo{}, err
@@ -441,7 +442,7 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		if privateDNSZoneResourceID != "" {
-			handler.deletePrivateDNSZone(resourceGroup, rdbmsReqInfo.IId.NameId+".private.mysql.database.azure.com")
+			handler.deletePrivateDNSZone(resourceGroup, privateDNSZoneNameForServer(rdbmsReqInfo.IId.NameId))
 		}
 		return irs.RDBMSInfo{}, err
 	}
@@ -452,7 +453,7 @@ func (handler *AzureRDBMSHandler) CreateRDBMS(rdbmsReqInfo irs.RDBMSInfo) (irs.R
 		cblogger.Error(err)
 		rollbackErr := handler.rollbackCreatedRDBMS(irs.IID{NameId: rdbmsReqInfo.IId.NameId, SystemId: rdbmsReqInfo.IId.NameId}, err)
 		if privateDNSZoneResourceID != "" {
-			handler.deletePrivateDNSZone(resourceGroup, rdbmsReqInfo.IId.NameId+".private.mysql.database.azure.com")
+			handler.deletePrivateDNSZone(resourceGroup, privateDNSZoneNameForServer(rdbmsReqInfo.IId.NameId))
 		}
 		return irs.RDBMSInfo{}, rollbackErr
 	}
@@ -567,16 +568,18 @@ func (handler *AzureRDBMSHandler) DeleteRDBMS(rdbmsIID irs.IID) (bool, error) {
 		return false, fmt.Errorf("failed waiting for server deletion: %w", err)
 	}
 
-	// NOTE: Private DNS Zone cleanup is not performed here because each server has its own zone
-	// (<serverName>.private.mysql.database.azure.com). The zone is automatically removed by Azure
-	// or can be manually cleaned up if needed.
+	// CreateRDBMS (VPC private mode) creates a dedicated Private DNS Zone per server
+	// (<serverName>.private.mysql.database.azure.com) plus a VNet link. Azure does NOT
+	// remove them when the server is deleted, so clean them up here. The server itself
+	// is already deleted, so cleanup failures are only logged and do not fail the delete.
 	//
 	// If future optimization uses a shared VNet-level zone (e.g., "privatelink.mysql.database.azure.com"),
-	// implement the following logic with vpcSharedResourceSPLock:
+	// implement the following logic with vpcSharedResourceSPLock instead:
 	//   1. Lock vpcSharedResourceSPLock for the VNet
 	//   2. Query all MySQL Flexible Servers in the same VNet via handler.listServersInVNet(vnetResourceID)
 	//   3. If no other servers exist (last server deleted), delete the shared DNS Zone and VNet Link
 	//   4. Unlock vpcSharedResourceSPLock
+	handler.deletePrivateDNSZone(resourceGroup, privateDNSZoneNameForServer(rdbmsIID.SystemId))
 
 	return true, nil
 }
@@ -691,16 +694,65 @@ func (handler *AzureRDBMSHandler) ensurePrivateDNSVNetLink(resourceGroup, zoneNa
 	return nil
 }
 
-// deletePrivateDNSZone is a best-effort cleanup helper used on CreateRDBMS failure.
+// privateDNSZoneNameForServer returns the per-server Private DNS Zone name that
+// CreateRDBMS creates in VPC private mode.
+func privateDNSZoneNameForServer(serverName string) string {
+	return serverName + ".private.mysql.database.azure.com"
+}
+
+// deletePrivateDNSZone best-effort deletes a per-server Private DNS Zone created by
+// CreateRDBMS. Azure rejects deleting a zone that still has virtual network links,
+// so all links are removed first. A missing zone (public mode, or already cleaned up)
+// is not an error. Failures are only logged.
 func (handler *AzureRDBMSHandler) deletePrivateDNSZone(resourceGroup, zoneName string) {
+	if handler.PrivateDNSZonesClient == nil || handler.PrivateDNSVNetLinkClient == nil {
+		return
+	}
+
+	if _, err := handler.PrivateDNSZonesClient.Get(handler.Ctx, resourceGroup, zoneName, nil); err != nil {
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
+			return // nothing to clean up
+		}
+		cblogger.Warnf("[Azure RDBMS] Failed to get Private DNS Zone '%s' for cleanup: %v", zoneName, err)
+		return
+	}
+
+	// 1. delete all VNet links of the zone
+	pager := handler.PrivateDNSVNetLinkClient.NewListPager(resourceGroup, zoneName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(handler.Ctx)
+		if err != nil {
+			cblogger.Warnf("[Azure RDBMS] Failed to list VNet links of Private DNS Zone '%s': %v", zoneName, err)
+			return
+		}
+		for _, link := range page.Value {
+			if link == nil || link.Name == nil {
+				continue
+			}
+			linkPoller, err := handler.PrivateDNSVNetLinkClient.BeginDelete(handler.Ctx, resourceGroup, zoneName, *link.Name, nil)
+			if err != nil {
+				cblogger.Warnf("[Azure RDBMS] Failed to delete VNet link '%s' of Private DNS Zone '%s': %v", *link.Name, zoneName, err)
+				return
+			}
+			if _, err = linkPoller.PollUntilDone(handler.Ctx, nil); err != nil {
+				cblogger.Warnf("[Azure RDBMS] Failed waiting for VNet link '%s' deletion of Private DNS Zone '%s': %v", *link.Name, zoneName, err)
+				return
+			}
+		}
+	}
+
+	// 2. delete the zone
 	poller, err := handler.PrivateDNSZonesClient.BeginDelete(handler.Ctx, resourceGroup, zoneName, nil)
 	if err != nil {
-		cblogger.Warnf("[Azure RDBMS] Failed to delete Private DNS Zone '%s' during cleanup: %v", zoneName, err)
+		cblogger.Warnf("[Azure RDBMS] Failed to delete Private DNS Zone '%s': %v", zoneName, err)
 		return
 	}
 	if _, err = poller.PollUntilDone(handler.Ctx, nil); err != nil {
 		cblogger.Warnf("[Azure RDBMS] Failed waiting for Private DNS Zone deletion '%s': %v", zoneName, err)
+		return
 	}
+	cblogger.Infof("[Azure RDBMS] Private DNS Zone '%s' and its VNet links deleted.", zoneName)
 }
 
 func skuTierFromSpec(spec string) *armmysqlfs.SKUTier {
