@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -743,16 +744,37 @@ func (handler *AzureRDBMSHandler) deletePrivateDNSZone(resourceGroup, zoneName s
 	}
 
 	// 2. delete the zone
-	poller, err := handler.PrivateDNSZonesClient.BeginDelete(handler.Ctx, resourceGroup, zoneName, nil)
-	if err != nil {
+	// Even after a VNet link delete has completed, ARM can briefly still see it as a
+	// nested resource and reject the zone delete with 409 CannotDeleteResource
+	// (observed in practice). Retry on 409 until the link deletion has propagated.
+	const maxZoneDeleteAttempts = 6
+	const zoneDeleteRetryInterval = 10 * time.Second
+	for attempt := 1; attempt <= maxZoneDeleteAttempts; attempt++ {
+		err := handler.deletePrivateDNSZoneOnce(resourceGroup, zoneName)
+		if err == nil {
+			cblogger.Infof("[Azure RDBMS] Private DNS Zone '%s' and its VNet links deleted.", zoneName)
+			return
+		}
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == http.StatusConflict && attempt < maxZoneDeleteAttempts {
+			cblogger.Infof("[Azure RDBMS] Private DNS Zone '%s' delete conflicted (nested resource not yet released), retrying in %s (attempt %d/%d)",
+				zoneName, zoneDeleteRetryInterval, attempt, maxZoneDeleteAttempts)
+			time.Sleep(zoneDeleteRetryInterval)
+			continue
+		}
 		cblogger.Warnf("[Azure RDBMS] Failed to delete Private DNS Zone '%s': %v", zoneName, err)
 		return
 	}
-	if _, err = poller.PollUntilDone(handler.Ctx, nil); err != nil {
-		cblogger.Warnf("[Azure RDBMS] Failed waiting for Private DNS Zone deletion '%s': %v", zoneName, err)
-		return
+}
+
+// deletePrivateDNSZoneOnce issues a single zone delete and waits for it to complete.
+func (handler *AzureRDBMSHandler) deletePrivateDNSZoneOnce(resourceGroup, zoneName string) error {
+	poller, err := handler.PrivateDNSZonesClient.BeginDelete(handler.Ctx, resourceGroup, zoneName, nil)
+	if err != nil {
+		return err
 	}
-	cblogger.Infof("[Azure RDBMS] Private DNS Zone '%s' and its VNet links deleted.", zoneName)
+	_, err = poller.PollUntilDone(handler.Ctx, nil)
+	return err
 }
 
 func skuTierFromSpec(spec string) *armmysqlfs.SKUTier {
