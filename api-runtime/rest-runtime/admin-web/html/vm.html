@@ -741,6 +741,21 @@ THE SOFTWARE.
     .vm-action-btn:hover {
         transform: scale(1.2);
     }
+    /* Default PublicIP column: small text buttons (Assign / Unassign / Attach) */
+    .pip-action-btn {
+        font-size: 12px !important;
+        line-height: 1.4;
+        padding: 2px 8px !important;
+        margin: 2px 0 !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 4px;
+        background: #f8fafc !important;
+        color: #1e293b;
+        cursor: pointer;
+        white-space: nowrap;
+        box-shadow: none !important;
+    }
+    .pip-action-btn:hover { background: #e2e8f0 !important; }
 
     .drop-zone, #privatekey {
         width: 100%;
@@ -1543,14 +1558,14 @@ THE SOFTWARE.
                         {{if $vm.PublicIP}}
                         <div style="display: inline-flex; align-items: center;">
                             <span style="margin-right: 8px;">{{$vm.PublicIP}}</span>
-                            <button class="vm-action-btn" onclick="unassignDefaultPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Unassign</button>
+                            <button class="pip-action-btn" onclick="unassignDefaultPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Unassign</button>
                         </div>
                         {{else}}
                         <div>
-                            <button class="vm-action-btn" onclick="assignDefaultPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Assign</button>
+                            <button class="pip-action-btn" onclick="assignDefaultPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Assign</button>
                             <br>
                             <input type="text" id="attach-pip-name-{{$vm.IId.NameId}}" placeholder="PublicIP name" style="width:100px;">
-                            <button class="vm-action-btn" onclick="attachVMPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Attach</button>
+                            <button class="pip-action-btn" onclick="attachVMPublicIP('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Attach</button>
                         </div>
                         {{end}}
                     {{end}}
@@ -2221,16 +2236,16 @@ THE SOFTWARE.
             return `
                 <div style="display: inline-flex; align-items: center;">
                     <span style="margin-right: 8px;">${publicIP}</span>
-                    <button class="vm-action-btn" onclick="unassignDefaultPublicIP('${connConfig}', '${vmName}')">Unassign</button>
+                    <button class="pip-action-btn" onclick="unassignDefaultPublicIP('${connConfig}', '${vmName}')">Unassign</button>
                 </div>
             `;
         }
         return `
             <div>
-                <button class="vm-action-btn" onclick="assignDefaultPublicIP('${connConfig}', '${vmName}')">Assign</button>
+                <button class="pip-action-btn" onclick="assignDefaultPublicIP('${connConfig}', '${vmName}')">Assign</button>
                 <br>
                 <input type="text" id="attach-pip-name-${vmName}" placeholder="PublicIP name" style="width:100px;">
-                <button class="vm-action-btn" onclick="attachVMPublicIP('${connConfig}', '${vmName}')">Attach</button>
+                <button class="pip-action-btn" onclick="attachVMPublicIP('${connConfig}', '${vmName}')">Attach</button>
             </div>
         `;
     }
@@ -8676,4 +8691,6 @@ THE SOFTWARE.
 
 </script>
 
+<!-- Topology "add resource" dialog support (active only with ?topoCreate=...) -->
+<script src="/spider/adminweb/static/js/topo-create.js"></script>
 </html>

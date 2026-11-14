@@ -50,6 +50,7 @@
     #cy-container {
         position: fixed; top: var(--header-h, 52px); left: 0; right: var(--panel-w, 280px); bottom: 0;
         transition: right 0.2s ease;
+        overflow: hidden;            /* box buttons / spinners never spill over the side panel */
         background-color: #f8fafc;
         background-image: radial-gradient(#d5dbe5 1px, transparent 1px);
         background-size: 18px 18px;
@@ -68,8 +69,9 @@
     body.panel-hidden { --panel-w: 0px; }
     body.panel-hidden #side-panel { transform: translateX(100%); }
     #panel-toggle {
-        position: fixed; z-index: 900; right: var(--panel-w, 280px); top: calc(var(--header-h, 52px) + 50%);
-        transform: translateY(-50%); width: 18px; height: 56px; padding: 0;
+        /* next to the "Resources" heading; top aligned with the zoom slider (canvas top + 12px) */
+        position: fixed; z-index: 900; right: var(--panel-w, 280px); top: calc(var(--header-h, 52px) + 12px);
+        width: 18px; height: 30px; padding: 0;
         border: 1px solid #cbd5e1; border-right: none; border-radius: 8px 0 0 8px;
         background: #fff; color: #64748b; font-size: 13px; cursor: pointer;
         box-shadow: -2px 0 6px rgba(15, 23, 42, 0.08); transition: right 0.2s ease;
@@ -207,6 +209,65 @@
     .box-spinner { position: absolute; z-index: 5; pointer-events: none; box-sizing: border-box; border-radius: 50%;
                    background: #fff; border: 3px solid #bfdbfe; border-top-color: #2563eb; animation: conn-spin 0.8s linear infinite; }
     @keyframes conn-spin { to { transform: rotate(360deg); } }
+
+    /* Zoom jog shuttle (canvas top-left) */
+    #zoom-jog { position: absolute; left: 12px; top: 12px; z-index: 6; width: 34px; padding: 4px 0 5px;
+                display: flex; flex-direction: column; align-items: center; gap: 3px; user-select: none;
+                background: rgba(255, 255, 255, 0.92); border: 1px solid #cbd5e1; border-radius: 17px;
+                box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12); }
+    .jog-end { width: 24px; height: 24px; border: none; border-radius: 50%; background: none; cursor: pointer;
+               font-size: 16px; font-weight: 700; line-height: 1; color: #334155; padding: 0; }
+    .jog-end:hover { background: #e2e8f0; }
+    .jog-fit { font-size: 13px; }
+    .jog-track { position: relative; width: 24px; height: 120px; cursor: ns-resize; touch-action: none; }
+    .jog-groove { position: absolute; left: 50%; top: 4px; bottom: 4px; width: 4px; margin-left: -2px; border-radius: 2px;
+                  background: linear-gradient(#93c5fd, #e2e8f0 50%, #cbd5e1); }
+    .jog-groove::after { content: ''; position: absolute; left: -5px; right: -5px; top: 50%; height: 1.5px; background: #94a3b8; }
+    .jog-knob { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+                background: radial-gradient(circle at 35% 30%, #ffffff, #dbeafe 60%, #93c5fd); border: 1.5px solid #3b82f6;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25); transition: transform 0.18s ease-out; }
+    .jog-track.active .jog-knob { transition: none; border-color: #1d4ed8; }
+    .jog-level { width: 30px; box-sizing: border-box; padding: 1px 0; text-align: center; font-size: 9px; font-weight: 700;
+                 color: #475569; letter-spacing: -0.2px; border: 1px solid transparent; border-radius: 4px; background: none; }
+    .jog-level:hover { border-color: #cbd5e1; background: #fff; }
+    .jog-level:focus { outline: none; border-color: #3b82f6; background: #fff; color: #1e293b; }
+
+    /* "Add resource" buttons at a box's top-right (HTML over the canvas; sized with the zoom) */
+    #add-layer { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+    .box-add { position: relative; flex: none; pointer-events: auto; box-sizing: border-box; padding: 0; cursor: pointer;
+               border-radius: 22%; border: 1.5px solid #cbd5e1; background: #fff center / 70% no-repeat;
+               box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); font-size: calc(var(--s) * 0.42); line-height: 1; }
+    .box-add:hover { border-color: #16a34a; box-shadow: 0 0 0 2px #bbf7d0; }
+    .box-add::after { content: '+'; position: absolute; right: -28%; top: -28%; width: 52%; height: 52%;
+                      border-radius: 50%; background: #16a34a; color: #fff; font-weight: 800;
+                      display: flex; align-items: center; justify-content: center; border: 1px solid #fff; }
+    .box-add.menu { background-image: none; border-color: #86efac; background-color: #f0fdf4; color: #15803d;
+                    font-size: calc(var(--s) * 0.75); font-weight: 800; display: flex; align-items: center; justify-content: center; }
+    .box-add.menu::after { content: none; }
+    .add-pop { position: fixed; z-index: 1200; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+               box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18); padding: 4px; min-width: 150px; }
+    .add-pop .add-pop-title { font-size: 10px; color: #64748b; padding: 3px 6px 4px; font-weight: 700; }
+    .add-pop button { display: flex; align-items: center; gap: 8px; width: 100%; border: none; background: none;
+                      padding: 5px 8px; font-size: 12px; color: #1e293b; border-radius: 6px; cursor: pointer; text-align: left; }
+    .add-pop button:hover { background: #f0fdf4; }
+    .add-pop img { width: 18px; height: 18px; }
+
+    /* Create dialog: a resource page's create form shown over the Topology */
+    #create-modal { position: fixed; inset: 0; z-index: 1100; display: none; }
+    #create-modal.open { display: block; }
+    #create-modal.waiting { background: rgba(15, 23, 42, 0.25); }
+    /* one iframe per create: shown in the dialog while its form is open, then kept hidden
+       (off screen) until its create request answers */
+    .create-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent;
+                    visibility: hidden; color-scheme: normal; z-index: 1101; }
+    .create-frame.shown { visibility: visible; }
+    .create-frame.bg { left: -10000px; top: 0; width: 10px; height: 10px; inset: auto; visibility: hidden; }
+
+    #create-wait { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); display: flex; align-items: center;
+                   gap: 10px; background: #fff; padding: 12px 16px; border-radius: 10px; font-size: 13px; color: #1e293b;
+                   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2); }
+    #create-modal.ready #create-wait { display: none; }
+    #create-wait button { font-size: 12px; padding: 3px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; }
     .conn-select:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
     .col-btn {
         margin-top: 12px; width: 100%; padding: 6px 10px; font-size: 12px; font-weight: bold;
@@ -215,6 +276,13 @@
     .col-btn:hover { background: #cffafe; }
     .del-target { font-size: 13px; margin-bottom: 10px; }
     .del-target b { color: #b91c1c; word-break: break-all; }
+    .del-target .del-name { user-select: all; -webkit-user-select: all; cursor: text; }   /* one click selects it all */
+    .copy-btn { margin-left: 6px; padding: 2px; width: 22px; height: 22px; display: inline-flex; align-items: center;
+                justify-content: center; vertical-align: -5px; color: #475569;
+                background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; cursor: pointer; }
+    .copy-btn svg { width: 14px; height: 14px; display: block; }
+    .copy-btn:hover { background: #e2e8f0; }
+    .copy-btn.done { color: #15803d; background: #f0fdf4; border-color: #86efac; }
     .del-section { font-size: 12px; color: #475569; margin: 8px 0 4px; font-weight: bold; }
     .del-related { font-size: 12px; color: #334155; max-height: 160px; overflow-y: auto;
         border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; background: #f8fafc; }
@@ -256,12 +324,6 @@
         <span id="conn-spinner" class="conn-spinner" title="Loading topology..."></span>
     </div>
     <div class="toolbar">
-        <!-- view -->
-        <div class="seg">
-            <button onclick="fitOverview()" title="Fit: show everything">⊞</button>
-            <button onclick="cy.zoom(cy.zoom()*1.2)" title="Zoom in">＋</button>
-            <button onclick="cy.zoom(cy.zoom()*0.8)" title="Zoom out">－</button>
-        </div>
         <!-- layout algorithm -->
         <div class="seg">
             <button id="btn-cose"   class="active" onclick="applyLayout('cose')" title="Auto layout (force-directed)">Auto</button>
@@ -310,7 +372,12 @@
                         then drag any selected item.</li>
                     <li><b>Expand / Collapse</b> — click <b>+</b> / <b>−</b> in the header, or double-click the box.</li>
                     <li><b>Refresh</b> — click <b>⟳</b> in a Connection header.</li>
-                    <li><b>Zoom</b> — mouse wheel or <b>＋</b> / <b>－</b>; <b>⊞</b> (Fit) shows everything.</li>
+                    <li><b>Add a resource</b> — click the icons at a box's <b>top-right</b>
+                        (Connection <b>+</b> menu: VPC, Public IP, KeyPair, Disk · VPC: Subnet, Security Group, NLB, Cluster, RDBMS ·
+                        Subnet: VM · Cluster: Node Group).</li>
+                    <li><b>Zoom</b> — mouse wheel, or the <b>zoom slider</b> at the canvas top-left
+                        (knob in the center = 100%, up = in, down = out; type a % below it); <b>⊞</b> (Fit) shows everything.</li>
+                    <li><b>Pan with keys</b> — arrow keys (<kbd>Shift</kbd> + arrow: bigger steps).</li>
                     <li><b>Layout</b> — Auto / Hierarchy / Circle / Grid; <b>Layout ▾</b> saves, loads, exports.</li>
                     <li><b>Details / Delete</b> — click an item for <b>Node Detail</b>; right-click to delete.</li>
                 </ul>
@@ -322,7 +389,25 @@
 <div id="loading">⏳ Loading topology...</div>
 <div id="toast"></div>
 
-<div id="cy-container"><div id="cy"></div></div>
+<div id="cy-container"><div id="cy"></div><div id="add-layer"></div>
+    <!-- Zoom slider: the knob's place is the zoom (center = 100%, up = in, down = out); stays where it is left -->
+    <div id="zoom-jog">
+        <button type="button" class="jog-end jog-fit" onclick="fitOverview()" title="Fit: show everything">⊞</button>
+        <button type="button" class="jog-end" onclick="jogStep(1)" title="Zoom in">+</button>
+        <div class="jog-track" id="jog-track" title="Zoom: drag the knob (center = 100%, up = zoom in, down = zoom out) · scroll over it">
+            <div class="jog-groove"></div><div class="jog-knob" id="jog-knob"></div></div>
+        <button type="button" class="jog-end" onclick="jogStep(-1)" title="Zoom out">−</button>
+        <input type="text" class="jog-level" id="jog-level" value="100%" inputmode="decimal" spellcheck="false"
+               title="Zoom (%): type a value and press Enter">
+    </div>
+    </div>
+</div>
+
+<!-- Add a resource: the resource page's create form, shown over the Topology -->
+<div id="create-modal">
+    <div id="create-wait"><div class="conn-spinner on"></div><span id="create-wait-text">Opening…</span>
+        <button type="button" onclick="closeCreate()">Cancel</button></div>
+</div>
 
 <button id="panel-toggle" onclick="toggleSidePanel()" title="Hide the side panel (Resources, Legend, Node Detail)">›</button>
 <div id="side-panel">
@@ -534,11 +619,16 @@ function refreshSingle() {
             updateStats();
             document.getElementById('detail-content').innerHTML = '<span style="color:#aaa">Click a node to see details</span>';
 
+            // keep the picture: known resources back to their places (also hidden ones inside
+            // collapsed groups), new resources placed next to their siblings; the view (zoom / pan)
+            // is not changed. Only when nothing is known any more is everything arranged again.
             const leaves = cy.nodes().filter(n => n.isChildless());
-            if (leaves.length && leaves.every(n => prev[n.id()])) {
-                leaves.positions(n => prev[n.id()]);                 // nothing new: keep the picture
+            if (leaves.some(n => prev[n.id()])) {
+                leaves.filter(n => prev[n.id()]).positions(n => prev[n.id()]);
+                ORIGINAL.nodes().filter(n => n.removed() && prev[n.id()]).forEach(n => n.position(prev[n.id()]));
+                placeNewNodes(known, prev);
             } else {
-                layoutReadable(_currentLayout);                      // new resources: arrange again
+                layoutReadable(_currentLayout);
             }
             showToast(`✅ ${name} refreshed`, 1800);
         })
@@ -667,7 +757,8 @@ function xmlEscape(t) {
 const GROUP_BTN = 20;   // +/- button size (header units)
 // refresh: also draw a round refresh button right of the +/- button (connection groups)
 const REFRESH_PATH = "M480-160q-133 0-226.5-93.5T160-480q0-133 93.5-226.5T480-800q85 0 149 34.5T740-671v-99q0-13 8.5-21.5T770-800q13 0 21.5 8.5T800-770v194q0 13-8.5 21.5T770-546H576q-13 0-21.5-8.5T546-576q0-13 8.5-21.5T576-606h138q-38-60-97-97t-137-37q-109 0-184.5 75.5T220-480q0 109 75.5 184.5T480-220q75 0 140-39.5T717-366q5-11 16.5-16.5t22.5-.5q12 5 16 16.5t-1 23.5q-39 84-117.5 133.5T480-160Z";
-function groupHeader(kind, name, btn, note, refresh) {
+// reserve: blank width kept at the right end (room for the box's add-resource buttons)
+function groupHeader(kind, name, btn, note, refresh, reserve) {
     const s = KIND_STYLE[kind], t = GROUP_TEXT[kind];
     const tile = 24, gap = 8;
     _measureCtx.font = `700 ${t.size}px Arial, Helvetica, sans-serif`;
@@ -696,6 +787,7 @@ function groupHeader(kind, name, btn, note, refresh) {
             + `<path fill="#475569" transform="translate(${refreshX + o} ${y0 + o + g}) scale(${g / 960})" d="${REFRESH_PATH}"/>`;
         w = refreshX + b;
     }
+    if (reserve) w += reserve;
     w += 4;
     const tileMarkup = kind === 'cluster'
         ? K8S_LOGO_SVG.replace(/ width="\d+" height="\d+"/, ` x="0" y="0" width="${tile}" height="${tile}"`)
@@ -707,6 +799,368 @@ function groupHeader(kind, name, btn, note, refresh) {
         + noteSVG + btnSVG + `</svg>`;
     return { uri: 'data:image/svg+xml;utf8,' + encodeURIComponent(svg), w: w, h: tile, btnX: btnX, refreshX: refreshX };
 }
+
+// ---- Add a resource from a box (buttons at the box's top-right) ----
+// Each box offers the resources that can be created inside it. The create form of the resource's
+// AdminWeb page opens over the Topology with the box's VPC / Subnet / Cluster pre-selected
+// (see static/js/topo-create.js); when it is created, the connection is refreshed.
+// A VPC box lists one icon per resource; the other boxes have one button (a connection's ＋ opens a menu).
+// Only drivers' supported resources are offered (Driver Capability API).
+const ADD_MENU = {
+    conn:    ['vpc', 'publicip', 'keypair', 'disk'],
+    vpc:     ['subnet', 'sg', 'nlb', 'cluster', 'rdbms'],
+    subnet:  ['vm'],
+    cluster: ['nodegroup'],
+};
+const ADD_INFO = {
+    vpc:       { label: 'VPC',            page: 'vpc',           cap: 'VPCHandler' },
+    publicip:  { label: 'Public IP',      page: 'publicip',      cap: 'PublicIPHandler' },
+    keypair:   { label: 'KeyPair',        page: 'keypair',       cap: 'KeyPairHandler', notDrawn: true },
+    disk:      { label: 'Disk',           page: 'disk',          cap: 'DiskHandler',    notDrawn: true },
+    subnet:    { label: 'Subnet',         page: 'vpc',           cap: 'VPCHandler' },
+    sg:        { label: 'Security Group', page: 'securitygroup', cap: 'SecurityHandler' },
+    nlb:       { label: 'NLB',            page: 'nlb',           cap: 'NLBHandler' },
+    cluster:   { label: 'Cluster',        page: 'cluster',       cap: 'ClusterHandler' },
+    rdbms:     { label: 'RDBMS',          page: 'rdbms',         cap: 'RDBMSHandler' },
+    vm:        { label: 'VM',             page: 'vm',            cap: 'VMHandler' },
+    nodegroup: { label: 'Node Group',     page: 'cluster',       cap: 'ClusterHandler' },
+};
+const ADD_GAP = 6;   // header units between add buttons
+function addIcon(k) {
+    if (KIND_STYLE[k]) return KIND_STYLE[k].icon;
+    return k === 'keypair' ? iconURI('#a16207', 'KEY') : iconURI('#7c3aed', 'DSK');
+}
+
+const CAPS = {};     // connection name → driver capability ({ VPCHandler: true, ... }); null while loading
+function loadCaps(name) {
+    if (!name || name in CAPS) return;
+    CAPS[name] = null;
+    fetch('/spider/driver/capability?ConnectionName=' + encodeURIComponent(name))
+        .then(r => r.ok ? r.json() : null)
+        .then(c => { if (c && typeof c === 'object') { CAPS[name] = c; refreshGroupHeaders(); scheduleAddButtons(); } })
+        .catch(() => {});
+}
+// Resources that can be added to box g (none while its connection is not loaded / loading,
+// or when the box is not registered in Spider: it has no Spider name to create resources in)
+function addKindsFor(g) {
+    const kind = g.data('kind'), list = ADD_MENU[kind];
+    if (!list || g.removed()) return [];
+    if (kind !== 'conn' && !g.data('name')) return [];
+    const c = connOf(g);
+    if (!c || LAZY.has(c.id()) || LOADING.has(c.id())) return [];
+    const name = c.data('label');
+    loadCaps(name);
+    const cap = CAPS[name];
+    return list.filter(k => !cap || cap[ADD_INFO[k].cap] !== false);
+}
+function addButtonsFor(g) {     // what is drawn: VPC → one icon per resource, others → one button
+    const kinds = addKindsFor(g);
+    if (!kinds.length) return [];
+    if (g.data('kind') === 'vpc') return kinds;
+    return g.data('kind') === 'conn' ? ['menu'] : kinds.slice(0, 1);
+}
+// header room kept free for the buttons (header units)
+function addReserve(g) {
+    const n = addButtonsFor(g).length;
+    return n ? 10 + n * GROUP_BTN + (n - 1) * ADD_GAP : 0;
+}
+
+// Buttons are HTML over the canvas (crisp, with tooltips; not in PNG exports), placed at the
+// box's top-right on every pan/zoom/move and sized with the zoom (hidden when too small).
+const _addBtns = {};    // box id → { el, sig }
+let _addRaf = 0;
+function scheduleAddButtons() {
+    if (!_addRaf) _addRaf = requestAnimationFrame(() => { _addRaf = 0; placeAddButtons(); });
+}
+function placeAddButtons() {
+    const layer = document.getElementById('add-layer');
+    const zoom = cy.zoom(), z = zoom * SCALE, pan = cy.pan();
+    const size = GROUP_BTN * z, viewW = layer.clientWidth;
+    const shown = document.getElementById('cy').classList.contains('ready') && size >= 11;
+    const seen = new Set();
+    if (shown) cy.nodes().forEach(g => {
+        if (!ADD_MENU[g.data('kind')] || !g.visible()) return;
+        const list = addButtonsFor(g);
+        if (!list.length) return;
+        seen.add(g.id());
+        const sig = list.join(',');
+        let rec = _addBtns[g.id()];
+        if (!rec || rec.sig !== sig) {
+            if (rec) rec.el.remove();
+            const el = document.createElement('div');
+            el.style.cssText = 'position:absolute;display:flex;pointer-events:none;';
+            const boxName = g.data('name') || g.data('label');
+            list.forEach(k => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                if (k === 'menu') {
+                    b.className = 'box-add menu';
+                    b.textContent = '+';
+                    b.title = `Add a resource to ${boxName}`;
+                    b.addEventListener('click', ev => { ev.stopPropagation(); toggleAddMenu(g.id(), b); });
+                } else {
+                    b.className = 'box-add';
+                    b.style.backgroundImage = `url("${addIcon(k)}")`;
+                    b.title = `Add ${ADD_INFO[k].label} to ${boxName}`;
+                    b.addEventListener('click', ev => { ev.stopPropagation(); openCreate(k, g.id()); });
+                }
+                el.appendChild(b);
+            });
+            layer.appendChild(el);
+            rec = _addBtns[g.id()] = { el, sig };
+        }
+        const bb = g.boundingBox({ includeLabels: false, includeOverlays: false });
+        const n = list.length, rowW = n * size + (n - 1) * ADD_GAP * z;
+        // at the box's right end, but kept inside the visible canvas when the box runs past it
+        // (never left of the room reserved in the header)
+        const right = bb.x2 * zoom + pan.x - (HDR_X + 4) * z;
+        const minLeft = bb.x1 * zoom + pan.x + (HDR_X + g.data('_hdrW') - 4 - addReserve(g) + 10) * z;
+        rec.el.style.left = Math.max(minLeft, Math.min(right, viewW - 10) - rowW) + 'px';
+        rec.el.style.top = (bb.y1 * zoom + pan.y + (HDR_Y + 2) * z) + 'px';
+        rec.el.style.gap = (ADD_GAP * z) + 'px';
+        rec.el.style.setProperty('--s', size + 'px');
+        Array.from(rec.el.children).forEach(b => { b.style.width = b.style.height = size + 'px'; });
+    });
+    Object.keys(_addBtns).forEach(id => {
+        if (!seen.has(id)) { _addBtns[id].el.remove(); delete _addBtns[id]; }
+    });
+}
+
+// Connection box ＋ → small menu of the resources it can hold
+function toggleAddMenu(boxId, anchor) {
+    const open = document.getElementById('add-pop');
+    if (open) { const same = open.dataset.box === boxId; closeAddMenu(); if (same) return; }
+    const g = cy.getElementById(boxId);
+    if (!g.length) return;
+    const pop = document.createElement('div');
+    pop.className = 'add-pop';
+    pop.id = 'add-pop';
+    pop.dataset.box = boxId;
+    pop.innerHTML = `<div class="add-pop-title">Add to ${esc(g.data('label'))}</div>`;
+    addKindsFor(g).forEach(k => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.innerHTML = `<img src="${addIcon(k)}" alt="">${esc(ADD_INFO[k].label)}`;
+        b.addEventListener('click', () => { closeAddMenu(); openCreate(k, boxId); });
+        pop.appendChild(b);
+    });
+    document.body.appendChild(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = Math.max(4, Math.min(window.innerWidth - pop.offsetWidth - 4, r.right - pop.offsetWidth)) + 'px';
+    pop.style.top = Math.min(window.innerHeight - pop.offsetHeight - 4, r.bottom + 4) + 'px';
+}
+function closeAddMenu() {
+    const p = document.getElementById('add-pop');
+    if (p) p.remove();
+}
+document.addEventListener('mousedown', ev => {
+    const p = document.getElementById('add-pop');
+    if (p && !p.contains(ev.target) && !(ev.target.closest && ev.target.closest('.box-add.menu'))) closeAddMenu();
+}, true);
+
+// ---- Running creates / deletes: a status box per request at the bottom of the canvas ----
+// Creates are listed bottom-left (green), deletes bottom-right (red); each box shows a spinner until
+// the request answers, then the result (success boxes fade out, failures stay until dismissed).
+// In AdminWeb the boxes are drawn in the main page (over the Topology canvas), so they stay above
+// the floating Mini Dashboard, which belongs to the main page.
+const TASK_CSS = `
+.topo-task-tray { position: fixed; z-index: 1600; display: flex; flex-direction: column; gap: 6px;
+    overflow-y: auto; pointer-events: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+.topo-task-tray.create { align-items: flex-start; }
+.topo-task-tray.delete { align-items: flex-end; }
+.topo-task { pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 7px 10px; max-width: 100%;
+    box-sizing: border-box; border-radius: 8px; font-size: 12px; line-height: 1.35; border: 1px solid;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15); transition: opacity 0.4s; }
+.topo-task.create { background: #f0fdf4; border-color: #86efac; color: #14532d; }
+.topo-task.delete { background: #fff1f2; border-color: #fda4af; color: #881337; }
+.topo-task.fail { background: #fef2f2; border-color: #f87171; color: #991b1b; }
+.topo-task.fade { opacity: 0; }
+.topo-task-text { word-break: break-word; }
+.topo-task-icon { flex: none; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.topo-task.ok .topo-task-icon { color: #16a34a; }
+.topo-task.fail .topo-task-icon { color: #dc2626; }
+.topo-task-spin { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid; box-sizing: border-box;
+    animation: topo-task-spin 0.8s linear infinite; }
+.topo-task.create .topo-task-spin { border-color: #bbf7d0; border-top-color: #16a34a; }
+.topo-task.delete .topo-task-spin { border-color: #fecdd3; border-top-color: #e11d48; }
+@keyframes topo-task-spin { to { transform: rotate(360deg); } }
+.topo-task-close { flex: none; border: none; background: none; cursor: pointer; color: inherit; opacity: 0.6; font-size: 12px; padding: 0 2px; }
+.topo-task-close:hover { opacity: 1; }
+.topo-task.busy .topo-task-close { display: none; }`;
+
+let _trays = null;      // { doc, create, delete, frame }
+function taskTrays() {
+    if (_trays && _trays.create.isConnected) return _trays;
+    // the main page when embedded (same origin), otherwise this page
+    let doc = document, frame = null;
+    try {
+        if (window.frameElement && window.parent.document) { doc = window.parent.document; frame = window.frameElement; }
+    } catch (e) { doc = document; frame = null; }
+    if (!doc.getElementById('topo-task-style')) {
+        const st = doc.createElement('style');
+        st.id = 'topo-task-style';
+        st.textContent = TASK_CSS;
+        doc.head.appendChild(st);
+    }
+    const mk = type => {
+        let el = doc.getElementById('topo-task-' + type);
+        if (el) el.remove();                                   // left by a previous Topology page
+        el = doc.createElement('div');
+        el.id = 'topo-task-' + type;
+        el.className = 'topo-task-tray ' + type;
+        doc.body.appendChild(el);
+        return el;
+    };
+    _trays = { doc, frame, create: mk('create'), delete: mk('delete') };
+    placeTaskTrays();
+    return _trays;
+}
+// keep the trays at the bottom corners of the canvas
+function placeTaskTrays() {
+    if (!_trays) return;
+    const c = document.getElementById('cy-container').getBoundingClientRect();
+    let ox = 0, oy = 0, vw = window.innerWidth, vh = window.innerHeight;
+    if (_trays.frame) {
+        const f = _trays.frame.getBoundingClientRect();
+        ox = f.left + _trays.frame.clientLeft; oy = f.top + _trays.frame.clientTop;
+        vw = _trays.doc.documentElement.clientWidth; vh = _trays.doc.documentElement.clientHeight;
+    }
+    const bottom = vh - (oy + c.bottom) + 12;
+    const maxW = Math.max(200, c.width * 0.46) + 'px', maxH = Math.max(80, c.height * 0.45) + 'px';
+    Object.assign(_trays.create.style, { left: (ox + c.left + 12) + 'px', right: 'auto', bottom: bottom + 'px', maxWidth: maxW, maxHeight: maxH });
+    Object.assign(_trays.delete.style, { right: (vw - (ox + c.right) + 12) + 'px', left: 'auto', bottom: bottom + 'px', maxWidth: maxW, maxHeight: maxH });
+}
+window.addEventListener('resize', placeTaskTrays);
+try { new ResizeObserver(placeTaskTrays).observe(document.getElementById('cy-container')); } catch (e) {}
+try { if (window.frameElement) window.parent.addEventListener('resize', placeTaskTrays); } catch (e) {}
+// leaving the Topology: its boxes go with it
+window.addEventListener('pagehide', () => {
+    if (!_trays) return;
+    _trays.create.remove(); _trays.delete.remove();
+    try { window.parent.removeEventListener('resize', placeTaskTrays); } catch (e) {}
+    _trays = null;
+});
+
+// type: 'create' | 'delete'. Returns { setText, finish(ok, text) }
+function taskBox(type, text) {
+    const t = taskTrays(), doc = t.doc;
+    const el = doc.createElement('div');
+    el.className = 'topo-task busy ' + type;
+    const spin = doc.createElement('span');
+    spin.className = 'topo-task-spin';
+    const txt = doc.createElement('span');
+    txt.className = 'topo-task-text';
+    txt.textContent = text;
+    const close = doc.createElement('button');
+    close.className = 'topo-task-close';
+    close.type = 'button';
+    close.title = 'Dismiss';
+    close.textContent = '✕';
+    close.addEventListener('click', () => el.remove());
+    el.append(spin, txt, close);
+    t[type].appendChild(el);
+    t[type].scrollTop = t[type].scrollHeight;
+    return {
+        setText: s => { txt.textContent = s; },
+        finish(ok, s) {
+            el.classList.remove('busy');
+            el.classList.add(ok ? 'ok' : 'fail');
+            const icon = doc.createElement('span');
+            icon.className = 'topo-task-icon';
+            icon.textContent = ok ? '✓' : '✕';
+            spin.replaceWith(icon);
+            txt.textContent = s;
+            if (ok) setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 450); }, 4000);
+        },
+    };
+}
+
+// ---- Create: the resource page's form in an iframe over the Topology ----
+// When the form is submitted the dialog closes right away; the iframe stays (hidden) until its
+// create request answers, and a status box shows "Creating …" meanwhile. Several creates can run.
+const CREATES = {};     // tok → { kind, conn, connId, frame, task }
+let _createTok = null;  // create whose form is shown now
+function openCreate(k, boxId) {
+    const g = cy.getElementById(boxId), c = connOf(g);
+    if (!g.length || !c) return;
+    if (_createTok) closeCreate();
+    const info = ADD_INFO[k], conn = c.data('label');
+    const tok = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const qs = new URLSearchParams({ topoCreate: k, tok });
+    const kind = g.data('kind');
+    if (kind === 'vpc') qs.set('vpc', g.data('name'));
+    if (kind === 'subnet') {
+        const v = vpcOf(g);
+        if (v) qs.set('vpc', v.data('name'));
+        qs.set('subnet', g.data('name'));
+    }
+    if (kind === 'cluster') qs.set('cluster', g.data('name'));
+    const frame = document.createElement('iframe');
+    frame.className = 'create-frame';
+    frame.title = 'Add ' + info.label;
+    frame.src = `/spider/adminweb/${info.page}/${encodeURIComponent(conn)}?${qs}`;
+    document.body.appendChild(frame);
+    CREATES[tok] = { kind: k, conn, connId: c.id(), frame, task: null };
+    _createTok = tok;
+    closeAddMenu();
+    document.getElementById('toast').classList.remove('show');    // never over the form
+    document.getElementById('create-modal').className = 'open waiting';
+    document.getElementById('create-wait-text').textContent = `Opening the ${info.label} form…`;
+}
+// close the form dialog (a create already submitted keeps running in the background)
+function closeCreate() {
+    const tok = _createTok;
+    _createTok = null;
+    document.getElementById('create-modal').className = '';
+    const c = tok && CREATES[tok];
+    if (c && !c.task) { c.frame.remove(); delete CREATES[tok]; }
+}
+function endCreate(tok) {
+    const c = CREATES[tok];
+    if (!c) return;
+    delete CREATES[tok];
+    if (_createTok === tok) closeCreate();
+    setTimeout(() => c.frame.remove(), 0);
+}
+window.addEventListener('message', ev => {
+    const d = ev.data || {};
+    const c = d.tok && CREATES[d.tok];
+    // matched by the random token and the origin (not by ev.source: a page that reloads right after
+    // its create sends the result from the window that is going away)
+    if (!c || ev.origin !== location.origin) return;
+    const info = ADD_INFO[c.kind];
+    const label = names => `${info.label}${names && names.length ? ' "' + names.join('", "') + '"' : ''}`;
+    if (d.type === 'topoCreateReady') {
+        if (_createTok === d.tok) {
+            document.getElementById('create-modal').className = 'open ready';
+            c.frame.classList.add('shown');
+        }
+    } else if (d.type === 'topoCreateCancel') {
+        if (!c.task) endCreate(d.tok);
+    } else if (d.type === 'topoCreateStarted') {
+        // the form was submitted: close the dialog, keep the request running in the hidden iframe
+        if (!c.task) c.task = taskBox('create', `Creating ${label(d.names)} in ${c.conn}…`);
+        else c.task.setText(`Creating ${label(d.names)} in ${c.conn}…`);
+        c.frame.classList.remove('shown');
+        c.frame.classList.add('bg');
+        if (_createTok === d.tok) { _createTok = null; document.getElementById('create-modal').className = ''; }
+    } else if (d.type === 'topoCreateResult' || d.type === 'topoCreateDone') {
+        const ok = d.type === 'topoCreateDone' || (d.ok || []).length > 0;
+        const failed = d.failed || [];
+        const task = c.task || taskBox('create', '');
+        if (d.type === 'topoCreateDone') {
+            task.finish(true, `Created ${info.label} in ${c.conn}`);
+        } else if (!failed.length) {
+            task.finish(true, `Created ${label(d.ok)} in ${c.conn}`
+                + (info.notDrawn ? ' (listed in VM details, not drawn as a box)' : ''));
+        } else {
+            task.finish(false, (ok ? `Created ${label(d.ok)}; failed ` : 'Failed to create ')
+                + failed.map(f => `${info.label}${f.name ? ' "' + f.name + '"' : ''}: ${f.msg}`).join(' / '));
+        }
+        endCreate(d.tok);
+        if (ok && !info.notDrawn) refreshConn(c.connId);
+    }
+});
 
 // Card geometry (shared by stylesheet and hierarchy layout)
 const CARD_W = 200, CARD_H = 48, ICON_SIZE = 28, ICON_LEFT = 12;
@@ -815,6 +1269,10 @@ const cy = cytoscape({
                 'corner-radius': () => sc(16),
                 'width': () => sc(CARD_W),
                 'height': () => sc(80),
+                // an open box is at least as wide as its header (name, buttons, add-resource buttons)
+                'min-width': n => Math.max(0, sc(n.data('_hdrW') + 2 * HDR_X) - 2 * gpad(n.data('kind'))) + 'px',
+                'min-width-bias-left': '0%',
+                'min-width-bias-right': '100%',
             }
         },
         {
@@ -1036,13 +1494,14 @@ function refreshGroupHeaders() {
         else if (c) notes.push(`${hiddenCount(g.id())} hidden`);
         const [title, sub] = String(g.data('label')).split('\n');
         if (sub) notes.unshift(sub);                          // ex: "k8s 1.30", "t3.medium · 2 node(s)"
-        const hdr = groupHeader(g.data('kind'), title, btn, notes.join(' · '), isConn);
+        const hdr = groupHeader(g.data('kind'), title, btn, notes.join(' · '), isConn, addReserve(g));
         g.data({ _icon: hdr.uri, _hdrW: hdr.w, _hdrH: hdr.h, _btnX: hdr.btnX, _refreshX: hdr.refreshX });
         preloadHeader(hdr.uri);
         // an open box pans the canvas when dragged by its body (only its header bar moves it);
         // a compact bar (collapsed / empty) is all header, so it moves from anywhere
         if (g.children().length) g.panify(); else g.unpanify();
     });
+    scheduleAddButtons();
 }
 
 // ---- Drag on a box: header bar → move the box, body → pan the canvas ----
@@ -1208,6 +1667,8 @@ function placeBoxSpinners() {
     });
 }
 cy.on('viewport position render', () => { if (LOADING.size) placeBoxSpinners(); });
+cy.on('viewport position render resize', scheduleAddButtons);
+cy.on('viewport', closeAddMenu);
 
 function fetchConnGraph(id) {
     const name = cy.getElementById(id).data('label');
@@ -1237,6 +1698,54 @@ function dropConnGraph(id) {
     return pos;
 }
 
+// Refresh keeps the user's picture: known resources go back to their positions (prev) and only the
+// new ones are placed, next to their siblings inside their parent box (below them); a new box
+// (ex: a new Subnet with its VM) is arranged as a whole. Boxes that grew push their neighbours away.
+// known: ids shown before the refresh; prev: id → position of the previous leaf cards / compact bars.
+function placeNewNodes(known, prev) {
+    const GAP = sc(26);
+    const toPlace = n => known.has(n.id()) ? (n.isChildless() && !prev[n.id()]) : true;
+    const tops = cy.nodes().filter(n => toPlace(n) && !(n.parent().length && toPlace(n.parent())));
+    if (!tops.length) return false;
+    const byParent = new Map();
+    tops.forEach(n => {
+        const key = n.parent().length ? n.parent().id() : '';
+        if (!byParent.has(key)) byParent.set(key, []);
+        byParent.get(key).push(n);
+    });
+    byParent.forEach((list, pid) => {
+        const p = pid ? cy.getElementById(pid) : null;
+        const siblings = (p ? p.children() : cy.nodes().orphans()).filter(c => !list.includes(c));
+        let x, y;
+        if (siblings.length) {                       // below the existing contents
+            const bb = siblings.boundingBox({ includeLabels: false, includeOverlays: false });
+            x = bb.x1; y = bb.y2 + GAP;
+        } else if (p && prev[pid]) {                 // the box was a compact (empty / collapsed) bar
+            x = prev[pid].x - sc(80); y = prev[pid].y - sc(10);
+        } else if (p) {
+            x = p.position('x') - sc(80); y = p.position('y');
+        } else {
+            const bb = cy.nodes().not(cy.collection(list)).boundingBox({ includeLabels: false, includeOverlays: false });
+            x = bb.x1; y = bb.y2 + GAP;
+        }
+        let cx = x;
+        list.forEach(n => {
+            if (n.isParent()) {
+                const sz = placeGroupBox(n, cx, y);
+                cx += sz.w + GAP;
+            } else {
+                n.position({ x: cx + n.outerWidth() / 2, y: y + n.outerHeight() / 2 });
+                cx += n.outerWidth() + GAP;
+            }
+        });
+    });
+    byParent.forEach((list, pid) => {
+        list.forEach(n => { if (n.isParent()) resolveBoxOverlaps(n); });
+        if (pid) resolveBoxOverlaps(cy.getElementById(pid));
+    });
+    return true;
+}
+
 // Add a connection's graph inside its group. Contents are arranged (hierarchy) with their top-left
 // at the group's current top-left, or keep their previous positions (refresh) when all are known.
 function addConnGraph(id, g, prevPos, knownIds) {
@@ -1255,10 +1764,12 @@ function addConnGraph(id, g, prevPos, knownIds) {
     applyCollapse();
     cy.style().update();
     const leaves = grp.descendants().filter(d => d.isChildless());
-    if (prevPos && leaves.length && leaves.every(n => prevPos[n.id()])) {
-        leaves.positions(n => prevPos[n.id()]);
+    if (prevPos && leaves.length && leaves.some(n => prevPos[n.id()])) {
+        // refresh: known resources keep their places, new ones are added next to their siblings
+        leaves.filter(n => prevPos[n.id()]).positions(n => prevPos[n.id()]);
         // hidden contents of collapsed groups: their saved positions, shown when expanded
         added.nodes().filter(n => n.removed() && prevPos[n.id()]).forEach(n => n.position(prevPos[n.id()]));
+        placeNewNodes(knownIds || new Set(Object.keys(prevPos)), prevPos);
     } else if (leaves.length) {
         hierarchyLayoutIn(grp);
         const nb = grp.boundingBox({ includeLabels: false, includeOverlays: false });
@@ -1422,8 +1933,13 @@ function openDeleteDialog(id) {
     _deleteNodeId = id;
     const kind = KIND_LABEL[n.data('kind')];
     document.getElementById('del-title').textContent = `🗑 Delete ${kind}`;
+    const delName = n.data('name') || String(n.data('label')).split('\n')[0];
     document.getElementById('del-target').innerHTML =
-        `${esc(kind)} <b>${esc(n.data('name') || String(n.data('label')).split('\n')[0])}</b> · connection ${esc(n.data('conn') || CONN_CONFIG)}`;
+        `${esc(kind)} <b class="del-name" title="Click to select the name">${esc(delName)}</b>`
+        + `<button type="button" class="copy-btn" id="del-copy" title="Copy the name (paste it below to confirm)" `
+        + `aria-label="Copy the name">${COPY_ICON}</button>`
+        + ` · connection ${esc(n.data('conn') || CONN_CONFIG)}`;
+    document.getElementById('del-copy').onclick = ev => copyText(delName, ev.currentTarget);
     const rows = relatedList(n);
     document.getElementById('del-related-wrap').style.display = rows.length ? '' : 'none';
     document.getElementById('del-related').innerHTML = rows.map(r => `<div>${r}</div>`).join('');
@@ -1439,6 +1955,40 @@ function openDeleteDialog(id) {
     updateDeleteButton();
     document.getElementById('delete-dialog').style.display = 'flex';
     if (!t.blocked) setTimeout(() => input.focus(), 50);
+}
+// Copy text to the clipboard (falls back to execCommand where the Clipboard API is not
+// available, ex: AdminWeb served over plain http on a non-localhost address)
+// copy icon (two overlapping rectangles) and a check mark shown briefly after copying
+const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M5 12l5 5L20 7"/></svg>';
+function copyText(text, btn) {
+    const ok = () => {
+        if (!btn) return;
+        btn.innerHTML = CHECK_ICON;
+        btn.title = 'Copied';
+        btn.classList.add('done');
+        clearTimeout(btn._t);
+        btn._t = setTimeout(() => { btn.innerHTML = COPY_ICON; btn.title = 'Copy the name (paste it below to confirm)'; btn.classList.remove('done'); }, 1500);
+    };
+    const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        let done = false;
+        try { done = document.execCommand('copy'); } catch (e) {}
+        ta.remove();
+        if (done) { ok(); return; }
+        // no clipboard access: select the name so Ctrl/Cmd+C copies it
+        const nameEl = btn && btn.parentElement && btn.parentElement.querySelector('.del-name');
+        if (nameEl) { const r = document.createRange(); r.selectNodeContents(nameEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+        showToast('📋 Name selected — press Ctrl/Cmd+C to copy', 2500);
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, fallback);
+    else fallback();
 }
 function closeDeleteDialog() {
     document.getElementById('delete-dialog').style.display = 'none';
@@ -1460,7 +2010,8 @@ function doDelete() {
     closeDeleteDialog();
 
     n.addClass('deleting');
-    showToast(`🗑 Deleting ${kind} "${name}"… (this may take a while)`, 4000);
+    const conn = n.data('conn') || CONN_CONFIG;
+    const task = taskBox('delete', `Deleting ${kind} "${name}" in ${conn}…`);
     fetch(t.url + (force ? '?force=true' : ''), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -1470,15 +2021,17 @@ function doDelete() {
         const txt = await r.text();
         let d; try { d = JSON.parse(txt); } catch (e) { d = { Message: txt }; }
         if (r.ok && (d.Result === true || d.Result === 'true')) return;
+        // VM delete (terminate) answers with the VM status instead: {"Status": "Terminated" | "Terminating" | ...}
+        if (r.ok && typeof d.Status === 'string' && !/fail|error/i.test(d.Status)) return;
         throw new Error(d.Message || d.message || txt || ('HTTP ' + r.status));
     })
     .then(() => {
         removeDeletedNode(n);
-        showToast(`✅ Deleted ${kind} "${name}"`, 3000);
+        task.finish(true, `Deleted ${kind} "${name}"`);
     })
     .catch(err => {
         n.removeClass('deleting');
-        showToast(`❌ Failed to delete ${kind} "${name}": ${err.message}`, 8000);
+        task.finish(false, `Failed to delete ${kind} "${name}": ${err.message}`);
         if (n.selected() || document.getElementById('detail-content').textContent.includes(name)) {
             const box = document.getElementById('detail-content');
             const e = document.createElement('div');
@@ -1638,7 +2191,7 @@ function toggleHowTo(ev) { toggleMenuPop('howto', ev); }
 document.addEventListener('click', ev => {
     document.querySelectorAll('.menu-pop.open, .howto-pop.open').forEach(p => { if (!p.contains(ev.target)) p.classList.remove('open'); });
 });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeMenuPops(); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { closeMenuPops(); closeAddMenu(); } });
 
 // ---- Side panel (Resources / Legend / Node Detail): slide out to the right and back ----
 function toggleSidePanel() {
@@ -1672,6 +2225,7 @@ function revealGraph() {
     if (el.classList.contains('ready')) return;
     el.classList.add('ready');
     document.getElementById('loading').style.display = 'none';
+    scheduleAddButtons();
 }
 setTimeout(revealGraph, 5000);   // safety net: never stay hidden if a layout fails
 
@@ -2507,6 +3061,96 @@ function closeSaveDialog() {
 }
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { closeSaveDialog(); closeLoadDialog(); closeDeleteDialog(); }
+});
+
+// ---- Zoom slider (canvas top-left) ----
+// The knob's place shows and sets the zoom: center = 100% (cards at their normal size), up = zoom in,
+// down = zoom out, on a log scale (ends = 800% / 12.5%). It stays where it is left and follows zoom
+// changes made otherwise (wheel, Fit, ...). The % field below can be typed into (Enter applies).
+// Zooming keeps the center of the canvas in place.
+const JOG_RANGE = 54;                 // knob travel (px) from the center
+const JOG_LOG2 = 3;                   // ends: 2^3 = 800% / 12.5%
+const effZoom = () => cy.zoom() * SCALE;          // 1 = cards at 100%
+function zoomAroundCenter(level) {
+    const c = cy.container();
+    level = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), level));
+    cy.zoom({ level, renderedPosition: { x: c.clientWidth / 2, y: c.clientHeight / 2 } });
+}
+function jogStep(dir) {                               // +/- buttons: one step, animated
+    const c = cy.container();
+    const level = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), cy.zoom() * (dir > 0 ? 1.25 : 0.8)));
+    cy.animate({ zoom: { level, renderedPosition: { x: c.clientWidth / 2, y: c.clientHeight / 2 } } }, { duration: 160 });
+}
+let _jogDragging = false;
+function updateJogLevel() {
+    const e = effZoom();
+    const input = document.getElementById('jog-level');
+    if (document.activeElement !== input) input.value = Math.round(e * 100) + '%';
+    if (!_jogDragging) {
+        const t = Math.max(-1, Math.min(1, Math.log2(e) / JOG_LOG2));
+        document.getElementById('jog-knob').style.transform = `translateY(${-t * JOG_RANGE}px)`;
+    }
+}
+cy.on('viewport', updateJogLevel);
+(function initJog() {
+    const track = document.getElementById('jog-track'), knob = document.getElementById('jog-knob');
+    function move(ev) {
+        const rect = track.getBoundingClientRect();
+        const off = Math.max(-JOG_RANGE, Math.min(JOG_RANGE, ev.clientY - (rect.top + rect.height / 2)));
+        knob.style.transform = `translateY(${off}px)`;
+        zoomAroundCenter(Math.pow(2, (-off / JOG_RANGE) * JOG_LOG2) / SCALE);
+    }
+    track.addEventListener('pointerdown', ev => {
+        if (ev.button !== 0) return;
+        _jogDragging = true;
+        track.classList.add('active');
+        try { track.setPointerCapture(ev.pointerId); } catch (e) {}   // keeps the drag when the pointer leaves the slider
+        move(ev);
+        ev.preventDefault();
+    });
+    track.addEventListener('pointermove', ev => { if (_jogDragging) move(ev); });
+    const release = () => {
+        if (!_jogDragging) return;
+        _jogDragging = false;
+        track.classList.remove('active');               // the knob stays where it was left
+    };
+    track.addEventListener('pointerup', release);
+    track.addEventListener('pointercancel', release);
+    track.addEventListener('lostpointercapture', release);
+    // mouse wheel over the slider zooms too
+    document.getElementById('zoom-jog').addEventListener('wheel', ev => {
+        ev.preventDefault();
+        zoomAroundCenter(cy.zoom() * Math.exp(-ev.deltaY * 0.0015));
+    }, { passive: false });
+    // typed zoom (%)
+    const input = document.getElementById('jog-level');
+    const apply = () => {
+        const v = parseFloat(String(input.value).replace(/[^0-9.]/g, ''));
+        if (v > 0) zoomAroundCenter(Math.min(5000, Math.max(1, v)) / 100 / SCALE);
+        input.value = Math.round(effZoom() * 100) + '%';
+    };
+    input.addEventListener('focus', () => { input.value = String(Math.round(effZoom() * 100)); input.select(); });
+    input.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') { apply(); input.blur(); }
+        else if (ev.key === 'Escape') { input.value = Math.round(effZoom() * 100) + '%'; input.blur(); }
+        ev.stopPropagation();
+    });
+    input.addEventListener('blur', apply);
+    updateJogLevel();
+})();
+
+// ---- Arrow keys pan the canvas (Shift: bigger steps) ----
+// Not while typing in a field or while a dialog / form is open.
+document.addEventListener('keydown', ev => {
+    const dir = { ArrowLeft: [1, 0], ArrowRight: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[ev.key];
+    if (!dir || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    const t = ev.target;
+    if (t && (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(t.tagName) || t.isContentEditable)) return;
+    if (document.getElementById('create-modal').classList.contains('open')) return;
+    if (Array.from(document.querySelectorAll('.vdialog-overlay')).some(d => getComputedStyle(d).display !== 'none')) return;
+    ev.preventDefault();
+    const step = ev.shiftKey ? 240 : 60;
+    cy.panBy({ x: dir[0] * step, y: dir[1] * step });
 });
 
 function doSaveLayout() {
