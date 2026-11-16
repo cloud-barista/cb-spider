@@ -123,6 +123,12 @@
     .refresh-button:active svg {
         transform: rotate(180deg);
     }
+    /* a CSP title row; the first one shown also holds the action buttons (see filterProvider) */
+    .provider-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
     .fixed-action-buttons {
         display: flex;
         align-items: center;
@@ -226,16 +232,18 @@
         background-color: #f0f0f0;
         border-left: 4px solid #4A90E2;
     }
+    /* same as the "1st" button of the Region page */
     .first-button {
-        background-color: #f0f0f0;
-        border: 1px solid #ccc;
-        padding: 4px 8px;
-        cursor: pointer;
+        background-color: white;
+        border: 1px solid #ced4da;
         border-radius: 3px;
-        font-size: 12px;
+        padding: 1px 4px;
+        font-size: 10px;
+        height: 22px;
+        cursor: pointer;
     }
     .first-button:hover {
-        background-color: #e0e0e0;
+        background-color: #f2f2f2;
     }
     #providerFilterWrapper {
         display: flex;
@@ -368,7 +376,8 @@
             return;
         }
 
-        if (!confirm("Are you sure you want to delete the selected connections?")) {
+        const names = Array.from(checkboxes).map(checkbox => checkbox.value).join('\n  - ');
+        if (!confirm(`Are you sure you want to delete the selected ${checkboxes.length} connection(s)?\n\n  - ${names}`)) {
             return;
         }
 
@@ -405,6 +414,23 @@
             });
     }
 
+    // Select the first connection of each CSP shown (e.g. as multi-connection targets), the others
+    // unselected; when they all are already selected, unselect them (same as "1st" of Add Region Info).
+    function selectFirstPerProvider() {
+        const tables = Array.from(document.querySelectorAll('table[id^="table-"]'))
+            .filter(table => table.style.display !== 'none');
+        const firsts = tables.map(table => table.querySelector('input[name="deleteCheckbox"]')).filter(Boolean);
+        const allFirstSelected = firsts.length > 0 && firsts.every(checkbox => checkbox.checked);
+
+        tables.forEach(table => {
+            table.querySelectorAll('input[name="deleteCheckbox"]').forEach((checkbox, index) => {
+                checkbox.checked = index === 0 ? !allFirstSelected : false;
+            });
+        });
+        document.querySelectorAll('.fixed-action-buttons input[type="checkbox"], table[id^="table-"] th input[type="checkbox"]')
+            .forEach(checkbox => { checkbox.checked = false; });
+    }
+
     function toggleSelectAll(source) {
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
         for (const checkbox of checkboxes) {
@@ -425,7 +451,7 @@
     }
 
     function applyMultiConnectionSelection() {
-        const checkboxes = document.querySelectorAll('.multi-select-checkbox:checked');
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
         if (checkboxes.length === 0) {
             alert('Please select at least one connection for multi-connection management.');
             return;
@@ -439,7 +465,7 @@
 
         window.parent.postMessage({ type: 'setMultiConnections', connections: connections }, '*');
 
-        alert(`${connections.length} connection(s) set for multi-connection management.\n\nOpen KeyPair (more resources coming soon) from the left menu to manage them together.`);
+        alert(`${connections.length} connection(s) set for multi-connection management.\n\nOpen VPC/Subnet, SecurityGroup, KeyPair, VM, Disk, MyImage, NLB, Cluster, S3 or RDBMS (more resources coming soon) from the left menu to manage them together.`);
     }
 
     function validateForm() {
@@ -925,6 +951,11 @@
             }
         });
 
+        // the action buttons stay at the right of the first CSP title shown
+        var actionButtons = document.querySelector('.fixed-action-buttons');
+        var firstTitle = Array.from(titles).find(function(title) { return title.style.display !== 'none'; });
+        if (actionButtons && firstTitle) firstTitle.parentElement.appendChild(actionButtons);
+
         // Uncheck all checkboxes when the filter changes
         uncheckAllCheckboxes();
         // Uncheck the main delete checkbox
@@ -952,6 +983,19 @@
 
     // Initialize page based on URL parameters
     document.addEventListener('DOMContentLoaded', (event) => {
+        // check the connections of the current multi-connection selection, so it can be changed and applied again
+        try {
+            const multi = JSON.parse(sessionStorage.getItem('multiConnections') || 'null');
+            if (Array.isArray(multi) && multi.length > 1) {
+                const names = new Set(multi.map(conn => conn.ConfigName));
+                document.querySelectorAll('input[name="deleteCheckbox"]').forEach(checkbox => {
+                    checkbox.checked = names.has(checkbox.value);
+                });
+            }
+        } catch (e) {
+            // ignore malformed sessionStorage content
+        }
+
         // Read URL parameter and set the provider filter
         const urlParams = new URLSearchParams(window.location.search);
         const providerParam = urlParams.get('provider');
@@ -1006,21 +1050,24 @@
     <div class="content">
         {{range $i, $provider := .Providers}}
         {{if eq $i 0}}
-        <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div class="provider-header">
             <div class="provider-title" id="title-{{$provider}}">
                 <h2>{{$provider}}</h2>
                 <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
             </div>
             <div class="fixed-action-buttons">
-                <input type="checkbox" onclick="toggleSelectAll(this)">
+                <button class="first-button" type="button" onclick="selectFirstPerProvider()" title="Select (or unselect) the first connection of each CSP">1st</button>
+                <input type="checkbox" onclick="toggleSelectAll(this)" style="margin-left: 10px;">
                 <button onclick="deleteSelectedConnections()">Delete</button>
-                <button class="multi-select-button" onclick="applyMultiConnectionSelection()">Use Selected for Multi-Connection &#9656;</button>
+                <button class="multi-select-button" onclick="applyMultiConnectionSelection()" title="Use the selected connections for multi-connection management">Multi-Connection &#9656;</button>
             </div>
         </div>
         {{else}}
-        <div class="provider-title" id="title-{{$provider}}">
-            <h2>{{$provider}}</h2>
-            <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
+        <div class="provider-header">
+            <div class="provider-title" id="title-{{$provider}}">
+                <h2>{{$provider}}</h2>
+                <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
+            </div>
         </div>
         {{end}}
         <table id="table-{{$provider}}">
@@ -1036,7 +1083,6 @@
                     Region Name : Region / Zone
                 </th>
                 <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectTable(this, 'table-{{$provider}}')"></th>
-                <th class="checkbox-cell">Multi</th>
             </tr>
             {{if index $.ConnectionConfigs $provider}}
                 {{range $config := index $.ConnectionConfigs $provider}}
@@ -1050,16 +1096,13 @@
                     <td>{{$config.CredentialName}}</td>
                     <td>{{$config.RegionName}} : <span class="highlight-pastel-blue">{{index $.Regions $config.RegionName}}</span></td>
                     <td class="checkbox-cell">
-                        <input type="checkbox" name="deleteCheckbox" value="{{$config.ConfigName}}">
-                    </td>
-                    <td class="checkbox-cell">
-                        <input type="checkbox" class="multi-select-checkbox" value="{{$config.ConfigName}}" data-provider="{{$provider}}" data-region="{{index $.Regions $config.RegionName}}">
+                        <input type="checkbox" name="deleteCheckbox" value="{{$config.ConfigName}}" data-provider="{{$provider}}" data-region="{{index $.Regions $config.RegionName}}">
                     </td>
                 </tr>
                 {{end}}
             {{else}}
             <tr>
-                <td colspan="6">No connections found for {{$provider}}</td>
+                <td colspan="5">No connections found for {{$provider}}</td>
             </tr>
             {{end}}
         </table>

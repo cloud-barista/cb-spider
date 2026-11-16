@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VM Management (Multi-Connection)</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    .content {
+        margin-top: 110px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .refresh-button {
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
+    .refresh-button svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.5s ease;
+    }
+    .refresh-button:active svg {
+        transform: rotate(180deg);
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .connection-bar {
+        position: fixed;
+        top: 56px;
+        width: 97%;
+        background-color: #eaf1fb;
+        z-index: 999;
+        padding: 6px 20px;
+        font-size: 12px;
+        border-bottom: 1px solid #b9cdf0;
+    }
+    .connection-chip {
+        display: inline-block;
+        background-color: #ffffff;
+        border: 1px solid #0645AD;
+        color: #0645AD;
+        border-radius: 10px;
+        padding: 2px 8px;
+        margin: 2px 4px 2px 0;
+        font-weight: bold;
+    }
+    .connection-error {
+        color: #b35c00;
+        margin-top: 4px;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 4%;
+        text-align: center;
+    }
+    .column-connection {
+        width: 16%;
+        text-align: center;
+        font-weight: bold;
+        color: #0645AD;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        position: relative;
+        max-width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 80px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+    .column-connection {
+        width: 12%;
+    }
+    .inner-table th {
+        background-color: #f9f9f9;
+        font-size: 12px;
+        padding: 2px;
+        text-align: center;
+    }
+    .inner-table td {
+        font-size: 12px;
+        padding: 2px;
+        text-align: center;
+    }
+    .vpc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .info-group legend {
+        font-weight: bold;
+    }
+    .vpc-tag-container, .subnet-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .vm-name {
+        width: 13%;
+    }
+    .vm-ip {
+        width: 11%;
+    }
+    .vm-status {
+        width: 11%;
+    }
+    .vm-image-spec {
+        width: 14%;
+    }
+    .vm-network {
+        width: 15%;
+    }
+    .vm-tags {
+        width: 8%;
+    }
+    .vm-misc {
+        width: 8%;
+    }
+    .vm-start-time {
+        display: block;
+        font-size: 11px;
+        font-weight: normal;
+        color: #888;
+    }
+    .vm-detail {
+        font-size: 12px;
+        word-break: break-all;
+    }
+    .vm-detail b {
+        color: #555;
+    }
+    .vm-status-cell {
+        text-align: center;
+        white-space: nowrap;
+    }
+    .vm-action-btn {
+        background: none;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        padding: 1px 4px;
+        margin-left: 2px;
+    }
+    .status-running { color: #2e7d32; font-weight: bold; }
+    .status-suspended { color: #b35c00; font-weight: bold; }
+    .status-other { color: #555; font-weight: bold; }
+    .progress-message { color: #0645AD; }
+    .create-table {
+        width: auto;
+        table-layout: auto;
+        margin: 0 auto;
+    }
+    .create-table th, .create-table td {
+        font-size: 12px;
+        padding: 3px 6px;
+        white-space: nowrap;
+    }
+    .create-table select {
+        max-width: 230px;
+    }
+    .create-table input[type="text"] {
+        width: 170px;
+    }
+    .create-table tr.excluded td {
+        color: #999;
+        background-color: #f7f7f7;
+    }
+    .create-note {
+        color: #b35c00;
+        font-size: 11px;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/vm.png" alt="VM Icon">
+            <h1>VM Management (Multi-Connection)</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <button type="button" class="refresh-button" onclick="multiRefresh(true);" title="Refresh">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                <polyline points="21 3 21 9 15 9"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <div class="connection-bar">
+        <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn.Name}}" title="Show only this connection">{{$conn.Name}}</button>{{end}}
+        {{range $conn, $err := .ConnErrors}}
+        <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
+        {{end}}
+    </div>
+
+    <div class="content">
+        <div class="fixed-action-buttons">
+            <button class="add-button" onclick="showOverlay()">+ VM (all connections)</button>
+            <div style="flex: 1;"></div>
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedVMs()">Delete</button>
+        </div>
+        <table id="vm-table" data-empty-text="No VMs found across the selected connections.">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="column-connection">Connection</th>
+                <th class="vm-name">Name</th>
+                <th class="vm-ip">IP</th>
+                <th class="vm-status">Status | Actions</th>
+                <th class="vm-image-spec">Image / Spec</th>
+                <th class="vm-network">Network / Access</th>
+                <th class="vm-tags">Tags</th>
+                <th class="vm-misc">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $row := .VMRows}}
+            {{$vm := $row.VM}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="column-connection">{{$row.ConnectionName}}</td>
+                <td class="vpc-name-cell">{{$vm.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$vm.IId.SystemId}}')">&nbsp;&bull; {{$vm.IId.SystemId}}</span>
+                    <span class="vm-start-time" data-time="{{$vm.StartTime}}"></span>
+                </td>
+                <td class="vm-detail">
+                    <b>Public:</b> {{$vm.PublicIP}}<br>
+                    <b>Private:</b> {{$vm.PrivateIP}}
+                </td>
+                <td class="vm-status-cell" data-connection="{{$row.ConnectionName}}" data-vm="{{$vm.IId.NameId}}" data-status="{{$row.Status}}" data-controllable="{{if $vm.VMSpecName}}true{{end}}"></td>
+                <td class="vm-detail">
+                    <b>Image:</b> {{$vm.ImageIId.NameId}}{{if $vm.ImageType}} ({{$vm.ImageType}}){{end}}<br>
+                    <b>Spec:</b> {{$vm.VMSpecName}}
+                </td>
+                <td class="vm-detail">
+                    <b>VPC/Subnet:</b> {{$vm.VpcIID.NameId}} / {{$vm.SubnetIID.NameId}}<br>
+                    <b>Zone:</b> {{$vm.Region.Zone}}<br>
+                    <b>SG:</b> {{range $i, $sg := $vm.SecurityGroupIIds}}{{if $i}}, {{end}}{{$sg.NameId}}{{end}}<br>
+                    <b>KeyPair:</b> {{$vm.KeyPairIId.NameId}}{{if $vm.VMUserId}} ({{$vm.VMUserId}}){{end}}
+                </td>
+                <td>
+                    {{range $tag := $vm.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}', '{{$row.ConnectionName}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                </td>
+                <td class="center-align misc-cell">
+                    <div class="misc-content">{{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$vm.IId.NameId}}" data-connection="{{$row.ConnectionName}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .VMRows}}
+            <tr class="empty-row">
+                <td colspan="10" class="center-align">No VMs found across the selected connections.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New VM to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
+            <form id="addVMForm" onsubmit="event.preventDefault(); postVMMulti();">
+                <fieldset class="info-group">
+                    <legend>VM Info (all connections):</legend>
+                    <div class="form-group">
+                        <label for="vmName">Name:</label>
+                        <input type="text" id="vmName" name="vmName" required style="color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label for="imageType">Image Type:</label>
+                        <select id="imageType" name="imageType">
+                            <option value="PublicImage">PublicImage</option>
+                            <option value="MyImage">MyImage</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="rootDiskSize">Root Disk Size (GB):</label>
+                        <input type="text" id="rootDiskSize" name="rootDiskSize" placeholder="default">
+                    </div>
+                    <div class="form-group" style="padding-left: 100px;">
+                        <label>Tags:</label>
+                        <div id="vm-tag-container" class="vpc-tag-container"></div>
+                        <button type="button" onclick="addTagField('vm')">+</button>
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Per Connection:</legend>
+                    <table class="create-table" id="create-table">
+                        <tr>
+                            <th>Create</th>
+                            <th>Connection</th>
+                            <th>VPC / Subnet (Zone)</th>
+                            <th>SecurityGroup</th>
+                            <th>KeyPair</th>
+                            <th>Recent Image / Spec</th>
+                            <th>Image Name</th>
+                            <th>Spec Name</th>
+                        </tr>
+                        {{range $conn := .Connections}}
+                        <tr class="create-row" data-connection="{{$conn.Name}}" data-provider="{{$conn.Provider}}" data-region="{{$conn.Region}}">
+                            <td class="center-align"><input type="checkbox" class="create-include" checked onchange="updateCreateRowState(this.closest('tr'))"></td>
+                            <td>{{$conn.Name}}</td>
+                            <td><select class="create-subnet" onchange="fillSecurityGroups(this.closest('tr'))"></select></td>
+                            <td><select class="create-sg"></select></td>
+                            <td><select class="create-keypair"></select></td>
+                            <td><select class="create-recent" onchange="applyRecent(this.closest('tr'))"></select></td>
+                            <td><input type="text" class="create-image"></td>
+                            <td><input type="text" class="create-spec"></td>
+                        </tr>
+                        {{end}}
+                    </table>
+                    <div class="create-note">A connection without a VPC/Subnet, SecurityGroup or KeyPair is excluded. Image and Spec are filled from the recent VM creations of the connection's region and can be edited.</div>
+                </fieldset>
+
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="vmCount" style="margin-right: 5px;margin-left: 40px;">#/conn:</label>
+                    <input type="number" id="vmCount" name="vmCount" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
+                    <button type="submit">Add VM</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="overlay">
+        <div class="overlay-content"></div>
+    </div>
+
+    <div id="system-id-overlay" class="overlay">
+        <div class="overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">&#128203;</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    // Basic Auth credentials from server
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        return fetchOptions;
+    }
+
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    // Connections this page fans requests out to ({Name, Provider, Region}), injected server-side.
+    const MULTI_CONNECTIONS = {{.Connections}} || [];
+
+    function toggleSelectAll(source) {
+        const checkboxes = multiVisibleCheckboxes();
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    // GET a Spider API and return its JSON, or throw with the API error message.
+    function getJSON(url) {
+        return fetch(url).then(response => response.json().then(data => {
+            if (!response.ok) throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+            return data;
+        }));
+    }
+
+    // ---- Status | Actions ----
+
+    // Render the status and the control buttons of a VM (Running: suspend/reboot, Suspended: resume).
+    function renderStatusCell(cell) {
+        const status = cell.dataset.status || '';
+        cell.innerHTML = '';
+        const label = document.createElement('span');
+        label.className = status === 'Running' ? 'status-running' : status === 'Suspended' ? 'status-suspended' : 'status-other';
+        label.textContent = status || '-';
+        cell.appendChild(label);
+        if (cell.dataset.controllable !== 'true') return;
+
+        const actions = status === 'Running' ? [['suspend', '⏸️', 'Suspend'], ['reboot', '🔄', 'Reboot']]
+            : status === 'Suspended' ? [['resume', '⏯️', 'Resume']] : [];
+        if (actions.length) cell.appendChild(document.createTextNode(' | '));
+        actions.forEach(([action, icon, title]) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'vm-action-btn';
+            btn.title = title;
+            btn.textContent = icon;
+            btn.addEventListener('click', () => vmControl(cell, action));
+            cell.appendChild(btn);
+        });
+    }
+
+    function renderAllStatusCells() {
+        document.querySelectorAll('#vm-table td.vm-status-cell').forEach(renderStatusCell);
+        document.querySelectorAll('#vm-table .vm-start-time').forEach(formatStartTime);
+    }
+
+    function formatStartTime(span) {
+        const t = span.dataset.time;
+        if (t && !t.startsWith('0001-')) {
+            const d = new Date(t);
+            if (!isNaN(d)) span.textContent = `started ${d.toLocaleString()}`;
+        }
+    }
+    window.onMultiRefreshed = renderAllStatusCells;
+    renderAllStatusCells();
+
+    // Suspend / resume / reboot a VM, then poll its status until it reaches the target state.
+    function vmControl(cell, action) {
+        const connName = cell.dataset.connection, vmName = cell.dataset.vm;
+        const targetState = action === 'suspend' ? 'Suspended' : 'Running';
+        const progress = { suspend: 'Suspending', resume: 'Resuming', reboot: 'Rebooting' }[action];
+        const showProgress = text => {
+            cell.innerHTML = '';
+            const span = document.createElement('span');
+            span.className = 'progress-message';
+            span.textContent = text;
+            cell.appendChild(span);
+        };
+        const done = status => {
+            cell.dataset.status = status;
+            renderStatusCell(cell);
+        };
+        showProgress(`${progress}…`);
+
+        let attempts = 0;
+        const poll = () => {
+            attempts++;
+            getJSON(`/spider/vmstatus/${encodeURIComponent(vmName)}?ConnectionName=${encodeURIComponent(connName)}`)
+                .then(data => {
+                    if (data.Status === targetState) done(data.Status);
+                    else if (attempts < 60) { showProgress(`${progress}… (${data.Status})`); setTimeout(poll, 2000); }
+                    else done(data.Status);
+                })
+                .catch(() => done(cell.dataset.status));
+        };
+
+        fetch(`/spider/controlvm/${encodeURIComponent(vmName)}?action=${action}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ConnectionName: connName })
+        })
+        .then(response => response.json().then(data => {
+            if (!response.ok) throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+            return data;
+        }))
+        .then(data => {
+            if (data.Status === targetState && action !== 'reboot') done(data.Status);
+            else setTimeout(poll, 2000);
+        })
+        .catch(error => {
+            done(cell.dataset.status);
+            showError(error.message, `Failed to ${action} VM "${vmName}" in ${connName}`);
+        });
+    }
+
+    // ---- Create ----
+
+    function showOverlay() {
+        document.getElementById('vmName').value = `multi-vm-${Math.random().toString(36).substring(2, 6)}`;
+        document.getElementById('imageType').value = 'PublicImage';
+        document.getElementById('rootDiskSize').value = '';
+        clearFormFields();
+        loadCreateRows();
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+    }
+
+    function setOptions(select, options, emptyText) {
+        select.innerHTML = '';
+        if (options.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = emptyText;
+            select.appendChild(option);
+            return;
+        }
+        options.forEach(([value, text]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            select.appendChild(option);
+        });
+    }
+
+    // Load the VPC/Subnets, SecurityGroups, KeyPairs and recent Image/Spec of each connection.
+    function loadCreateRows() {
+        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            if (!multiInFocus(row.dataset.connection)) return;
+            const connName = encodeURIComponent(row.dataset.connection);
+            row.dataset.loading = 'true';
+            row.querySelectorAll('select').forEach(select => setOptions(select, [], 'Loading…'));
+            row.querySelector('.create-image').value = '';
+            row.querySelector('.create-spec').value = '';
+            row.querySelector('.create-include').checked = true;
+
+            const recentParams = new URLSearchParams({
+                CSP: row.dataset.provider || '',
+                Region: row.dataset.region || '',
+                Limit: '10',
+                SortBy: 'last_created_at',
+                SortOrder: 'desc'
+            });
+            Promise.all([
+                getJSON(`/spider/vpc?ConnectionName=${connName}`).then(d => d.vpc || []).catch(() => []),
+                getJSON(`/spider/securitygroup?ConnectionName=${connName}`).then(d => d.securitygroup || []).catch(() => []),
+                getJSON(`/spider/keypair?ConnectionName=${connName}`).then(d => d.keypair || []).catch(() => []),
+                // without a provider or region, the recent list would mix other regions
+                (row.dataset.provider && row.dataset.region)
+                    ? getJSON(`/spider/vm/imagespecrecent?${recentParams}`).then(d => d || []).catch(() => [])
+                    : Promise.resolve([])
+            ]).then(([vpcs, sgs, keyPairs, recents]) => {
+                row._sgs = sgs;
+                row._recents = recents;
+
+                const subnets = [];
+                vpcs.forEach(vpc => (vpc.SubnetInfoList || []).forEach(subnet => {
+                    subnets.push([JSON.stringify({ vpc: vpc.IId.NameId, subnet: subnet.IId.NameId }),
+                        `${vpc.IId.NameId} / ${subnet.IId.NameId}${subnet.Zone ? ` (${subnet.Zone})` : ''}`]);
+                }));
+                setOptions(row.querySelector('.create-subnet'), subnets, 'No VPC/Subnet');
+                setOptions(row.querySelector('.create-keypair'), keyPairs.map(kp => [kp.IId.NameId, kp.IId.NameId]), 'No KeyPair');
+                setOptions(row.querySelector('.create-recent'),
+                    recents.map((r, i) => [String(i), `${r.ImageName} / ${r.SpecName}`]), 'No recent creation');
+                fillSecurityGroups(row);
+                applyRecent(row);
+
+                delete row.dataset.loading;
+                const ready = subnets.length > 0 && keyPairs.length > 0 && row.querySelector('.create-sg').value;
+                row.querySelector('.create-include').checked = !!ready;
+                updateCreateRowState(row);
+            });
+        });
+    }
+
+    // SecurityGroups of the selected VPC (the first one is selected by default)
+    function fillSecurityGroups(row) {
+        const selected = row.querySelector('.create-subnet').value;
+        const vpcName = selected ? JSON.parse(selected).vpc : '';
+        const sgs = (row._sgs || []).filter(sg => sg.VpcIID && sg.VpcIID.NameId === vpcName);
+        setOptions(row.querySelector('.create-sg'), sgs.map(sg => [sg.IId.NameId, sg.IId.NameId]), 'No SecurityGroup in the VPC');
+    }
+
+    function applyRecent(row) {
+        const recent = (row._recents || [])[parseInt(row.querySelector('.create-recent').value)];
+        if (!recent) return;
+        row.querySelector('.create-image').value = recent.ImageName;
+        row.querySelector('.create-spec').value = recent.SpecName;
+    }
+
+    function updateCreateRowState(row) {
+        row.classList.toggle('excluded', !row.querySelector('.create-include').checked);
+    }
+
+    function clearFormFields() {
+        document.querySelectorAll('.vm-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+        clearFormFields();
+    }
+
+    function handleOverlayEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function addTagField(kind) {
+        const tagContainer = document.getElementById(`${kind}-tag-container`);
+        const tagInput = document.createElement('div');
+        tagInput.className = `${kind}-tag-input tag-input-group`;
+        tagInput.innerHTML = `
+            <input type="text" class="${kind}-tag-key" placeholder="Key" required>
+            <input type="text" class="${kind}-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function collectTags(kind) {
+        return Array.from(document.querySelectorAll(`.${kind}-tag-input`)).map(tagInput => ({
+            Key: tagInput.querySelector(`.${kind}-tag-key`).value.trim(),
+            Value: tagInput.querySelector(`.${kind}-tag-value`).value.trim()
+        }));
+    }
+
+    // Fan out VM creation to every included connection with the resources selected for it.
+    // Partial failures are allowed: whatever succeeds stays created, failures are reported per request.
+    function postVMMulti() {
+        // all connections, or only the one the page is narrowed to
+        const rows = Array.from(document.querySelectorAll('#create-table tr.create-row')).filter(row => multiInFocus(row.dataset.connection));
+        if (rows.some(row => row.dataset.loading)) {
+            alert('The resources of the connections are still loading. Please wait a moment.');
+            return;
+        }
+
+        const vmCount = parseInt(document.getElementById('vmCount').value);
+        if (!(vmCount >= 1 && vmCount <= 10)) {
+            alert("Please enter a valid count between 1 and 10.");
+            return;
+        }
+
+        const targets = [];
+        const problems = [];
+        rows.filter(row => row.querySelector('.create-include').checked).forEach(row => {
+            const connName = row.dataset.connection;
+            const subnet = row.querySelector('.create-subnet').value;
+            const target = {
+                connName,
+                vpcSubnet: subnet ? JSON.parse(subnet) : null,
+                sgName: row.querySelector('.create-sg').value,
+                keyPairName: row.querySelector('.create-keypair').value,
+                imageName: row.querySelector('.create-image').value.trim(),
+                specName: row.querySelector('.create-spec').value.trim()
+            };
+            const missing = [!target.vpcSubnet && 'VPC/Subnet', !target.sgName && 'SecurityGroup',
+                !target.keyPairName && 'KeyPair', !target.imageName && 'Image', !target.specName && 'Spec'].filter(Boolean);
+            if (missing.length) problems.push(`${connName}: ${missing.join(', ')}`);
+            else targets.push(target);
+        });
+        if (problems.length) {
+            alert(`Please fill in or exclude these connections:\n  - ${problems.join('\n  - ')}`);
+            return;
+        }
+        if (targets.length === 0) {
+            alert('Please include at least one connection.');
+            return;
+        }
+        if (!confirm(`Create ${vmCount} VM(s) on each of ${targets.length} connection(s)? (Total: ${vmCount * targets.length})`)) {
+            return;
+        }
+
+        const baseName = document.getElementById('vmName').value.trim();
+        const imageType = document.getElementById('imageType').value;
+        const rootDiskSize = document.getElementById('rootDiskSize').value.trim();
+        const tags = collectTags('vm');
+
+        const tasks = [];
+        targets.forEach(target => {
+            for (let i = 0; i < vmCount; i++) {
+                tasks.push({ ...target, vmName: vmCount > 1 ? `${baseName}-${i + 1}` : baseName });
+            }
+        });
+
+        hideOverlay();
+
+        // one status box per request; each created VM is added to the list at once
+        tasks.forEach(task => {
+            const label = `VM "${task.vmName}" in ${task.connName}`;
+            const box = multiTaskBox('create', `Creating ${label}…`);
+            fetch('/spider/vm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ConnectionName: task.connName,
+                    ReqInfo: {
+                        Name: task.vmName,
+                        ImageType: imageType,
+                        ImageName: task.imageName,
+                        VMSpecName: task.specName,
+                        VPCName: task.vpcSubnet.vpc,
+                        SubnetName: task.vpcSubnet.subnet,
+                        SecurityGroupNames: [task.sgName],
+                        RootDiskType: 'default',
+                        RootDiskSize: rootDiskSize || undefined,
+                        KeyPairName: task.keyPairName,
+                        TagList: tags
+                    }
+                })
+            })
+            .then(response => response.json().then(data => {
+                if (!response.ok || !(data.IId && data.IId.NameId)) {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(vm => getJSON(`/spider/vmstatus/${encodeURIComponent(vm.IId.NameId)}?ConnectionName=${encodeURIComponent(task.connName)}`)
+                .then(data => data.Status || '', () => '')
+                .then(status => {
+                    multiAddRow(document.getElementById('vm-table'), buildVMRow(task.connName, vm, status), task.connName);
+                    box.finish(true, `Created ${label}`);
+                }))
+            .catch(error => box.finish(false, `Failed to create ${label}: ${error.message}`));
+        });
+    }
+
+    // ---- Delete ----
+
+    function deleteSelectedVMs() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select VMs to delete.");
+            return;
+        }
+
+        const tasks = Array.from(checkboxes).map(checkbox => ({
+            checkbox,
+            connName: checkbox.dataset.connection,
+            vmName: checkbox.value
+        }));
+        const names = tasks.map(task => `${task.connName} / ${task.vmName}`).join('\n  - ');
+        if (!confirm(`Are you sure you want to terminate the selected ${tasks.length} VM(s) in their respective connections?\n\n  - ${names}`)) {
+            return;
+        }
+        // a VM being deleted cannot be selected again until the page content is refreshed
+        checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
+
+        tasks.forEach(task => {
+            const label = `VM "${task.vmName}" in ${task.connName}`;
+            const box = multiTaskBox('delete', `Deleting ${label}…`);
+            fetch(`/spider/vm/${encodeURIComponent(task.vmName)}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: task.connName })
+            })
+            .then(response => response.text().then(txt => {
+                let data;
+                try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }
+                if (response.ok && (data.Result === true || data.Result === 'true')) return;
+                // VM delete (terminate) answers with the VM status instead: {"Status": "Terminated" | "Terminating" | ...}
+                if (response.ok && typeof data.Status === 'string' && !/fail|error/i.test(data.Status)) return;
+                throw new Error(data.message || data.Message || txt || `HTTP ${response.status}`);
+            }))
+            .then(() => {
+                multiRemoveRow(task.checkbox);
+                box.finish(true, `Deleted ${label}`);
+            })
+            .catch(error => {
+                task.checkbox.disabled = false;
+                box.finish(false, `Failed to delete ${label}: ${error.message}`);
+            });
+        });
+    }
+
+    // Build a VM row from a VMInfo (the create response), same layout as the server-rendered rows.
+    function buildVMRow(connName, vm, status) {
+        const el = (tag, className, text) => {
+            const e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        };
+        const iidName = iid => (iid && iid.NameId) || '';
+        // detail cell: lines of [label, value]
+        const detailCell = lines => {
+            const td = el('td', 'vm-detail');
+            lines.forEach(([label, value], i) => {
+                if (i) td.appendChild(el('br'));
+                td.appendChild(el('b', '', `${label}:`));
+                td.appendChild(document.createTextNode(` ${value || ''}`));
+            });
+            return td;
+        };
+
+        const tr = el('tr');
+        tr.appendChild(el('td', 'column-num'));
+        tr.appendChild(el('td', 'column-connection', connName));
+
+        const nameTd = el('td', 'vpc-name-cell', iidName(vm.IId));
+        const sysId = el('span', 'desc-system-id', ` • ${(vm.IId && vm.IId.SystemId) || ''}`);
+        sysId.addEventListener('click', () => showSystemIdOverlay((vm.IId && vm.IId.SystemId) || ''));
+        nameTd.appendChild(sysId);
+        const startTime = el('span', 'vm-start-time');
+        startTime.dataset.time = vm.StartTime || '';
+        formatStartTime(startTime);
+        nameTd.appendChild(startTime);
+        tr.appendChild(nameTd);
+
+        tr.appendChild(detailCell([['Public', vm.PublicIP], ['Private', vm.PrivateIP]]));
+
+        const statusTd = el('td', 'vm-status-cell');
+        statusTd.dataset.connection = connName;
+        statusTd.dataset.vm = iidName(vm.IId);
+        statusTd.dataset.status = status || '';
+        statusTd.dataset.controllable = vm.VMSpecName ? 'true' : '';
+        tr.appendChild(statusTd);
+
+        tr.appendChild(detailCell([
+            ['Image', `${iidName(vm.ImageIId)}${vm.ImageType ? ` (${vm.ImageType})` : ''}`],
+            ['Spec', vm.VMSpecName]
+        ]));
+        tr.appendChild(detailCell([
+            ['VPC/Subnet', `${iidName(vm.VpcIID)} / ${iidName(vm.SubnetIID)}`],
+            ['Zone', vm.Region && vm.Region.Zone],
+            ['SG', (vm.SecurityGroupIIds || []).map(iidName).join(', ')],
+            ['KeyPair', `${iidName(vm.KeyPairIId)}${vm.VMUserId ? ` (${vm.VMUserId})` : ''}`]
+        ]));
+
+        const tagTd = el('td');
+        (vm.TagList || []).forEach(tag => {
+            const text = `${tag.Key}: ${tag.Value}`;
+            const div = el('div', 'tag-container', text);
+            div.addEventListener('click', event => showTagOverlay(event, text, 'VM', iidName(vm.IId), connName));
+            tagTd.appendChild(div);
+        });
+        tr.appendChild(tagTd);
+
+        const miscTd = el('td', 'center-align misc-cell');
+        const misc = el('div', 'misc-content');
+        (vm.KeyValueList || []).forEach(kv => {
+            misc.appendChild(document.createTextNode(`${kv.Key} : ${kv.Value}`));
+            misc.appendChild(el('br'));
+        });
+        miscTd.appendChild(misc);
+        tr.appendChild(miscTd);
+
+        const checkTd = el('td', 'check-column');
+        const checkbox = el('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'deleteCheckbox';
+        checkbox.value = iidName(vm.IId);
+        checkbox.dataset.connection = connName;
+        checkTd.appendChild(checkbox);
+        tr.appendChild(checkTd);
+
+        renderStatusCell(statusTd);
+        return tr;
+    }
+
+    // ---- Search / Tag / SystemId ----
+
+    function searchKeyword() {
+        const filter = document.getElementById('searchInput').value.toUpperCase().trim();
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        document.querySelectorAll('#vm-table td').forEach(td => {
+            const txtValue = td.textContent || td.innerText;
+            td.classList.toggle('highlight', txtValue.toUpperCase().indexOf(filter) > -1);
+        });
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        document.querySelectorAll('#vm-table td.highlight').forEach(td => td.classList.remove('highlight'));
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName, connName) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = tagOverlay.querySelector('.overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
+            <p>${tag}</p>
+            <div class="form-group" style="justify-content: space-between;">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}', '${connName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+        tagOverlay.style.display = 'flex';
+    }
+
+    function closeTagOverlay() {
+        document.getElementById('tag-overlay').style.display = 'none';
+    }
+
+    function deleteTag(tag, resourceType, resourceName, connName) {
+        const [tagKey] = tag.split(': ');
+        const data = {
+            ConnectionName: connName,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetch(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            multiRefresh();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        document.getElementById('fullSystemId').textContent = systemId;
+        overlay.style.display = 'flex';
+    }
+
+    function closeSystemIdOverlay() {
+        document.getElementById('system-id-overlay').style.display = 'none';
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+        selection.removeAllRanges();
+    }
+</script>
+<script src="/spider/adminweb/static/js/multi-task.js"></script>
+</html>

@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SecurityGroup Management (Multi-Connection)</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    .content {
+        margin-top: 110px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .refresh-button {
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
+    .refresh-button svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.5s ease;
+    }
+    .refresh-button:active svg {
+        transform: rotate(180deg);
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .connection-bar {
+        position: fixed;
+        top: 56px;
+        width: 97%;
+        background-color: #eaf1fb;
+        z-index: 999;
+        padding: 6px 20px;
+        font-size: 12px;
+        border-bottom: 1px solid #b9cdf0;
+    }
+    .connection-chip {
+        display: inline-block;
+        background-color: #ffffff;
+        border: 1px solid #0645AD;
+        color: #0645AD;
+        border-radius: 10px;
+        padding: 2px 8px;
+        margin: 2px 4px 2px 0;
+        font-weight: bold;
+    }
+    .connection-error {
+        color: #b35c00;
+        margin-top: 4px;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 4%;
+        text-align: center;
+    }
+    .column-connection {
+        width: 16%;
+        text-align: center;
+        font-weight: bold;
+        color: #0645AD;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        position: relative;
+        max-width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 80px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+    .column-connection {
+        width: 12%;
+    }
+    .sg-name {
+        width: 13%;
+    }
+    .vpc-name {
+        width: 11%;
+    }
+    .rules-info {
+        width: 32%;
+    }
+    .tags {
+        width: 12%;
+    }
+    .misc {
+        width: 11%;
+    }
+    .inner-table th {
+        background-color: #f9f9f9;
+        font-size: 12px;
+        padding: 2px;
+        text-align: center;
+    }
+    .inner-table td {
+        font-size: 12px;
+        padding: 2px;
+        text-align: center;
+    }
+    .vpc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .info-group legend {
+        font-weight: bold;
+    }
+    .vpc-tag-container, .subnet-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .zone-table {
+        width: auto;
+        margin: 0 auto;
+    }
+    .zone-table th, .zone-table td {
+        font-size: 12px;
+        padding: 2px 8px;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/securitygroup.png" alt="SecurityGroup Icon">
+            <h1>SecurityGroup Management (Multi-Connection)</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <button type="button" class="refresh-button" onclick="multiRefresh(true);" title="Refresh">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                <polyline points="21 3 21 9 15 9"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <div class="connection-bar">
+        <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn}}" title="Show only this connection">{{$conn}}</button>{{end}}
+        {{range $conn, $err := .ConnErrors}}
+        <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
+        {{end}}
+    </div>
+
+    <div class="content">
+        <div class="fixed-action-buttons">
+            <button class="add-button" onclick="showOverlay()">+ SecurityGroup (all connections)</button>
+            <div style="flex: 1;"></div>
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedSecurityGroups()">Delete</button>
+        </div>
+        <table id="sg-table" data-empty-text="No SecurityGroups found across the selected connections.">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="column-connection">Connection</th>
+                <th class="sg-name">Name</th>
+                <th class="vpc-name">VPC Name</th>
+                <th class="rules-info">Security Rules Info</th>
+                <th class="tags">Tags</th>
+                <th class="misc">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $row := .SecurityGroupRows}}
+            {{$sg := $row.SecurityGroup}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="column-connection">{{$row.ConnectionName}}</td>
+                <td class="vpc-name-cell">{{$sg.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$sg.IId.SystemId}}')">&nbsp;&bull; {{$sg.IId.SystemId}}</span>
+                </td>
+                <td class="vpc-name-cell">{{$sg.VpcIID.NameId}}
+                    {{if $sg.VpcIID.SystemId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$sg.VpcIID.SystemId}}')">&nbsp;&bull; {{$sg.VpcIID.SystemId}}</span>
+                    {{end}}
+                </td>
+                <td>
+                    {{if $sg.SecurityRules}}
+                    <table class="inner-table">
+                        <tr>
+                            <th>Protocol</th>
+                            <th>Port Range</th>
+                            <th>Direction</th>
+                            <th>CIDR</th>
+                        </tr>
+                        {{range $rule := $sg.SecurityRules}}
+                        <tr>
+                            <td>{{$rule.IPProtocol}}</td>
+                            <td>{{$rule.FromPort}} ~ {{$rule.ToPort}}</td>
+                            <td>{{$rule.Direction}}</td>
+                            <td>{{$rule.CIDR}}</td>
+                        </tr>
+                        {{end}}
+                    </table>
+                    {{end}}
+                </td>
+                <td>
+                    {{range $tag := $sg.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SG', '{{$sg.IId.NameId}}', '{{$row.ConnectionName}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                </td>
+                <td class="center-align misc-cell">
+                    <div class="misc-content">{{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$sg.IId.NameId}}" data-connection="{{$row.ConnectionName}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .SecurityGroupRows}}
+            <tr class="empty-row">
+                <td colspan="8" class="center-align">No SecurityGroups found across the selected connections.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New SecurityGroup to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
+            <form id="addSGForm" onsubmit="event.preventDefault(); postSecurityGroupMulti();">
+                <fieldset class="info-group">
+                    <legend>SecurityGroup Info:</legend>
+                    <div class="form-group">
+                        <label for="sgName">Name:</label>
+                        <input type="text" id="sgName" name="sgName" required style="color: #3366CC; font-weight: bold;">
+                    </div>
+                    <table class="zone-table">
+                        <tr>
+                            <th>Connection</th>
+                            <th>VPC Name</th>
+                        </tr>
+                        {{range $conn := .Connections}}
+                        <tr data-connection="{{$conn}}">
+                            <td>{{$conn}}</td>
+                            <td><select class="sg-vpc-select" data-connection="{{$conn}}"></select></td>
+                        </tr>
+                        {{end}}
+                    </table>
+                    <div class="form-group" style="padding-left: 100px; margin-top: 10px;">
+                        <label>Tags:</label>
+                        <div id="sg-tag-container" class="vpc-tag-container"></div>
+                        <button type="button" onclick="addTagField('sg')">+</button>
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Security Rules Info:</legend>
+                    <div class="form-group">
+                        <label for="protocol">Protocol:</label>
+                        <select id="protocol" name="protocol" required onchange="handleProtocolChange()">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                            <option value="ICMP">ICMP</option>
+                            <option value="ALL">ALL</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fromPort">From Port:</label>
+                        <input type="number" id="fromPort" name="fromPort" required min="-1" max="65535">
+                    </div>
+                    <div class="form-group">
+                        <label for="toPort">To Port:</label>
+                        <input type="number" id="toPort" name="toPort" required min="-1" max="65535">
+                    </div>
+                    <div class="form-group">
+                        <label>Direction:</label>
+                        <div style="flex: 2;">
+                            <label style="margin-right: 10px;"><input type="radio" name="direction" value="inbound" checked> Inbound</label>
+                            <label><input type="radio" name="direction" value="outbound"> Outbound</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cidr">CIDR:</label>
+                        <input type="text" id="cidr" name="cidr" required>
+                    </div>
+                </fieldset>
+
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="sgCount" style="margin-right: 5px;margin-left: 40px;">#/conn:</label>
+                    <input type="number" id="sgCount" name="sgCount" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
+                    <button type="submit">Add SecurityGroup</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="overlay">
+        <div class="overlay-content"></div>
+    </div>
+
+    <div id="system-id-overlay" class="overlay">
+        <div class="overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">&#128203;</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    // Basic Auth credentials from server
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        return fetchOptions;
+    }
+
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    // Connection names this page fans requests out to, injected server-side.
+    const MULTI_CONNECTIONS = {{.Connections}} || [];
+
+    function toggleSelectAll(source) {
+        const checkboxes = multiVisibleCheckboxes();
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    function showOverlay() {
+        document.getElementById('sgName').value = `multi-sg-${Math.random().toString(36).substring(2, 6)}`;
+        document.getElementById('protocol').value = 'TCP';
+        handleProtocolChange();
+        document.querySelector('input[name="direction"][value="inbound"]').checked = true;
+        document.getElementById('cidr').value = '0.0.0.0/0';
+        clearFormFields();
+        loadVPCs();
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+    }
+
+    // Load the VPC list of each connection into its select; the first VPC is selected by default.
+    function loadVPCs() {
+        document.querySelectorAll('.sg-vpc-select').forEach(select => {
+            if (!multiInFocus(select.dataset.connection)) return;
+            select.innerHTML = '<option value="">Loading…</option>';
+            select.disabled = true;
+            fetch(`/spider/vpc?ConnectionName=${encodeURIComponent(select.dataset.connection)}`)
+                .then(response => response.json().then(data => {
+                    if (!response.ok) throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                    return data.vpc || [];
+                }))
+                .then(vpcs => {
+                    select.innerHTML = '';
+                    if (vpcs.length === 0) {
+                        select.innerHTML = '<option value="">No VPCs (skipped)</option>';
+                        return;
+                    }
+                    vpcs.forEach(vpc => {
+                        const option = document.createElement('option');
+                        option.value = vpc.IId.NameId;
+                        option.textContent = vpc.IPv4_CIDR ? `${vpc.IId.NameId} (${vpc.IPv4_CIDR})` : vpc.IId.NameId;
+                        select.appendChild(option);
+                    });
+                    select.disabled = false;
+                })
+                .catch(error => {
+                    select.innerHTML = '';
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = `Failed to load VPCs (skipped): ${error.message}`;
+                    select.appendChild(option);
+                });
+        });
+    }
+
+    function handleProtocolChange() {
+        const protocol = document.getElementById('protocol').value;
+        const fromPortInput = document.getElementById('fromPort');
+        const toPortInput = document.getElementById('toPort');
+        const noPort = protocol === 'ALL' || protocol === 'ICMP';
+        fromPortInput.value = noPort ? '-1' : '1';
+        toPortInput.value = noPort ? '-1' : '65535';
+        fromPortInput.disabled = noPort;
+        toPortInput.disabled = noPort;
+    }
+
+    function clearFormFields() {
+        document.querySelectorAll('.sg-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+        clearFormFields();
+    }
+
+    function handleOverlayEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function addTagField(kind) {
+        const tagContainer = document.getElementById(`${kind}-tag-container`);
+        const tagInput = document.createElement('div');
+        tagInput.className = `${kind}-tag-input tag-input-group`;
+        tagInput.innerHTML = `
+            <input type="text" class="${kind}-tag-key" placeholder="Key" required>
+            <input type="text" class="${kind}-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function collectTags(kind) {
+        return Array.from(document.querySelectorAll(`.${kind}-tag-input`)).map(tagInput => ({
+            Key: tagInput.querySelector(`.${kind}-tag-key`).value.trim(),
+            Value: tagInput.querySelector(`.${kind}-tag-value`).value.trim()
+        }));
+    }
+
+    // Fan out SecurityGroup creation to every selected connection, each in the VPC selected for it.
+    // Partial failures are allowed: whatever succeeds stays created, failures are reported per request.
+    function postSecurityGroupMulti() {
+        if (MULTI_CONNECTIONS.length === 0) {
+            alert('No connections are active for multi-connection management.');
+            return;
+        }
+
+        const sgCount = parseInt(document.getElementById('sgCount').value);
+        if (!(sgCount >= 1 && sgCount <= 10)) {
+            alert("Please enter a valid count between 1 and 10.");
+            return;
+        }
+
+        // all connections, or only the one the page is narrowed to
+        const selects = Array.from(document.querySelectorAll('.sg-vpc-select')).filter(select => multiInFocus(select.dataset.connection));
+        if (selects.some(select => select.textContent === 'Loading…')) {
+            alert('VPC lists are still loading. Please wait a moment.');
+            return;
+        }
+        const targets = selects.filter(select => select.value).map(select => ({ connName: select.dataset.connection, vpcName: select.value }));
+        const skipped = selects.filter(select => !select.value).map(select => select.dataset.connection);
+        if (targets.length === 0) {
+            alert('None of the selected connections has a VPC, so no SecurityGroup can be created.');
+            return;
+        }
+
+        let confirmMsg = `Create ${sgCount} SecurityGroup(s) on each of ${targets.length} connection(s)? (Total: ${sgCount * targets.length})`;
+        if (skipped.length > 0) {
+            confirmMsg += `\n\nSkipped (no VPC):\n  - ${skipped.join('\n  - ')}`;
+        }
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        const baseName = document.getElementById('sgName').value.trim();
+        const tags = collectTags('sg');
+        const rules = [{
+            FromPort: document.getElementById('fromPort').value,
+            ToPort: document.getElementById('toPort').value,
+            IPProtocol: document.getElementById('protocol').value,
+            Direction: document.querySelector('input[name="direction"]:checked').value,
+            CIDR: document.getElementById('cidr').value.trim()
+        }];
+
+        const tasks = [];
+        targets.forEach(target => {
+            for (let i = 0; i < sgCount; i++) {
+                tasks.push({ ...target, sgName: sgCount > 1 ? `${baseName}-${i + 1}` : baseName });
+            }
+        });
+
+        hideOverlay();
+
+        // one status box per request; each created SecurityGroup is added to the list at once
+        tasks.forEach(task => {
+            const label = `SecurityGroup "${task.sgName}" in ${task.connName}`;
+            const box = multiTaskBox('create', `Creating ${label}…`);
+            fetch('/spider/securitygroup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ConnectionName: task.connName,
+                    ReqInfo: {
+                        Name: task.sgName,
+                        VPCName: task.vpcName,
+                        SecurityRules: rules,
+                        TagList: tags
+                    }
+                })
+            })
+            .then(response => response.json().then(data => {
+                if (!response.ok || !(data.IId && data.IId.NameId)) {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(sg => {
+                multiAddRow(document.getElementById('sg-table'), buildSGRow(task.connName, sg), task.connName);
+                box.finish(true, `Created ${label}`);
+            })
+            .catch(error => box.finish(false, `Failed to create ${label}: ${error.message}`));
+        });
+        skipped.forEach(connName => multiTaskBox('create', '').finish(false, `Skipped ${connName}: no VPC to create a SecurityGroup in`));
+    }
+
+    function deleteSelectedSecurityGroups() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select SecurityGroups to delete.");
+            return;
+        }
+
+        const tasks = Array.from(checkboxes).map(checkbox => ({
+            checkbox,
+            connName: checkbox.dataset.connection,
+            sgName: checkbox.value
+        }));
+        const names = tasks.map(task => `${task.connName} / ${task.sgName}`).join('\n  - ');
+        if (!confirm(`Are you sure you want to delete the selected ${tasks.length} SecurityGroup(s) from their respective connections?\n\n  - ${names}`)) {
+            return;
+        }
+        // a SecurityGroup being deleted cannot be selected again until the page content is refreshed
+        checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
+
+        tasks.forEach(task => {
+            const label = `SecurityGroup "${task.sgName}" in ${task.connName}`;
+            const box = multiTaskBox('delete', `Deleting ${label}…`);
+            fetch(`/spider/securitygroup/${encodeURIComponent(task.sgName)}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: task.connName })
+            })
+            .then(response => response.json().then(data => {
+                if (!response.ok || data.Result !== "true") {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
+            }))
+            .then(() => {
+                multiRemoveRow(task.checkbox);
+                box.finish(true, `Deleted ${label}`);
+            })
+            .catch(error => {
+                task.checkbox.disabled = false;
+                box.finish(false, `Failed to delete ${label}: ${error.message}`);
+            });
+        });
+    }
+
+    // Build a SecurityGroup row from a SecurityInfo (the create response), same layout as the server-rendered rows.
+    function buildSGRow(connName, sg) {
+        const el = (tag, className, text) => {
+            const e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        };
+        const nameCell = (iid) => {
+            const td = el('td', 'vpc-name-cell', (iid && iid.NameId) || '');
+            if (iid && iid.SystemId) {
+                const sysId = el('span', 'desc-system-id', ` • ${iid.SystemId}`);
+                sysId.addEventListener('click', () => showSystemIdOverlay(iid.SystemId));
+                td.appendChild(sysId);
+            }
+            return td;
+        };
+
+        const tr = el('tr');
+        tr.appendChild(el('td', 'column-num'));
+        tr.appendChild(el('td', 'column-connection', connName));
+        tr.appendChild(nameCell(sg.IId));
+        tr.appendChild(nameCell(sg.VpcIID));
+
+        const rulesTd = el('td');
+        if (sg.SecurityRules && sg.SecurityRules.length) {
+            const inner = el('table', 'inner-table');
+            const head = el('tr');
+            ['Protocol', 'Port Range', 'Direction', 'CIDR'].forEach(text => head.appendChild(el('th', '', text)));
+            inner.appendChild(head);
+            sg.SecurityRules.forEach(rule => {
+                const row = el('tr');
+                [rule.IPProtocol, `${rule.FromPort} ~ ${rule.ToPort}`, rule.Direction, rule.CIDR]
+                    .forEach(text => row.appendChild(el('td', '', text || '')));
+                inner.appendChild(row);
+            });
+            rulesTd.appendChild(inner);
+        }
+        tr.appendChild(rulesTd);
+
+        const tagTd = el('td');
+        (sg.TagList || []).forEach(tag => {
+            const text = `${tag.Key}: ${tag.Value}`;
+            const div = el('div', 'tag-container', text);
+            div.addEventListener('click', event => showTagOverlay(event, text, 'SG', sg.IId.NameId, connName));
+            tagTd.appendChild(div);
+        });
+        tr.appendChild(tagTd);
+
+        const miscTd = el('td', 'center-align misc-cell');
+        const misc = el('div', 'misc-content');
+        (sg.KeyValueList || []).forEach(kv => {
+            misc.appendChild(document.createTextNode(`${kv.Key} : ${kv.Value}`));
+            misc.appendChild(el('br'));
+        });
+        miscTd.appendChild(misc);
+        tr.appendChild(miscTd);
+
+        const checkTd = el('td', 'check-column');
+        const checkbox = el('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'deleteCheckbox';
+        checkbox.value = sg.IId.NameId;
+        checkbox.dataset.connection = connName;
+        checkTd.appendChild(checkbox);
+        tr.appendChild(checkTd);
+        return tr;
+    }
+
+    // Highlight matching cells, including the cells of the inner rule tables.
+    function searchKeyword() {
+        const filter = document.getElementById('searchInput').value.toUpperCase().trim();
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        document.querySelectorAll('#sg-table td').forEach(td => {
+            if (td.querySelector('table.inner-table')) {
+                return;
+            }
+            const txtValue = td.textContent || td.innerText;
+            td.classList.toggle('highlight', txtValue.toUpperCase().indexOf(filter) > -1);
+        });
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        document.querySelectorAll('#sg-table td.highlight').forEach(td => td.classList.remove('highlight'));
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName, connName) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = tagOverlay.querySelector('.overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
+            <p>${tag}</p>
+            <div class="form-group" style="justify-content: space-between;">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}', '${connName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+        tagOverlay.style.display = 'flex';
+    }
+
+    function closeTagOverlay() {
+        document.getElementById('tag-overlay').style.display = 'none';
+    }
+
+    function deleteTag(tag, resourceType, resourceName, connName) {
+        const [tagKey] = tag.split(': ');
+        const data = {
+            ConnectionName: connName,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetch(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            multiRefresh();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        document.getElementById('fullSystemId').textContent = systemId;
+        overlay.style.display = 'flex';
+    }
+
+    function closeSystemIdOverlay() {
+        document.getElementById('system-id-overlay').style.display = 'none';
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+        selection.removeAllRanges();
+    }
+</script>
+<script src="/spider/adminweb/static/js/multi-task.js"></script>
+</html>

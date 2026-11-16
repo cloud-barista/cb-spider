@@ -107,6 +107,92 @@ func S3Management(c echo.Context) error {
 	return nil
 }
 
+// S3MultiRow pairs a bucket with the connection it was fetched from,
+// so a single table can list buckets aggregated across several connections.
+type S3MultiRow struct {
+	ConnectionName string
+	Bucket         S3BucketInfo
+}
+
+// Handler function to render the S3 management page across multiple connections at once.
+// Each connection is fetched independently so that one failing connection does not block the
+// others from being displayed (partial success).
+func S3ManagementMulti(c echo.Context) error {
+	idsParam := c.QueryParam("ids")
+	if strings.TrimSpace(idsParam) == "" {
+		htmlStr := `
+			<html>
+			<body>
+				<br><br>
+				<label style="font-size:24px;color:#606262;">&nbsp;&nbsp;&nbsp;Please select connections for multi-connection management! (MENU: 2.CONNECTION)</label>
+			</body>
+			`
+		return c.HTML(http.StatusOK, htmlStr)
+	}
+
+	var connNames []string
+	for _, id := range strings.Split(idsParam, ",") {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			connNames = append(connNames, id)
+		}
+	}
+
+	var rows []S3MultiRow
+	connErrors := map[string]string{}
+
+	for _, connName := range connNames {
+		if isMultiAsyncLoad(c) {
+			break
+		}
+		providerName, err := getProviderName(connName)
+		if err != nil {
+			connErrors[connName] = err.Error()
+			continue
+		}
+		buckets, err := fetchS3Buckets(connName, providerName)
+		if err != nil {
+			connErrors[connName] = err.Error()
+			continue
+		}
+
+		for _, bucket := range buckets {
+			rows = append(rows, S3MultiRow{
+				ConnectionName: connName,
+				Bucket:         bucket,
+			})
+		}
+	}
+
+	data := struct {
+		Connections []string
+		BucketRows  []S3MultiRow
+		ConnErrors  map[string]string
+		APIUsername string
+		APIPassword string
+	}{
+		Connections: connNames,
+		BucketRows:  rows,
+		ConnErrors:  connErrors,
+		APIUsername: os.Getenv("SPIDER_USERNAME"),
+		APIPassword: os.Getenv("SPIDER_PASSWORD"),
+	}
+
+	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/s3-multi.html")
+	tmpl, err := template.New("s3-multi.html").Funcs(template.FuncMap{
+		"inc": func(i int) int { return i + 1 },
+	}).ParseFiles(templatePath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error loading template: " + err.Error()})
+	}
+
+	c.Response().WriteHeader(http.StatusOK)
+	if err := tmpl.Execute(c.Response().Writer, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	return nil
+}
+
 func fetchS3Buckets(connConfig string, providerName string) ([]S3BucketInfo, error) {
 	// Use new S3 API endpoint: /spider/s3
 	client := &http.Client{}

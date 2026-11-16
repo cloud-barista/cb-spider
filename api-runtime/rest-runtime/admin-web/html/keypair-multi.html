@@ -289,17 +289,6 @@
         white-space: nowrap;
         cursor: pointer;
     }
-    .result-table th, .result-table td {
-        font-size: 12px;
-    }
-    .status-ok {
-        color: #2e7d32;
-        font-weight: bold;
-    }
-    .status-fail {
-        color: #c62828;
-        font-weight: bold;
-    }
     .copy-btn {
         background: none;
         border: none;
@@ -319,7 +308,7 @@
                 <button id="clearSearch" onclick="clearSearchInput()">X</button>
             </div>
         </div>
-        <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
+        <button type="button" class="refresh-button" onclick="multiRefresh(true);" title="Refresh">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
                 <polyline points="21 3 21 9 15 9"></polyline>
@@ -328,10 +317,10 @@
     </div>
 
     <div class="connection-bar">
-        <strong>Active Connections ({{len .Connections}}):</strong>
-        {{range $conn := .Connections}}<span class="connection-chip">{{$conn}}</span>{{end}}
+        <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn}}" title="Show only this connection">{{$conn}}</button>{{end}}
         {{range $conn, $err := .ConnErrors}}
-        <div class="connection-error">&#9888; {{$conn}}: {{$err}}</div>
+        <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
         {{end}}
     </div>
 
@@ -342,7 +331,7 @@
             <input type="checkbox" onclick="toggleSelectAll(this)">
             <button onclick="deleteSelectedKeyPairs()">Delete</button>
         </div>
-        <table id="keypair-table">
+        <table id="keypair-table" data-empty-text="No KeyPairs found across the selected connections.">
             <tr>
                 <th class="column-num">#</th>
                 <th class="column-connection">Connection</th>
@@ -380,7 +369,7 @@
             </tr>
             {{end}}
             {{if not .KeyPairRows}}
-            <tr>
+            <tr class="empty-row">
                 <td colspan="7" class="center-align">No KeyPairs found across the selected connections.</td>
             </tr>
             {{end}}
@@ -390,7 +379,7 @@
     <div id="overlay" class="overlay">
         <div class="overlay-content">
             <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
-            <h2>Add New KeyPair to {{len .Connections}} Connection(s)</h2>
+            <h2>Add New KeyPair to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
             <form id="addKeyPairForm" onsubmit="event.preventDefault(); postKeyPairMulti();">
                 <div class="form-group">
                     <label for="keyPairName">Name:</label>
@@ -410,24 +399,6 @@
                     <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div id="result-overlay" class="overlay">
-        <div class="overlay-content" style="min-width: 500px;">
-            <button type="button" class="overlay-close-btn" onclick="closeResultOverlay()">X</button>
-            <h2>Result</h2>
-            <table class="result-table" id="result-table">
-                <tr>
-                    <th>Connection</th>
-                    <th>KeyPair Name</th>
-                    <th>Status</th>
-                    <th>Download</th>
-                </tr>
-            </table>
-            <div class="form-group" style="justify-content: center; margin-top: 15px;">
-                <button type="button" onclick="closeResultOverlay()">Close &amp; Refresh</button>
-            </div>
         </div>
     </div>
 
@@ -474,19 +445,10 @@
     const MULTI_CONNECTIONS = [{{range $i, $conn := .Connections}}{{if $i}},{{end}}"{{$conn}}"{{end}}];
 
     function toggleSelectAll(source) {
-        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        const checkboxes = multiVisibleCheckboxes();
         for (const checkbox of checkboxes) {
             checkbox.checked = source.checked;
         }
-    }
-
-    function showProgressBar() {
-        // Multi-connection page delegates to the shared top-level progress bar.
-        parent.postMessage({ type: 'showProgressBar' }, '*');
-    }
-
-    function hideProgressBar() {
-        parent.postMessage({ type: 'hideProgressBar' }, '*');
     }
 
     function showError(message, title) {
@@ -543,9 +505,11 @@
             return;
         }
 
+        // all connections, or only the one the page is narrowed to
+        const targets = MULTI_CONNECTIONS.filter(multiInFocus);
         const keyPairCount = parseInt(document.getElementById('keyPairCount').value);
-        const totalCount = keyPairCount * MULTI_CONNECTIONS.length;
-        if (!confirm(`Create ${keyPairCount} KeyPair(s) on each of ${MULTI_CONNECTIONS.length} connection(s)? (Total: ${totalCount})`)) {
+        const totalCount = keyPairCount * targets.length;
+        if (!confirm(`Create ${keyPairCount} KeyPair(s) on each of ${targets.length} connection(s)? (Total: ${totalCount})`)) {
             return;
         }
 
@@ -556,7 +520,7 @@
         }));
 
         const tasks = [];
-        MULTI_CONNECTIONS.forEach(connName => {
+        targets.forEach(connName => {
             for (let i = 0; i < keyPairCount; i++) {
                 const keyPairName = keyPairCount > 1 ? `${baseName}-${i + 1}` : baseName;
                 tasks.push({ connName, keyPairName });
@@ -564,9 +528,12 @@
         });
 
         hideOverlay();
-        showProgressBar();
 
-        Promise.allSettled(tasks.map(task =>
+        // one status box per request; each created KeyPair is added to the list at once.
+        // The private key is returned only once, so a created box keeps its Download button until dismissed.
+        tasks.forEach(task => {
+            const label = `KeyPair "${task.keyPairName}" in ${task.connName}`;
+            const box = multiTaskBox('create', `Creating ${label}…`);
             fetch('/spider/keypair', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -575,23 +542,21 @@
                     ReqInfo: { Name: task.keyPairName, TagList: tags }
                 })
             })
-            .then(response => response.json().then(data => ({
-                connName: task.connName,
-                keyPairName: task.keyPairName,
-                ok: !!(data.IId && data.IId.NameId),
-                message: data.Message || '',
-                privateKey: data.PrivateKey || ''
-            })))
-            .catch(error => ({
-                connName: task.connName,
-                keyPairName: task.keyPairName,
-                ok: false,
-                message: error.message,
-                privateKey: ''
+            .then(response => response.json().then(data => {
+                if (!response.ok || !(data.IId && data.IId.NameId)) {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
+                return data;
             }))
-        )).then(settled => {
-            hideProgressBar();
-            showResultOverlay(settled.map(s => s.value));
+            .then(data => {
+                const download = data.PrivateKey ? {
+                    label: 'Download',
+                    onClick: () => downloadPrivateKey(`${task.connName}-${task.keyPairName}`, data.PrivateKey)
+                } : null;
+                multiAddRow(document.getElementById('keypair-table'), buildKeyPairRow(task.connName, data), task.connName);
+                box.finish(true, `Created ${label}`, download);
+            })
+            .catch(error => box.finish(false, `Failed to create ${label}: ${error.message}`));
         });
     }
 
@@ -605,81 +570,88 @@
             return;
         }
 
-        showProgressBar();
-
         const tasks = Array.from(checkboxes).map(checkbox => ({
+            checkbox,
             connName: checkbox.dataset.connection,
             keyPairName: checkbox.value
         }));
+        // a KeyPair being deleted cannot be selected again until the page content is refreshed
+        checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        Promise.allSettled(tasks.map(task =>
-            fetch(`/spider/keypair/${task.keyPairName}`, {
+        tasks.forEach(task => {
+            const label = `KeyPair "${task.keyPairName}" in ${task.connName}`;
+            const box = multiTaskBox('delete', `Deleting ${label}…`);
+            fetch(`/spider/keypair/${encodeURIComponent(task.keyPairName)}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ConnectionName: task.connName })
             })
-            .then(response => response.json().then(data => ({
-                connName: task.connName,
-                keyPairName: task.keyPairName,
-                ok: data.Result === "true",
-                message: data.Message || ''
-            })))
-            .catch(error => ({
-                connName: task.connName,
-                keyPairName: task.keyPairName,
-                ok: false,
-                message: error.message
+            .then(response => response.json().then(data => {
+                if (!response.ok || data.Result !== "true") {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
             }))
-        )).then(settled => {
-            hideProgressBar();
-            const results = settled.map(s => s.value);
-            const failed = results.filter(r => !r.ok);
-            if (failed.length > 0) {
-                alert(`Deleted ${results.length - failed.length}/${results.length}.\n\nFailures:\n` +
-                    failed.map(f => `${f.connName} / ${f.keyPairName}: ${f.message || 'error'}`).join('\n'));
-            }
-            location.reload();
+            .then(() => {
+                multiRemoveRow(task.checkbox);
+                box.finish(true, `Deleted ${label}`);
+            })
+            .catch(error => {
+                task.checkbox.disabled = false;
+                box.finish(false, `Failed to delete ${label}: ${error.message}`);
+            });
         });
     }
 
-    function showResultOverlay(results) {
-        const table = document.getElementById('result-table');
-        table.querySelectorAll('tr:not(:first-child)').forEach(tr => tr.remove());
+    // Build a KeyPair row from a KeyPairInfo (the create response), same layout as the server-rendered rows.
+    function buildKeyPairRow(connName, keyPair) {
+        const el = (tag, className, text) => {
+            const e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        };
 
-        results.forEach(result => {
-            const tr = document.createElement('tr');
+        const tr = el('tr');
+        tr.appendChild(el('td', 'column-num'));
+        tr.appendChild(el('td', 'column-connection', connName));
 
-            const connTd = document.createElement('td');
-            connTd.textContent = result.connName;
-            tr.appendChild(connTd);
+        const nameTd = el('td', 'name desc-name-cell center-align', keyPair.IId.NameId);
+        const sysId = el('span', 'desc-system-id', `\u00a0\u2022 ${keyPair.IId.SystemId || ''}`);
+        sysId.addEventListener('click', () => showSystemIdOverlay(keyPair.IId.SystemId || ''));
+        nameTd.appendChild(sysId);
+        tr.appendChild(nameTd);
 
-            const nameTd = document.createElement('td');
-            nameTd.textContent = result.keyPairName;
-            tr.appendChild(nameTd);
+        tr.appendChild(el('td', 'center-align fingerprint', keyPair.Fingerprint || ''));
 
-            const statusTd = document.createElement('td');
-            statusTd.className = result.ok ? 'status-ok' : 'status-fail';
-            statusTd.textContent = result.ok ? 'Created' : `Failed: ${result.message || 'unknown error'}`;
-            tr.appendChild(statusTd);
+        const tagTd = el('td');
+        if (keyPair.Fingerprint) {
+            (keyPair.TagList || []).forEach(tag => {
+                const text = `${tag.Key}: ${tag.Value}`;
+                const div = el('div', 'tag-container', text);
+                div.addEventListener('click', event => showTagOverlay(event, text, 'KEYPAIR', keyPair.IId.NameId, connName));
+                tagTd.appendChild(div);
+            });
+        }
+        tr.appendChild(tagTd);
 
-            const downloadTd = document.createElement('td');
-            if (result.ok && result.privateKey) {
-                const btn = document.createElement('button');
-                btn.textContent = 'Download';
-                btn.onclick = () => downloadPrivateKey(`${result.connName}-${result.keyPairName}`, result.privateKey);
-                downloadTd.appendChild(btn);
-            }
-            tr.appendChild(downloadTd);
-
-            table.appendChild(tr);
+        const miscTd = el('td', 'center-align misc-cell');
+        const misc = el('div', 'misc-content');
+        (keyPair.KeyValueList || []).forEach(kv => {
+            misc.appendChild(document.createTextNode(`${kv.Key} : ${kv.Value}`));
+            misc.appendChild(el('br'));
         });
+        miscTd.appendChild(misc);
+        tr.appendChild(miscTd);
 
-        document.getElementById('result-overlay').style.display = 'flex';
-    }
-
-    function closeResultOverlay() {
-        document.getElementById('result-overlay').style.display = 'none';
-        location.reload();
+        const checkTd = el('td', 'check-column');
+        const checkbox = el('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'deleteCheckbox';
+        checkbox.value = keyPair.IId.NameId;
+        checkbox.dataset.connection = connName;
+        checkTd.appendChild(checkbox);
+        tr.appendChild(checkTd);
+        return tr;
     }
 
     function downloadPrivateKey(keyPairName, privateKey) {
@@ -770,7 +742,7 @@
             return response.json();
         }).then(() => {
             closeTagOverlay();
-            location.reload();
+            multiRefresh();
         }).catch(error => {
             showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
         });
@@ -802,4 +774,5 @@
         selection.removeAllRanges();
     }
 </script>
+<script src="/spider/adminweb/static/js/multi-task.js"></script>
 </html>

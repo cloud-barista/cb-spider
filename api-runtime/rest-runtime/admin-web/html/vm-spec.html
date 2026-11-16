@@ -143,11 +143,6 @@
     .acc-badge.acc-GPU { color: #1a7f37; background-color: #dafbe1; border-color: #aceebb; }
     .acc-badge.acc-TPU { color: #0969da; background-color: #ddf4ff; border-color: #b6e3ff; }
     .acc-badge.acc-NPU { color: #8250df; background-color: #fbefff; border-color: #e7d3ff; }
-    .acc-chip {
-        margin-left: 4px;
-        color: #57606a;
-        font-size: 11px;
-    }
 
     /* 1-click accelerator filter buttons */
     #accFilter {
@@ -295,9 +290,6 @@
         <td class="column-num">{{$index | inc}}</td>
         <td class="column-vmspecname">
             {{$spec.Name}}
-            {{if $spec.Accel.Class}}
-            <br><span class="acc-badge acc-{{$spec.Accel.Class}}">{{$spec.Accel.Class}}</span>{{if $spec.Accel.Chip}}<span class="acc-chip">{{$spec.Accel.Chip}}</span>{{end}}
-            {{end}}
         </td>
         <td class="column-vcpuinfo">
             &nbsp;* Count: {{$spec.VCpu.Count}}<br>

@@ -506,6 +506,9 @@ const rawNodes = {{.NodesJSON}} || [];
 let DELETE_ENABLED = rawNodes.some(n => n.name);   // updated when a connection is loaded later
 // All-connections view: every Dashboard connection is a top-level "conn" group holding its graph
 const ALL_MODE = '{{.ConnectionConfig}}' === '__all__';
+// The Topology opens (from the left menu) with the view shown last here: all connections ('') or one of them.
+// It is kept apart from the connection selected on the other pages.
+try { sessionStorage.setItem('topologyConnection', ALL_MODE ? '' : '{{.ConnectionConfig}}'); } catch (e) {}
 // One-connection view: the graph is shown inside its connection box too (like the all-connections
 // view), so the box header carries the collapse and refresh buttons. Node ids are not changed.
 const SINGLE_CONN_ID = ALL_MODE ? null : 'conn:{{.ConnectionConfig}}';
@@ -535,8 +538,7 @@ window.fetch = function(url, options) {
 // ---- Connection selector: "All connections" first, then the connections with resources ----
 // (same list as the Dashboard / all-connections view). The current view is preselected
 // (all-connections view → "All connections", otherwise its connection, listed even if empty).
-// Picking a connection also makes it the selected connection of AdminWeb (top menu), like the Dashboard.
-const _connInfo = {};   // name → { provider, region }
+// Picking a connection changes the Topology only (not the selected connection of AdminWeb).
 (function initConnSelect() {
     const sel = document.getElementById('conn-select');
     const current = '{{.ConnectionConfig}}';
@@ -546,7 +548,6 @@ const _connInfo = {};   // name → { provider, region }
         sel.appendChild(opt('', known ? `All connections (${list.length})` : 'All connections'));
         if (!ALL_MODE && !list.some(c => c.name === current)) list = list.concat([{ name: current, provider: '' }]);
         list.forEach(c => {
-            _connInfo[c.name] = { provider: c.provider, region: c.region };
             if (!ALL_MODE && c.name === current && c.provider) setSingleConnProvider(c.provider, c.region);
             sel.appendChild(opt(c.name, c.provider ? `${c.provider} / ${c.name}` : c.name));
         });
@@ -641,10 +642,7 @@ function switchConnection(name) {
     document.getElementById('conn-select').disabled = true;
     if (window.parent !== window) window.parent.postMessage({ type: 'showProgressBar' }, '*');
     if (!name) { location.href = '/spider/adminweb/topology-all'; return; }
-    const info = _connInfo[name];
-    if (info && window.parent !== window) {
-        window.parent.postMessage({ type: 'updateTopMenu', configName: name, provider: info.provider, region: info.region }, '*');
-    }
+    // the connection chosen here is for the Topology only: the selected connection of AdminWeb is not changed
     location.href = '/spider/adminweb/topology/' + encodeURIComponent(name);
 }
 

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -143,7 +145,14 @@ func isAcceleratorClassSupported(providerName string) bool {
 }
 
 // classifyVMSpecAccelerator picks the representative accelerator of a spec (NPU > TPU > GPU).
+// Until the Accelerator structure is officially released, both structures are supported:
+//   - VMSpecInfo.Accelerator: new structure (GPU/TPU/NPU), used first when provided
+//   - VMSpecInfo.Gpu: legacy structure, used when Accelerator is empty
 func classifyVMSpecAccelerator(spec *cres.VMSpecInfo) vmSpecAccelerator {
+	if spec == nil {
+		return vmSpecAccelerator{}
+	}
+
 	priority := map[cres.AcceleratorType]int{cres.AcceleratorNPU: 3, cres.AcceleratorTPU: 2, cres.AcceleratorGPU: 1}
 
 	var selected *cres.AcceleratorInfo
@@ -165,8 +174,41 @@ func classifyVMSpecAccelerator(spec *cres.VMSpecInfo) vmSpecAccelerator {
 	}
 
 	// drivers that do not provide Accelerator yet
-	if len(spec.Gpu) > 0 {
-		return vmSpecAccelerator{Class: accClassGPU}
+	return classifyLegacyGpu(spec.Gpu)
+}
+
+// classifyLegacyGpu classifies a spec with the legacy VMSpecInfo.Gpu structure.
+// Drivers fill the legacy structure differently for specs without GPU,
+// e.g. no entry, {Count: "0"} or {Count: "-1", Model: "NA"}, so an entry is a GPU only when
+// its count is positive, or when its count is unknown but its model or manufacturer is given.
+func classifyLegacyGpu(gpus []cres.GpuInfo) vmSpecAccelerator {
+	hasGpu := false
+	var models []string
+	for _, gpu := range gpus {
+		model := knownValue(gpu.Model)
+		count, err := strconv.Atoi(strings.TrimSpace(gpu.Count))
+		if err == nil && count == 0 {
+			continue
+		}
+		if (err != nil || count < 0) && model == "" && knownValue(gpu.Mfr) == "" {
+			continue
+		}
+		hasGpu = true
+		if model != "" && !slices.Contains(models, model) {
+			models = append(models, model)
+		}
 	}
-	return vmSpecAccelerator{Class: accClassCPU}
+	if !hasGpu {
+		return vmSpecAccelerator{Class: accClassCPU}
+	}
+	return vmSpecAccelerator{Class: accClassGPU, Chip: strings.Join(models, ", ")}
+}
+
+// knownValue returns the trimmed value, or "" when the driver marks it as not applicable.
+func knownValue(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.EqualFold(value, "NA") || value == "-1" {
+		return ""
+	}
+	return value
 }
