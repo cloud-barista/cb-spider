@@ -757,17 +757,22 @@ func getRoutes() []route {
 
 			{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
+			{"GET", "/adminweb/vpc/multi", aw.VPCSubnetManagementMulti},
 			{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
 			{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
+			{"GET", "/adminweb/securitygroup/multi", aw.SecurityGroupManagementMulti},
 			{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroupManagement},
 			{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
 			{"GET", "/adminweb/keypair/multi", aw.KeyPairManagementMulti},
 			{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPairManagement},
 			{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
+			{"GET", "/adminweb/vm/multi", aw.VMManagementMulti},
 			{"GET", "/adminweb/vm/:ConnectConfig", aw.VMManagement},
 			{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
+			{"GET", "/adminweb/nlb/multi", aw.NLBManagementMulti},
 			{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLBManagement},
 			{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
+			{"GET", "/adminweb/disk/multi", aw.DiskManagementMulti},
 			{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
 			{"GET", "/adminweb/publicip/:ConnectConfig", aw.PublicIPManagement},
 			{"GET", "/adminweb/nic/:ConnectConfig", aw.NICManagement},
@@ -783,8 +788,10 @@ func getRoutes() []route {
 			{"POST", "/topology/layout", SaveTopologyLayout},       // save/upsert a version
 			{"DELETE", "/topology/layout", DeleteTopologyLayout},   // delete one version
 			{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
+			{"GET", "/adminweb/cluster/multi", aw.ClusterManagementMulti},
 			{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
 			{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
+			{"GET", "/adminweb/myimage/multi", aw.MyImageManagementMulti},
 			{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImageManagement},
 			{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 			{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
@@ -799,10 +806,12 @@ func getRoutes() []route {
 			// download price info with JSON file
 			{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 
+			{"GET", "/adminweb/s3/multi", aw.S3ManagementMulti},
 			{"GET", "/adminweb/s3/:ConnectConfig", aw.S3Management},
 
 			{"GET", "/adminweb/filesystem/:ConnectConfig", aw.FileSystemManagement},
 
+			{"GET", "/adminweb/rdbms/multi", aw.RDBMSManagementMulti},
 			{"GET", "/adminweb/rdbms/:ConnectConfig", aw.RDBMSManagement},
 
 			//-- RDBMS SQL Proxy (for AdminWeb DB management)

@@ -548,6 +548,27 @@ THE SOFTWARE.
         font-weight: normal;
         color: #666;
     }
+    /* AI accelerator badges (CPU/GPU/TPU/NPU), same as the VMSpec page */
+    .acc-badge {
+        display: inline-block;
+        margin-top: 4px;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: bold;
+        line-height: 16px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+    .acc-badge.acc-CPU { color: #57606a; background-color: #eaeef2; border-color: #d0d7de; }
+    .acc-badge.acc-GPU { color: #1a7f37; background-color: #dafbe1; border-color: #aceebb; }
+    .acc-badge.acc-TPU { color: #0969da; background-color: #ddf4ff; border-color: #b6e3ff; }
+    .acc-badge.acc-NPU { color: #8250df; background-color: #fbefff; border-color: #e7d3ff; }
+    .acc-chip {
+        margin-left: 4px;
+        color: #57606a;
+        font-size: 11px;
+    }
     .ssh-access-cell {
         text-align: left;
     }
@@ -1516,6 +1537,9 @@ THE SOFTWARE.
                 <td class="vm-name-cell">
                     {{$vm.IId.NameId}}<span class="vm-system-id" onclick="showSystemIdOverlay('{{$vm.IId.SystemId}}')">&nbsp;• {{$vm.IId.SystemId}}</span>
                     <span class="vm-start-time" data-time="{{$vm.StartTime}}"></span>
+                    {{with index $.VMAccelerators $vm.IId.NameId}}{{if .Class}}
+                    <br><span class="acc-badge acc-{{.Class}}">{{.Class}}</span>{{if .Chip}}<span class="acc-chip">{{.Chip}}</span>{{end}}
+                    {{end}}{{end}}
                 </td>    
                 <td class="ssh-access-cell">
                     {{if $vm.PublicIPs}}

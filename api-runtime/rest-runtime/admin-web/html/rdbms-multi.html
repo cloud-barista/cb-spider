@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RDBMS Management (Multi-Connection)</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    .content {
+        margin-top: 110px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .refresh-button {
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
+    .refresh-button svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.5s ease;
+    }
+    .refresh-button:active svg {
+        transform: rotate(180deg);
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .connection-bar {
+        position: fixed;
+        top: 56px;
+        width: 97%;
+        background-color: #eaf1fb;
+        z-index: 999;
+        padding: 6px 20px;
+        font-size: 12px;
+        border-bottom: 1px solid #b9cdf0;
+    }
+    .connection-chip {
+        display: inline-block;
+        background-color: #ffffff;
+        border: 1px solid #0645AD;
+        color: #0645AD;
+        border-radius: 10px;
+        padding: 2px 8px;
+        margin: 2px 4px 2px 0;
+        font-weight: bold;
+    }
+    .connection-error {
+        color: #b35c00;
+        margin-top: 4px;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 4%;
+        text-align: center;
+    }
+    .column-connection {
+        width: 16%;
+        text-align: center;
+        font-weight: bold;
+        color: #0645AD;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        position: relative;
+        max-width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 80px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+    .column-connection {
+        width: 12%;
+    }
+    .vpc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .info-group legend {
+        font-weight: bold;
+    }
+    .vpc-tag-container, .subnet-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .disk-created-time {
+        display: block;
+        font-size: 11px;
+        font-weight: normal;
+        color: #888;
+    }
+    .create-table {
+        width: auto;
+        table-layout: auto;
+        margin: 0 auto;
+    }
+    .create-table th, .create-table td {
+        font-size: 12px;
+        padding: 3px 6px;
+        white-space: nowrap;
+    }
+    .create-table input[type="text"] {
+        width: 130px;
+    }
+    .create-table input[type="number"] {
+        width: 80px;
+    }
+    .create-table tr.excluded td {
+        color: #999;
+        background-color: #f7f7f7;
+    }
+    .create-note {
+        color: #b35c00;
+        font-size: 11px;
+    }
+    .rdbms-name {
+        width: 16%;
+    }
+    .rdbms-status {
+        width: 8%;
+    }
+    .rdbms-vpc {
+        width: 11%;
+    }
+    .rdbms-engine {
+        width: 16%;
+    }
+    .rdbms-instance {
+        width: 12%;
+    }
+    .rdbms-tags {
+        width: 10%;
+    }
+    .rdbms-misc {
+        width: 10%;
+    }
+    .rdbms-detail {
+        font-size: 12px;
+        word-break: break-all;
+    }
+    .rdbms-detail b {
+        color: #555;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: bold;
+        background-color: #eaeef2;
+        color: #57606a;
+    }
+    .status-badge.status-Available { background-color: #dafbe1; color: #1a7f37; }
+    .status-badge.status-Creating, .status-badge.status-Deleting { background-color: #fff3e0; color: #b35c00; }
+    .status-badge.status-Stopped { background-color: #eaeef2; color: #57606a; }
+    .status-badge.status-Error { background-color: #fde2e2; color: #c62828; }
+    .create-note-bar {
+        color: #555;
+        font-size: 12px;
+        margin-left: 4px;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/disk.png" alt="RDBMS Icon">
+            <h1>RDBMS Management (Multi-Connection)</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <button type="button" class="refresh-button" onclick="multiRefresh(true);" title="Refresh">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                <polyline points="21 3 21 9 15 9"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <div class="connection-bar">
+        <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn}}" title="Show only this connection">{{$conn}}</button>{{end}}
+        {{range $conn, $err := .ConnErrors}}
+        <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
+        {{end}}
+        {{range $conn, $msg := .ConnNotices}}
+        <div class="connection-error connection-notice" data-connection="{{$conn}}" data-notice="true">&#8505; {{$conn}}: {{$msg}}</div>
+        {{end}}
+    </div>
+
+    <div class="content">
+        <div class="fixed-action-buttons">
+            <span class="create-note-bar">To create an RDBMS (CSP-specific options), select its connection above.</span>
+            <div style="flex: 1;"></div>
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedRDBMSs()">Delete</button>
+        </div>
+        <table id="rdbms-table" data-empty-text="No RDBMSs found across the selected connections.">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="column-connection">Connection</th>
+                <th class="rdbms-name">Name</th>
+                <th class="rdbms-status">Status</th>
+                <th class="rdbms-vpc">VPC</th>
+                <th class="rdbms-engine">Engine</th>
+                <th class="rdbms-instance">Instance</th>
+                <th class="rdbms-tags">Tags</th>
+                <th class="rdbms-misc">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $row := .RDBMSRows}}
+            {{$db := $row.RDBMS}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="column-connection">{{$row.ConnectionName}}</td>
+                <td class="vpc-name-cell">{{$db.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$db.IId.SystemId}}')">&nbsp;&bull; {{$db.IId.SystemId}}</span>
+                    <span class="disk-created-time" data-time="{{$db.CreatedTime}}"></span>
+                </td>
+                <td class="center-align"><span class="status-badge status-{{$db.Status}}">{{$db.Status}}</span></td>
+                <td class="vpc-name-cell">{{$db.VpcIID.NameId}}</td>
+                <td class="rdbms-detail">
+                    <b>Engine:</b> {{$db.DBEngine}} {{$db.DBEngineVersion}}<br>
+                    <b>Endpoint:</b> {{$db.Endpoint}}
+                </td>
+                <td class="rdbms-detail">
+                    <b>Spec:</b> {{$db.DBSpec}}<br>
+                    <b>Storage:</b> {{$db.StorageSize}} GB{{if $db.StorageType}} ({{$db.StorageType}}){{end}}
+                </td>
+                <td>
+                    {{range $tag := $db.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'RDBMS', '{{$db.IId.NameId}}', '{{$row.ConnectionName}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                </td>
+                <td class="center-align misc-cell">
+                    <div class="misc-content">{{range $kv := $db.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$db.IId.NameId}}" data-connection="{{$row.ConnectionName}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .RDBMSRows}}
+            <tr class="empty-row">
+                <td colspan="10" class="center-align">No RDBMSs found across the selected connections.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="tag-overlay" class="overlay">
+        <div class="overlay-content"></div>
+    </div>
+
+    <div id="system-id-overlay" class="overlay">
+        <div class="overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">&#128203;</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    // Basic Auth credentials from server
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        return fetchOptions;
+    }
+
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    function toggleSelectAll(source) {
+        const checkboxes = multiVisibleCheckboxes();
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    function formatCreatedTimes() {
+        document.querySelectorAll('#rdbms-table .disk-created-time').forEach(span => {
+            const t = span.dataset.time;
+            if (t && !t.startsWith('0001-')) {
+                const d = new Date(t);
+                if (!isNaN(d)) span.textContent = `created ${d.toLocaleString()}`;
+            }
+        });
+    }
+    window.onMultiRefreshed = formatCreatedTimes;
+    formatCreatedTimes();
+
+    // ---- Delete ----
+
+    function deleteSelectedRDBMSs() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select RDBMSs to delete.");
+            return;
+        }
+
+        const tasks = Array.from(checkboxes).map(checkbox => ({
+            checkbox,
+            connName: checkbox.dataset.connection,
+            rdbmsName: checkbox.value
+        }));
+        const names = tasks.map(task => `${task.connName} / ${task.rdbmsName}`).join('\n  - ');
+        if (!confirm(`Are you sure you want to delete the selected ${tasks.length} RDBMS(s) from their respective connections?\n\n  - ${names}`)) {
+            return;
+        }
+        // an RDBMS being deleted cannot be selected again until the page content is refreshed
+        checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
+
+        tasks.forEach(task => {
+            const label = `RDBMS "${task.rdbmsName}" in ${task.connName}`;
+            const box = multiTaskBox('delete', `Deleting ${label}…`);
+            fetch(`/spider/rdbms/${encodeURIComponent(task.rdbmsName)}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: task.connName })
+            })
+            .then(response => response.text().then(txt => {
+                let data;
+                try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }
+                const result = data.Result;
+                if (!response.ok || result === false || result === 'false') {
+                    throw new Error(data.message || data.Message || txt || `HTTP ${response.status}`);
+                }
+            }))
+            .then(() => {
+                multiRemoveRow(task.checkbox);
+                box.finish(true, `Deleted ${label}`);
+            })
+            .catch(error => {
+                task.checkbox.disabled = false;
+                box.finish(false, `Failed to delete ${label}: ${error.message}`);
+            });
+        });
+    }
+
+    // ---- Search / Tag / SystemId ----
+
+    function searchKeyword() {
+        const filter = document.getElementById('searchInput').value.toUpperCase().trim();
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        document.querySelectorAll('#rdbms-table td').forEach(td => {
+            const txtValue = td.textContent || td.innerText;
+            td.classList.toggle('highlight', txtValue.toUpperCase().indexOf(filter) > -1);
+        });
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        document.querySelectorAll('#rdbms-table td.highlight').forEach(td => td.classList.remove('highlight'));
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName, connName) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = tagOverlay.querySelector('.overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
+            <p>${tag}</p>
+            <div class="form-group" style="justify-content: space-between;">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}', '${connName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+        tagOverlay.style.display = 'flex';
+    }
+
+    function closeTagOverlay() {
+        document.getElementById('tag-overlay').style.display = 'none';
+    }
+
+    function deleteTag(tag, resourceType, resourceName, connName) {
+        const [tagKey] = tag.split(': ');
+        const data = {
+            ConnectionName: connName,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetch(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            multiRefresh();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        document.getElementById('fullSystemId').textContent = systemId;
+        overlay.style.display = 'flex';
+    }
+
+    function closeSystemIdOverlay() {
+        document.getElementById('system-id-overlay').style.display = 'none';
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+        selection.removeAllRanges();
+    }
+</script>
+<script src="/spider/adminweb/static/js/multi-task.js"></script>
+</html>

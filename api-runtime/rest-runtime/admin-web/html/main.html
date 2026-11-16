@@ -120,19 +120,50 @@
             color: #888;
         }
         .multi-conn-badge {
-            margin-left: 10px;
-            padding: 2px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 0.5cm;
+            padding: 3px 4px 3px 11px;
             background-color: #fff3e0;
             color: #b35c00;
             border: 1px solid #f0c98a;
-            border-radius: 10px;
-            font-size: 11px;
+            border-radius: 14px;
+            font-size: 13px;
             font-weight: bold;
-            cursor: pointer;
             white-space: nowrap;
         }
-        .multi-conn-badge:hover {
-            background-color: #ffe4b3;
+        .multi-conn-badge.hidden {
+            display: none;
+        }
+        /* the badge always comes first, so its position does not depend on the (empty or not) items after it */
+        .multi-conn-badge {
+            order: -1;
+        }
+        /* multi mode narrowed to one connection: the badge, then that connection's info, smaller */
+        .connection-info.multi-focus img {
+            height: 22px;
+            margin-left: 2px;
+        }
+        .connection-info.multi-focus .digital-font {
+            font-size: 11px;
+        }
+        .connection-info.multi-focus .conn-name {
+            font-size: 11px;
+        }
+        .multi-conn-clear {
+            border: none;
+            background: none;
+            color: inherit;
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 1;
+            padding: 3px 6px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .multi-conn-clear:hover {
+            background-color: #ffe0b2;
         }
         .menu-bar {
             font-size: 0;
@@ -166,6 +197,12 @@
             margin: 0;
         }
         .hidden {
+            display: none;
+        }
+        .top-menu.page-title-only #selectedConfigName,
+        .top-menu.page-title-only #selectedProvider,
+        .top-menu.page-title-only #selectedRegion,
+        .top-menu.page-title-only .dynamic-menu {
             display: none;
         }
         .selectedConfigName {
@@ -441,8 +478,9 @@
     // The page's own title is always hidden: the top-left shows the connection info when a
     // connection is selected, or the page title when none is.
     const PAGE_TITLES = [
-        { re: /\/adminweb\/dashboard$/,                     title: 'Multi-Cloud Dashboard',          sel: '.fixed-header > h1' },
-        { re: /\/adminweb\/(topology-all|topology\/[^/]+)$/, title: 'Multi-Cloud Resource Topology', sel: '.header-left h1' },
+        { re: /\/adminweb\/body_frame$/,                    title: '',                               always: true },
+        { re: /\/adminweb\/dashboard$/,                     title: 'Multi-Cloud Dashboard',          sel: '.fixed-header > h1', always: true },
+        { re: /\/adminweb\/(topology-all|topology\/[^/]+)$/, title: 'Multi-Cloud Resource Topology', sel: '.header-left h1', always: true },
     ];
     let _statelessMode = false;
     function bodyFramePath() {
@@ -455,7 +493,7 @@
         return PAGE_TITLES.find(p => p.re.test(path)) || null;
     }
     function hidePageTitle(page) {
-        if (!page) return;
+        if (!page || !page.sel) return;
         try {
             const win = document.querySelector('iframe[name="body_frame"]').contentWindow;
             const h1 = win.document.querySelector(page.sel);
@@ -466,20 +504,32 @@
             if (typeof win.syncContentOffset === 'function') win.syncContentOffset();
         } catch (e) {}
     }
+    // A page with always: true (Home, Dashboard, Topology) shows only its title at the top-left (Home: nothing),
+    // also when a connection is selected: these pages are not about one connection. The selected connection
+    // is kept (and still used by the left menu), only not shown there.
+    function syncPageTitleOnly(page) {
+        const titleOnly = !!(page && page.always);
+        document.querySelector('.top-menu').classList.toggle('page-title-only', titleOnly);
+        document.getElementById('pageTitleOnly').innerHTML = titleOnly && page.title ? `<h1 class="selectedConfigName">${page.title}</h1>` : '';
+    }
+
     function refreshNoConnTitle() {
         const page = currentPage();
         hidePageTitle(page);
+        syncPageTitleOnly(page);
         const el = document.getElementById('selectedConfigName');
         if (!el || el.dataset.noconn !== '1' || _statelessMode) return;
         const path = bodyFramePath();
         // still loading (about:blank / unknown) or Home → nothing, so the prompt never flashes on Home
         let text = '';
         if (page) text = page.title;
+        else if (getMultiConnections()) text = '';    // the Multi badge is shown instead
         else if (/\/adminweb\/./.test(path) && !/\/adminweb\/body_frame$/.test(path)) text = 'Please select a connection first.';
         el.innerHTML = text ? `<h1 class="selectedConfigName">${text}</h1>` : '';
     }
 
-    function updateTopMenu(configName, provider, region) {
+    // persist=false shows the connection without making it the selected one (multi-connection focus)
+    function updateTopMenu(configName, provider, region, persist = true) {
         const selectedConfigNameElement = document.getElementById('selectedConfigName');
         const topMenuRight = document.querySelector('.top-menu-right');
         if (!provider || provider === 'None') {
@@ -530,6 +580,7 @@
             `;
             document.querySelector('.dynamic-menu').innerHTML = dynamicMenuHtml;
         }
+        if (!persist) return;
         sessionStorage.setItem('selectedConfigName', configName);
         sessionStorage.setItem('selectedProvider', provider);
         sessionStorage.setItem('selectedRegion', region);
@@ -581,7 +632,10 @@
 
     window.addEventListener('DOMContentLoaded', function() {
         const f = document.getElementById('body_frame_el');
-        if (f) f.addEventListener('load', refreshNoConnTitle);
+        if (f) {
+            f.addEventListener('load', refreshNoConnTitle);
+            f.addEventListener('load', syncMultiBadge);
+        }
         refreshNoConnTitle();
     });
 
@@ -599,39 +653,116 @@
 
     window.addEventListener('message', function(event) {
         if (event.data.type === 'updateTopMenu') {
+            // selecting one connection explicitly leaves multi-connection mode
+            sessionStorage.removeItem('multiConnections');
+            sessionStorage.removeItem('multiFocus');
+            document.getElementById('multiConnectionBadge').classList.add('hidden');
             updateTopMenu(event.data.configName, event.data.provider, event.data.region);
         }
     });
 
-    function updateMultiConnectionBadge(connections) {
-        const badge = document.getElementById('multiConnectionBadge');
-        if (connections && connections.length > 1) {
-            badge.textContent = `Multi: ${connections.length} connections ✕`;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
+    // ---- Multi-connection mode ----
+    // sessionStorage 'multiConnections': [{ConfigName, ProviderName, RegionName}] set on the Connection page
+    // sessionStorage 'multiFocus': ConfigName of the connection a multi page is temporarily narrowed to
+    function getMultiConnections() {
+        try {
+            const list = JSON.parse(sessionStorage.getItem('multiConnections') || 'null');
+            return Array.isArray(list) && list.length > 1 ? list : null;
+        } catch (e) {
+            return null;    // ignore malformed sessionStorage content
         }
     }
 
+    function getMultiFocus() {
+        const list = getMultiConnections(), name = sessionStorage.getItem('multiFocus');
+        return (list && name && list.find(conn => conn.ConfigName === name)) || null;
+    }
+
+    // Top-left connection area:
+    //   multi mode               → "Multi: N connections ✕" in place of the prompt
+    //   focused on a connection  → the badge, then that connection's CSP icon and Region/Zone (smaller)
+    //   otherwise                → the selected connection, or the prompt
+    function renderConnectionArea() {
+        const multi = getMultiConnections(), focus = getMultiFocus();
+        if (multi && !focus) {
+            updateTopMenu('', 'None', '', false);
+        } else if (focus) {
+            updateTopMenu(focus.ConfigName, focus.ProviderName, focus.RegionName, false);
+        } else {
+            const provider = sessionStorage.getItem('selectedProvider');
+            if (provider && provider !== 'None' && provider !== 'null') {
+                updateTopMenu(sessionStorage.getItem('selectedConfigName'), provider, sessionStorage.getItem('selectedRegion'), false);
+            } else {
+                updateTopMenu('', 'None', '', false);
+            }
+        }
+        syncMultiBadge();    // after the items above have their final layout
+    }
+
+    // The Multi badge is shown in multi mode (also when narrowed to one connection), except on Home, the Dashboard
+    // and the Topology. On a page with a header
+    // icon (resource pages, Connection), the badge is left-aligned with that icon.
+    function syncMultiBadge() {
+        const badge = document.getElementById('multiConnectionBadge');
+        const multi = getMultiConnections(), path = bodyFramePath();
+        // Home, Dashboard and Topology (which shows all connections itself): no badge
+        const noBadgePage = !path || /\/adminweb\/(body_frame|dashboard|topology-all|topology\/[^/]+)$/.test(path);
+        // narrowed to one connection: its info is shown next to the badge (see .multi-focus)
+        badge.parentElement.classList.toggle('multi-focus', !!(multi && getMultiFocus() && !noBadgePage));
+        if (!multi || noBadgePage) {
+            badge.classList.add('hidden');
+            return;
+        }
+        document.getElementById('multiConnectionText').textContent = `Multi: ${multi.length} connections`;
+        badge.classList.remove('hidden');
+
+        badge.style.marginLeft = '0px';
+        try {
+            const frame = document.querySelector('iframe[name="body_frame"]');
+            const icon = frame.contentWindow.document.querySelector('.fixed-header .header-container img');
+            if (icon) {
+                const iconLeft = frame.getBoundingClientRect().left + frame.clientLeft + icon.getBoundingClientRect().left;
+                badge.style.marginLeft = Math.max(0, iconLeft - badge.getBoundingClientRect().left) + 'px';
+                return;
+            }
+        } catch (e) {}
+        badge.style.marginLeft = '';    // default spacing (stylesheet)
+    }
+    window.addEventListener('resize', syncMultiBadge);
+
     function clearMultiConnections() {
+        const path = bodyFramePath();
         sessionStorage.removeItem('multiConnections');
-        updateMultiConnectionBadge(null);
+        sessionStorage.removeItem('multiFocus');
+        renderConnectionArea();
+        // a multi-connection page has nothing to show any more: open the single page of the
+        // selected connection, or the home page when none is selected
+        const m = path.match(/\/adminweb\/([^/]+)\/multi$/);
+        if (m) {
+            const name = document.getElementById('selectedConfigName').dataset.noconn === '1'
+                ? '' : sessionStorage.getItem('selectedConfigName');
+            const iframe = document.querySelector('iframe[name="body_frame"]');
+            iframe.contentWindow.location.href = name
+                ? `/spider/adminweb/${m[1]}/${encodeURIComponent(name)}`
+                : '/spider/adminweb/body_frame';
+        }
     }
 
     window.addEventListener('message', function(event) {
         if (event.data.type === 'setMultiConnections') {
             sessionStorage.setItem('multiConnections', JSON.stringify(event.data.connections));
-            updateMultiConnectionBadge(event.data.connections);
+            sessionStorage.removeItem('multiFocus');
+            renderConnectionArea();
+        } else if (event.data.type === 'focusMultiConnection') {
+            // from a multi-connection page: narrow to one connection (name) or back to all (no name)
+            if (event.data.name) sessionStorage.setItem('multiFocus', event.data.name);
+            else sessionStorage.removeItem('multiFocus');
+            renderConnectionArea();
         }
     });
 
     document.addEventListener('DOMContentLoaded', () => {
-        try {
-            const stored = JSON.parse(sessionStorage.getItem('multiConnections') || 'null');
-            updateMultiConnectionBadge(stored);
-        } catch (e) {
-            // ignore malformed sessionStorage content
-        }
+        if (getMultiConnections()) renderConnectionArea();
     });
 
     window.addEventListener('message', function(event) {
@@ -672,10 +803,11 @@
         <div class="right-content">
             <div class="top-menu">
                 <div class="connection-info">
+                    <div id="pageTitleOnly"></div>
                     <div id="selectedConfigName" class="" data-noconn="1"></div>
                     <div id="selectedProvider"></div>
                     <div id="selectedRegion"></div>
-                    <div id="multiConnectionBadge" class="multi-conn-badge hidden" onclick="clearMultiConnections()" title="Click to clear multi-connection selection"></div>
+                    <div id="multiConnectionBadge" class="multi-conn-badge hidden"><span id="multiConnectionText"></span><button type="button" class="multi-conn-clear" onclick="clearMultiConnections()" title="Clear multi-connection selection">&#10005;</button></div>
                 </div>
                 <div class="top-menu-right">
                     <div class="dynamic-menu"></div>

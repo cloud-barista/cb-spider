@@ -259,6 +259,108 @@
         display: flex;
         align-items: center;
     }
+    /* delete all resources: of the connections of a CSP (🗑 next to its name) or of all connections */
+    .csp-destroy-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        margin-left: 8px;
+        padding: 0;
+        border: 1px solid #f0a0a0;
+        border-radius: 50%;
+        background-color: #fff5f5;
+        color: #c62828;
+        font-size: 10px;
+        font-weight: bold;
+        line-height: 1;
+        cursor: pointer;
+        vertical-align: middle;
+        position: relative;
+        top: -2px;    /* centered on the CSP name */
+    }
+    /* same colors as "Delete All Resources" */
+    .csp-destroy-btn:hover {
+        background-color: #fde2e2;
+    }
+    .destroy-all-btn {
+        border: 1px solid #f0a0a0;
+        background-color: #fff5f5;
+        color: #c62828;
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .destroy-all-btn:hover {
+        background-color: #fde2e2;
+    }
+    /* confirm dialog: same look as the Topology delete dialog */
+    .del-dialog-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.55); z-index: 8000; justify-content: center; align-items: center;
+    }
+    .del-dialog-box {
+        background: white; border-radius: 8px; padding: 20px; min-width: 360px; max-width: 520px;
+        width: 90%; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); position: relative; font-family: Arial, sans-serif;
+    }
+    .del-dialog-title { font-size: 15px; font-weight: bold; color: #1e293b; margin-bottom: 14px; }
+    .del-dialog-close {
+        position: absolute; top: 12px; right: 14px; background: none; border: none;
+        font-size: 20px; cursor: pointer; color: #64748b;
+    }
+    .del-dialog-close:hover { color: #dc3545; }
+    .del-target { font-size: 13px; margin-bottom: 10px; color: #1e293b; }
+    .del-target b { color: #b91c1c; word-break: break-all; }
+    .del-target .del-name { user-select: all; -webkit-user-select: all; cursor: text; }
+    .del-conns { font-size: 12px; color: #475569; margin-top: 4px; word-break: break-all; }
+    .del-copy-btn { margin-left: 6px; padding: 2px; width: 22px; height: 22px; display: inline-flex; align-items: center;
+        justify-content: center; vertical-align: -5px; color: #475569;
+        background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; cursor: pointer; }
+    .del-copy-btn svg { width: 14px; height: 14px; display: block; }
+    .del-copy-btn:hover { background: #e2e8f0; }
+    .del-copy-btn.done { color: #15803d; background: #f0fdf4; border-color: #86efac; }
+    .del-warn { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d;
+        border-radius: 4px; padding: 8px; margin: 8px 0; }
+    .del-section { font-size: 12px; color: #475569; margin: 8px 0 4px; font-weight: bold; }
+    .del-input { width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 4px;
+        font-size: 13px; margin-bottom: 12px; }
+    .del-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .del-btn { font-size: 12px; padding: 5px 14px; border-radius: 4px; border: none; cursor: pointer; }
+    .del-btn-secondary { background: #e2e8f0; color: #334155; }
+    .del-btn-secondary:hover { background: #cbd5e1; }
+    .del-btn-danger { background: #dc2626; color: white; }
+    .del-btn-danger:hover { background: #b91c1c; }
+    .del-btn-danger:disabled { background: #fca5a5; cursor: not-allowed; }
+    .destroy-log-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 3000;
+    }
+    .destroy-log-box {
+        background: #fff;
+        border-radius: 6px;
+        width: 80%;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 16px;
+    }
+    .destroy-log-box pre {
+        flex: 1;
+        overflow: auto;
+        font-size: 12px;
+        background: #f6f8fa;
+        padding: 8px;
+        margin: 8px 0;
+        white-space: pre-wrap;
+    }
     .left-controls > * {
         margin-right: 14px;
     }
@@ -311,6 +413,160 @@
 
     var refreshIntervalId;
     var lastSuccessfulRefresh = null;
+
+    // ---- Delete all resources: of one connection, or of all the connections listed ----
+    // The steps run in this page (destroy-all.js), one status box per connection at the bottom-center
+    // (multi-task.js); the counts follow by the dashboard refresh.
+    window.MULTI_TASK_DELETE_ALIGN = 'center';
+    var destroying = new Set();
+
+    // connections listed on the dashboard (of one CSP when provider is given)
+    function listedConnections(provider) {
+        var cells = Array.from(document.querySelectorAll('.conn-name-cell[data-connection]'));
+        return Array.from(new Set(cells.filter(function(td) {
+            return !provider || td.dataset.provider === provider;
+        }).map(function(td) { return td.dataset.connection; })));
+    }
+
+    // ---- confirm dialog (same as the Topology delete dialog): type the word to enable Delete ----
+    var COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    var CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+        + '<path d="M5 12l5 5L20 7"/></svg>';
+    var pendingDestroy = null;    // { conns, word }
+
+    function openDestroyDialog(title, what, word, conns) {
+        pendingDestroy = { conns: conns, word: word };
+        document.getElementById('destroy-title').textContent = '\u{1F5D1} ' + title;
+        document.getElementById('destroy-what').textContent = what;
+        document.getElementById('destroy-word').textContent = word;
+        document.getElementById('destroy-word-hint').textContent = word;
+        document.getElementById('destroy-conns').textContent = 'connection(s): ' + conns.join(', ');
+        var copy = document.getElementById('destroy-copy');
+        copy.innerHTML = COPY_ICON;
+        copy.classList.remove('done');
+        copy.onclick = function() { copyText(word, copy); };
+        var input = document.getElementById('destroy-confirm');
+        input.value = '';
+        input.placeholder = word;
+        updateDestroyButton();
+        document.getElementById('destroy-dialog').style.display = 'flex';
+        setTimeout(function() { input.focus(); }, 50);
+    }
+
+    function closeDestroyDialog() {
+        document.getElementById('destroy-dialog').style.display = 'none';
+        pendingDestroy = null;
+    }
+
+    function updateDestroyButton() {
+        document.getElementById('destroy-ok').disabled =
+            !pendingDestroy || document.getElementById('destroy-confirm').value !== pendingDestroy.word;
+    }
+
+    function doDestroy() {
+        if (!pendingDestroy || document.getElementById('destroy-confirm').value !== pendingDestroy.word) return;
+        var conns = pendingDestroy.conns;
+        closeDestroyDialog();
+        runDestroy(conns);
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && pendingDestroy) closeDestroyDialog();
+    });
+
+    // copy to the clipboard (execCommand where the Clipboard API is not available, ex: plain http)
+    function copyText(text, btn) {
+        var ok = function() {
+            btn.innerHTML = CHECK_ICON;
+            btn.classList.add('done');
+            clearTimeout(btn._t);
+            btn._t = setTimeout(function() { btn.innerHTML = COPY_ICON; btn.classList.remove('done'); }, 1500);
+        };
+        var fallback = function() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+            document.body.appendChild(ta);
+            ta.select();
+            var done = false;
+            try { done = document.execCommand('copy'); } catch (e) {}
+            ta.remove();
+            if (done) ok();
+        };
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, fallback);
+        else fallback();
+    }
+
+    function destroyProviderConnections(provider) {
+        var conns = listedConnections(provider);
+        if (conns.length === 0) {
+            alert('No ' + provider + ' connection is listed.');
+            return;
+        }
+        openDestroyDialog('Delete All Resources of ' + provider, 'CSP', provider, conns);
+    }
+
+    function destroyAllConnections() {
+        var conns = listedConnections();
+        if (conns.length === 0) {
+            alert('No connection is listed.');
+            return;
+        }
+        openDestroyDialog('Delete All Resources', '', 'DELETE ALL', conns);
+    }
+
+    function runDestroy(conns) {
+        conns.forEach(function(conn) {
+            if (destroying.has(conn)) return;    // already being deleted
+            destroying.add(conn);
+            var box = multiTaskBox('delete', conn + ': preparing…');
+            destroyConnectionResources(conn, function(text) { box.setText(conn + ': ' + text + '…'); })
+                .then(function(result) {
+                    var logAction = { label: 'Log', onClick: function() { showDestroyLog(conn, result.log); } };
+                    if (result.ok) {
+                        box.finish(true, conn + ': all resources deleted');
+                    } else {
+                        var shown = result.remained.slice(0, 3).join(', ') + (result.remained.length > 3 ? ', …' : '');
+                        box.finish(false, conn + ': ' + result.remained.length + ' resource(s) remain: ' + shown, logAction);
+                    }
+                })
+                .catch(function(err) {
+                    box.finish(false, conn + ': ' + err.message);
+                })
+                .finally(function() {
+                    destroying.delete(conn);
+                    refreshDashboard();
+                });
+        });
+    }
+
+    function showDestroyLog(conn, lines) {
+        var overlay = document.createElement('div');
+        overlay.className = 'destroy-log-overlay';
+        var box = document.createElement('div');
+        box.className = 'destroy-log-box';
+        var title = document.createElement('strong');
+        title.textContent = 'Delete log: ' + conn;
+        var pre = document.createElement('pre');
+        pre.textContent = lines.join('\n');
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = 'Close';
+        close.onclick = function() { overlay.remove(); };
+        box.append(title, pre, close);
+        overlay.appendChild(box);
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+        document.body.appendChild(overlay);
+    }
+
+    // leaving the page stops the deletion steps in progress
+    window.addEventListener('beforeunload', function(e) {
+        if (destroying.size > 0) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
 
     function showConnectionBanner(message) {
         var banner = document.getElementById('connectionStatusBanner');
@@ -613,6 +869,7 @@
                     </div>
                 </div>
                 <span class="na-legend" title="Not applicable: not supported by the driver (Driver Capability API)"><span style="color:#999;font-style:italic;background:#f5f5f5;padding:1px 4px;border:1px solid #ddd;">NA</span> = not applicable</span>
+                <button type="button" class="destroy-all-btn" onclick="destroyAllConnections()" title="Delete all the resources of all the connections listed below">&#128465; Delete All Resources</button>
             </div>
             <div class="right-controls">
                 <label>
@@ -631,7 +888,7 @@
     <div class="content">
         {{range $provider := .Providers}}
         {{if or $.ShowEmpty (index $.ResourceCounts $provider)}}
-        <h2>{{$provider}}</h2>
+        <h2>{{$provider}}<button type="button" class="csp-destroy-btn" data-provider="{{$provider}}" onclick="destroyProviderConnections(this.dataset.provider)" title="Delete all the resources of the {{$provider}} connections listed below">&#10005;</button></h2>
         <table>
             <tr>
                 <th>Connection Name</th>
@@ -652,7 +909,7 @@
             {{if index $.ResourceCounts $provider}}
                 {{range $count := index $.ResourceCounts $provider}}
                 <tr>
-                    <td><a href="javascript:void(0)" onclick="setTopMenu('{{$count.ConnectionName}}', '{{$provider}}', '{{index $.Regions $count.RegionName}}')">
+                    <td class="conn-name-cell" data-connection="{{$count.ConnectionName}}" data-provider="{{$provider}}"><a href="javascript:void(0)" onclick="setTopMenu('{{$count.ConnectionName}}', '{{$provider}}', '{{index $.Regions $count.RegionName}}')">
                         {{$count.ConnectionName}}
                     </a></td>
                     {{if index $count.NA "vpc"}}<td data-col="vpc" class="na" title="Not applicable: not supported by this driver">NA</td>{{else}}<td data-col="vpc" class="{{if gt $count.VPCs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('/spider/adminweb/vpc/{{$count.ConnectionName}}'); return false;">{{$count.VPCs}}</a></td>{{end}}
@@ -679,5 +936,25 @@
         {{end}}
         {{end}}
     </div>
+<div id="destroy-dialog" class="del-dialog-overlay" onclick="if (event.target === this) closeDestroyDialog()">
+    <div class="del-dialog-box">
+        <button type="button" class="del-dialog-close" onclick="closeDestroyDialog()">&#10005;</button>
+        <div class="del-dialog-title" id="destroy-title">&#128465; Delete All Resources</div>
+        <div class="del-target">
+            <span id="destroy-what"></span> <b class="del-name" id="destroy-word"></b><button type="button" class="del-copy-btn" id="destroy-copy" title="Copy (paste it below to confirm)" aria-label="Copy"></button>
+            <div class="del-conns" id="destroy-conns"></div>
+        </div>
+        <div class="del-warn">This deletes <b>all the actual cloud resources</b> of the connection(s) and cannot be undone.</div>
+        <div class="del-section">Type <span id="destroy-word-hint"></span> to confirm</div>
+        <input id="destroy-confirm" class="del-input" type="text" autocomplete="off" spellcheck="false"
+               oninput="updateDestroyButton()" onkeydown="if (event.key === 'Enter') doDestroy()">
+        <div class="del-actions">
+            <button type="button" class="del-btn del-btn-secondary" onclick="closeDestroyDialog()">Cancel</button>
+            <button type="button" class="del-btn del-btn-danger" id="destroy-ok" onclick="doDestroy()" disabled>Delete</button>
+        </div>
+    </div>
+</div>
+<script src="/spider/adminweb/static/js/multi-task.js"></script>
+<script src="/spider/adminweb/static/js/destroy-all.js"></script>
 </body>
 </html>

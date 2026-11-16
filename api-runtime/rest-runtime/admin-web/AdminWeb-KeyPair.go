@@ -114,6 +114,12 @@ func KeyPairManagement(c echo.Context) error {
 	return nil
 }
 
+// isMultiAsyncLoad reports whether a multi-connection page is requested without its resource lists
+// (load=async): the page is returned at once and lists each connection by itself, in parallel.
+func isMultiAsyncLoad(c echo.Context) bool {
+	return c.QueryParam("load") == "async"
+}
+
 // KeyPairMultiRow pairs a KeyPair with the connection it was fetched from,
 // so a single table can list KeyPairs aggregated across several connections.
 type KeyPairMultiRow struct {
@@ -150,6 +156,9 @@ func KeyPairManagementMulti(c echo.Context) error {
 	connErrors := map[string]string{}
 
 	for _, connName := range connNames {
+		if isMultiAsyncLoad(c) {
+			break
+		}
 		regionName, err := getRegionName(connName)
 		if err != nil {
 			connErrors[connName] = err.Error()

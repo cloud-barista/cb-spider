@@ -66,11 +66,34 @@
             background-color: #666; /* Change color to a darker shade */
             margin: 3px auto; /* compact: separate the divider and center it */
         }
+        /* Hide / show menus (e.g. hide WIP menus for a demo): × on hover, restore list at the bottom */
+        .menu-item.hideable { position: relative; }
+        .menu-hide {
+            display: none; position: absolute; top: 1px; right: 2px; z-index: 2;
+            font-size: 13px; font-weight: bold; line-height: 1; padding: 1px 3px; border-radius: 3px;
+            color: #888; cursor: pointer;
+        }
+        .menu-hide:hover { color: #c62828; background-color: #fde2e2; }
+        .menu-item.hideable:hover .menu-hide { display: block; }
+        .menu-item.user-hidden, .divider.user-hidden { display: none; }
+        .hidden-menus { text-align: center; margin: 6px 0 10px; font-size: 10px; }
+        .hidden-menus-toggle {
+            border: 1px solid #ccc; border-radius: 9px; background: #fff; color: #555;
+            font-size: 10px; font-weight: bold; padding: 2px 6px; cursor: pointer;
+        }
+        .hidden-menus-toggle:hover { background: #f0f0f0; }
+        .hidden-menus-list { display: none; margin-top: 4px; }
+        .hidden-menus.open .hidden-menus-list { display: block; }
+        .hidden-menus-list div {
+            padding: 2px 0; color: #0645AD; font-weight: bold; cursor: pointer; white-space: nowrap;
+        }
+        .hidden-menus-list div:hover { text-decoration: underline; }
+        .hidden-menus-list .show-all { color: #555; border-top: 1px solid #ddd; margin-top: 2px; }
     </style>
     <script>
         // Resource menus that have a dedicated multi-connection page (/adminweb/<menu>/multi).
         // Add to this list as more resources get multi-connection support.
-        const multiConnectionCapableMenus = ['keypair'];
+        const multiConnectionCapableMenus = ['vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3', 'rdbms'];
 
         function tryMultiConnectionRedirect(menu, event) {
             if (!multiConnectionCapableMenus.includes(menu)) {
@@ -88,17 +111,14 @@
                 return false;
             }
 
+            // load=async: the page opens at once and lists each connection in parallel, showing a
+            // progress box per connection (instead of the progress bar of the whole page)
             const ids = multiConnections.map(c => encodeURIComponent(c.ConfigName)).join(',');
-            const targetUrl = `/spider/adminweb/${menu}/multi?ids=${ids}`;
+            const targetUrl = `/spider/adminweb/${menu}/multi?ids=${ids}&load=async`;
             const iframe = parent.frames['body_frame'];
 
-            parent.postMessage({ type: 'showProgressBar' }, '*');
-
-            iframe.onload = function() {
-                parent.postMessage({ type: 'iframeLoaded' }, '*');
-            };
+            iframe.onload = null;
             iframe.onerror = function() {
-                parent.postMessage({ type: 'hideProgressBar' }, '*');
                 alert('Failed to load the page. Please try again.');
             };
 
@@ -142,10 +162,16 @@
                 topology: "/spider/adminweb/topology"
             };
 
-            // Topology without a selected connection: all-connections view (connections with resources)
-            const targetUrl = noConnection
-                ? '/spider/adminweb/topology-all'
-                : `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
+            // Topology: the view shown last in the Topology (all connections by default), not the selected
+            // connection of the other pages (single or multi-connection)
+            let targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
+            if (menu === 'topology') {
+                let topologyConnection = '';
+                try { topologyConnection = sessionStorage.getItem('topologyConnection') || ''; } catch (e) {}
+                targetUrl = topologyConnection
+                    ? `${menuUrlMap.topology}/${encodeURIComponent(topologyConnection)}`
+                    : '/spider/adminweb/topology-all';
+            }
             const iframe = parent.frames['body_frame'];
 
             // Show progress bar
@@ -319,5 +345,104 @@
         <img id="topology-img" src="./images/left-menu/vpc.png" alt="Topology Icon">
         <div class="menu-text">Topology</div>
     </div>
+    <div id="hiddenMenus" class="hidden-menus" style="display: none;">
+        <button type="button" class="hidden-menus-toggle" onclick="this.parentElement.classList.toggle('open')"></button>
+        <div class="hidden-menus-list"></div>
+    </div>
+    <script>
+        // ---- Hide / show menus ----
+        // Resource menus can be hidden by their × (e.g. WIP menus during a demo) and shown again from the
+        // "N hidden" list at the bottom. The hidden menus are kept in localStorage (this browser).
+        // Dashboard, Connection and Topology are always shown.
+        const HIDDEN_MENUS_KEY = 'adminwebHiddenLeftMenus';
+        const ALWAYS_SHOWN_MENUS = ['dashboard', 'connection', 'topology'];
+
+        function loadHiddenMenus() {
+            try {
+                const list = JSON.parse(localStorage.getItem(HIDDEN_MENUS_KEY) || '[]');
+                return Array.isArray(list) ? list : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveHiddenMenus(list) {
+            try { localStorage.setItem(HIDDEN_MENUS_KEY, JSON.stringify(list)); } catch (e) {}
+        }
+
+        // menu key → its .menu-item (from the icon id "<key>-img"), for the hideable menus
+        function hideableMenus() {
+            const menus = {};
+            document.querySelectorAll('.menu-item img[id$="-img"]').forEach(img => {
+                const key = img.id.slice(0, -4);
+                if (ALWAYS_SHOWN_MENUS.includes(key)) return;
+                menus[key] = img.closest('.menu-item');
+            });
+            return menus;
+        }
+
+        function applyHiddenMenus() {
+            const hidden = loadHiddenMenus(), menus = hideableMenus();
+            Object.entries(menus).forEach(([key, item]) => item.classList.toggle('user-hidden', hidden.includes(key)));
+
+            // no divider at the end or right after another divider (all the menus between them hidden)
+            let lastShownIsDivider = true, lastDivider = null;
+            Array.from(document.body.children).forEach(el => {
+                if (el.classList.contains('divider')) {
+                    el.classList.toggle('user-hidden', lastShownIsDivider);
+                    if (!lastShownIsDivider) { lastShownIsDivider = true; lastDivider = el; }
+                } else if (el.classList.contains('menu-item') && !el.classList.contains('user-hidden')) {
+                    lastShownIsDivider = false;
+                }
+            });
+            if (lastShownIsDivider && lastDivider) lastDivider.classList.add('user-hidden');
+
+            // restore list
+            const box = document.getElementById('hiddenMenus');
+            const shownHidden = hidden.filter(key => menus[key]);
+            box.style.display = shownHidden.length ? '' : 'none';
+            if (!shownHidden.length) box.classList.remove('open');
+            box.querySelector('.hidden-menus-toggle').textContent = `${shownHidden.length} hidden ▾`;
+            const list = box.querySelector('.hidden-menus-list');
+            list.innerHTML = '';
+            shownHidden.forEach(key => {
+                const row = document.createElement('div');
+                row.textContent = menus[key].querySelector('.menu-text').textContent;
+                row.title = 'Show this menu again';
+                row.addEventListener('click', () => {
+                    saveHiddenMenus(loadHiddenMenus().filter(k => k !== key));
+                    applyHiddenMenus();
+                });
+                list.appendChild(row);
+            });
+            if (shownHidden.length > 1) {
+                const all = document.createElement('div');
+                all.className = 'show-all';
+                all.textContent = 'Show all';
+                all.addEventListener('click', () => {
+                    saveHiddenMenus(loadHiddenMenus().filter(k => !menus[k]));
+                    applyHiddenMenus();
+                });
+                list.appendChild(all);
+            }
+        }
+
+        Object.entries(hideableMenus()).forEach(([key, item]) => {
+            item.classList.add('hideable');
+            const btn = document.createElement('span');
+            btn.className = 'menu-hide';
+            btn.textContent = '×';
+            btn.title = 'Hide this menu';
+            btn.addEventListener('click', event => {
+                event.stopPropagation();    // not a menu click
+                const hidden = loadHiddenMenus();
+                if (!hidden.includes(key)) hidden.push(key);
+                saveHiddenMenus(hidden);
+                applyHiddenMenus();
+            });
+            item.appendChild(btn);
+        });
+        applyHiddenMenus();
+    </script>
 </body>
 </html>

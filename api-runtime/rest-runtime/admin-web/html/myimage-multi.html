@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MyImage Management (Multi-Connection)</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    .content {
+        margin-top: 110px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .refresh-button {
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
+    .refresh-button svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.5s ease;
+    }
+    .refresh-button:active svg {
+        transform: rotate(180deg);
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .connection-bar {
+        position: fixed;
+        top: 56px;
+        width: 97%;
+        background-color: #eaf1fb;
+        z-index: 999;
+        padding: 6px 20px;
+        font-size: 12px;
+        border-bottom: 1px solid #b9cdf0;
+    }
+    .connection-chip {
+        display: inline-block;
+        background-color: #ffffff;
+        border: 1px solid #0645AD;
+        color: #0645AD;
+        border-radius: 10px;
+        padding: 2px 8px;
+        margin: 2px 4px 2px 0;
+        font-weight: bold;
+    }
+    .connection-error {
+        color: #b35c00;
+        margin-top: 4px;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 4%;
+        text-align: center;
+    }
+    .column-connection {
+        width: 16%;
+        text-align: center;
+        font-weight: bold;
+        color: #0645AD;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        position: relative;
+        max-width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 80px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+    .column-connection {
+        width: 12%;
+    }
+    .vpc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .info-group {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .info-group legend {
+        font-weight: bold;
+    }
+    .vpc-tag-container, .subnet-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .myimage-name {
+        width: 22%;
+    }
+    .myimage-source {
+        width: 18%;
+    }
+    .myimage-status {
+        width: 9%;
+    }
+    .myimage-tags {
+        width: 12%;
+    }
+    .myimage-misc {
+        width: 12%;
+    }
+    .disk-created-time {
+        display: block;
+        font-size: 11px;
+        font-weight: normal;
+        color: #888;
+    }
+    .create-table {
+        width: auto;
+        table-layout: auto;
+        margin: 0 auto;
+    }
+    .create-table th, .create-table td {
+        font-size: 12px;
+        padding: 3px 6px;
+        white-space: nowrap;
+    }
+    .create-table input[type="text"] {
+        width: 130px;
+    }
+    .create-table input[type="number"] {
+        width: 80px;
+    }
+    .create-table tr.excluded td {
+        color: #999;
+        background-color: #f7f7f7;
+    }
+    .create-note {
+        color: #b35c00;
+        font-size: 11px;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/myimage.png" alt="MyImage Icon">
+            <h1>MyImage Management (Multi-Connection)</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <button type="button" class="refresh-button" onclick="multiRefresh(true);" title="Refresh">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                <polyline points="21 3 21 9 15 9"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <div class="connection-bar">
+        <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn}}" title="Show only this connection">{{$conn}}</button>{{end}}
+        {{range $conn, $err := .ConnErrors}}
+        <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
+        {{end}}
+    </div>
+
+    <div class="content">
+        <div class="fixed-action-buttons">
+            <button class="add-button" onclick="showOverlay()">+ MyImage (all connections)</button>
+            <div style="flex: 1;"></div>
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedMyImages()">Delete</button>
+        </div>
+        <table id="myimage-table" data-empty-text="No MyImages found across the selected connections.">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="column-connection">Connection</th>
+                <th class="myimage-name">Name</th>
+                <th class="myimage-source">Source VM</th>
+                <th class="myimage-status">Status</th>
+                <th class="myimage-tags">Tags</th>
+                <th class="myimage-misc">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $row := .MyImageRows}}
+            {{$img := $row.MyImage}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="column-connection">{{$row.ConnectionName}}</td>
+                <td class="vpc-name-cell">{{$img.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$img.IId.SystemId}}')">&nbsp;&bull; {{$img.IId.SystemId}}</span>
+                    <span class="disk-created-time" data-time="{{$img.CreatedTime}}"></span>
+                </td>
+                <td class="vpc-name-cell">{{$img.SourceVM.NameId}}
+                    {{if $img.SourceVM.SystemId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$img.SourceVM.SystemId}}')">&nbsp;&bull; {{$img.SourceVM.SystemId}}</span>
+                    {{end}}
+                </td>
+                <td class="center-align">{{$img.Status}}</td>
+                <td>
+                    {{range $tag := $img.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'MYIMAGE', '{{$img.IId.NameId}}', '{{$row.ConnectionName}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                </td>
+                <td class="center-align misc-cell">
+                    <div class="misc-content">{{range $kv := $img.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$img.IId.NameId}}" data-connection="{{$row.ConnectionName}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .MyImageRows}}
+            <tr class="empty-row">
+                <td colspan="8" class="center-align">No MyImages found across the selected connections.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New MyImage to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
+            <form id="addMyImageForm" onsubmit="event.preventDefault(); postMyImageMulti();">
+                <fieldset class="info-group">
+                    <legend>MyImage Info (all connections):</legend>
+                    <div class="form-group">
+                        <label for="myImageName">Name:</label>
+                        <input type="text" id="myImageName" name="myImageName" required style="color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group" style="padding-left: 100px;">
+                        <label>Tags:</label>
+                        <div id="myimage-tag-container" class="vpc-tag-container"></div>
+                        <button type="button" onclick="addTagField('myimage')">+</button>
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Per Connection:</legend>
+                    <table class="create-table" id="create-table">
+                        <tr>
+                            <th>Create</th>
+                            <th>Connection</th>
+                            <th>Source VM (snapshot)</th>
+                        </tr>
+                        {{range $conn := .Connections}}
+                        <tr class="create-row" data-connection="{{$conn}}">
+                            <td class="center-align"><input type="checkbox" class="create-include" checked onchange="updateCreateRowState(this.closest('tr'))"></td>
+                            <td>{{$conn}}</td>
+                            <td><select class="create-vm"></select></td>
+                        </tr>
+                        {{end}}
+                    </table>
+                    <div class="create-note">A MyImage is a snapshot of the selected VM. A connection without a VM is excluded.</div>
+                </fieldset>
+
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add MyImage</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="overlay">
+        <div class="overlay-content"></div>
+    </div>
+
+    <div id="system-id-overlay" class="overlay">
+        <div class="overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">&#128203;</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    // Basic Auth credentials from server
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        return fetchOptions;
+    }
+
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    function toggleSelectAll(source) {
+        const checkboxes = multiVisibleCheckboxes();
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    function formatCreatedTimes() {
+        document.querySelectorAll('#myimage-table .disk-created-time').forEach(formatCreatedTime);
+    }
+
+    function formatCreatedTime(span) {
+        const t = span.dataset.time;
+        if (t && !t.startsWith('0001-')) {
+            const d = new Date(t);
+            if (!isNaN(d)) span.textContent = `created ${d.toLocaleString()}`;
+        }
+    }
+    window.onMultiRefreshed = formatCreatedTimes;
+    formatCreatedTimes();
+
+    // ---- Create ----
+
+    function showOverlay() {
+        document.getElementById('myImageName').value = `multi-myimage-${Math.random().toString(36).substring(2, 6)}`;
+        clearFormFields();
+        loadSourceVMs();
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+    }
+
+    function setOptions(select, options, emptyText) {
+        select.innerHTML = '';
+        if (options.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = emptyText;
+            select.appendChild(option);
+            return;
+        }
+        options.forEach(([value, text]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            select.appendChild(option);
+        });
+    }
+
+    // Load the VM list of each connection into its select; the first VM is selected by default.
+    function loadSourceVMs() {
+        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            if (!multiInFocus(row.dataset.connection)) return;
+            const select = row.querySelector('.create-vm');
+            row.dataset.loading = 'true';
+            row.querySelector('.create-include').checked = true;
+            updateCreateRowState(row);
+            setOptions(select, [], 'Loading…');
+            fetch(`/spider/vm?ConnectionName=${encodeURIComponent(row.dataset.connection)}`)
+                .then(response => response.json().then(data => {
+                    if (!response.ok) throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                    return data.vm || [];
+                }))
+                .then(vms => {
+                    setOptions(select, vms.map(vm => [vm.IId.NameId, vm.IId.NameId]), 'No VM');
+                })
+                .catch(error => setOptions(select, [], `Failed to load VMs: ${error.message}`))
+                .finally(() => {
+                    delete row.dataset.loading;
+                    row.querySelector('.create-include').checked = !!select.value;
+                    updateCreateRowState(row);
+                });
+        });
+    }
+
+    function updateCreateRowState(row) {
+        row.classList.toggle('excluded', !row.querySelector('.create-include').checked);
+    }
+
+    function clearFormFields() {
+        document.querySelectorAll('.myimage-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+        clearFormFields();
+    }
+
+    function handleOverlayEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function addTagField(kind) {
+        const tagContainer = document.getElementById(`${kind}-tag-container`);
+        const tagInput = document.createElement('div');
+        tagInput.className = `${kind}-tag-input tag-input-group`;
+        tagInput.innerHTML = `
+            <input type="text" class="${kind}-tag-key" placeholder="Key" required>
+            <input type="text" class="${kind}-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function collectTags(kind) {
+        return Array.from(document.querySelectorAll(`.${kind}-tag-input`)).map(tagInput => ({
+            Key: tagInput.querySelector(`.${kind}-tag-key`).value.trim(),
+            Value: tagInput.querySelector(`.${kind}-tag-value`).value.trim()
+        }));
+    }
+
+    // Fan out MyImage creation (a snapshot of the selected VM) to every included connection.
+    // Partial failures are allowed: whatever succeeds stays created, failures are reported per request.
+    function postMyImageMulti() {
+        // all connections, or only the one the page is narrowed to
+        const rows = Array.from(document.querySelectorAll('#create-table tr.create-row')).filter(row => multiInFocus(row.dataset.connection));
+        if (rows.some(row => row.dataset.loading)) {
+            alert('The VM lists are still loading. Please wait a moment.');
+            return;
+        }
+        const targets = rows.filter(row => row.querySelector('.create-include').checked && row.querySelector('.create-vm').value)
+            .map(row => ({ connName: row.dataset.connection, vmName: row.querySelector('.create-vm').value }));
+        if (targets.length === 0) {
+            alert('Please include at least one connection with a VM.');
+            return;
+        }
+        const list = targets.map(t => `${t.connName} / ${t.vmName}`).join('\n  - ');
+        if (!confirm(`Create a MyImage (snapshot) of these ${targets.length} VM(s)?\n\n  - ${list}`)) {
+            return;
+        }
+
+        const name = document.getElementById('myImageName').value.trim();
+        const tags = collectTags('myimage');
+
+        hideOverlay();
+
+        // one status box per request; each created MyImage is added to the list at once
+        targets.forEach(task => {
+            const label = `MyImage "${name}" of VM "${task.vmName}" in ${task.connName}`;
+            const box = multiTaskBox('create', `Creating ${label}…`);
+            fetch('/spider/myimage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ConnectionName: task.connName,
+                    ReqInfo: { Name: name, SourceVM: task.vmName, TagList: tags }
+                })
+            })
+            .then(response => response.text().then(txt => {
+                let data;
+                try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }
+                if (!response.ok || !(data.IId && data.IId.NameId)) {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(myImage => {
+                multiAddRow(document.getElementById('myimage-table'), buildMyImageRow(task.connName, myImage), task.connName);
+                box.finish(true, `Created ${label}`);
+            })
+            .catch(error => box.finish(false, `Failed to create ${label}: ${error.message}`));
+        });
+    }
+
+    // ---- Delete ----
+
+    function deleteSelectedMyImages() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select MyImages to delete.");
+            return;
+        }
+
+        const tasks = Array.from(checkboxes).map(checkbox => ({
+            checkbox,
+            connName: checkbox.dataset.connection,
+            myImageName: checkbox.value
+        }));
+        const names = tasks.map(task => `${task.connName} / ${task.myImageName}`).join('\n  - ');
+        if (!confirm(`Are you sure you want to delete the selected ${tasks.length} MyImage(s) from their respective connections?\n\n  - ${names}`)) {
+            return;
+        }
+        // a MyImage being deleted cannot be selected again until the page content is refreshed
+        checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
+
+        tasks.forEach(task => {
+            const label = `MyImage "${task.myImageName}" in ${task.connName}`;
+            const box = multiTaskBox('delete', `Deleting ${label}…`);
+            fetch(`/spider/myimage/${encodeURIComponent(task.myImageName)}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: task.connName })
+            })
+            .then(response => response.json().then(data => {
+                if (!response.ok || !(data.Result === true || data.Result === "true")) {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
+            }))
+            .then(() => {
+                multiRemoveRow(task.checkbox);
+                box.finish(true, `Deleted ${label}`);
+            })
+            .catch(error => {
+                task.checkbox.disabled = false;
+                box.finish(false, `Failed to delete ${label}: ${error.message}`);
+            });
+        });
+    }
+
+    // Build a MyImage row from a MyImageInfo (the create response), same layout as the server-rendered rows.
+    function buildMyImageRow(connName, img) {
+        const el = (tag, className, text) => {
+            const e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        };
+        const nameCell = iid => {
+            const td = el('td', 'vpc-name-cell', (iid && iid.NameId) || '');
+            if (iid && iid.SystemId) {
+                const sysId = el('span', 'desc-system-id', ` • ${iid.SystemId}`);
+                sysId.addEventListener('click', () => showSystemIdOverlay(iid.SystemId));
+                td.appendChild(sysId);
+            }
+            return td;
+        };
+        const iid = img.IId || {};
+
+        const tr = el('tr');
+        tr.appendChild(el('td', 'column-num'));
+        tr.appendChild(el('td', 'column-connection', connName));
+        const nameTd = nameCell(iid);
+        const created = el('span', 'disk-created-time');
+        created.dataset.time = img.CreatedTime || '';
+        formatCreatedTime(created);
+        nameTd.appendChild(created);
+        tr.appendChild(nameTd);
+        tr.appendChild(nameCell(img.SourceVM));
+        tr.appendChild(el('td', 'center-align', img.Status || ''));
+
+        const tagTd = el('td');
+        (img.TagList || []).forEach(tag => {
+            const text = `${tag.Key}: ${tag.Value}`;
+            const div = el('div', 'tag-container', text);
+            div.addEventListener('click', event => showTagOverlay(event, text, 'MYIMAGE', iid.NameId, connName));
+            tagTd.appendChild(div);
+        });
+        tr.appendChild(tagTd);
+
+        const miscTd = el('td', 'center-align misc-cell');
+        const misc = el('div', 'misc-content');
+        (img.KeyValueList || []).forEach(kv => {
+            misc.appendChild(document.createTextNode(`${kv.Key} : ${kv.Value}`));
+            misc.appendChild(el('br'));
+        });
+        miscTd.appendChild(misc);
+        tr.appendChild(miscTd);
+
+        const checkTd = el('td', 'check-column');
+        const checkbox = el('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'deleteCheckbox';
+        checkbox.value = iid.NameId || '';
+        checkbox.dataset.connection = connName;
+        checkTd.appendChild(checkbox);
+        tr.appendChild(checkTd);
+        return tr;
+    }
+
+    // ---- Search / Tag / SystemId ----
+
+    function searchKeyword() {
+        const filter = document.getElementById('searchInput').value.toUpperCase().trim();
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        document.querySelectorAll('#myimage-table td').forEach(td => {
+            const txtValue = td.textContent || td.innerText;
+            td.classList.toggle('highlight', txtValue.toUpperCase().indexOf(filter) > -1);
+        });
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        document.querySelectorAll('#myimage-table td.highlight').forEach(td => td.classList.remove('highlight'));
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName, connName) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = tagOverlay.querySelector('.overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
+            <p>${tag}</p>
+            <div class="form-group" style="justify-content: space-between;">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}', '${connName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+        tagOverlay.style.display = 'flex';
+    }
+
+    function closeTagOverlay() {
+        document.getElementById('tag-overlay').style.display = 'none';
+    }
+
+    function deleteTag(tag, resourceType, resourceName, connName) {
+        const [tagKey] = tag.split(': ');
+        const data = {
+            ConnectionName: connName,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetch(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            multiRefresh();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        document.getElementById('fullSystemId').textContent = systemId;
+        overlay.style.display = 'flex';
+    }
+
+    function closeSystemIdOverlay() {
+        document.getElementById('system-id-overlay').style.display = 'none';
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+        selection.removeAllRanges();
+    }
+</script>
+<script src="/spider/adminweb/static/js/multi-task.js"></script>
+</html>
