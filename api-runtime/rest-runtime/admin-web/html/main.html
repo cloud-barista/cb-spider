@@ -119,6 +119,21 @@
             padding: 0;
             color: #888;
         }
+        .multi-conn-badge {
+            margin-left: 10px;
+            padding: 2px 8px;
+            background-color: #fff3e0;
+            color: #b35c00;
+            border: 1px solid #f0c98a;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .multi-conn-badge:hover {
+            background-color: #ffe4b3;
+        }
         .menu-bar {
             font-size: 0;
         }
@@ -588,6 +603,37 @@
         }
     });
 
+    function updateMultiConnectionBadge(connections) {
+        const badge = document.getElementById('multiConnectionBadge');
+        if (connections && connections.length > 1) {
+            badge.textContent = `Multi: ${connections.length} connections ✕`;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    function clearMultiConnections() {
+        sessionStorage.removeItem('multiConnections');
+        updateMultiConnectionBadge(null);
+    }
+
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'setMultiConnections') {
+            sessionStorage.setItem('multiConnections', JSON.stringify(event.data.connections));
+            updateMultiConnectionBadge(event.data.connections);
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            const stored = JSON.parse(sessionStorage.getItem('multiConnections') || 'null');
+            updateMultiConnectionBadge(stored);
+        } catch (e) {
+            // ignore malformed sessionStorage content
+        }
+    });
+
     window.addEventListener('message', function(event) {
         if (event.data.type === 'showProgressBar') {
             showProgressBar();
@@ -629,6 +675,7 @@
                     <div id="selectedConfigName" class="" data-noconn="1"></div>
                     <div id="selectedProvider"></div>
                     <div id="selectedRegion"></div>
+                    <div id="multiConnectionBadge" class="multi-conn-badge hidden" onclick="clearMultiConnections()" title="Click to clear multi-connection selection"></div>
                 </div>
                 <div class="top-menu-right">
                     <div class="dynamic-menu"></div>

@@ -291,6 +291,17 @@
         color: #666;
         font-weight: bold;
     }
+    .multi-select-button {
+        background-color: #0645AD;
+        color: #fff;
+        border: none;
+        border-radius: 3px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+    .multi-select-button:hover {
+        background-color: #04379e;
+    }
 </style>
 <script>
     // Basic Auth credentials from server
@@ -411,6 +422,24 @@
                 checkbox.checked = source.checked;
             }
         }
+    }
+
+    function applyMultiConnectionSelection() {
+        const checkboxes = document.querySelectorAll('.multi-select-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert('Please select at least one connection for multi-connection management.');
+            return;
+        }
+
+        const connections = Array.from(checkboxes).map(checkbox => ({
+            ConfigName: checkbox.value,
+            ProviderName: checkbox.dataset.provider,
+            RegionName: checkbox.dataset.region
+        }));
+
+        window.parent.postMessage({ type: 'setMultiConnections', connections: connections }, '*');
+
+        alert(`${connections.length} connection(s) set for multi-connection management.\n\nOpen KeyPair (more resources coming soon) from the left menu to manage them together.`);
     }
 
     function validateForm() {
@@ -985,6 +1014,7 @@
             <div class="fixed-action-buttons">
                 <input type="checkbox" onclick="toggleSelectAll(this)">
                 <button onclick="deleteSelectedConnections()">Delete</button>
+                <button class="multi-select-button" onclick="applyMultiConnectionSelection()">Use Selected for Multi-Connection &#9656;</button>
             </div>
         </div>
         {{else}}
@@ -1006,6 +1036,7 @@
                     Region Name : Region / Zone
                 </th>
                 <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectTable(this, 'table-{{$provider}}')"></th>
+                <th class="checkbox-cell">Multi</th>
             </tr>
             {{if index $.ConnectionConfigs $provider}}
                 {{range $config := index $.ConnectionConfigs $provider}}
@@ -1021,11 +1052,14 @@
                     <td class="checkbox-cell">
                         <input type="checkbox" name="deleteCheckbox" value="{{$config.ConfigName}}">
                     </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox" class="multi-select-checkbox" value="{{$config.ConfigName}}" data-provider="{{$provider}}" data-region="{{index $.Regions $config.RegionName}}">
+                    </td>
                 </tr>
                 {{end}}
             {{else}}
             <tr>
-                <td colspan="5">No connections found for {{$provider}}</td>
+                <td colspan="6">No connections found for {{$provider}}</td>
             </tr>
             {{end}}
         </table>

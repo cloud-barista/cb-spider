@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KeyPair Management (Multi-Connection)</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    .content {
+        margin-top: 110px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .refresh-button {
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
+    .refresh-button svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.5s ease;
+    }
+    .refresh-button:active svg {
+        transform: rotate(180deg);
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .connection-bar {
+        position: fixed;
+        top: 56px;
+        width: 97%;
+        background-color: #eaf1fb;
+        z-index: 999;
+        padding: 6px 20px;
+        font-size: 12px;
+        border-bottom: 1px solid #b9cdf0;
+    }
+    .connection-chip {
+        display: inline-block;
+        background-color: #ffffff;
+        border: 1px solid #0645AD;
+        color: #0645AD;
+        border-radius: 10px;
+        padding: 2px 8px;
+        margin: 2px 4px 2px 0;
+        font-weight: bold;
+    }
+    .connection-error {
+        color: #b35c00;
+        margin-top: 4px;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 4%;
+        text-align: center;
+    }
+    .column-connection {
+        width: 16%;
+        text-align: center;
+        font-weight: bold;
+        color: #0645AD;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .fingerprint {
+        width: 20%;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .misc {
+        width: 15%;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        position: relative;
+        max-width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 80px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    #keypair-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .overlay-close-btn {
+        background-color: #f0f0f0;
+        color: #d9534f;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .result-table th, .result-table td {
+        font-size: 12px;
+    }
+    .status-ok {
+        color: #2e7d32;
+        font-weight: bold;
+    }
+    .status-fail {
+        color: #c62828;
+        font-weight: bold;
+    }
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/keypair.png" alt="KeyPair Icon">
+            <h1>KeyPair Management (Multi-Connection)</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>
+        <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                <polyline points="21 3 21 9 15 9"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <div class="connection-bar">
+        <strong>Active Connections ({{len .Connections}}):</strong>
+        {{range $conn := .Connections}}<span class="connection-chip">{{$conn}}</span>{{end}}
+        {{range $conn, $err := .ConnErrors}}
+        <div class="connection-error">&#9888; {{$conn}}: {{$err}}</div>
+        {{end}}
+    </div>
+
+    <div class="content">
+        <div class="fixed-action-buttons">
+            <button class="add-button" onclick="showOverlay()">+ KeyPair (all connections)</button>
+            <div style="flex: 1;"></div>
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedKeyPairs()">Delete</button>
+        </div>
+        <table id="keypair-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="column-connection">Connection</th>
+                <th class="center-align">Name</th>
+                <th class="center-align fingerprint">Fingerprint</th>
+                <th class="center-align">Tags</th>
+                <th class="center-align">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $row := .KeyPairRows}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="column-connection">{{$row.ConnectionName}}</td>
+                <td class="name desc-name-cell center-align">{{$row.KeyPair.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$row.KeyPair.IId.SystemId}}')">&nbsp;&bull; {{$row.KeyPair.IId.SystemId}}</span>
+                </td>
+                <td class="center-align fingerprint">{{$row.KeyPair.Fingerprint}}</td>
+                <td>
+                    {{if $row.KeyPair.Fingerprint}}
+                        {{range $tag := $row.KeyPair.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'KEYPAIR', '{{$row.KeyPair.IId.NameId}}', '{{$row.ConnectionName}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                    {{end}}
+                </td>
+                <td class="center-align misc-cell">
+                    <div class="misc-content">{{range $kv := $row.KeyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$row.KeyPair.IId.NameId}}" data-connection="{{$row.ConnectionName}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .KeyPairRows}}
+            <tr>
+                <td colspan="7" class="center-align">No KeyPairs found across the selected connections.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New KeyPair to {{len .Connections}} Connection(s)</h2>
+            <form id="addKeyPairForm" onsubmit="event.preventDefault(); postKeyPairMulti();">
+                <div class="form-group">
+                    <label for="keyPairName">Name:</label>
+                    <input type="text" id="keyPairName" name="keyPairName" required style="color: #3366CC; font-weight: bold;">
+                </div>
+
+                <div class="form-group" style="padding-left: 100px;">
+                    <label for="keyPairTags">Tags:</label>
+                    <div id="keypair-tag-container"></div>
+                    <button type="button" onclick="addKeyPairTagField()">+</button>
+                </div>
+
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="keyPairCount" style="margin-right: 5px;margin-left: 40px;">#/conn:</label>
+                    <input type="number" id="keyPairCount" name="keyPairCount" class="keypair-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
+                    <button type="submit">Add KeyPair</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="result-overlay" class="overlay">
+        <div class="overlay-content" style="min-width: 500px;">
+            <button type="button" class="overlay-close-btn" onclick="closeResultOverlay()">X</button>
+            <h2>Result</h2>
+            <table class="result-table" id="result-table">
+                <tr>
+                    <th>Connection</th>
+                    <th>KeyPair Name</th>
+                    <th>Status</th>
+                    <th>Download</th>
+                </tr>
+            </table>
+            <div class="form-group" style="justify-content: center; margin-top: 15px;">
+                <button type="button" onclick="closeResultOverlay()">Close &amp; Refresh</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="overlay">
+        <div class="overlay-content"></div>
+    </div>
+
+    <div id="system-id-overlay" class="overlay">
+        <div class="overlay-content">
+            <button class="overlay-close-btn" onclick="closeSystemIdOverlay()">X</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">&#128203;</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    // Basic Auth credentials from server
+    const SPIDER_USERNAME = '{{.APIUsername}}';
+    const SPIDER_PASSWORD = '{{.APIPassword}}';
+
+    function createFetchOptions(options = {}) {
+        const fetchOptions = { ...options };
+        if (SPIDER_USERNAME && SPIDER_PASSWORD) {
+            const credentials = btoa(SPIDER_USERNAME + ':' + SPIDER_PASSWORD);
+            fetchOptions.headers = {
+                ...fetchOptions.headers,
+                'Authorization': 'Basic ' + credentials
+            };
+        }
+        return fetchOptions;
+    }
+
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (url.startsWith('/spider/') || url.startsWith('http://' + location.host + '/spider/')) {
+            options = createFetchOptions(options);
+        }
+        return originalFetch(url, options);
+    };
+
+    // Connection names this page fans requests out to, injected server-side.
+    const MULTI_CONNECTIONS = [{{range $i, $conn := .Connections}}{{if $i}},{{end}}"{{$conn}}"{{end}}];
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function showProgressBar() {
+        // Multi-connection page delegates to the shared top-level progress bar.
+        parent.postMessage({ type: 'showProgressBar' }, '*');
+    }
+
+    function hideProgressBar() {
+        parent.postMessage({ type: 'hideProgressBar' }, '*');
+    }
+
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    function showOverlay() {
+        const keyPairNameInput = document.getElementById('keyPairName');
+        keyPairNameInput.value = `multi-keypair-${Math.random().toString(36).substring(2, 8)}`;
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+        clearFormFields();
+    }
+
+    function clearFormFields() {
+        const tagContainer = document.getElementById('keypair-tag-container');
+        while (tagContainer.firstChild) {
+            tagContainer.removeChild(tagContainer.firstChild);
+        }
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+        clearFormFields();
+    }
+
+    function handleOverlayEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function addKeyPairTagField() {
+        const tagContainer = document.getElementById('keypair-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'keypair-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="keypair-tag-key" placeholder="Key" required>
+            <input type="text" class="keypair-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    // Fan out KeyPair creation to every selected connection. Partial failures are
+    // allowed: whatever succeeds stays created, failures are reported per connection.
+    function postKeyPairMulti() {
+        if (MULTI_CONNECTIONS.length === 0) {
+            alert('No connections are active for multi-connection management.');
+            return;
+        }
+
+        const keyPairCount = parseInt(document.getElementById('keyPairCount').value);
+        const totalCount = keyPairCount * MULTI_CONNECTIONS.length;
+        if (!confirm(`Create ${keyPairCount} KeyPair(s) on each of ${MULTI_CONNECTIONS.length} connection(s)? (Total: ${totalCount})`)) {
+            return;
+        }
+
+        const baseName = document.getElementById('keyPairName').value;
+        const tags = Array.from(document.querySelectorAll('.keypair-tag-input')).map(tagInput => ({
+            Key: tagInput.querySelector('.keypair-tag-key').value.trim(),
+            Value: tagInput.querySelector('.keypair-tag-value').value.trim()
+        }));
+
+        const tasks = [];
+        MULTI_CONNECTIONS.forEach(connName => {
+            for (let i = 0; i < keyPairCount; i++) {
+                const keyPairName = keyPairCount > 1 ? `${baseName}-${i + 1}` : baseName;
+                tasks.push({ connName, keyPairName });
+            }
+        });
+
+        hideOverlay();
+        showProgressBar();
+
+        Promise.allSettled(tasks.map(task =>
+            fetch('/spider/keypair', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ConnectionName: task.connName,
+                    ReqInfo: { Name: task.keyPairName, TagList: tags }
+                })
+            })
+            .then(response => response.json().then(data => ({
+                connName: task.connName,
+                keyPairName: task.keyPairName,
+                ok: !!(data.IId && data.IId.NameId),
+                message: data.Message || '',
+                privateKey: data.PrivateKey || ''
+            })))
+            .catch(error => ({
+                connName: task.connName,
+                keyPairName: task.keyPairName,
+                ok: false,
+                message: error.message,
+                privateKey: ''
+            }))
+        )).then(settled => {
+            hideProgressBar();
+            showResultOverlay(settled.map(s => s.value));
+        });
+    }
+
+    function deleteSelectedKeyPairs() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select KeyPairs to delete.");
+            return;
+        }
+        if (!confirm(`Are you sure you want to delete the selected ${checkboxes.length} KeyPair(s) from their respective connections?`)) {
+            return;
+        }
+
+        showProgressBar();
+
+        const tasks = Array.from(checkboxes).map(checkbox => ({
+            connName: checkbox.dataset.connection,
+            keyPairName: checkbox.value
+        }));
+
+        Promise.allSettled(tasks.map(task =>
+            fetch(`/spider/keypair/${task.keyPairName}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ConnectionName: task.connName })
+            })
+            .then(response => response.json().then(data => ({
+                connName: task.connName,
+                keyPairName: task.keyPairName,
+                ok: data.Result === "true",
+                message: data.Message || ''
+            })))
+            .catch(error => ({
+                connName: task.connName,
+                keyPairName: task.keyPairName,
+                ok: false,
+                message: error.message
+            }))
+        )).then(settled => {
+            hideProgressBar();
+            const results = settled.map(s => s.value);
+            const failed = results.filter(r => !r.ok);
+            if (failed.length > 0) {
+                alert(`Deleted ${results.length - failed.length}/${results.length}.\n\nFailures:\n` +
+                    failed.map(f => `${f.connName} / ${f.keyPairName}: ${f.message || 'error'}`).join('\n'));
+            }
+            location.reload();
+        });
+    }
+
+    function showResultOverlay(results) {
+        const table = document.getElementById('result-table');
+        table.querySelectorAll('tr:not(:first-child)').forEach(tr => tr.remove());
+
+        results.forEach(result => {
+            const tr = document.createElement('tr');
+
+            const connTd = document.createElement('td');
+            connTd.textContent = result.connName;
+            tr.appendChild(connTd);
+
+            const nameTd = document.createElement('td');
+            nameTd.textContent = result.keyPairName;
+            tr.appendChild(nameTd);
+
+            const statusTd = document.createElement('td');
+            statusTd.className = result.ok ? 'status-ok' : 'status-fail';
+            statusTd.textContent = result.ok ? 'Created' : `Failed: ${result.message || 'unknown error'}`;
+            tr.appendChild(statusTd);
+
+            const downloadTd = document.createElement('td');
+            if (result.ok && result.privateKey) {
+                const btn = document.createElement('button');
+                btn.textContent = 'Download';
+                btn.onclick = () => downloadPrivateKey(`${result.connName}-${result.keyPairName}`, result.privateKey);
+                downloadTd.appendChild(btn);
+            }
+            tr.appendChild(downloadTd);
+
+            table.appendChild(tr);
+        });
+
+        document.getElementById('result-overlay').style.display = 'flex';
+    }
+
+    function closeResultOverlay() {
+        document.getElementById('result-overlay').style.display = 'none';
+        location.reload();
+    }
+
+    function downloadPrivateKey(keyPairName, privateKey) {
+        const element = document.createElement('a');
+        const file = new Blob([privateKey], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = `${keyPairName}.pem`;
+        document.body.appendChild(element);
+        element.click();
+    }
+
+    function searchKeyword() {
+        let input, filter, table, tr, td, i;
+        input = document.getElementById('searchInput');
+        filter = input.value.toUpperCase().trim();
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        table = document.getElementById('keypair-table');
+        tr = table.getElementsByTagName('tr');
+
+        for (i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                td = tr[i].cells[j];
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        td.classList.add('highlight');
+                    } else {
+                        td.classList.remove('highlight');
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        let table = document.getElementById('keypair-table');
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                tr[i].cells[j].classList.remove('highlight');
+            }
+        }
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName, connName) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = tagOverlay.querySelector('.overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="overlay-close-btn" onclick="closeTagOverlay()">X</button>
+            <p>${tag}</p>
+            <div class="form-group" style="justify-content: space-between;">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}', '${connName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+        tagOverlay.style.display = 'flex';
+    }
+
+    function closeTagOverlay() {
+        document.getElementById('tag-overlay').style.display = 'none';
+    }
+
+    function deleteTag(tag, resourceType, resourceName, connName) {
+        const [tagKey] = tag.split(': ');
+        const data = {
+            ConnectionName: connName,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetch(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => { throw new Error(error.message); });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        document.getElementById('fullSystemId').textContent = systemId;
+        overlay.style.display = 'flex';
+    }
+
+    function closeSystemIdOverlay() {
+        document.getElementById('system-id-overlay').style.display = 'none';
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+        selection.removeAllRanges();
+    }
+</script>
+</html>

@@ -68,7 +68,52 @@
         }
     </style>
     <script>
+        // Resource menus that have a dedicated multi-connection page (/adminweb/<menu>/multi).
+        // Add to this list as more resources get multi-connection support.
+        const multiConnectionCapableMenus = ['keypair'];
+
+        function tryMultiConnectionRedirect(menu, event) {
+            if (!multiConnectionCapableMenus.includes(menu)) {
+                return false;
+            }
+
+            let multiConnections = null;
+            try {
+                multiConnections = JSON.parse(sessionStorage.getItem('multiConnections') || 'null');
+            } catch (e) {
+                multiConnections = null;
+            }
+
+            if (!multiConnections || multiConnections.length <= 1) {
+                return false;
+            }
+
+            const ids = multiConnections.map(c => encodeURIComponent(c.ConfigName)).join(',');
+            const targetUrl = `/spider/adminweb/${menu}/multi?ids=${ids}`;
+            const iframe = parent.frames['body_frame'];
+
+            parent.postMessage({ type: 'showProgressBar' }, '*');
+
+            iframe.onload = function() {
+                parent.postMessage({ type: 'iframeLoaded' }, '*');
+            };
+            iframe.onerror = function() {
+                parent.postMessage({ type: 'hideProgressBar' }, '*');
+                alert('Failed to load the page. Please try again.');
+            };
+
+            iframe.location.href = targetUrl;
+
+            changeSelectedImage(menu);
+            parent.postMessage({ type: 'deselectMainMenu' }, '*');
+            return true;
+        }
+
         function checkConnectionAndRedirect(menu, event) {
+            if (tryMultiConnectionRedirect(menu, event)) {
+                return;
+            }
+
             const topMenuFrame = parent.document.querySelector('.top-menu');
             const connectionNameElement = topMenuFrame ? topMenuFrame.querySelector('#selectedConfigName') : null;
             const connectionName = connectionNameElement ? connectionNameElement.innerText.replace('Connection Name: ', '') : '';
