@@ -17,6 +17,10 @@
 // once when no request is running any more.
 (function () {
     let running = 0;    // requests whose status box is still busy
+    // results of the status boxes per type (create/delete): read by the Auto Play of the main page
+    const taskResults = {};
+    // {running, results: {create: {ok, fail, failures: [text]}, ...}}
+    window.multiTaskState = () => ({ running, results: JSON.parse(JSON.stringify(taskResults)) });
 
     function emptyRow(table) {
         const tr = document.createElement('tr');
@@ -156,6 +160,66 @@
     });
 
     // type: 'create' | 'delete' | 'refresh'. Returns { setText, finish(ok, text, action) }
+    // Send several Spider API requests in one call: the server sends them at the same time and streams
+    // each response back as soon as it arrives (POST /spider/adminweb/fanout). The browser opens at most
+    // 6 connections to one server, so sending one request per connection queued the rest behind slow
+    // ones (ex: an IBM NLB takes about 7 minutes to create).
+    // requests: [{method, path, headers, body}] -> one Promise per request, resolved with a Response, in order.
+    window.multiFanout = function (requests) {
+        const pending = requests.map(() => {
+            let resolve, reject;
+            const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+            return { promise, resolve, reject, done: false };
+        });
+        const settle = (index, settleFn, value) => {
+            const p = pending[index];
+            if (!p || p.done) return;
+            p.done = true;
+            settleFn === 'resolve' ? p.resolve(value) : p.reject(value);
+        };
+
+        fetch('/spider/adminweb/fanout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requests: requests.map((r, i) => ({ id: String(i), method: r.method, path: r.path, headers: r.headers, body: r.body }))
+            })
+        })
+        .then(async response => {
+            if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffered = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                buffered += decoder.decode(value || new Uint8Array(), { stream: !done });
+                let newline;
+                while ((newline = buffered.indexOf('\n')) >= 0) {
+                    const line = buffered.slice(0, newline).trim();
+                    buffered = buffered.slice(newline + 1);
+                    if (!line) continue;
+                    const r = JSON.parse(line);
+                    const index = parseInt(r.id, 10);
+                    if (r.status >= 200 && r.status <= 599) {
+                        // 204/205/304 responses cannot carry a body
+                        const noBody = [204, 205, 304].includes(r.status);
+                        settle(index, 'resolve', new Response(noBody ? null : r.body, {
+                            status: r.status,
+                            headers: { 'Content-Type': 'application/json' }
+                        }));
+                    } else {
+                        settle(index, 'reject', new Error(r.error || 'the request could not be sent'));
+                    }
+                }
+                if (done) break;
+            }
+            throw new Error('no response from the server');
+        })
+        .catch(error => pending.forEach((p, i) => settle(i, 'reject', error)));
+
+        return pending.map(p => p.promise);
+    };
+
     window.multiTaskBox = function (type, text) {
         const t = taskTrays(), doc = t.doc;
         const el = doc.createElement('div');
@@ -202,6 +266,11 @@
             // action: optional { label, onClick }; a box with an action stays until dismissed
             finish(ok, s, action) {
                 done();
+                if (counted) {
+                    const r = taskResults[type] || (taskResults[type] = { ok: 0, fail: 0, failures: [] });
+                    if (ok) r.ok++;
+                    else { r.fail++; r.failures.push(s); }
+                }
                 el.classList.add(ok ? 'ok' : 'fail');
                 const icon = doc.createElement('span');
                 icon.className = 'mc-task-icon';
@@ -241,7 +310,8 @@ body.multi-single .search-select { display: none !important; }
 .search-select { display: none; align-items: center; gap: 3px; margin-left: 8px; font-size: 12px; font-weight: bold;
     color: #555; white-space: nowrap; cursor: pointer; user-select: none; }
 .search-select.shown { display: inline-flex; }
-.search-select input { margin: 0; cursor: pointer; }`;
+.search-select input { margin: 0; cursor: pointer; }
+.fixed-action-buttons .add-button { margin-bottom: 0; }`;
     const barStyle = document.createElement('style');
     barStyle.textContent = BAR_CSS;
     document.head.appendChild(barStyle);
@@ -308,6 +378,22 @@ body.multi-single .search-select { display: none !important; }
         singleFrame.style.height = Math.max(0, window.innerHeight - top) + 'px';
     }
     window.addEventListener('resize', placeSingleFrame);
+
+    // The connection bar wraps to more lines with many connections (and grows with connection errors):
+    // keep the list (+ button and table) right below it, as the single-connection page has it below its header.
+    function placeContent() {
+        const bar = document.querySelector('.connection-bar');
+        const content = document.querySelector('.content');
+        if (!bar || !content) return;
+        content.style.marginTop = (bar.getBoundingClientRect().bottom + 10) + 'px';
+        placeSingleFrame();
+    }
+    window.addEventListener('resize', placeContent);
+    (function watchConnectionBar() {
+        const bar = document.querySelector('.connection-bar');
+        if (bar && typeof ResizeObserver === 'function') new ResizeObserver(placeContent).observe(bar);
+        placeContent();
+    })();
 
     function syncSingleFrame(focus) {
         const content = document.querySelector('.content');

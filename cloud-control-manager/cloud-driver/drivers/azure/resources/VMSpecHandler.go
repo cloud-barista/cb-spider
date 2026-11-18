@@ -777,10 +777,13 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo,
 	}
 
 	// Get ResourceSKU information for the specific VM
+	// Filter by location only, and match the name below: the Resource SKUs API supports only the
+	// location filter, and adding a name condition made it return SKUs of all regions (about 40s
+	// instead of about 3s in northeurope).
 	var resourceSKU *armcompute.ResourceSKU
 	if vmSpecHandler.ResourceSKUsClient != nil {
 		skuPager := vmSpecHandler.ResourceSKUsClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
-			Filter: toStrPtr(fmt.Sprintf("location eq '%s' and name eq '%s'", vmSpecHandler.Region.Region, Name)),
+			Filter: toStrPtr(fmt.Sprintf("location eq '%s'", vmSpecHandler.Region.Region)),
 		})
 
 		for skuPager.More() {

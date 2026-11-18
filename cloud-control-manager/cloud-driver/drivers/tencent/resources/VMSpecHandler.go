@@ -325,12 +325,12 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 	}
 	vmSpecInfo.VCpu = vCpuInfo
 
-	cblogger.Info("instanceTypeInfo.Gpu ", *instanceTypeInfo.Gpu)
+	cblogger.Debug("instanceTypeInfo.Gpu ", *instanceTypeInfo.Gpu)
 	gpuInfoList := []irs.GpuInfo{}
 	//GPU 정보가 있는 인스터스는 GPU 처리
 	val := reflect.ValueOf(*instanceTypeInfo.Gpu)
 	//val int64 :: int64 ::: 4
-	cblogger.Info("instanceTypeInfo.Gpu val ", val.Kind(), " :: ", reflect.Int64, " ::: ", val.Int())
+	cblogger.Debug("instanceTypeInfo.Gpu val ", val.Kind(), " :: ", reflect.Int64, " ::: ", val.Int())
 	//if !reflect.ValueOf(*instanceTypeInfo.Gpu).IsNil() {
 	if val.Kind() == reflect.Int64 && val.Int() > 0 {
 		//vmSpecInfo.Gpu = []irs.GpuInfo{irs.GpuInfo{Count: strconv.FormatInt(*instanceTypeInfo.GPU, 10)}}
@@ -348,8 +348,8 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 
 		gpuInfoList = append(gpuInfoList, gpuInfo)
 	} else {
-		cblogger.Info("val.Kind() == reflect.Int64", val.Kind() == reflect.Int64)
-		cblogger.Info("val.Int() > 0", val.Int() > 0)
+		cblogger.Debug("val.Kind() == reflect.Int64", val.Kind() == reflect.Int64)
+		cblogger.Debug("val.Int() > 0", val.Int() > 0)
 	}
 	vmSpecInfo.Gpu = gpuInfoList
 

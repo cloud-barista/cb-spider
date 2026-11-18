@@ -500,7 +500,25 @@
         font-size: 13px;        
     }
 
-</style>
+    /* A dialog taller than the window (ex: zoomed in) scrolls inside it, so its buttons stay reachable
+       (same as the multi-connection pages). */
+    .overlay-content, .add-tag-overlay-content, .add-subnet-tag-overlay-content,
+    .tag-overlay-content, .overlay-content-new-nodegroup {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+        /* slow MyImage creation in the region of a connection (e.g. Alibaba cn-beijing) */
+        .slow-notice {
+            background: #fff8e1;
+            border: 1px solid #f0c36d;
+            color: #7a5a00;
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin: 4px 0;
+            font-size: 13px;
+        }
+    </style>
 </head>
 <body>
     <div class="fixed-header">
@@ -524,6 +542,7 @@
         <div class="header-with-progress">
             <button class="add-button" onclick="showOverlay()">+ MyImage</button>
             <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            {{range $notice := .SlowNotices}}<div class="slow-notice" style="margin-left: 10px;">&#9203; {{$notice}}</div>{{end}}
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
                 <span id="timeDisplay"></span>
@@ -589,6 +608,7 @@
         <div class="overlay-content">
             <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>Add New MyImage</h2>
+            {{range $notice := .SlowNotices}}<div class="slow-notice">&#9203; {{$notice}}</div>{{end}}
             <form id="addMyImageForm" onsubmit="event.preventDefault(); postMyImage();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
                 

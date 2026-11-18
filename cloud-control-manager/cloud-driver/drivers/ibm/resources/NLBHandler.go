@@ -913,7 +913,7 @@ func (nlbHandler *IbmNLBHandler) setterNLB(nlb vpcv1.LoadBalancer) (*irs.NLBInfo
 		SearchService:  nlbHandler.SearchService,
 	}
 
-	tags, err := tagHandler.ListTag(irs.NLB, irs.IID{SystemId: *nlb.ID})
+	tags, err := listTagWithKnownCRN(&tagHandler, irs.NLB, irs.IID{SystemId: *nlb.ID}, nlb.CRN) // CRN is in hand: skips re-reading the resource
 	if err != nil {
 		cblogger.Warn("Failed to get tags of the NLB (" + *nlb.Name + "). err = " + err.Error())
 	}
@@ -1495,8 +1495,13 @@ func (nlbHandler *IbmNLBHandler) checkUpdatableNLB(nlbId string) (vpcv1.LoadBala
 	var updatableCheckNLB *vpcv1.LoadBalancer
 	var err error
 
+	// Wait up to 15 minutes (450 x 2s) for the "active" state. Provisioning a new IBM load balancer
+	// takes several minutes (about 7 minutes was measured in us-south), and the previous limit of
+	// 8 minutes was too close: on a timeout, CreateNLB deletes the NLB it was creating.
+	// After an update (listener, VM group, ...) the NLB becomes active much sooner, so this limit only
+	// matters for a new NLB.
 	curRetryCnt := 0
-	maxRetryCnt := 240
+	maxRetryCnt := 450
 	for {
 		updatableCheckNLB, _, err = nlbHandler.VpcService.GetLoadBalancerWithContext(nlbHandler.Ctx, &updatableCheckNLBOptions)
 		if err == nil && *updatableCheckNLB.ProvisioningStatus == "active" {
@@ -1505,7 +1510,7 @@ func (nlbHandler *IbmNLBHandler) checkUpdatableNLB(nlbId string) (vpcv1.LoadBala
 		time.Sleep(2 * time.Second)
 		curRetryCnt++
 		if curRetryCnt > maxRetryCnt {
-			return vpcv1.LoadBalancer{}, errors.New(fmt.Sprintf("Failed to Update NLB VMGroup. err = exceeded maximum retry count %d", maxRetryCnt))
+			return vpcv1.LoadBalancer{}, errors.New(fmt.Sprintf("Failed to wait for the NLB to become active. err = exceeded maximum retry count %d (%d seconds)", maxRetryCnt, maxRetryCnt*2))
 		}
 	}
 }

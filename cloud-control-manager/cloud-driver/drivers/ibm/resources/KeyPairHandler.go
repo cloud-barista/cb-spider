@@ -266,7 +266,7 @@ func (keyPairHandler *IbmKeyPairHandler) setKeyInfo(key vpcv1.Key, privateKey st
 		SearchService:  keyPairHandler.SearchService,
 	}
 
-	tags, err := tagHandler.ListTag(irs.KEY, irs.IID{SystemId: *key.ID})
+	tags, err := listTagWithKnownCRN(&tagHandler, irs.KEY, irs.IID{SystemId: *key.ID}, key.CRN) // CRN is in hand: skips re-reading the resource
 	if err != nil {
 		cblogger.Warn("Failed to get tags of the Key (" + *key.Name + "). err = " + err.Error())
 	}

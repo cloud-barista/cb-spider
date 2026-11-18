@@ -129,6 +129,13 @@ func NLBManagement(c echo.Context) error {
 	return nil
 }
 
+// NLBMultiConnection describes a connection used by the multi-connection NLB page.
+// Provider selects the CSP-specific health checker values of a new NLB (ex: GCP needs HTTP).
+type NLBMultiConnection struct {
+	Name     string
+	Provider string
+}
+
 // NLBMultiRow pairs an NLB with the connection it was fetched from,
 // so a single table can list NLBs aggregated across several connections.
 type NLBMultiRow struct {
@@ -136,8 +143,9 @@ type NLBMultiRow struct {
 	NLB            *cres.NLBInfo
 }
 
-// Handler function to render the NLB management page across multiple connections at once (list and
-// delete only: creating an NLB takes CSP-specific options, so it is done on the single-connection page).
+// Handler function to render the NLB management page across multiple connections at once (list, create
+// and delete). A new NLB is created on each connection with the VPC and VMs selected for it, and the
+// CSP-specific health checker values are applied per connection by its provider.
 // Each connection is fetched independently so that one failing connection does not block the others
 // from being displayed (partial success). A connection whose driver has no NLB support is reported as a
 // notice (not an error) instead of being listed.
@@ -162,13 +170,18 @@ func NLBManagementMulti(c echo.Context) error {
 		}
 	}
 
+	var conns []NLBMultiConnection
 	var rows []NLBMultiRow
 	connErrors := map[string]string{}
 	connNotices := map[string]string{}
 
 	for _, connName := range connNames {
+		conn := NLBMultiConnection{Name: connName}
+		// provider is used only to create NLBs, so the NLB list is still shown without it
+		conn.Provider, _ = getProviderName(connName)
+		conns = append(conns, conn)
 		if isMultiAsyncLoad(c) {
-			break
+			continue
 		}
 		if fetchUnsupportedResources(connName)["nlb"] {
 			connNotices[connName] = "NLB is not supported by this CSP"
@@ -189,14 +202,14 @@ func NLBManagementMulti(c echo.Context) error {
 	}
 
 	data := struct {
-		Connections []string
+		Connections []NLBMultiConnection
 		NLBRows     []NLBMultiRow
 		ConnErrors  map[string]string
 		ConnNotices map[string]string
 		APIUsername string
 		APIPassword string
 	}{
-		Connections: connNames,
+		Connections: conns,
 		NLBRows:     rows,
 		ConnErrors:  connErrors,
 		ConnNotices: connNotices,

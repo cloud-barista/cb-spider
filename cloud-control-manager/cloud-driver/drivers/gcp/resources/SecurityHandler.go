@@ -652,7 +652,7 @@ func (securityHandler *GCPSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		}
 	}
 
-	cblogger.Info("securityInfo : ", securityInfo)
+	cblogger.Debug("securityInfo : ", securityInfo)
 	if securityInfo.IId.SystemId == "" {
 		return irs.SecurityInfo{}, fmt.Errorf("The SecurityGroup [%s] not found", securityGroupTag)
 	}
@@ -1459,7 +1459,7 @@ func getTagFromTags(itemName string, tags []string) string {
 	// 해당 tag에 param이 있는가
 	for _, tag := range tags {
 		// naming rule에 의해 itemName 은 tag + surfix 로 구성되므로 tag가 itemName에 있어야 함.
-		cblogger.Info("itemName : ", itemName, tag, strings.Index(itemName, tag))
+		cblogger.Debug("itemName : ", itemName, tag, strings.Index(itemName, tag))
 		if tag != "" && strings.Index(itemName, tag) == 0 {
 			if strings.Index(itemName, tag+"-basic") == 0 {
 				return tag
@@ -1572,7 +1572,7 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 				hasSecurityGroupNameFound = true
 			}
 		}
-		cblogger.Info("get security list result : ", item)
+		cblogger.Debug("get security list result : ", item)
 
 		//Allowed []*FirewallAllowed `json:"allowed,omitempty"`
 		//CreationTimestamp string `json:"creationTimestamp,omitempty"`
@@ -1591,10 +1591,10 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 		//SourceRanges []string `json:"sourceRanges,omitempty"`
 		//SourceServiceAccounts []string `json:"sourceServiceAccounts,omitempty"`
 		//SourceTags []string `json:"sourceTags,omitempty"`
-		cblogger.Info("SourceTags : ", item.SourceTags)
+		cblogger.Debug("SourceTags : ", item.SourceTags)
 		//TargetServiceAccounts []string `json:"targetServiceAccounts,omitempty"`
 		//TargetTags []string `json:"targetTags,omitempty"`
-		cblogger.Info("TargetTags : ", item.TargetTags)
+		cblogger.Debug("TargetTags : ", item.TargetTags)
 		//googleapi.ServerResponse `json:"-"`
 		//ForceSendFields []string `json:"-"`
 		//
@@ -1608,7 +1608,7 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 		} else {
 			cidr = strings.Join(item.DestinationRanges, ", ")
 		}
-		cblogger.Info("cidr : ", cidr)
+		cblogger.Debug("cidr : ", cidr)
 
 		var portArr []string
 		var fromPort string
@@ -1617,7 +1617,7 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 
 		for _, firewallRule := range item.Allowed {
 			ipProtocol = firewallRule.IPProtocol
-			cblogger.Info("ipProtocol : ", ipProtocol)
+			cblogger.Debug("ipProtocol : ", ipProtocol)
 			if strings.EqualFold(ipProtocol, "all") || strings.EqualFold(ipProtocol, "icmp") {
 				fromPort = "-1"
 				toPort = "-1"
@@ -1687,10 +1687,10 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 			// },
 			SecurityRules: &securityRules,
 		}
-		cblogger.Info("securityRules : ", securityRules)
-		cblogger.Info("securityRules length: ", len(securityRules))
+		cblogger.Debug("securityRules : ", securityRules)
+		cblogger.Debug("securityRules length: ", len(securityRules))
 	} // end of result.items
-	cblogger.Info("securityInfo : ", securityInfo)
+	cblogger.Debug("securityInfo : ", securityInfo)
 	//2025-03-13 StructToKeyValueList 사용으로 변경
 	securityInfo.KeyValueList = irs.StructToKeyValueList(firewallList)
 	return securityInfo, nil

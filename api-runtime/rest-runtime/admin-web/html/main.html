@@ -470,6 +470,69 @@
         #apiModeBadgeLogin {
             margin: 10px auto 12px auto; /* keep a little space above the copyright divider */
         }
+        .auto-play-btn {
+            margin-left: 4px;
+            padding: 2px 9px;
+            border: 1px solid #b35c00;
+            border-radius: 11px;
+            background-color: #fff;
+            color: #b35c00;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .auto-play-btn:hover:not(:disabled) { background-color: #b35c00; color: #fff; }
+        .auto-play-btn:disabled { opacity: 0.5; cursor: default; }
+        .auto-play-btn { font-family: Arial, sans-serif; line-height: 16px; }
+        .auto-play-settings-btn { padding: 2px 6px; display: inline-flex; align-items: center; }
+        .auto-play-settings-btn svg { pointer-events: none; display: block; }
+        .auto-play-settings, .auto-play-panel { font-family: Arial, sans-serif; }
+        .auto-play-settings {
+            position: fixed;
+            z-index: 3000;
+            width: 280px;
+            padding: 10px 12px;
+            background-color: #fff;
+            border: 1px solid #f0c98a;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            font-size: 13px;
+        }
+        .auto-play-settings.hidden { display: none; }
+        #autoPlaySettingsList { margin: 8px 0 6px; }
+        #autoPlaySettingsList label { display: block; padding: 2px 0; cursor: pointer; white-space: nowrap; }
+        .auto-play-settings-note { font-size: 11px; color: #888; }
+        .auto-play-settings-actions { display: inline-flex; gap: 4px; }
+        .auto-play-panel {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            z-index: 3000;
+            width: 380px;
+            padding: 10px 12px;
+            background-color: #fff;
+            border: 1px solid #f0c98a;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            font-size: 13px;
+        }
+        .auto-play-panel.hidden { display: none; }
+        .auto-play-head { display: flex; justify-content: space-between; align-items: center; color: #b35c00; }
+        .auto-play-panel ol { margin: 8px 0 4px 18px; padding: 0; }
+        .auto-play-panel li { margin: 2px 0; color: #888; }
+        .auto-play-panel li.running { color: #0645AD; font-weight: bold; }
+        .auto-play-panel li.done { color: #1a7f37; }
+        .auto-play-panel li.partial { color: #b35c00; }
+        .auto-play-panel li.failed { color: #c62828; font-weight: bold; }
+        .auto-play-panel pre {
+            max-height: 160px;
+            overflow-y: auto;
+            margin: 4px 0 0;
+            white-space: pre-wrap;
+            font-size: 11px;
+            color: #c62828;
+        }
+        .auto-play-panel pre:empty { display: none; }
     </style>
 
 <script>
@@ -794,6 +857,296 @@
         }
     });
 </script>
+<script>
+    // ==================== Auto Play (multi-connection) ====================
+    // Creates the base resources in every multi-connection, one page after another, the way a user would:
+    // it opens the page from the left menu, opens its Add dialog, waits until the dialog has loaded the
+    // resources of every connection, creates with the dialog's default values, and waits until every
+    // creation has finished before going on. VM needs the VPC/Subnet, SecurityGroup and KeyPair created
+    // before it. Nothing is deleted: the created resources are removed with the Dashboard's destroy.
+    // In the order of the left menu, which is also a dependency order: SecurityGroup needs a VPC; VM needs
+    // a VPC/Subnet, SecurityGroup and KeyPair; MyImage needs a VM; NLB, Cluster and RDBMS need a VPC
+    // (NLB adds the VMs). The steps to run are chosen with the settings button (default: VPC/Subnet ~ VM).
+    const AUTO_PLAY_STEPS = [
+        { menu: 'vpc',           label: 'VPC/Subnet',    post: 'postVPCMulti',           byDefault: true },
+        { menu: 'securitygroup', label: 'SecurityGroup', post: 'postSecurityGroupMulti', byDefault: true },
+        { menu: 'keypair',       label: 'KeyPair',       post: 'postKeyPairMulti',       byDefault: true },
+        { menu: 'vm',            label: 'VM',            post: 'postVMMulti',            byDefault: true, prepare: excludeIncompleteVMRows },
+        { menu: 'disk',          label: 'Disk',          post: 'postDiskMulti',          prepare: excludeNoZoneDiskRows },
+        { menu: 'myimage',       label: 'MyImage',       post: 'postMyImageMulti' },
+        { menu: 'nlb',           label: 'NLB',           post: 'postNLBMulti' },
+        { menu: 'cluster',       label: 'Cluster',       post: 'postClusterMulti' },
+        { menu: 's3',            label: 'S3',            post: 'postBucketMulti' },
+        { menu: 'rdbms',         label: 'RDBMS',         post: 'postRDBMSMulti' }
+    ];
+    const AUTO_PLAY_PAGE_TIMEOUT_MS = 60 * 1000;          // a page to open
+    const AUTO_PLAY_DIALOG_TIMEOUT_MS = 5 * 60 * 1000;    // a dialog to load the resources of every connection
+    // the creations of a step to finish (ex: IBM NLB ~7 min; Alibaba cn-beijing MyImage ~40 min, its driver waits up to 60 min)
+    const AUTO_PLAY_CREATE_TIMEOUT_MS = 70 * 60 * 1000;
+
+    // ---- settings: the steps to run (kept in this browser; default: the steps with byDefault) ----
+    const AUTO_PLAY_SETTINGS_KEY = 'autoPlaySteps';
+    function autoPlaySelectedMenus() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(AUTO_PLAY_SETTINGS_KEY) || 'null');
+            if (Array.isArray(saved)) return saved.filter(menu => AUTO_PLAY_STEPS.some(s => s.menu === menu));
+        } catch (e) {}
+        return AUTO_PLAY_STEPS.filter(s => s.byDefault).map(s => s.menu);
+    }
+    function saveAutoPlaySelection(menus) {
+        try { localStorage.setItem(AUTO_PLAY_SETTINGS_KEY, JSON.stringify(menus)); } catch (e) {}
+    }
+    function renderAutoPlaySettings() {
+        const selected = autoPlaySelectedMenus();
+        const list = document.getElementById('autoPlaySettingsList');
+        list.innerHTML = '';
+        AUTO_PLAY_STEPS.forEach((step, i) => {
+            const label = document.createElement('label');
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.value = step.menu;
+            box.checked = selected.includes(step.menu);
+            box.addEventListener('change', () => {
+                saveAutoPlaySelection(Array.from(list.querySelectorAll('input:checked')).map(b => b.value));
+                updateAutoPlayTitle();
+            });
+            label.append(box, document.createTextNode(` ${i + 1}. ${step.label}`));
+            list.appendChild(label);
+        });
+        updateAutoPlayTitle();
+    }
+    function updateAutoPlayTitle() {
+        const labels = AUTO_PLAY_STEPS.filter(s => autoPlaySelectedMenus().includes(s.menu)).map(s => s.label);
+        document.getElementById('autoPlayBtn').title = labels.length
+            ? `Create ${labels.join(' → ')} in every connection with the default values, page by page`
+            : 'No resource is selected (settings)';
+    }
+    function toggleAutoPlaySettings(event) {
+        event.stopPropagation();
+        const pop = document.getElementById('autoPlaySettings');
+        if (!pop.classList.contains('hidden')) {
+            pop.classList.add('hidden');
+            return;
+        }
+        renderAutoPlaySettings();
+        const rect = document.getElementById('autoPlaySettingsBtn').getBoundingClientRect();
+        pop.style.left = `${Math.max(8, rect.left)}px`;
+        pop.style.top = `${rect.bottom + 6}px`;
+        pop.classList.remove('hidden');
+    }
+    function selectAllAutoPlaySettings() {
+        saveAutoPlaySelection(AUTO_PLAY_STEPS.map(s => s.menu));
+        renderAutoPlaySettings();
+    }
+    function resetAutoPlaySettings() {
+        try { localStorage.removeItem(AUTO_PLAY_SETTINGS_KEY); } catch (e) {}
+        renderAutoPlaySettings();
+    }
+    document.addEventListener('mousedown', event => {
+        const pop = document.getElementById('autoPlaySettings');
+        if (pop && !pop.classList.contains('hidden') && !pop.contains(event.target) &&
+            event.target.id !== 'autoPlaySettingsBtn') {
+            pop.classList.add('hidden');
+        }
+    });
+
+    let autoPlay = null;    // the running Auto Play: { stop: bool }
+
+    function bodyWindow() {
+        return document.querySelector('iframe[name="body_frame"]').contentWindow;
+    }
+
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    // wait until cond() is true; fails on Stop, on a timeout, or when the page was left (ex: a menu click)
+    async function autoPlayWait(cond, timeoutMs, what, expectedPath) {
+        const until = Date.now() + timeoutMs;
+        for (;;) {
+            if (!autoPlay || autoPlay.stop) throw new Error('stopped');
+            if (expectedPath && bodyFramePath() !== expectedPath) throw new Error('the page was left (Auto Play needs the page it opened)');
+            let ok = false;
+            try { ok = cond(); } catch (e) {}
+            if (ok) return;
+            if (Date.now() > until) throw new Error(`timed out waiting for ${what}`);
+            await sleep(500);
+        }
+    }
+
+    // the Add dialog has loaded the resources of every connection: no row/select still loading
+    function dialogReady(win) {
+        const overlay = win.document.getElementById('overlay');
+        if (!overlay || overlay.style.display === 'none') return false;
+        if (overlay.querySelector('[data-loading]')) return false;
+        return !Array.from(overlay.querySelectorAll('select')).some(select => select.textContent.trim() === 'Loading…');
+    }
+
+    // VM: a connection that lacks a resource (ex: its SecurityGroup failed) would stop the whole VM creation
+    // (the dialog asks to fill it in), so Auto Play leaves it out and creates the VMs of the others.
+    function excludeIncompleteVMRows(win, log) {
+        win.document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            const include = row.querySelector('.create-include');
+            if (!include.checked || !win.multiInFocus(row.dataset.connection)) return;
+            const missing = [
+                !row.querySelector('.create-subnet').value && 'VPC/Subnet',
+                !row.querySelector('.create-sg').value && 'SecurityGroup',
+                !row.querySelector('.create-keypair').value && 'KeyPair',
+                !row.querySelector('.create-image').value.trim() && 'Image',
+                !row.querySelector('.create-spec').value.trim() && 'Spec'
+            ].filter(Boolean);
+            if (missing.length) {
+                include.checked = false;
+                win.updateCreateRowState(row);
+                log(`${row.dataset.connection}: left out (no ${missing.join(', ')})`);
+            }
+        });
+    }
+
+    // Disk: a connection without a zone would stop the whole Disk creation, so it is left out.
+    function excludeNoZoneDiskRows(win, log) {
+        win.document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            const include = row.querySelector('.create-include');
+            if (!include.checked || !win.multiInFocus(row.dataset.connection)) return;
+            if (!row.querySelector('.create-zone').value.trim()) {
+                include.checked = false;
+                win.updateCreateRowState(row);
+                log(`${row.dataset.connection}: left out (no zone)`);
+            }
+        });
+    }
+
+    async function runAutoPlayStep(step, log) {
+        const path = `/spider/adminweb/${step.menu}/multi`;
+        // 1. open the page from the left menu (as a click on the menu does)
+        const leftMenu = document.querySelector('iframe[name="left_menu"]').contentWindow;
+        if (!leftMenu.tryMultiConnectionRedirect(step.menu)) throw new Error('not in multi-connection mode');
+        await autoPlayWait(() => {
+            const win = bodyWindow();
+            return bodyFramePath() === path && win.document.readyState === 'complete' &&
+                typeof win.showOverlay === 'function' && typeof win.multiTaskState === 'function';
+        }, AUTO_PLAY_PAGE_TIMEOUT_MS, `the ${step.label} page`);
+        const win = bodyWindow();
+
+        // the dialog's confirmation is answered by Auto Play; an alert means the dialog refused to create
+        const alerts = [];
+        win.confirm = () => true;
+        win.alert = message => { alerts.push(String(message)); };
+
+        // 2. open the Add dialog and wait until it has loaded every connection
+        win.showOverlay();
+        await sleep(300);
+        await autoPlayWait(() => dialogReady(win), AUTO_PLAY_DIALOG_TIMEOUT_MS, `the ${step.label} dialog to load`, path);
+        if (step.prepare) step.prepare(win, log);
+
+        // 3. create, and wait until every creation (status box) has finished
+        const before = (win.multiTaskState().results.create) || { ok: 0, fail: 0, failures: [] };
+        win[step.post]();
+        await sleep(500);
+        // the dialog refused to create (ex: no connection can create it): skip this step, go on with the next
+        if (alerts.length && win.multiTaskState().running === 0) {
+            const now = win.multiTaskState().results.create || { ok: 0, fail: 0 };
+            if (now.ok + now.fail === before.ok + before.fail) {
+                alerts.forEach(a => log(`not created: ${a}`));
+                win.hideOverlay && win.hideOverlay();
+                return { ok: 0, fail: 0, skipped: true };
+            }
+        }
+        await autoPlayWait(() => {
+            const state = win.multiTaskState();
+            const now = state.results.create || { ok: 0, fail: 0 };
+            return state.running === 0 && now.ok + now.fail > before.ok + before.fail;
+        }, AUTO_PLAY_CREATE_TIMEOUT_MS, `the ${step.label} creations`, path);
+
+        const after = win.multiTaskState().results.create;
+        after.failures.slice(before.failures.length).forEach(f => log(f));
+        return { ok: after.ok - before.ok, fail: after.fail - before.fail };
+    }
+
+    async function startAutoPlay() {
+        if (autoPlay) return;
+        const multi = getMultiConnections();
+        if (!multi || multi.length === 0) return;
+        const steps = AUTO_PLAY_STEPS.filter(s => autoPlaySelectedMenus().includes(s.menu));
+        if (steps.length === 0) {
+            alert('No resource is selected. Select the resources to create with the settings button next to Auto Play.');
+            return;
+        }
+        if (!confirm(`Auto Play creates ${steps.map(s => s.label).join(' → ')} in the ${multi.length} connections ` +
+            `with the default values of each Add dialog.\n\nThese are real cloud resources and are charged by the CSPs. ` +
+            `Nothing is deleted: use the Dashboard's destroy to remove them.\n\nDo not use the menus while it runs. Start?`)) {
+            return;
+        }
+        autoPlay = { stop: false };
+        const panel = document.getElementById('autoPlayPanel');
+        const list = document.getElementById('autoPlaySteps');
+        const logEl = document.getElementById('autoPlayLog');
+        list.innerHTML = '';
+        logEl.textContent = '';
+        const rows = steps.map(step => {
+            const li = document.createElement('li');
+            li.textContent = `${step.label}: waiting`;
+            list.appendChild(li);
+            return li;
+        });
+        document.getElementById('autoPlayTitle').textContent = 'Auto Play: running';
+        document.getElementById('autoPlayStop').textContent = 'Stop';
+        panel.classList.remove('hidden');
+        document.getElementById('autoPlayBtn').disabled = true;
+        document.getElementById('autoPlaySettingsBtn').disabled = true;
+        document.getElementById('autoPlaySettings').classList.add('hidden');
+
+        const started = Date.now();
+        let failed = false;
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            const log = text => { logEl.textContent += `[${step.label}] ${text}\n`; logEl.scrollTop = logEl.scrollHeight; };
+            const t0 = Date.now();
+            rows[i].className = 'running';
+            rows[i].textContent = `${step.label}: running… 0s`;
+            // show the elapsed time of the running step (e.g. MyImage takes several minutes)
+            const ticker = setInterval(() => {
+                rows[i].textContent = `${step.label}: running… ${formatElapsed(Date.now() - t0)}`;
+                document.getElementById('autoPlayTitle').textContent = `Auto Play: running (${formatElapsed(Date.now() - started)})`;
+            }, 1000);
+            try {
+                const result = await runAutoPlayStep(step, log);
+                clearInterval(ticker);
+                const secs = formatElapsed(Date.now() - t0);
+                rows[i].className = result.skipped ? 'partial' : result.fail ? 'partial' : 'done';
+                rows[i].textContent = result.skipped
+                    ? `${step.label}: not created (see the log)`
+                    : `${step.label}: ${result.ok} created${result.fail ? `, ${result.fail} failed or skipped` : ''} (${secs})`;
+                await sleep(1500);
+            } catch (e) {
+                clearInterval(ticker);
+                rows[i].className = 'failed';
+                rows[i].textContent = `${step.label}: ${e.message === 'stopped' ? 'stopped' : 'failed'} (${formatElapsed(Date.now() - t0)})`;
+                if (e.message !== 'stopped') log(e.message);
+                failed = true;
+                break;
+            }
+        }
+        document.getElementById('autoPlayTitle').textContent =
+            `Auto Play: ${autoPlay.stop ? 'stopped' : failed ? 'stopped by an error' : 'done'} (${formatElapsed(Date.now() - started)})`;
+        document.getElementById('autoPlayStop').textContent = 'Close';
+        document.getElementById('autoPlayBtn').disabled = false;
+        document.getElementById('autoPlaySettingsBtn').disabled = false;
+        autoPlay = null;
+    }
+
+    document.addEventListener('DOMContentLoaded', updateAutoPlayTitle);
+
+    // "5m 12s" style elapsed time
+    function formatElapsed(ms) {
+        const secs = Math.max(0, Math.round(ms / 1000));
+        return secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m ${secs % 60}s`;
+    }
+
+    // Stop: no new step or request is started; the requests already sent finish on the server.
+    function stopOrCloseAutoPlay() {
+        if (autoPlay) autoPlay.stop = true;
+        else document.getElementById('autoPlayPanel').classList.add('hidden');
+    }
+</script>
 </head>
 <body>
     <div class="container">
@@ -807,7 +1160,7 @@
                     <div id="selectedConfigName" class="" data-noconn="1"></div>
                     <div id="selectedProvider"></div>
                     <div id="selectedRegion"></div>
-                    <div id="multiConnectionBadge" class="multi-conn-badge hidden"><span id="multiConnectionText"></span><button type="button" class="multi-conn-clear" onclick="clearMultiConnections()" title="Clear multi-connection selection">&#10005;</button></div>
+                    <div id="multiConnectionBadge" class="multi-conn-badge hidden"><span id="multiConnectionText"></span><button type="button" class="multi-conn-clear" onclick="clearMultiConnections()" title="Clear multi-connection selection">&#10005;</button><button type="button" id="autoPlayBtn" class="auto-play-btn" onclick="startAutoPlay()">&#9654; Auto Play</button><button type="button" id="autoPlaySettingsBtn" class="auto-play-btn auto-play-settings-btn" onclick="toggleAutoPlaySettings(event)" title="Resources to create with Auto Play"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button></div>
                 </div>
                 <div class="top-menu-right">
                     <div class="dynamic-menu"></div>
@@ -1320,5 +1673,15 @@
         });
     })();
 </script>
+    <div id="autoPlaySettings" class="auto-play-settings hidden">
+        <div class="auto-play-head"><b>Auto Play: resources to create</b><span class="auto-play-settings-actions"><button type="button" onclick="selectAllAutoPlaySettings()" title="Select every resource">All</button><button type="button" onclick="resetAutoPlaySettings()" title="VPC/Subnet ~ VM">Default</button></span></div>
+        <div id="autoPlaySettingsList"></div>
+        <div class="auto-play-settings-note">Created in this order. A resource uses the ones created before it (ex: VM uses the VPC/Subnet, SecurityGroup and KeyPair).</div>
+    </div>
+    <div id="autoPlayPanel" class="auto-play-panel hidden">
+        <div class="auto-play-head"><b id="autoPlayTitle">Auto Play</b><button type="button" id="autoPlayStop" onclick="stopOrCloseAutoPlay()">Stop</button></div>
+        <ol id="autoPlaySteps"></ol>
+        <pre id="autoPlayLog"></pre>
+    </div>
 </body>
 </html>

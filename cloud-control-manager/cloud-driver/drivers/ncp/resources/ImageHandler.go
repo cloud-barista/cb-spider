@@ -113,7 +113,7 @@ func (imageHandler *NcpVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 }
 
 func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
-	cblogger.Infof("Mapping Image Info!! ")
+	cblogger.Debugf("Mapping Image Info!! ")
 	// spew.Dump(serverImage)
 
 	var architectureType irs.OSArchitecture

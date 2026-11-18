@@ -90,7 +90,7 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 		keyPairInfo.PrivateKey = *keyPair.PrivateKey
 	}
 
-	cblogger.Info(" keyPair.Tags", keyPair.Tags)
+	cblogger.Debug(" keyPair.Tags", keyPair.Tags)
 	if keyPair.Tags != nil {
 		var tagList []irs.KeyValue
 		for _, tag := range keyPair.Tags {

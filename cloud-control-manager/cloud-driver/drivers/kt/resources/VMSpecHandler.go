@@ -185,14 +185,11 @@ func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavo
 		KeyValueList: irs.StructToKeyValueList(flavor),
 	}
 
-	// If the flavor name contains "gpu", set the GPU information
-	if strings.Contains(strings.ToLower(flavor.Name), "gpu") {
-		vmSpecInfo.Gpu = []irs.GpuInfo{{
-			Count:     "-1",
-			Mfr:       "NA",
-			Model:     strings.ToUpper(flavor.Name),
-			MemSizeGB: "-1",
-		}}
+	// The KT flavor API has no GPU fields, so GPU info is inferred from the flavor name
+	// (e.g. "24x240.itl.a100-2.ai-voucher" => NVIDIA A100 x 2). See VMSpecGpu.go.
+	if gpu, ok := ktGpuInfoFromFlavorName(flavor.Name); ok {
+		vmSpecInfo.Gpu = []irs.GpuInfo{gpu}
+		vmSpecInfo.Accelerator = []irs.AcceleratorInfo{ktAcceleratorFromGpu(gpu)}
 	}
 
 	// if strings.EqualFold(strconv.Itoa(vmSpec.Disk), "0") {

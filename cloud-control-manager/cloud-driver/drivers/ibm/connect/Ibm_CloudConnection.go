@@ -92,7 +92,7 @@ func (cloudConn *IbmCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 	return &securityHandler, nil
 }
 func (cloudConn *IbmCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	cblogger.Info("Ibm Cloud Driver: called CreateVPCHandler()!")
+	cblogger.Info("Ibm Cloud Driver: called CreateKeyPairHandler()!")
 	keyPairHandler := ibmrs.IbmKeyPairHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,

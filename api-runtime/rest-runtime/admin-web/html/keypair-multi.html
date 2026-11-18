@@ -531,17 +531,21 @@
 
         // one status box per request; each created KeyPair is added to the list at once.
         // The private key is returned only once, so a created box keeps its Download button until dismissed.
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'POST',
+            path: '/spider/keypair',
+            body: {
+                ConnectionName: task.connName,
+                ReqInfo: { Name: task.keyPairName, TagList: tags }
+            }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `KeyPair "${task.keyPairName}" in ${task.connName}`;
             const box = multiTaskBox('create', `Creating ${label}…`);
-            fetch('/spider/keypair', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ConnectionName: task.connName,
-                    ReqInfo: { Name: task.keyPairName, TagList: tags }
-                })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || !(data.IId && data.IId.NameId)) {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);
@@ -578,14 +582,18 @@
         // a KeyPair being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/keypair/${encodeURIComponent(task.keyPairName)}`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `KeyPair "${task.keyPairName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/keypair/${encodeURIComponent(task.keyPairName)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || data.Result !== "true") {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);

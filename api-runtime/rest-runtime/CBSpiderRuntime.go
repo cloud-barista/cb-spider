@@ -758,6 +758,7 @@ func getRoutes() []route {
 			{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
 			{"GET", "/adminweb/vpc/multi", aw.VPCSubnetManagementMulti},
+			{"GET", "/adminweb/vpc-zoneinfo", aw.VPCZoneInfo},
 			{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
 			{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
 			{"GET", "/adminweb/securitygroup/multi", aw.SecurityGroupManagementMulti},
@@ -767,9 +768,13 @@ func getRoutes() []route {
 			{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPairManagement},
 			{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
 			{"GET", "/adminweb/vm/multi", aw.VMManagementMulti},
+			{"GET", "/adminweb/vm-createinfo", aw.VMCreateInfo},
+			{"POST", "/adminweb/fanout", aw.Fanout},
 			{"GET", "/adminweb/vm/:ConnectConfig", aw.VMManagement},
 			{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
+			{"GET", "/adminweb/vmaccelerator/:ConnectConfig", aw.VMAccelerators},
 			{"GET", "/adminweb/nlb/multi", aw.NLBManagementMulti},
+			{"GET", "/adminweb/nlb-createinfo", aw.NLBCreateInfo},
 			{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLBManagement},
 			{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
 			{"GET", "/adminweb/disk/multi", aw.DiskManagementMulti},
@@ -789,6 +794,7 @@ func getRoutes() []route {
 			{"DELETE", "/topology/layout", DeleteTopologyLayout},   // delete one version
 			{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
 			{"GET", "/adminweb/cluster/multi", aw.ClusterManagementMulti},
+			{"GET", "/adminweb/cluster-createinfo", aw.ClusterCreateInfo},
 			{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
 			{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
 			{"GET", "/adminweb/myimage/multi", aw.MyImageManagementMulti},
@@ -812,6 +818,7 @@ func getRoutes() []route {
 			{"GET", "/adminweb/filesystem/:ConnectConfig", aw.FileSystemManagement},
 
 			{"GET", "/adminweb/rdbms/multi", aw.RDBMSManagementMulti},
+			{"GET", "/adminweb/rdbms-createinfo", aw.RDBMSCreateInfo},
 			{"GET", "/adminweb/rdbms/:ConnectConfig", aw.RDBMSManagement},
 
 			//-- RDBMS SQL Proxy (for AdminWeb DB management)

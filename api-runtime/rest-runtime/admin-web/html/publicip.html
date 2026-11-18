@@ -116,6 +116,13 @@
     }
     .dissoc-btn:hover { background-color: #b02a37; }
     .owner-label { font-weight: bold; color: #333; font-size: 12px; }
+    /* A dialog taller than the window (ex: zoomed in) scrolls inside it, so its buttons stay reachable
+       (same as the multi-connection pages). */
+    .overlay-content, .add-tag-overlay-content, .add-subnet-tag-overlay-content,
+    .tag-overlay-content, .overlay-content-new-nodegroup {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
 </style>
 </head>
 <body>

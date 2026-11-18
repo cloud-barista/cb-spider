@@ -140,14 +140,22 @@ func VMManagement(c echo.Context) error {
 		}
 	}
 
+	// VM list and VM statuses are independent CSP calls, so fetch them at the same time
+	var vmStatuses map[string]string
+	var statusErr error
+	statusDone := make(chan struct{})
+	go func() {
+		defer close(statusDone)
+		vmStatuses, statusErr = fetchAllVMStatuses(connConfig)
+	}()
+
 	vms, err := fetchVMs(connConfig)
+	<-statusDone
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-
-	vmStatuses, err := fetchAllVMStatuses(connConfig)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if statusErr != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": statusErr.Error()})
 	}
 
 	statusMap := make(VMStatusMap)
@@ -161,7 +169,6 @@ func VMManagement(c echo.Context) error {
 		Region           string
 		VMs              []*cres.VMInfo
 		VMStatusMap      VMStatusMap
-		VMAccelerators   map[string]vmSpecAccelerator
 		APIUsername      string
 		APIPassword      string
 	}{
@@ -170,7 +177,6 @@ func VMManagement(c echo.Context) error {
 		Region:           region,
 		VMs:              vms,
 		VMStatusMap:      statusMap,
-		VMAccelerators:   fetchVMAccelerators(connConfig, vms),
 		APIUsername:      os.Getenv("SPIDER_USERNAME"),
 		APIPassword:      os.Getenv("SPIDER_PASSWORD"),
 	}

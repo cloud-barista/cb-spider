@@ -201,6 +201,13 @@
     .mpu-log .log-info { color: #aaaaaa; }
     .mpu-abort-btn { background: #f44336; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
     .mpu-abort-btn:hover { background: #d32f2f; }
+    /* A dialog taller than the window (ex: zoomed in) scrolls inside it, so its buttons stay reachable
+       (same as the multi-connection pages). */
+    .overlay-content, .add-tag-overlay-content, .add-subnet-tag-overlay-content,
+    .tag-overlay-content, .overlay-content-new-nodegroup {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
 </style>
 </head>
 <body>

@@ -319,7 +319,7 @@ func (vpcHandler *KTVpcVPCHandler) mappingVpcInfo(nvpc *networks.VPC) (*irs.VPCI
 }
 
 func (vpcHandler *KTVpcVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs.SubnetInfo {
-	cblogger.Info("KT Cloud VPC driver: called mappingSubnetInfo()!!")
+	cblogger.Debug("KT Cloud VPC driver: called mappingSubnetInfo()!!")
 
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{

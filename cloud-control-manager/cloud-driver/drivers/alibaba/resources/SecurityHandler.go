@@ -483,7 +483,7 @@ func (securityHandler *AlibabaSecurityHandler) ExtractSecurityRuleInfo(securityG
 		cblogger.Error(err)
 		return nil, err
 	}
-	cblogger.Info(response)
+	cblogger.Debug(response)
 
 	/*
 	   FromPort    string

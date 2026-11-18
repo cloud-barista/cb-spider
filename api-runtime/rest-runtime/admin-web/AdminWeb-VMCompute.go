@@ -3,18 +3,21 @@ package adminweb
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/labstack/echo/v4"
 )
 
 //====================================== VM Accelerator Classification (VM page only)
 
 // The VM page shows the accelerator class(CPU/GPU/TPU/NPU) of each VM by its VM spec.
-// VM spec lookups call the CSP API, so this must not be used by the Dashboard.
+// VM spec lookups call the CSP API, which can be slow on some CSPs, so the VM page renders
+// first and loads the badges afterwards through VMAccelerators. This must not be used by the Dashboard.
 
 type cachedVMSpecAccelerator struct {
 	Accel     vmSpecAccelerator
@@ -23,7 +26,8 @@ type cachedVMSpecAccelerator struct {
 
 var vmSpecAcceleratorCache sync.Map
 
-const vmSpecAcceleratorCacheTTL = time.Minute
+// VM spec information rarely changes, so the class is kept for an hour.
+const vmSpecAcceleratorCacheTTL = time.Hour
 
 func getVMSpecAccelerator(connConfig, specName string) (vmSpecAccelerator, error) {
 	if strings.TrimSpace(specName) == "" {
@@ -58,20 +62,41 @@ func getVMSpecAccelerator(connConfig, specName string) (vmSpecAccelerator, error
 	return accel, nil
 }
 
-// fetchVMAccelerators returns the accelerator class of each VM, keyed by VM NameId.
-// VMs whose spec cannot be looked up are left out, and no badge is shown for them.
-func fetchVMAccelerators(connConfig string, vms []*cres.VMInfo) map[string]vmSpecAccelerator {
-	accels := make(map[string]vmSpecAccelerator, len(vms))
-	for _, vm := range vms {
-		if vm == nil {
+// fetchSpecAccelerators returns the accelerator class of each VM spec, keyed by spec name.
+// Distinct specs are looked up in parallel. Specs that cannot be looked up are left out,
+// and no badge is shown for them.
+func fetchSpecAccelerators(connConfig string, specNames []string) map[string]vmSpecAccelerator {
+	accels := make(map[string]vmSpecAccelerator, len(specNames))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	seen := make(map[string]bool, len(specNames))
+	for _, specName := range specNames {
+		specName = strings.TrimSpace(specName)
+		if specName == "" || seen[specName] {
 			continue
 		}
-		accel, err := getVMSpecAccelerator(connConfig, vm.VMSpecName)
-		if err != nil {
-			cblog.Info(fmt.Sprintf("skip accelerator class of VM %s: %v", vm.IId.NameId, err))
-			continue
-		}
-		accels[vm.IId.NameId] = accel
+		seen[specName] = true
+		wg.Add(1)
+		go func(specName string) {
+			defer wg.Done()
+			accel, err := getVMSpecAccelerator(connConfig, specName)
+			if err != nil {
+				cblog.Info(fmt.Sprintf("skip accelerator class of VM spec %s: %v", specName, err))
+				return
+			}
+			mu.Lock()
+			accels[specName] = accel
+			mu.Unlock()
+		}(specName)
 	}
+	wg.Wait()
 	return accels
+}
+
+// VMAccelerators returns the accelerator class of the given VM specs as JSON, keyed by spec name.
+// GET /spider/adminweb/vmaccelerator/:ConnectConfig?specs=spec1,spec2
+func VMAccelerators(c echo.Context) error {
+	connConfig := c.Param("ConnectConfig")
+	specs := strings.Split(c.QueryParam("specs"), ",")
+	return c.JSON(http.StatusOK, fetchSpecAccelerators(connConfig, specs))
 }

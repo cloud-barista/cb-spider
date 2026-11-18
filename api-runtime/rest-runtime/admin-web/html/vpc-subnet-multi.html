@@ -353,6 +353,16 @@
         font-size: 12px;
         padding: 2px 8px;
     }
+    .zone-row .zone-note {
+        display: block;
+        color: #b35c00;
+        font-size: 11px;
+    }
+    .zone-help {
+        color: #b35c00;
+        font-size: 11px;
+        margin-top: 4px;
+    }
 </style>
 </head>
 <body>
@@ -483,12 +493,21 @@
                 <fieldset class="info-group">
                     <legend>Subnet Info:</legend>
                     <div class="form-group">
-                        <label for="subnetName">Name:</label>
+                        <label for="subnetName">Subnet 1 Name / CIDR:</label>
                         <input type="text" id="subnetName" name="subnetName" required style="color: #3366CC; font-weight: bold;">
+                        <input type="text" id="subnetCIDR" name="subnetCIDR" required style="margin-left: 6px;">
                     </div>
                     <div class="form-group">
-                        <label for="subnetCIDR">CIDR:</label>
-                        <input type="text" id="subnetCIDR" name="subnetCIDR" required>
+                        <label for="subnet2Name">Subnet 2 Name / CIDR:</label>
+                        <input type="text" id="subnet2Name" name="subnet2Name" style="color: #3366CC; font-weight: bold;">
+                        <input type="text" id="subnet2CIDR" name="subnet2CIDR" style="margin-left: 6px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="secondSubnet"></label>
+                        <label style="flex: 2; text-align: left;">
+                            <input type="checkbox" id="secondSubnet" checked onchange="updateSubnet2State()">
+                            create Subnet 2 in another zone (an AWS EKS cluster needs subnets in 2 zones)
+                        </label>
                     </div>
                     <div class="form-group" style="padding-left: 100px;">
                         <label>Subnet Tags:</label>
@@ -498,15 +517,21 @@
                     <table class="zone-table">
                         <tr>
                             <th>Connection</th>
-                            <th>Subnet Zone (connection default)</th>
+                            <th>Subnet 1 Zone (connection default)</th>
+                            <th>Subnet 2 Zone</th>
                         </tr>
                         {{range $conn := .Connections}}
-                        <tr data-connection="{{$conn.Name}}">
+                        <tr class="zone-row" data-connection="{{$conn.Name}}" data-provider="{{$conn.Provider}}">
                             <td>{{$conn.Name}}</td>
                             <td>{{if $conn.Zone}}{{$conn.Zone}}{{else}}<span class="zone-missing">&#9888; no zone configured (skipped)</span>{{end}}</td>
+                            <td><select class="subnet2-zone"></select><span class="zone-note"></span></td>
                         </tr>
                         {{end}}
                     </table>
+                    <div class="zone-help">
+                        The default CIDRs are /22 (about 1,000 addresses each): an Azure AKS cluster needs more addresses than a /24 subnet has.<br>
+                        KT creates subnets (tiers) as /24 only, so the first /24 of each CIDR is used for KT.
+                    </div>
                 </fieldset>
 
                 <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
@@ -580,10 +605,132 @@
         document.getElementById('vpcName').value = `multi-vpc-${suffix}`;
         document.getElementById('vpcCIDR').value = '10.0.0.0/16';
         document.getElementById('subnetName').value = `multi-subnet-${suffix}`;
-        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+        document.getElementById('subnetCIDR').value = DEFAULT_SUBNET_CIDRS[0];
+        document.getElementById('subnet2Name').value = `multi-subnet-${suffix}-2`;
+        document.getElementById('subnet2CIDR').value = DEFAULT_SUBNET_CIDRS[1];
+        document.getElementById('secondSubnet').checked = true;
         clearFormFields();
+        loadZones();
+        updateSubnet2State();
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleOverlayEsc);
+    }
+
+    // Default subnet CIDRs: /22 (about 1,000 addresses each) in the VPC 10.0.0.0/16. An Azure AKS cluster
+    // needs more addresses than a /24 subnet has (ex: 333 addresses for its default node pools).
+    const DEFAULT_SUBNET_CIDRS = ['10.0.0.0/22', '10.0.4.0/22'];
+    // KT creates subnets (tiers) as /24 only (C class): the first /24 of the requested CIDR is used.
+    const SUBNET_24_ONLY_PROVIDERS = ['KT'];
+
+    function subnetCIDRFor(provider, cidr) {
+        if (!SUBNET_24_ONLY_PROVIDERS.includes((provider || '').toUpperCase())) return cidr;
+        const m = cidr.match(/^(\d+)\.(\d+)\.(\d+)\.\d+\/(\d+)$/);
+        return m && parseInt(m[4]) < 24 ? `${m[1]}.${m[2]}.${m[3]}.0/24` : cidr;
+    }
+
+    // The zone for Subnet 2: the zone after the connection's default zone in the region (in name order),
+    // so the two subnets are in different zones (an AWS EKS cluster needs subnets in at least 2 zones).
+    function pickSecondZone(zones, defaultZone) {
+        const others = zones.filter(z => z !== defaultZone).sort();
+        return others.find(z => z > defaultZone) || others[0] || '';
+    }
+
+    // CSPs whose VPC gets Subnet 1 only (see loadZones).
+    const SINGLE_SUBNET_PROVIDERS = ['NCP'];
+
+    function zoneRowOf(connName) {
+        return Array.from(document.querySelectorAll('#overlay tr.zone-row')).find(row => row.dataset.connection === connName);
+    }
+
+    function updateSubnet2State() {
+        const on = document.getElementById('secondSubnet').checked;
+        document.getElementById('subnet2Name').disabled = !on;
+        document.getElementById('subnet2CIDR').disabled = !on;
+        document.querySelectorAll('#overlay .subnet2-zone').forEach(select => {
+            select.disabled = !on || select.dataset.single === 'true';
+        });
+    }
+
+    // Load the zones of each connection's region for Subnet 2. One request streams one JSON line per
+    // connection as each is ready (see AdminWeb-VPC-CreateInfo.go).
+    let zoneInfoAbort = null;
+    function loadZones() {
+        if (zoneInfoAbort) zoneInfoAbort.abort();
+        const abort = new AbortController();
+        zoneInfoAbort = abort;
+
+        const rows = new Map();
+        document.querySelectorAll('#overlay tr.zone-row').forEach(row => {
+            const select = row.querySelector('.subnet2-zone');
+            const conn = MULTI_CONNECTIONS.find(c => c.Name === row.dataset.connection) || {};
+            row.querySelector('.zone-note').textContent = '';
+            delete select.dataset.single;
+            if (!multiInFocus(row.dataset.connection) || !conn.Zone) {
+                select.innerHTML = '<option value="">-</option>';
+                select.dataset.single = 'true';
+                return;
+            }
+            // NCP: one subnet only. The NCP driver creates a cluster with every subnet of the VPC, and NKS
+            // rejects a subnet outside the connection's zone (as spiderwatch: a VPC with one subnet).
+            if (SINGLE_SUBNET_PROVIDERS.includes((conn.Provider || '').toUpperCase())) {
+                select.innerHTML = '<option value="">-</option>';
+                select.dataset.single = 'true';
+                row.querySelector('.zone-note').textContent = 'NCP: Subnet 2 skipped (an NKS cluster needs every subnet of the VPC in one zone)';
+                return;
+            }
+            select.innerHTML = '<option value="">Loading…</option>';
+            row.dataset.loading = 'true';
+            rows.set(row.dataset.connection, row);
+        });
+        if (rows.size === 0) return;
+
+        const apply = info => {
+            const row = rows.get(info.connection);
+            if (!row) return;
+            rows.delete(info.connection);
+            delete row.dataset.loading;
+            const select = row.querySelector('.subnet2-zone');
+            const defaultZone = (MULTI_CONNECTIONS.find(c => c.Name === info.connection) || {}).Zone || '';
+            const others = (info.zones || []).filter(z => z !== defaultZone).sort();
+            select.innerHTML = '';
+            if (others.length === 0) {
+                select.innerHTML = '<option value="">-</option>';
+                select.dataset.single = 'true';
+                row.querySelector('.zone-note').textContent = info.error
+                    ? `zones not listed (${info.error}): Subnet 2 skipped`
+                    : 'single zone in the region: Subnet 2 skipped';
+            } else {
+                others.forEach(z => {
+                    const option = document.createElement('option');
+                    option.value = option.textContent = z;
+                    select.appendChild(option);
+                });
+                select.value = pickSecondZone(info.zones, defaultZone);
+            }
+            updateSubnet2State();
+        };
+        fetch(`/spider/adminweb/vpc-zoneinfo?ids=${encodeURIComponent(Array.from(rows.keys()).join(','))}`, { signal: abort.signal })
+            .then(async response => {
+                if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffered = '';
+                for (;;) {
+                    const { value, done } = await reader.read();
+                    buffered += decoder.decode(value || new Uint8Array(), { stream: !done });
+                    let newline;
+                    while ((newline = buffered.indexOf('\n')) >= 0) {
+                        const line = buffered.slice(0, newline).trim();
+                        buffered = buffered.slice(newline + 1);
+                        if (line && !abort.signal.aborted) apply(JSON.parse(line));
+                    }
+                    if (done) break;
+                }
+                if (!abort.signal.aborted) Array.from(rows.keys()).forEach(c => apply({ connection: c, zones: [], error: 'no response' }));
+            })
+            .catch(error => {
+                if (error.name !== 'AbortError') Array.from(rows.keys()).forEach(c => apply({ connection: c, zones: [], error: error.message }));
+            });
     }
 
     function clearFormFields() {
@@ -641,6 +788,11 @@
             return;
         }
 
+        if (document.querySelector('#overlay tr.zone-row[data-loading]')) {
+            alert('The zones of the connections are still loading. Please wait a moment.');
+            return;
+        }
+
         // all connections, or only the one the page is narrowed to
         const conns = MULTI_CONNECTIONS.filter(conn => multiInFocus(conn.Name));
         const targets = conns.filter(conn => conn.Zone);
@@ -662,6 +814,13 @@
         const baseSubnetName = document.getElementById('subnetName').value.trim();
         const vpcCIDR = document.getElementById('vpcCIDR').value.trim();
         const subnetCIDR = document.getElementById('subnetCIDR').value.trim();
+        const secondSubnet = document.getElementById('secondSubnet').checked;
+        const baseSubnet2Name = document.getElementById('subnet2Name').value.trim();
+        const subnet2CIDR = document.getElementById('subnet2CIDR').value.trim();
+        if (secondSubnet && (!baseSubnet2Name || !subnet2CIDR)) {
+            alert('Please enter the name and CIDR of Subnet 2, or uncheck it.');
+            return;
+        }
         const vpcTags = collectTags('vpc');
         const subnetTags = collectTags('subnet');
 
@@ -669,10 +828,14 @@
         targets.forEach(conn => {
             for (let i = 0; i < vpcCount; i++) {
                 const nameSuffix = vpcCount > 1 ? `-${i + 1}` : '';
+                const zone2Select = (zoneRowOf(conn.Name) || document).querySelector('.subnet2-zone');
                 tasks.push({
                     conn,
                     vpcName: baseVPCName + nameSuffix,
-                    subnetName: baseSubnetName + nameSuffix
+                    subnetName: baseSubnetName + nameSuffix,
+                    // Subnet 2 only where the region has another zone
+                    subnet2Name: secondSubnet && zone2Select && zone2Select.value ? baseSubnet2Name + nameSuffix : '',
+                    subnet2Zone: zone2Select ? zone2Select.value : ''
                 });
             }
         });
@@ -680,27 +843,36 @@
         hideOverlay();
 
         // one status box per request; each created VPC is added to the list at once
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'POST',
+            path: '/spider/vpc',
+            body: {
+                ConnectionName: task.conn.Name,
+                ReqInfo: {
+                    Name: task.vpcName,
+                    IPv4_CIDR: NO_VPC_CIDR_PROVIDERS.includes((task.conn.Provider || '').toUpperCase()) ? 'NA' : vpcCIDR,
+                    SubnetInfoList: [{
+                        Name: task.subnetName,
+                        IPv4_CIDR: subnetCIDRFor(task.conn.Provider, subnetCIDR),
+                        Zone: task.conn.Zone,
+                        TagList: subnetTags
+                    }].concat(task.subnet2Name ? [{
+                        Name: task.subnet2Name,
+                        IPv4_CIDR: subnetCIDRFor(task.conn.Provider, subnet2CIDR),
+                        Zone: task.subnet2Zone,
+                        TagList: subnetTags
+                    }] : []),
+                    TagList: vpcTags
+                }
+            }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `VPC "${task.vpcName}" in ${task.conn.Name}`;
             const box = multiTaskBox('create', `Creating ${label}…`);
-            fetch('/spider/vpc', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ConnectionName: task.conn.Name,
-                    ReqInfo: {
-                        Name: task.vpcName,
-                        IPv4_CIDR: NO_VPC_CIDR_PROVIDERS.includes((task.conn.Provider || '').toUpperCase()) ? 'NA' : vpcCIDR,
-                        SubnetInfoList: [{
-                            Name: task.subnetName,
-                            IPv4_CIDR: subnetCIDR,
-                            Zone: task.conn.Zone,
-                            TagList: subnetTags
-                        }],
-                        TagList: vpcTags
-                    }
-                })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || !(data.IId && data.IId.NameId)) {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);
@@ -735,14 +907,18 @@
         // a VPC being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/vpc/${encodeURIComponent(task.vpcName)}`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `VPC "${task.vpcName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/vpc/${encodeURIComponent(task.vpcName)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || data.Result !== "true") {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);

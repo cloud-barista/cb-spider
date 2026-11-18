@@ -521,7 +521,7 @@ func (VPCHandler *AwsVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	//cblogger.Debug(result)
 
 	if reflect.ValueOf(result.Vpcs).IsNil() {

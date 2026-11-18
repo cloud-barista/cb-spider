@@ -99,6 +99,10 @@ func VMSpec(c echo.Context) error {
 		"inc": func(i int) int {
 			return i + 1
 		},
+		// GPU/accelerator values use "-1" (or empty) when the CSP does not provide them:
+		// show "NA" instead of "-1" or a bare unit such as "TotalMemory: GB".
+		"orNA":   valueOrNA,
+		"gbOrNA": func(v string) string { return withUnitOrNA(v, "GB") },
 	}).ParseFiles(tmplPath)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -211,4 +215,21 @@ func knownValue(value string) string {
 		return ""
 	}
 	return value
+}
+
+// valueOrNA returns "NA" for a value the CSP does not provide ("", "-1", "NA"), else the value.
+func valueOrNA(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" || v == "-1" || strings.EqualFold(v, "NA") {
+		return "NA"
+	}
+	return v
+}
+
+// withUnitOrNA appends the unit to a provided value, and returns "NA" without the unit otherwise.
+func withUnitOrNA(v, unit string) string {
+	if na := valueOrNA(v); na == "NA" {
+		return na
+	}
+	return strings.TrimSpace(v) + " " + unit
 }

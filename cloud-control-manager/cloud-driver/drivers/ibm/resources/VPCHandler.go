@@ -593,6 +593,17 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	return false, delErr
 }
 
+// listTagWithKnownCRN lists the tags of a VPC or subnet whose CRN is already in hand.
+// ListTag() first looks the resource up again (getCRN) only to get its CRN, which costs one more
+// IBM API call per VPC and per subnet; the VPC and subnet objects already carry their CRN, so the
+// tags are searched by that CRN directly. Falls back to ListTag() when the CRN is missing.
+func listTagWithKnownCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID, crn *string) ([]irs.KeyValue, error) {
+	if crn == nil || *crn == "" {
+		return tagHandler.ListTag(resType, resIID)
+	}
+	return tagHandler.listTagByCRN(*crn, GetCallLogScheme(tagHandler.Region, call.TAG, resIID.NameId, "ListTag()"), call.Start())
+}
+
 func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Context) (irs.VPCInfo, error) {
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
@@ -611,7 +622,7 @@ func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.Vpc
 		SearchService:  vpcHandler.SearchService,
 	}
 
-	tags, err := tagHandler.ListTag(irs.VPC, vpcInfo.IId)
+	tags, err := listTagWithKnownCRN(&tagHandler, irs.VPC, vpcInfo.IId, vpc.CRN)
 	if err != nil {
 		cblogger.Warn("Failed to get tags of the VPC (" + vpcInfo.IId.NameId + "). err = " + err.Error())
 	}
@@ -637,7 +648,7 @@ func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.Vpc
 
 			subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
 
-			tags, err := tagHandler.ListTag(irs.SUBNET, subnetInfo.IId)
+			tags, err := listTagWithKnownCRN(&tagHandler, irs.SUBNET, subnetInfo.IId, subnet.CRN)
 			if err != nil {
 				cblogger.Warn("failed to get tags of the subnet (" + subnetInfo.IId.NameId + ")")
 			}

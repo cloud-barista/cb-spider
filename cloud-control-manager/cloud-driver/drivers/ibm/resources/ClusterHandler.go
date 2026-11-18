@@ -2074,7 +2074,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 		SearchService:  ic.SearchService,
 	}
 
-	tags, err := tagHandler.ListTag(irs.CLUSTER, irs.IID{NameId: rawCluster.Name, SystemId: rawCluster.Id})
+	tags, err := listTagWithKnownCRN(&tagHandler, irs.CLUSTER, irs.IID{NameId: rawCluster.Name, SystemId: rawCluster.Id}, &rawCluster.Crn) // CRN is in hand: skips re-reading the resource
 	if err != nil {
 		cblogger.Warn("Failed to get tags of the CLUSTER (" + rawCluster.Name + "). err = " + err.Error())
 	}

@@ -987,10 +987,16 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 			// Get Price Info from MC-Insight API
 			priceInfo = fetchPriceFromMCInsight(providerName, regionName, zoneName, reqInfo.VMSpecName)
 
+			// the zone where the VM was created: the zone of its subnet (it can differ from the connection's
+			// default zone, e.g. Subnet 2 of the multi-connection VPC), as the VM page queries with that zone
+			recentZone := zoneName
+			if subnetIIDInfo.ZoneId != "" {
+				recentZone = subnetIIDInfo.ZoneId
+			}
 			err = InsertOrUpdateVMRecent(
 				providerName,
 				regionName,
-				zoneName,
+				recentZone,
 				reqInfo.ImageIID.NameId,
 				reqInfo.VMSpecName,
 				elapsedSeconds,
@@ -1600,15 +1606,18 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 
 func getVMInfo(connectionName string, zoneId string, iid cres.IID, retInfo chan ResultVMInfo) {
 
+	// every path must send a result: ListVM waits for one result from each VM
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
 	if err != nil {
 		cblog.Error(err)
+		retInfo <- ResultVMInfo{cres.VMInfo{}, err}
 		return
 	}
 
 	handler, err := cldConn.CreateVMHandler()
 	if err != nil {
 		cblog.Error(err)
+		retInfo <- ResultVMInfo{cres.VMInfo{}, err}
 		return
 	}
 
@@ -2078,61 +2087,81 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 	}
 
 	// (2) get VMStatusInfo List with iidInfoList
+	// Each VM status is a separate CSP call, so the VMs are looked up in parallel.
+	// The result keeps the order of iidInfoList, and the first error in that order is returned.
+	statusList := make([]cres.VMStatus, len(iidInfoList))
+	errList := make([]error, len(iidInfoList))
+	wg := new(sync.WaitGroup)
+	for idx, iidInfo := range iidInfoList {
+		wg.Add(1)
+		go func(idx int, iidInfo *VMIIDInfo) {
+			defer wg.Done()
+			statusList[idx], errList[idx] = getVMStatusWithWait(connectionName, iidInfo)
+		}(idx, iidInfo)
+	}
+	wg.Wait()
+
 	infoList2 := []*cres.VMStatusInfo{}
-	for _, iidInfo := range iidInfoList {
-
-		/* temporarily unlock
-		   vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
-		*/
-
-		// 2. get CSP:VMStatus(SystemId)
-		var statusInfo cres.VMStatus
-		driverIID := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
-
-		// need to wait for https://github.com/cloud-barista/cb-spider/pull/1244#issuecomment-2253741979
-		waiter := NewWaiter(3, 60) // 3 seconds sleep, 60 seconds timeout
-
-		for {
-			cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-
-			handler, err := cldConn.CreateVMHandler()
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-
-			statusInfo, err = handler.GetVMStatus(driverIID)
-			if statusInfo == cres.NotExist {
-				err = fmt.Errorf("Not Found %s", driverIID.SystemId)
-			}
-			if err != nil {
-				if checkNotFoundError(err) {
-					statusInfo = cres.NotExist
-					break
-				}
-				cblog.Error(err)
-				return nil, err
-			}
-
-			if statusInfo == cres.Creating || statusInfo == cres.Running || statusInfo == cres.Suspending || statusInfo == cres.Suspended ||
-				statusInfo == cres.Resuming || statusInfo == cres.Rebooting || statusInfo == cres.Terminating || statusInfo == cres.Terminated ||
-				statusInfo == cres.NotExist || statusInfo == cres.Failed {
-				break
-			}
-
-			if !waiter.Wait() {
-				return nil, fmt.Errorf("Unable to provide current VM status for VM '%s'. Timeout after %v seconds", iidInfo.NameId, waiter.Timeout)
-			}
+	for idx, iidInfo := range iidInfoList {
+		if errList[idx] != nil {
+			return nil, errList[idx]
 		}
-
-		infoList2 = append(infoList2, &cres.VMStatusInfo{IId: getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), VmStatus: statusInfo})
+		infoList2 = append(infoList2, &cres.VMStatusInfo{IId: getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), VmStatus: statusList[idx]})
 	}
 
 	return infoList2, nil
+}
+
+// getVMStatusWithWait returns the CSP status of a VM.
+// While the CSP reports a transient (undefined) status, it retries every 3 seconds for up to 60 seconds.
+func getVMStatusWithWait(connectionName string, iidInfo *VMIIDInfo) (cres.VMStatus, error) {
+
+	/* temporarily unlock
+	   vmSPLock.RLock(connectionName, iidInfo.IId.NameId)
+	*/
+
+	// 2. get CSP:VMStatus(SystemId)
+	var statusInfo cres.VMStatus
+	driverIID := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+	// need to wait for https://github.com/cloud-barista/cb-spider/pull/1244#issuecomment-2253741979
+	waiter := NewWaiter(3, 60) // 3 seconds sleep, 60 seconds timeout
+
+	for {
+		cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+
+		handler, err := cldConn.CreateVMHandler()
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+
+		statusInfo, err = handler.GetVMStatus(driverIID)
+		if statusInfo == cres.NotExist {
+			err = fmt.Errorf("Not Found %s", driverIID.SystemId)
+		}
+		if err != nil {
+			if checkNotFoundError(err) {
+				return cres.NotExist, nil
+			}
+			cblog.Error(err)
+			return "", err
+		}
+
+		if statusInfo == cres.Creating || statusInfo == cres.Running || statusInfo == cres.Suspending || statusInfo == cres.Suspended ||
+			statusInfo == cres.Resuming || statusInfo == cres.Rebooting || statusInfo == cres.Terminating || statusInfo == cres.Terminated ||
+			statusInfo == cres.NotExist || statusInfo == cres.Failed {
+			return statusInfo, nil
+		}
+
+		if !waiter.Wait() {
+			return "", fmt.Errorf("Unable to provide current VM status for VM '%s'. Timeout after %v seconds", iidInfo.NameId, waiter.Timeout)
+		}
+	}
 }
 
 // (1) get IID(NameId)

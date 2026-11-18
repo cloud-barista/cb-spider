@@ -143,8 +143,15 @@ type ClusterMultiRow struct {
 	Cluster        *cres.ClusterInfo
 }
 
-// Handler function to render the Cluster management page across multiple connections at once (list and
-// delete only: creating a Cluster takes CSP-specific options, so it is done on the single-connection page).
+// ClusterMultiConnection describes a connection of the multi-connection Cluster page.
+// Provider selects the CSP-specific defaults of the Add Cluster dialog (version, node group, VM spec).
+type ClusterMultiConnection struct {
+	Name     string
+	Provider string
+}
+
+// Handler function to render the Cluster management page across multiple connections at once
+// (list, create and delete).
 // Each connection is fetched independently so that one failing connection does not block the others
 // from being displayed (partial success). A connection whose driver has no Cluster support is reported as a
 // notice (not an error) instead of being listed.
@@ -169,13 +176,18 @@ func ClusterManagementMulti(c echo.Context) error {
 		}
 	}
 
+	var conns []ClusterMultiConnection
 	var rows []ClusterMultiRow
 	connErrors := map[string]string{}
 	connNotices := map[string]string{}
 
 	for _, connName := range connNames {
+		conn := ClusterMultiConnection{Name: connName}
+		// provider is used only to create Clusters, so the Cluster list is still shown without it
+		conn.Provider, _ = getProviderName(connName)
+		conns = append(conns, conn)
 		if isMultiAsyncLoad(c) {
-			break
+			continue
 		}
 		if fetchUnsupportedResources(connName)["cluster"] {
 			connNotices[connName] = "Cluster is not supported by this CSP"
@@ -196,14 +208,14 @@ func ClusterManagementMulti(c echo.Context) error {
 	}
 
 	data := struct {
-		Connections []string
+		Connections []ClusterMultiConnection
 		ClusterRows []ClusterMultiRow
 		ConnErrors  map[string]string
 		ConnNotices map[string]string
 		APIUsername string
 		APIPassword string
 	}{
-		Connections: connNames,
+		Connections: conns,
 		ClusterRows: rows,
 		ConnErrors:  connErrors,
 		ConnNotices: connNotices,

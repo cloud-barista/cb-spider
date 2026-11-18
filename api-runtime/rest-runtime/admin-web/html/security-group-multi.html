@@ -579,11 +579,18 @@
 
     // Load the VPC list of each connection into its select; the first VPC is selected by default.
     function loadVPCs() {
-        document.querySelectorAll('.sg-vpc-select').forEach(select => {
-            if (!multiInFocus(select.dataset.connection)) return;
+        const selects = Array.from(document.querySelectorAll('.sg-vpc-select'))
+            .filter(select => multiInFocus(select.dataset.connection));
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(selects.map(select => ({
+            method: 'GET',
+            path: `/spider/vpc?ConnectionName=${encodeURIComponent(select.dataset.connection)}`
+        })));
+        selects.forEach((select, i) => {
             select.innerHTML = '<option value="">Loading…</option>';
             select.disabled = true;
-            fetch(`/spider/vpc?ConnectionName=${encodeURIComponent(select.dataset.connection)}`)
+            responses[i]
                 .then(response => response.json().then(data => {
                     if (!response.ok) throw new Error(data.message || data.Message || `HTTP ${response.status}`);
                     return data.vpc || [];
@@ -717,22 +724,26 @@
         hideOverlay();
 
         // one status box per request; each created SecurityGroup is added to the list at once
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'POST',
+            path: '/spider/securitygroup',
+            body: {
+                ConnectionName: task.connName,
+                ReqInfo: {
+                    Name: task.sgName,
+                    VPCName: task.vpcName,
+                    SecurityRules: rules,
+                    TagList: tags
+                }
+            }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `SecurityGroup "${task.sgName}" in ${task.connName}`;
             const box = multiTaskBox('create', `Creating ${label}…`);
-            fetch('/spider/securitygroup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ConnectionName: task.connName,
-                    ReqInfo: {
-                        Name: task.sgName,
-                        VPCName: task.vpcName,
-                        SecurityRules: rules,
-                        TagList: tags
-                    }
-                })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || !(data.IId && data.IId.NameId)) {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);
@@ -767,14 +778,18 @@
         // a SecurityGroup being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/securitygroup/${encodeURIComponent(task.sgName)}`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `SecurityGroup "${task.sgName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/securitygroup/${encodeURIComponent(task.sgName)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || data.Result !== "true") {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);

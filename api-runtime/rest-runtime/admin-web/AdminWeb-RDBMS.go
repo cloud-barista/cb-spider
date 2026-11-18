@@ -163,8 +163,15 @@ type RDBMSMultiRow struct {
 	RDBMS          *cres.RDBMSInfo
 }
 
-// Handler function to render the RDBMS management page across multiple connections at once.
-// Each connection is fetched independently so that one failing connection does not block the
+// RDBMSMultiConnection describes a connection of the multi-connection RDBMS page.
+// Provider selects the CSP-specific defaults of the Add RDBMS dialog (version, spec, storage, master user).
+type RDBMSMultiConnection struct {
+	Name     string
+	Provider string
+}
+
+// Handler function to render the RDBMS management page across multiple connections at once
+// (list, create and delete). Each connection is fetched independently so that one failing connection does not block the
 // others from being displayed (partial success). A connection whose driver has no RDBMS support
 // is reported as a notice (not an error) instead of being listed.
 func RDBMSManagementMulti(c echo.Context) error {
@@ -188,13 +195,18 @@ func RDBMSManagementMulti(c echo.Context) error {
 		}
 	}
 
+	var conns []RDBMSMultiConnection
 	var rows []RDBMSMultiRow
 	connErrors := map[string]string{}
 	connNotices := map[string]string{}
 
 	for _, connName := range connNames {
+		conn := RDBMSMultiConnection{Name: connName}
+		// provider is used only to create RDBMSs, so the RDBMS list is still shown without it
+		conn.Provider, _ = getProviderName(connName)
+		conns = append(conns, conn)
 		if isMultiAsyncLoad(c) {
-			break
+			continue
 		}
 		if !isRDBMSSupported(connName) {
 			connNotices[connName] = "RDBMS is not supported by this CSP"
@@ -215,14 +227,14 @@ func RDBMSManagementMulti(c echo.Context) error {
 	}
 
 	data := struct {
-		Connections []string
+		Connections []RDBMSMultiConnection
 		RDBMSRows   []RDBMSMultiRow
 		ConnErrors  map[string]string
 		ConnNotices map[string]string
 		APIUsername string
 		APIPassword string
 	}{
-		Connections: connNames,
+		Connections: conns,
 		RDBMSRows:   rows,
 		ConnErrors:  connErrors,
 		ConnNotices: connNotices,

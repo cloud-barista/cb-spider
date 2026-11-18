@@ -4,6 +4,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -107,12 +108,14 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	// ImageId 로 해당 Image의 Status 조회
 
 	// 현재요청 -> 예상상태, 오류상태.
-	curStatus, errStatus := WaitForImageStatus(myImageHandler.Client, myImageHandler.Region, imageIID, "")
+	curStatus, errStatus := WaitForImageStatus(myImageHandler.Client, myImageHandler.Region, imageIID, ALIBABA_IMAGE_STATE_CREATING)
 	if errStatus != nil {
 		cblogger.Error(errStatus)
+		// clean up the image (and its snapshots); if it cannot be deleted, report its ID with the error
+		// so that it can be removed in the console (it is not managed by Spider)
 		_, deleteErr := myImageHandler.DeleteMyImage(imageIID)
 		if deleteErr != nil { // 중간 생성 자원 삭제 실패
-			return irs.MyImageInfo{}, deleteErr
+			return irs.MyImageInfo{}, fmt.Errorf("%v; the image %s could not be cleaned up (delete it in the console): %v", errStatus, imageIID.SystemId, deleteErr)
 		}
 		return irs.MyImageInfo{}, errStatus
 	}
@@ -192,7 +195,8 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 	// 	return false, err
 	// }
 
-	ecsImage, err := DescribeImageByImageId(myImageHandler.Client, myImageHandler.Region, myImageIID, true)
+	// any status: an image being created or whose creation failed is deleted too
+	ecsImage, err := describeMyImageAnyStatus(myImageHandler.Client, myImageHandler.Region, myImageIID)
 	if err != nil {
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)

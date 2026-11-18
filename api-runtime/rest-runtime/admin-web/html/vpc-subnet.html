@@ -707,6 +707,17 @@
         margin-left: 10px;
     }
 
+    /* A dialog taller than the window (ex: zoomed in) scrolls inside it, so its buttons stay reachable
+       (same as the multi-connection pages). */
+    .overlay-content, .add-tag-overlay-content, .add-subnet-tag-overlay-content,
+    .tag-overlay-content, .overlay-content-new-nodegroup {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    /* dialogs above the fixed header (z-index 1000), so their top is not hidden behind it */
+    .overlay {
+        z-index: 1001;
+    }
 </style>
 </head>
 <body>
