@@ -608,6 +608,26 @@ func DescribeImageByImageId(client *ecs.Client, regionInfo idrv.RegionInfo, imag
 	return imageList[0], nil
 }
 
+// describeMyImageAnyStatus returns an image of this account whatever its status. DescribeImages lists
+// only Available images when no status is given, so an image being created (Creating) or whose creation
+// failed (CreateFailed) was not found, and could not be deleted.
+func describeMyImageAnyStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID irs.IID) (ecs.Image, error) {
+	request := ecs.CreateDescribeImagesRequest()
+	request.Scheme = "https"
+	request.RegionId = regionInfo.Region
+	request.ImageId = imageIID.SystemId
+	request.ImageOwnerAlias = "self"
+	request.Status = ALIBABA_IMAGE_STATE_CREATING + "," + ALIBABA_IMAGE_STATE_WAITING + "," + ALIBABA_IMAGE_STATE_AVAILABLE + "," + ALIBABA_IMAGE_STATE_UNAVAILABLE + "," + ALIBABA_IMAGE_STATE_CREATEFAILED + "," + ALIBABA_IMAGE_STATE_DEPRECATED
+	result, err := client.DescribeImages(request)
+	if err != nil {
+		return ecs.Image{}, err
+	}
+	if len(result.Images.Image) == 0 {
+		return ecs.Image{}, errors.New("no result with request image IID(NameId/SystemId) : " + imageIID.NameId + "/" + imageIID.SystemId)
+	}
+	return result.Images.Image[0], nil
+}
+
 /*
 *
 ImageName으로 1개 Image의 정보 조회
@@ -699,45 +719,71 @@ DescribeImages에서 status값이 필수임. 없는 경우 default available이�
 
 요청시 상태 -> 원하는 상태 또는 실패상태를 Return
 */
+// Waiting for a MyImage to be created: an image is Available only when the snapshot of the system disk is
+// complete, and that time depends on the region.
+// Comparison test (2026-11-18, ubuntu_24_04 alibase image, ecs.c9i.large, 40GB cloud_essd PL1, new VM):
+//   - ap-northeast-1 (Tokyo): Available in 62s
+//   - cn-beijing:             5% after 5m30s; about 40 minutes in total (the former 40-minute limit timed out)
+// So cn-beijing waits up to 60 minutes, the other regions up to 40 minutes.
+const (
+	myImageWaitTimeout         = 40 * time.Minute
+	myImageWaitTimeoutSlow     = 60 * time.Minute
+	myImageWaitInterval        = 5 * time.Second
+	myImageNotVisibleTolerance = 2 * time.Minute // right after CreateImage, the image may not be listed yet
+)
+
+// regions where an image takes much longer to be created (see the comparison test above)
+var myImageSlowRegions = map[string]bool{"cn-beijing": true}
+
+func myImageWaitTimeoutFor(region string) time.Duration {
+	if myImageSlowRegions[region] {
+		return myImageWaitTimeoutSlow
+	}
+	return myImageWaitTimeout
+}
+
 func WaitForImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID irs.IID, requestStatus string) (irs.MyImageStatus, error) {
 	//cblogger.Info("======> MyImage 생성 직후에는 정보 조회가 안되기 때문에 원하는 상태(ex.Available) 될 때까지 대기함.")
 
-	curRetryCnt := 0
-	maxRetryCnt := 600
+	targetStatus := ALIBABA_IMAGE_STATE_AVAILABLE
+	// a creation that failed (CreateFailed) is reported at once instead of waiting until the timeout
+	failStatuses := []string{ALIBABA_IMAGE_STATE_ERROR, ALIBABA_IMAGE_STATE_CREATEFAILED}
 
-	targetStatus := ""
-	failStatus := ALIBABA_IMAGE_STATE_ERROR
-	switch requestStatus {
-	case ALIBABA_IMAGE_STATE_CREATING: // 생성일 때
-		targetStatus = ALIBABA_IMAGE_STATE_AVAILABLE
-		failStatus = ALIBABA_IMAGE_STATE_CREATEFAILED
-	default:
-		targetStatus = ALIBABA_IMAGE_STATE_AVAILABLE
-		//failStatus = ALIBABA_IMAGE_STATE_UNAVAILABLE
-
-	}
-
-	resultImageState := ""
+	waitTimeout := myImageWaitTimeoutFor(regionInfo.Region)
+	started := time.Now()
+	lastReport := started
 	for {
-		aliImageState, err := DescribeImageStatus(client, regionInfo, imageIID, "ALL") // 특정 image의 상태조회(특정상태별로 조회하므로 모든 status를 조회하도록)
+		// any status; the image also carries the creation progress (e.g. "45%")
+		aliImage, err := describeMyImageAnyStatus(client, regionInfo, imageIID)
+		aliImageState := aliImage.Status
 		if err != nil {
-			cblogger.Error(err.Error())
-			return irs.MyImageStatus(failStatus), err
-		}
-		resultImageState = aliImageState
-		if aliImageState == targetStatus || aliImageState == failStatus {
-			break
+			if time.Since(started) > myImageNotVisibleTolerance {
+				cblogger.Error(err.Error())
+				return irs.MyImageStatus(ALIBABA_IMAGE_STATE_ERROR), err
+			}
+			cblogger.Debugf("MyImage [%s] is not listed yet: %v", imageIID.SystemId, err)
+		} else {
+			if strings.EqualFold(aliImageState, targetStatus) {
+				return irs.MyImageStatus(aliImageState), nil
+			}
+			for _, failStatus := range failStatuses {
+				if strings.EqualFold(aliImageState, failStatus) { // e.g. "CreateFailed" vs "Createfailed"
+					return irs.MyImageStatus(aliImageState), fmt.Errorf("the creation of MyImage [%s] failed (status: %s)", imageIID.SystemId, aliImageState)
+				}
+			}
+			// report the status and progress every minute, to tell a slow creation from a stuck one
+			if time.Since(lastReport) >= time.Minute {
+				lastReport = time.Now()
+				cblogger.Infof("MyImage [%s] is [%s] (progress: %s) after %v.", imageIID.SystemId, aliImageState, aliImage.Progress, time.Since(started).Round(time.Second))
+			}
 		}
 
-		curRetryCnt++
-		cblogger.Debugf("Since the state of MyImage is not [%s], we will wait for 1 second and then check again. The current state is [%s].", targetStatus, aliImageState)
-		time.Sleep(time.Second * 1)
-		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("Even after waiting for a long time (%d seconds), the status of MyImage did not change to [%s], so we are forcibly terminating it.", maxRetryCnt, targetStatus)
-			return irs.MyImageStatus(failStatus), errors.New("After waiting for a long time, the status of the created MyImage did not change to [" + string(targetStatus) + "], so we are terminating it.")
+		if time.Since(started) > waitTimeout {
+			cblogger.Errorf("Even after waiting %v, MyImage [%s] did not become [%s] (status: %s, progress: %s).", waitTimeout, imageIID.SystemId, targetStatus, aliImageState, aliImage.Progress)
+			return irs.MyImageStatus(ALIBABA_IMAGE_STATE_ERROR), fmt.Errorf("after waiting %v, the created MyImage [%s] did not become [%s] (status: %s, progress: %s)", waitTimeout, imageIID.SystemId, targetStatus, aliImageState, aliImage.Progress)
 		}
+		time.Sleep(myImageWaitInterval)
 	}
-	return irs.MyImageStatus(resultImageState), nil
 
 	// 현재상태가 Target상태인지(normal) 조회
 	//resultImageState, err := DescribeImageStatus(client, regionInfo, imageIID, targetStatus)

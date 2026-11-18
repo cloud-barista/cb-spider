@@ -380,10 +380,40 @@
     .status-badge.status-Creating, .status-badge.status-Deleting { background-color: #fff3e0; color: #b35c00; }
     .status-badge.status-Stopped { background-color: #eaeef2; color: #57606a; }
     .status-badge.status-Error { background-color: #fde2e2; color: #c62828; }
-    .create-note-bar {
-        color: #555;
-        font-size: 12px;
-        margin-left: 4px;
+    .create-table td {
+        vertical-align: top;
+    }
+    .create-table select {
+        max-width: 200px;
+    }
+    .conn-provider {
+        display: block;
+        font-size: 11px;
+        color: #888;
+    }
+    /* subnets of the selected VPC, several can be selected */
+    .subnet-list {
+        max-height: 90px;
+        overflow-y: auto;
+        min-width: 170px;
+    }
+    .subnet-list label {
+        display: block;
+        white-space: nowrap;
+    }
+    .row-note {
+        display: block;
+        max-width: 260px;
+        white-space: normal;
+        color: #b35c00;
+        font-size: 11px;
+    }
+    .row-note button {
+        font-size: 11px;
+        margin-top: 2px;
+    }
+    .create-table input:disabled {
+        background-color: #f0f0f0;
     }
 </style>
 </head>
@@ -407,7 +437,7 @@
 
     <div class="connection-bar">
         <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
-        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn}}" title="Show only this connection">{{$conn}}</button>{{end}}
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn.Name}}" title="Show only this connection">{{$conn.Name}}</button>{{end}}
         {{range $conn, $err := .ConnErrors}}
         <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
         {{end}}
@@ -418,7 +448,7 @@
 
     <div class="content">
         <div class="fixed-action-buttons">
-            <span class="create-note-bar">To create a Cluster (CSP-specific options), select its connection above.</span>
+            <button class="add-button" onclick="showOverlay()">+ Cluster (all connections)</button>
             <div style="flex: 1;"></div>
             <input type="checkbox" onclick="toggleSelectAll(this)">
             <button onclick="deleteSelectedClusters()">Delete</button>
@@ -483,6 +513,99 @@
         </table>
     </div>
 
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New Cluster to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
+            <form id="addClusterForm" onsubmit="event.preventDefault(); postClusterMulti();">
+                <fieldset class="info-group">
+                    <legend>Cluster Info (all connections):</legend>
+                    <div class="form-group">
+                        <label for="clusterName">Name:</label>
+                        <input type="text" id="clusterName" required style="color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group" style="padding-left: 100px;">
+                        <label>Tags:</label>
+                        <div id="cluster-tag-container" class="vpc-tag-container"></div>
+                        <button type="button" onclick="addTagField('cluster')">+</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="autoVersionRetry">On a version error:</label>
+                        <label style="flex: 2; text-align: left;">
+                            <input type="checkbox" id="autoVersionRetry" checked>
+                            retry with an available version (uncheck: the connection fails and is left out)
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Node Group (all connections that create one at cluster creation):</legend>
+                    <div class="form-group">
+                        <label for="nodeGroupName">Node Group Name:</label>
+                        <input type="text" id="nodeGroupName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="onAutoScaling">Auto Scaling:</label>
+                        <select id="onAutoScaling">
+                            <option value="true">true</option>
+                            <option value="false">false</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nodes (Desired / Min / Max):</label>
+                        <span style="flex: 2;">
+                            <input type="number" id="desiredNodeSize" min="1" style="width: 55px;">
+                            <input type="number" id="minNodeSize" min="1" style="width: 55px;">
+                            <input type="number" id="maxNodeSize" min="1" style="width: 55px;">
+                        </span>
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Per Connection:</legend>
+                    <table class="create-table" id="create-table">
+                        <tr>
+                            <th>Create</th>
+                            <th>Connection</th>
+                            <th>VPC</th>
+                            <th>Subnets (Zone)</th>
+                            <th>SecurityGroup</th>
+                            <th>KeyPair</th>
+                            <th>Version</th>
+                            <th>Node VM Spec</th>
+                            <th>Node Disk (GB)</th>
+                            <th>Node Image</th>
+                        </tr>
+                        {{range $conn := .Connections}}
+                        <tr class="create-row" data-connection="{{$conn.Name}}" data-provider="{{$conn.Provider}}">
+                            <td class="center-align"><input type="checkbox" class="create-include" checked onchange="updateCreateRowState(this.closest('tr'))"></td>
+                            <td>{{$conn.Name}}<span class="conn-provider">{{$conn.Provider}}</span><span class="row-note"></span></td>
+                            <td><select class="create-vpc" onchange="fillVPCResources(this.closest('tr'))"></select></td>
+                            <td><div class="subnet-list"></div></td>
+                            <td><select class="create-sg"></select></td>
+                            <td><select class="create-keypair"></select></td>
+                            <td><input type="text" class="create-version"></td>
+                            <td><input type="text" class="create-spec"></td>
+                            <td><input type="number" class="create-disk" min="1"></td>
+                            <td><input type="text" class="create-image" placeholder="default"></td>
+                        </tr>
+                        {{end}}
+                    </table>
+                    <div class="create-note">
+                        Version is left empty where the CSP picks its default; where the CSP requires one, a version is filled in and can be edited.<br>
+                        AWS, Alibaba and Tencent create the cluster without a node group (it is added after creation), so their node fields are not used.<br>
+                        An AWS (EKS) cluster needs subnets in at least 2 zones.
+                    </div>
+                </fieldset>
+
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add Cluster</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="tag-overlay" class="overlay">
         <div class="overlay-content"></div>
     </div>
@@ -545,6 +668,577 @@
     window.onMultiRefreshed = formatCreatedTimes;
     formatCreatedTimes();
 
+    // ---- Create ----
+
+    // Connections this page fans requests out to ({Name, Provider}), injected server-side.
+    const MULTI_CONNECTIONS = {{.Connections}} || [];
+
+    // A version is filled in only where the CSP driver requires one (Tencent, NCP, NHN and IBM reject an
+    // empty or unsupported version; Azure passes it to AKS as is). AWS, GCP and Alibaba pick their default
+    // version when it is empty. These are the values of the single-connection Cluster page.
+    const CLUSTER_REQUIRED_VERSION = {
+        AZURE: '1.35.0',
+        IBM: '1.35.9',
+        NHN: 'v1.33.4',
+        NCP: '1.34.3-nks.2',
+        TENCENT: '1.34.1' // 1.28.3 is no longer offered (ap-guangzhou: 1.30.0, 1.32.2, 1.34.1, 1.36.2)
+    };
+    // Node VM spec defaults: the node group drivers reject an empty spec (no CSP default).
+    // Azure, NHN and GCP: the single-connection Cluster page; IBM and NCP: the cluster tests of
+    // spiderwatch (spiderwatch/conf/spiderwatch.yaml, node_group_vm_spec_name).
+    const CLUSTER_DEFAULT_SPEC = {
+        AZURE: 'Standard_B2s',
+        NHN: 'r2.c4m16',
+        GCP: 'e2-standard-4',
+        IBM: 'bx2.4x16',
+        NCP: 's2-g3'
+    };
+    // Node root disk size (GB). NCP NKS requires 100-2000GB (spiderwatch uses 100);
+    // the others use the value of the single-connection Cluster page.
+    const CLUSTER_DEFAULT_DISK_GB = { NCP: '100' };
+    const CLUSTER_DEFAULT_DISK_GB_OTHERS = '60';
+    // These CSPs create a cluster without a node group: node groups are added after the creation.
+    const NO_NODE_GROUP_AT_CREATE = ['AWS', 'ALIBABA', 'TENCENT'];
+    // An AWS EKS cluster needs subnets in at least 2 zones.
+    const AWS_MIN_SUBNET_ZONES = 2;
+
+    const providerOf = row => (row.dataset.provider || '').toUpperCase();
+    const createsNodeGroup = row => !NO_NODE_GROUP_AT_CREATE.includes(providerOf(row));
+
+    function showOverlay() {
+        document.getElementById('clusterName').value = `multi-cluster-${Math.random().toString(36).substring(2, 6)}`;
+        document.getElementById('nodeGroupName').value = `nodegroup-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('onAutoScaling').value = 'true';
+        document.getElementById('desiredNodeSize').value = '2';
+        document.getElementById('minNodeSize').value = '1';
+        document.getElementById('maxNodeSize').value = '3';
+        document.getElementById('autoVersionRetry').checked = true;
+        document.querySelectorAll('.cluster-tag-input').forEach(tagInput => tagInput.remove());
+        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            const provider = providerOf(row);
+            const version = row.querySelector('.create-version');
+            version.value = CLUSTER_REQUIRED_VERSION[provider] || '';
+            version.placeholder = CLUSTER_REQUIRED_VERSION[provider] ? '' : 'CSP default';
+            version.disabled = false;
+            const spec = row.querySelector('.create-spec');
+            const image = row.querySelector('.create-image');
+            const disk = row.querySelector('.create-disk');
+            spec.value = CLUSTER_DEFAULT_SPEC[provider] || '';
+            image.value = '';
+            image.placeholder = 'default';
+            disk.value = createsNodeGroup(row) ? (CLUSTER_DEFAULT_DISK_GB[provider] || CLUSTER_DEFAULT_DISK_GB_OTHERS) : '';
+            spec.disabled = image.disabled = disk.disabled = !createsNodeGroup(row);
+            spec.placeholder = createsNodeGroup(row) ? 'required' : 'no node group';
+        });
+        loadCreateRows();
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+    }
+
+    function handleOverlayEsc(event) {
+        if (event.key === 'Escape') hideOverlay();
+    }
+
+    function addTagField(kind) {
+        const tagContainer = document.getElementById(`${kind}-tag-container`);
+        const tagInput = document.createElement('div');
+        tagInput.className = `${kind}-tag-input tag-input-group`;
+        tagInput.innerHTML = `
+            <input type="text" class="${kind}-tag-key" placeholder="Key" required>
+            <input type="text" class="${kind}-tag-value" placeholder="Value" required>
+            <button type="button" onclick="this.parentElement.remove()">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function collectTags(kind) {
+        return Array.from(document.querySelectorAll(`.${kind}-tag-input`)).map(tagInput => ({
+            Key: tagInput.querySelector(`.${kind}-tag-key`).value.trim(),
+            Value: tagInput.querySelector(`.${kind}-tag-value`).value.trim()
+        }));
+    }
+
+    function setOptions(select, options, emptyText) {
+        select.innerHTML = '';
+        if (options.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = emptyText;
+            select.appendChild(option);
+            return;
+        }
+        options.forEach(([value, text]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            select.appendChild(option);
+        });
+    }
+
+    // a note under the connection name, optionally with a button
+    function setRowNote(row, text, button) {
+        const note = row.querySelector('.row-note');
+        note.textContent = text || '';
+        if (button) {
+            note.appendChild(document.createElement('br'));
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = button.label;
+            btn.addEventListener('click', button.onClick);
+            note.appendChild(btn);
+        }
+    }
+
+    function updateCreateRowState(row) {
+        row.classList.toggle('excluded', !row.querySelector('.create-include').checked);
+    }
+
+    // Load the VPCs (with subnets), SecurityGroups and KeyPairs of the connections (all in focus, or the given
+    // ones). One request streams one JSON line per connection as each is ready (see AdminWeb-CreateInfo.go).
+    let createInfoAbort = null;     // the in-flight load of all connections, aborted when the dialog loads again
+    function loadCreateRows(connNames) {
+        const reloadOnly = Array.isArray(connNames);
+        let abort = new AbortController();
+        if (!reloadOnly) {
+            if (createInfoAbort) createInfoAbort.abort();
+            createInfoAbort = abort;
+        }
+
+        const rows = new Map();
+        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            const connName = row.dataset.connection;
+            if (reloadOnly ? !connNames.includes(connName) : !multiInFocus(connName)) return;
+            rows.set(connName, row);
+            row.dataset.loading = 'true';
+            row.querySelectorAll('select').forEach(select => setOptions(select, [], 'Loading…'));
+            row.querySelector('.subnet-list').textContent = 'Loading…';
+            row._info = null;
+            setRowNote(row, '');
+        });
+        if (rows.size === 0) return;
+
+        const failRest = message => {
+            if (abort.signal.aborted) return;
+            rows.forEach(row => applyCreateInfo(row, { supported: true, error: message }));
+            rows.clear();
+        };
+        fetch(`/spider/adminweb/cluster-createinfo?ids=${encodeURIComponent(Array.from(rows.keys()).join(','))}`, { signal: abort.signal })
+            .then(async response => {
+                if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffered = '';
+                for (;;) {
+                    const { value, done } = await reader.read();
+                    buffered += decoder.decode(value || new Uint8Array(), { stream: !done });
+                    let newline;
+                    while ((newline = buffered.indexOf('\n')) >= 0) {
+                        const line = buffered.slice(0, newline).trim();
+                        buffered = buffered.slice(newline + 1);
+                        if (!line || abort.signal.aborted) continue;
+                        const info = JSON.parse(line);
+                        const row = rows.get(info.connection);
+                        if (!row) continue;
+                        rows.delete(info.connection);
+                        applyCreateInfo(row, info);
+                    }
+                    if (done) break;
+                }
+                if (rows.size > 0) failRest('no response from the server');
+            })
+            .catch(error => { if (error.name !== 'AbortError') failRest(error.message); });
+    }
+
+    function applyCreateInfo(row, info) {
+        delete row.dataset.loading;
+        row._info = info;
+        const include = row.querySelector('.create-include');
+        if (!info.supported) {
+            ['.create-vpc', '.create-sg', '.create-keypair'].forEach(sel => setOptions(row.querySelector(sel), [], '-'));
+            row.querySelector('.subnet-list').textContent = '';
+            setRowNote(row, 'Cluster not supported (skipped)');
+            // nothing to enter for a connection that cannot create a Cluster
+            row.querySelectorAll('.create-version, .create-spec, .create-disk, .create-image').forEach(input => {
+                input.value = '';
+                input.placeholder = '';
+                input.disabled = true;
+            });
+            include.checked = false;
+            include.disabled = true;
+            updateCreateRowState(row);
+            return;
+        }
+        include.disabled = false;
+        if (info.error) {
+            ['.create-vpc', '.create-sg', '.create-keypair'].forEach(sel => setOptions(row.querySelector(sel), [], '-'));
+            row.querySelector('.subnet-list').textContent = '';
+            setRowNote(row, `Failed to load VPCs (skipped): ${info.error}`,
+                { label: 'Reload', onClick: () => loadCreateRows([row.dataset.connection]) });
+            include.checked = false;
+            updateCreateRowState(row);
+            return;
+        }
+        setOptions(row.querySelector('.create-vpc'), (info.vpcs || []).map(vpc => [vpc.IId.NameId, vpc.IId.NameId]), 'No VPC');
+        setOptions(row.querySelector('.create-keypair'), (info.keypairs || []).map(kp => [kp.IId.NameId, kp.IId.NameId]), 'No KeyPair');
+        include.checked = (info.vpcs || []).length > 0;
+        fillVPCResources(row);
+    }
+
+    // Subnets selected by default: for AWS (EKS needs at least 2 zones) the first 2 subnets in different
+    // zones, or the first subnet when every subnet is in the same zone; for the other CSPs one subnet, the
+    // first one in the zone of the connection (as the spiderwatch cluster tests: NCP NKS rejects a subnet of
+    // another zone, e.g. the second subnet that the Add VPC/Subnet dialog creates in another zone).
+    function defaultSubnetIndexes(row, subnets) {
+        if (subnets.length === 0) return new Set();
+        if (providerOf(row) !== 'AWS') {
+            const zone = (row._info || {}).zone;
+            const inZone = zone ? subnets.findIndex(subnet => subnet.Zone === zone) : -1;
+            return new Set([inZone >= 0 ? inZone : 0]);
+        }
+        const picked = [0];
+        const firstZone = subnets[0].Zone || subnets[0].IId.NameId;
+        const other = subnets.findIndex(subnet => (subnet.Zone || subnet.IId.NameId) !== firstZone);
+        if (other > 0) picked.push(other);
+        return new Set(picked);
+    }
+
+    // Subnets and SecurityGroups of the selected VPC (see defaultSubnetIndexes for the default subnets).
+    function fillVPCResources(row) {
+        const info = row._info || {};
+        const vpcName = row.querySelector('.create-vpc').value;
+        const vpc = (info.vpcs || []).find(v => v.IId.NameId === vpcName);
+        const subnets = (vpc && vpc.SubnetInfoList) || [];
+        const list = row.querySelector('.subnet-list');
+        list.innerHTML = '';
+        if (subnets.length === 0) list.textContent = vpc ? 'No subnet' : '';
+        const defaults = defaultSubnetIndexes(row, subnets);
+        subnets.forEach((subnet, i) => {
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = subnet.IId.NameId;
+            checkbox.dataset.zone = subnet.Zone || '';
+            checkbox.checked = defaults.has(i);
+            checkbox.addEventListener('change', () => checkAWSSubnets(row));
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(` ${subnet.IId.NameId}${subnet.Zone ? ` (${subnet.Zone})` : ''}`));
+            list.appendChild(label);
+        });
+        const sgs = (info.securitygroups || []).filter(sg => sg.VpcIID && sg.VpcIID.NameId === vpcName);
+        setOptions(row.querySelector('.create-sg'), sgs.map(sg => [sg.IId.NameId, sg.IId.NameId]), 'No SecurityGroup in the VPC');
+        setRowNote(row, '');
+        checkAWSSubnets(row, true);
+        checkNCPSubnets(row, vpc);
+        updateCreateRowState(row);
+    }
+
+    const selectedSubnets = row => Array.from(row.querySelectorAll('.subnet-list input:checked'));
+    const subnetZoneCount = row => new Set(selectedSubnets(row).map(cb => cb.dataset.zone || cb.value)).size;
+
+    // NCP: the NCP driver creates the cluster with every subnet of the VPC (not only the selected ones), and
+    // NKS rejects a subnet outside the connection's zone. A VPC with a subnet in another zone (e.g. the second
+    // subnet of the Add VPC/Subnet dialog) is left out; spiderwatch uses a VPC with one subnet.
+    function checkNCPSubnets(row, vpc) {
+        if (providerOf(row) !== 'NCP' || !vpc || !row._info || !row._info.supported || row._info.error) return true;
+        const zone = row._info.zone;
+        const otherZones = [...new Set((vpc.SubnetInfoList || []).map(subnet => subnet.Zone).filter(z => z && zone && z !== zone))];
+        const include = row.querySelector('.create-include');
+        if (otherZones.length === 0) {
+            include.checked = true;
+            return true;
+        }
+        setRowNote(row,
+            `NCP (NKS) uses every subnet of the VPC, and the VPC has subnets in ${otherZones.join(', ')} (not ${zone}). ` +
+            `Use a VPC whose subnets are all in ${zone} and press Reload, or create without NCP (excluded).`,
+            { label: 'Reload', onClick: () => loadCreateRows([row.dataset.connection]) });
+        include.checked = false;
+        return false;
+    }
+
+    // AWS: warn when fewer than 2 zones are covered, and leave the connection out until it is fixed.
+    // The user can create a subnet in another zone and press Reload, or create the others without AWS.
+    function checkAWSSubnets(row, initial) {
+        if (providerOf(row) !== 'AWS' || !row._info || !row._info.supported || row._info.error) return true;
+        const ok = subnetZoneCount(row) >= AWS_MIN_SUBNET_ZONES;
+        const include = row.querySelector('.create-include');
+        if (ok) {
+            setRowNote(row, '');
+            if (initial) include.checked = row.querySelector('.create-vpc').value !== '';
+        } else {
+            const available = row.querySelectorAll('.subnet-list input').length;
+            setRowNote(row,
+                `AWS (EKS) needs subnets in at least ${AWS_MIN_SUBNET_ZONES} zones` +
+                (available < AWS_MIN_SUBNET_ZONES ? `, but the VPC has ${available} subnet(s). Create a subnet in another zone and press Reload, or create without AWS (excluded).`
+                                                 : '. Select subnets in different zones, or create without AWS (excluded).'),
+                { label: 'Reload', onClick: () => loadCreateRows([row.dataset.connection]) });
+            include.checked = false;
+        }
+        updateCreateRowState(row);
+        return ok;
+    }
+
+    // ---- versions ----
+
+    // The versions a failed creation lists as available, from the driver error messages:
+    //   IBM:      "... Available versions: [1.32.9 1.33.5]. err = ..."
+    //   NCP, NHN: "Unsupported K8s version. (Available version: 1.33.4-nks.1, 1.34.3-nks.2)"
+    //   Tencent:  "Unsupported Cluster Version \"x\". Supported versions in region \"ap-seoul\": 1.30.0, 1.32.2"
+    function parseAvailableVersions(message) {
+        const match = (message || '').match(/(?:Available\s+versions?|Supported\s+versions[^:]*):\s*([^)]*)/i);
+        if (!match) return [];
+        const text = match[1].split(/\.\s+err\b/i)[0];
+        return text.split(/[\s,\[\]"']+/)
+            .map(v => v.replace(/\.$/, ''))
+            .filter(v => /^v?\d+\.\d+/.test(v));
+    }
+
+    // compare versions by their numbers: "v1.33.4" < "1.34.3-nks.2"
+    function compareVersions(a, b) {
+        const na = (a.match(/\d+/g) || []).map(Number), nb = (b.match(/\d+/g) || []).map(Number);
+        for (let i = 0; i < Math.max(na.length, nb.length); i++) {
+            const d = (na[i] || 0) - (nb[i] || 0);
+            if (d) return d;
+        }
+        return 0;
+    }
+
+    // the newest available version other than the one that failed
+    function pickRetryVersion(versions, failedVersion) {
+        return versions.filter(v => v !== failedVersion).sort(compareVersions).pop() || '';
+    }
+
+    // ---- create ----
+
+    function clusterRequest(task, version) {
+        return {
+            method: 'POST',
+            path: '/spider/cluster',
+            body: {
+                ConnectionName: task.connName,
+                ReqInfo: Object.assign({}, task.reqInfo, { Version: version })
+            }
+        };
+    }
+
+    function readClusterResponse(response) {
+        return response.text().then(txt => {
+            let data;
+            try { data = JSON.parse(txt); } catch (e) { data = { message: txt }; }
+            if (!response.ok || !(data.IId && data.IId.NameId)) {
+                throw new Error(data.message || data.Message || txt || `HTTP ${response.status}`);
+            }
+            return data;
+        });
+    }
+
+    // Fan out cluster creation to every included connection. Partial failures are allowed: whatever
+    // succeeds stays created, failures are reported per connection.
+    function postClusterMulti() {
+        const rows = Array.from(document.querySelectorAll('#create-table tr.create-row')).filter(row => multiInFocus(row.dataset.connection));
+        if (rows.some(row => row.dataset.loading)) {
+            alert('The resources of the connections are still loading. Please wait a moment.');
+            return;
+        }
+        const clusterName = document.getElementById('clusterName').value.trim();
+        if (!clusterName) {
+            alert('Please enter a Cluster name.');
+            return;
+        }
+        const desired = parseInt(document.getElementById('desiredNodeSize').value);
+        const min = parseInt(document.getElementById('minNodeSize').value);
+        const max = parseInt(document.getElementById('maxNodeSize').value);
+        if (!(min >= 1 && min <= desired && desired <= max)) {
+            alert('Node sizes must be 1 <= Min <= Desired <= Max.');
+            return;
+        }
+        const tags = collectTags('cluster');
+        const autoVersionRetry = document.getElementById('autoVersionRetry').checked;
+
+        const tasks = [], skipped = [];
+        rows.forEach(row => {
+            const connName = row.dataset.connection;
+            // a CSP without Cluster support is already marked in the dialog: no "Skipped" box for it
+            if (row._info && row._info.supported === false) return;
+            if (!row.querySelector('.create-include').checked) {
+                // the note text without its button (ex: Reload)
+                const note = row.querySelector('.row-note').firstChild;
+                skipped.push(`${connName}: ${(note && note.nodeType === Node.TEXT_NODE && note.textContent) || 'not selected'}`);
+                return;
+            }
+            const subnets = selectedSubnets(row).map(cb => cb.value);
+            const sg = row.querySelector('.create-sg').value;
+            const keyPair = row.querySelector('.create-keypair').value;
+            const spec = row.querySelector('.create-spec').value.trim();
+            const problems = [];
+            if (!row.querySelector('.create-vpc').value) problems.push('no VPC');
+            if (subnets.length === 0) problems.push('no subnet selected');
+            if (!sg) problems.push('no SecurityGroup');
+            if (providerOf(row) === 'AWS' && subnetZoneCount(row) < AWS_MIN_SUBNET_ZONES) problems.push(`AWS needs subnets in ${AWS_MIN_SUBNET_ZONES} zones`);
+            if (createsNodeGroup(row) && !spec) problems.push('no Node VM Spec');
+            if (createsNodeGroup(row) && !keyPair) problems.push('no KeyPair for the node group');
+            if (problems.length) {
+                skipped.push(`${connName}: ${problems.join(', ')}`);
+                return;
+            }
+            const nodeGroupList = createsNodeGroup(row) ? [{
+                Name: document.getElementById('nodeGroupName').value.trim(),
+                ImageName: row.querySelector('.create-image').value.trim(),
+                VMSpecName: spec,
+                RootDiskType: 'default',
+                RootDiskSize: row.querySelector('.create-disk').value.trim() || 'default',
+                KeyPairName: keyPair,
+                OnAutoScaling: document.getElementById('onAutoScaling').value,
+                DesiredNodeSize: String(desired),
+                MinNodeSize: String(min),
+                MaxNodeSize: String(max)
+            }] : [];
+            tasks.push({
+                connName,
+                provider: providerOf(row),
+                version: row.querySelector('.create-version').value.trim(),
+                reqInfo: {
+                    Name: clusterName,
+                    VPCName: row.querySelector('.create-vpc').value,
+                    SubnetNames: subnets,
+                    SecurityGroupNames: [sg],
+                    NodeGroupList: nodeGroupList,
+                    Addons: [],
+                    TagList: tags
+                }
+            });
+        });
+
+        if (tasks.length === 0) {
+            alert(`No connection can create the Cluster.\n\n  - ${skipped.join('\n  - ')}`);
+            return;
+        }
+        const summary = tasks.map(t => `${t.connName}: version ${t.version || '(CSP default)'}` +
+            (t.reqInfo.NodeGroupList.length ? `, ${desired} x ${t.reqInfo.NodeGroupList[0].VMSpecName}` : ', no node group')).join('\n  - ');
+        if (!confirm(`Create Cluster "${clusterName}" in ${tasks.length} connection(s)? A cluster takes about 10 minutes or more to create and is charged by the CSP.\n\n  - ${summary}` +
+            (skipped.length ? `\n\nSkipped:\n  - ${skipped.join('\n  - ')}` : '') +
+            `\n\nOn a version error: ${autoVersionRetry ? 'retry with an available version' : 'fail'}`)) {
+            return;
+        }
+        hideOverlay();
+
+        // All create requests go out in one call and the server sends them at the same time (multiFanout).
+        const responses = multiFanout(tasks.map(task => clusterRequest(task, task.version)));
+        tasks.forEach((task, i) => {
+            const label = `Cluster "${clusterName}" in ${task.connName}`;
+            const box = multiTaskBox('create', `Creating ${label}…`);
+            const created = cluster => {
+                multiAddRow(document.getElementById('cluster-table'), buildClusterRow(task.connName, cluster), task.connName);
+                formatCreatedTimes();
+            };
+            responses[i]
+            .then(readClusterResponse)
+            .then(cluster => {
+                created(cluster);
+                box.finish(true, `Created ${label}`);
+            })
+            .catch(error => {
+                // a version error lists the available versions: retry once with the newest of them
+                const retryVersion = autoVersionRetry ? pickRetryVersion(parseAvailableVersions(error.message), task.version) : '';
+                if (!retryVersion) {
+                    box.finish(false, `Failed to create ${label}: ${error.message}`);
+                    return;
+                }
+                box.setText(`Version ${task.version || '(default)'} is not available: creating ${label} with version ${retryVersion}…`);
+                multiFanout([clusterRequest(task, retryVersion)])[0]
+                .then(readClusterResponse)
+                .then(cluster => {
+                    created(cluster);
+                    box.finish(true, `Created ${label} with version ${retryVersion} (${task.version || 'default'} was not available)`);
+                })
+                .catch(retryError => box.finish(false, `Failed to create ${label} with version ${retryVersion}: ${retryError.message}`));
+            });
+        });
+        skipped.forEach(s => multiTaskBox('create', '').finish(false, `Skipped ${s}`));
+    }
+
+    // Build a Cluster row from a ClusterInfo (the create response), same layout as the server-rendered rows.
+    function buildClusterRow(connName, cluster) {
+        const el = (tag, className, text) => {
+            const e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        };
+        const iid = cluster.IId || {};
+        const network = cluster.Network || {};
+        const names = list => (list || []).map(x => x.NameId).join(', ');
+
+        const tr = el('tr');
+        tr.appendChild(el('td', 'column-num'));
+        tr.appendChild(el('td', 'column-connection', connName));
+
+        const nameTd = el('td', 'vpc-name-cell', iid.NameId);
+        const sysId = el('span', 'desc-system-id', ` • ${iid.SystemId || ''}`);
+        sysId.addEventListener('click', () => showSystemIdOverlay(iid.SystemId || ''));
+        nameTd.appendChild(sysId);
+        const createdTime = el('span', 'disk-created-time');
+        createdTime.dataset.time = cluster.CreatedTime || '';
+        nameTd.appendChild(createdTime);
+        tr.appendChild(nameTd);
+
+        const statusTd = el('td', 'center-align');
+        statusTd.appendChild(el('span', `status-badge status-${cluster.Status || ''}`, cluster.Status || ''));
+        tr.appendChild(statusTd);
+        tr.appendChild(el('td', 'center-align', cluster.Version || ''));
+
+        const netTd = el('td', 'res-detail');
+        [['VPC', (network.VpcIID || {}).NameId || ''], ['Subnets', names(network.SubnetIIDs)], ['SGs', names(network.SecurityGroupIIDs)]]
+            .forEach(([key, value], i) => {
+                if (i) netTd.appendChild(el('br'));
+                netTd.appendChild(el('b', '', `${key}:`));
+                netTd.appendChild(document.createTextNode(` ${value}`));
+            });
+        tr.appendChild(netTd);
+
+        const ngTd = el('td', 'res-detail');
+        (cluster.NodeGroupList || []).forEach(ng => {
+            const div = el('div');
+            div.appendChild(el('b', '', (ng.IId || {}).NameId || ''));
+            div.appendChild(document.createTextNode(` (${ng.Status || ''}) ${ng.VMSpecName || ''}, ${ng.DesiredNodeSize} [${ng.MinNodeSize}-${ng.MaxNodeSize}]`));
+            ngTd.appendChild(div);
+        });
+        tr.appendChild(ngTd);
+        tr.appendChild(el('td', 'res-detail', (cluster.AccessInfo || {}).Endpoint || ''));
+
+        const tagTd = el('td');
+        (cluster.TagList || []).forEach(tag => {
+            const text = `${tag.Key}: ${tag.Value}`;
+            const div = el('div', 'tag-container', text);
+            div.addEventListener('click', event => showTagOverlay(event, text, 'Cluster', iid.NameId, connName));
+            tagTd.appendChild(div);
+        });
+        tr.appendChild(tagTd);
+
+        const miscTd = el('td', 'center-align misc-cell');
+        const misc = el('div', 'misc-content');
+        (cluster.KeyValueList || []).forEach(kv => {
+            misc.appendChild(document.createTextNode(`${kv.Key} : ${kv.Value}`));
+            misc.appendChild(el('br'));
+        });
+        miscTd.appendChild(misc);
+        tr.appendChild(miscTd);
+
+        const checkTd = el('td', 'check-column');
+        const checkbox = el('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'deleteCheckbox';
+        checkbox.value = iid.NameId;
+        checkbox.dataset.connection = connName;
+        checkTd.appendChild(checkbox);
+        tr.appendChild(checkTd);
+        return tr;
+    }
+
     // ---- Delete ----
 
     function deleteSelectedClusters() {
@@ -566,14 +1260,18 @@
         // a Cluster being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/cluster/${encodeURIComponent(task.itemName)}?force=true`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `Cluster "${task.itemName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/cluster/${encodeURIComponent(task.itemName)}?force=true`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.text().then(txt => {
                 let data;
                 try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }

@@ -673,7 +673,7 @@ func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	}
 
 	vmInfo, errVmInfo := vmHandler.ExtractDescribeInstances(response.Response.InstanceSet[0])
-	cblogger.Info("vmInfo", vmInfo)
+	cblogger.Debug("vmInfo", vmInfo)
 	return vmInfo, errVmInfo
 }
 

@@ -374,10 +374,102 @@
     .status-badge.status-Creating, .status-badge.status-Deleting { background-color: #fff3e0; color: #b35c00; }
     .status-badge.status-Stopped { background-color: #eaeef2; color: #57606a; }
     .status-badge.status-Error { background-color: #fde2e2; color: #c62828; }
-    .create-note-bar {
-        color: #555;
+    .zone-table {
+        width: auto;
+        margin: 0 auto;
+        border-collapse: collapse;
+    }
+    .zone-table th, .zone-table td {
         font-size: 12px;
-        margin-left: 4px;
+        padding: 3px 8px;
+        vertical-align: top;
+    }
+    .zone-table select {
+        max-width: 220px;
+    }
+    .conn-provider {
+        display: block;
+        font-size: 11px;
+        font-weight: normal;
+        color: #888;
+    }
+    .conn-skip {
+        color: #b35c00;
+        font-weight: normal;
+    }
+    .vm-picker-btn {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        min-width: 170px;
+        padding: 2px 6px;
+        font-size: 12px;
+        text-align: left;
+        background-color: #fff;
+        border: 1px solid #999;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+    .vm-picker-btn:disabled {
+        color: #999;
+        background-color: #f3f3f3;
+        cursor: default;
+    }
+    .vm-picker-btn.has-selection {
+        color: #0645AD;
+        border-color: #0645AD;
+        font-weight: bold;
+    }
+    .vm-picker-panel {
+        display: none;
+        position: fixed;
+        z-index: 1100;
+        min-width: 220px;
+        padding: 6px;
+        background-color: #fff;
+        border: 1px solid #999;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .vm-picker-panel.open {
+        display: block;
+    }
+    .vm-picker-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 4px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid #ddd;
+        white-space: nowrap;
+    }
+    .vm-picker-filter {
+        flex: 1;
+        min-width: 80px;
+        font-size: 12px;
+    }
+    .vm-picker-items {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .vm-picker-items label, .vm-picker-head label {
+        display: block;
+        white-space: nowrap;
+        padding: 1px 2px;
+        cursor: pointer;
+    }
+    .vm-picker-items label:hover {
+        background-color: #eef3fb;
+    }
+    .form-group select {
+        flex: 2;
+    }
+    .form-group-inline {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
     }
 </style>
 </head>
@@ -401,7 +493,7 @@
 
     <div class="connection-bar">
         <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
-        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn}}" title="Show only this connection">{{$conn}}</button>{{end}}
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn.Name}}" title="Show only this connection">{{$conn.Name}}</button>{{end}}
         {{range $conn, $err := .ConnErrors}}
         <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
         {{end}}
@@ -412,7 +504,7 @@
 
     <div class="content">
         <div class="fixed-action-buttons">
-            <span class="create-note-bar">To create an NLB (CSP-specific options), select its connection above.</span>
+            <button class="add-button" onclick="showOverlay()">+ NLB (all connections)</button>
             <div style="flex: 1;"></div>
             <input type="checkbox" onclick="toggleSelectAll(this)">
             <button onclick="deleteSelectedNLBs()">Delete</button>
@@ -467,10 +559,118 @@
             {{end}}
             {{if not .NLBRows}}
             <tr class="empty-row">
-                <td colspan="9" class="center-align">No NLBs found across the selected connections.</td>
+                <td colspan="10" class="center-align">No NLBs found across the selected connections.</td>
             </tr>
             {{end}}
         </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New NLB to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
+            <form id="addNLBForm" onsubmit="event.preventDefault(); postNLBMulti();">
+                <fieldset class="info-group">
+                    <legend>NLB Info:</legend>
+                    <div class="form-group">
+                        <label for="nlbName">Name:</label>
+                        <input type="text" id="nlbName" name="nlbName" required style="color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label for="type">Type:</label>
+                        <select id="type" name="type" required style="background-color: #E6E6FA;">
+                            <option value="PUBLIC">PUBLIC</option>
+                            <option value="INTERNAL">INTERNAL</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Scope:</label>
+                        <span style="flex: 2;"><b>REGION</b></span>
+                    </div>
+                    <div class="form-group" style="padding-left: 100px;">
+                        <label>Tags:</label>
+                        <div id="nlb-tag-container" class="vpc-tag-container"></div>
+                        <button type="button" onclick="addTagField('nlb')">+</button>
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Listener:</legend>
+                    <div class="form-group-inline">
+                        <label for="protocol">Protocol:</label>
+                        <select id="protocol" name="protocol" required style="background-color: #E6E6FA;">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                        </select>
+                        <label for="port" style="margin-left: 15px;">Port:</label>
+                        <input type="number" id="port" name="port" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70px;">
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>VM Group:</legend>
+                    <div class="form-group-inline" style="margin-bottom: 10px;">
+                        <label for="vmProtocol">Protocol:</label>
+                        <select id="vmProtocol" name="vmProtocol" required style="background-color: #E6E6FA;">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                        </select>
+                        <label for="vmPort" style="margin-left: 15px;">Port:</label>
+                        <input type="number" id="vmPort" name="vmPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70px;">
+                    </div>
+                    <table class="zone-table">
+                        <tr>
+                            <th>Connection</th>
+                            <th>VPC Name</th>
+                            <th>VMs (optional, in the VPC)</th>
+                        </tr>
+                        {{range $conn := .Connections}}
+                        <tr data-connection="{{$conn.Name}}">
+                            <td>{{$conn.Name}}<span class="conn-provider">{{$conn.Provider}}</span></td>
+                            <td><select class="nlb-vpc-select" data-connection="{{$conn.Name}}" onchange="renderConnVMs(this.dataset.connection)"></select></td>
+                            <td>
+                                <div class="vm-picker" data-connection="{{$conn.Name}}">
+                                    <button type="button" class="vm-picker-btn" disabled onclick="toggleVMPicker(this.parentElement)"><span class="vm-picker-label">-</span><span>&#9662;</span></button>
+                                    <div class="vm-picker-panel"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </table>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Health Checker:</legend>
+                    <div class="form-group-inline" style="margin-bottom: 8px;">
+                        <label for="hcProtocol">Protocol:</label>
+                        <select id="hcProtocol" name="hcProtocol" required style="background-color: #E6E6FA;">
+                            <option value="TCP">TCP</option>
+                            <option value="HTTP">HTTP</option>
+                        </select>
+                        <label for="hcPort" style="margin-left: 15px;">Port:</label>
+                        <input type="number" id="hcPort" name="hcPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70px;">
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="interval">Interval:</label>
+                        <input type="text" id="interval" name="interval" value="default" style="width: 50px;">
+                        <label for="timeout" style="margin-left: 10px;">Timeout:</label>
+                        <input type="text" id="timeout" name="timeout" value="default" style="width: 50px;">
+                        <label for="threshold" style="margin-left: 10px;">Threshold:</label>
+                        <input type="text" id="threshold" name="threshold" value="default" style="width: 50px;">
+                    </div>
+                    <div class="create-note" style="margin-top: 8px; text-align: center;"
+                         title="GCP Target Pool-based NLB only supports HTTP health checks.&#10;Please ensure an HTTP service is listening on the port on the VMs (e.g., $apt install nginx).">
+                        ※ GCP connections use an HTTP health check (port 80 unless HTTP is selected above); it requires an HTTP service on the VMs (e.g., nginx).<br>
+                        ※ IBM connections use Interval 10 / Timeout 9 when they are left as default.
+                    </div>
+                </fieldset>
+
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add NLB</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div id="tag-overlay" class="overlay">
@@ -512,6 +712,9 @@
         return originalFetch(url, options);
     };
 
+    // Connections this page fans requests out to ({Name, Provider}), injected server-side.
+    const MULTI_CONNECTIONS = {{.Connections}} || [];
+
     function toggleSelectAll(source) {
         const checkboxes = multiVisibleCheckboxes();
         for (const checkbox of checkboxes) {
@@ -535,6 +738,532 @@
     window.onMultiRefreshed = formatCreatedTimes;
     formatCreatedTimes();
 
+    // ---- Create ----
+
+    // per connection: { supported, vpcs, vms, error } loaded when the dialog is opened
+    const connCreateInfo = {};
+
+    function showOverlay() {
+        document.getElementById('nlbName').value = `multi-nlb-${Math.random().toString(36).substring(2, 6)}`;
+        document.getElementById('type').value = 'PUBLIC';
+        document.getElementById('protocol').value = 'TCP';
+        document.getElementById('port').value = '22';
+        document.getElementById('vmProtocol').value = 'TCP';
+        document.getElementById('vmPort').value = '22';
+        document.getElementById('hcProtocol').value = 'TCP';
+        document.getElementById('hcPort').value = '22';
+        document.getElementById('interval').value = 'default';
+        document.getElementById('timeout').value = 'default';
+        document.getElementById('threshold').value = 'default';
+        clearFormFields();
+        loadCreateInfo();
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+    }
+
+    function clearFormFields() {
+        document.querySelectorAll('.nlb-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function hideOverlay() {
+        closeVMPicker();
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+        clearFormFields();
+    }
+
+    function handleOverlayEsc(event) {
+        if (event.key === "Escape") {
+            // ESC closes an open VM picker first, then the dialog
+            if (openVMPicker) closeVMPicker();
+            else hideOverlay();
+        }
+    }
+
+    function addTagField(kind) {
+        const tagContainer = document.getElementById(`${kind}-tag-container`);
+        const tagInput = document.createElement('div');
+        tagInput.className = `${kind}-tag-input tag-input-group`;
+        tagInput.innerHTML = `
+            <input type="text" class="${kind}-tag-key" placeholder="Key" required>
+            <input type="text" class="${kind}-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function collectTags(kind) {
+        return Array.from(document.querySelectorAll(`.${kind}-tag-input`)).map(tagInput => ({
+            Key: tagInput.querySelector(`.${kind}-tag-key`).value.trim(),
+            Value: tagInput.querySelector(`.${kind}-tag-value`).value.trim()
+        }));
+    }
+
+    function vpcSelectOf(connName) {
+        return Array.from(document.querySelectorAll('.nlb-vpc-select')).find(select => select.dataset.connection === connName);
+    }
+
+    // ---- VM picker: a collapsed multi-select per connection ("n / m VMs" button + checklist panel) ----
+
+    let openVMPicker = null;
+
+    function vmPickerOf(connName) {
+        return Array.from(document.querySelectorAll('.vm-picker')).find(div => div.dataset.connection === connName);
+    }
+
+    // Show a message on the (disabled) button, without VMs to select.
+    function resetVMPicker(connName, message) {
+        const picker = vmPickerOf(connName);
+        if (picker === openVMPicker) closeVMPicker();
+        picker.querySelector('.vm-picker-panel').innerHTML = '';
+        const btn = picker.querySelector('.vm-picker-btn');
+        btn.disabled = true;
+        btn.classList.remove('has-selection');
+        picker.querySelector('.vm-picker-label').textContent = message;
+    }
+
+    // Fill the picker with VMs: an 'All' checkbox (for the shown VMs), a filter when there are many VMs,
+    // and a checkbox per VM. The first two VMs (or the only one) are selected by default.
+    function setVMPickerItems(connName, vms) {
+        if (vms.length === 0) {
+            resetVMPicker(connName, 'No VMs in this VPC');
+            return;
+        }
+        const picker = vmPickerOf(connName);
+        const panel = picker.querySelector('.vm-picker-panel');
+        panel.innerHTML = '';
+
+        const head = document.createElement('div');
+        head.className = 'vm-picker-head';
+        const allLabel = document.createElement('label');
+        const all = document.createElement('input');
+        all.type = 'checkbox';
+        all.className = 'vm-picker-all';
+        all.addEventListener('change', () => {
+            visibleVMItems(picker).forEach(cb => { cb.checked = all.checked; });
+            updateVMPickerLabel(picker);
+        });
+        allLabel.appendChild(all);
+        allLabel.appendChild(document.createTextNode(' All'));
+        head.appendChild(allLabel);
+        if (vms.length >= 8) {
+            const filter = document.createElement('input');
+            filter.type = 'text';
+            filter.className = 'vm-picker-filter';
+            filter.placeholder = 'Filter...';
+            filter.addEventListener('input', () => {
+                const keyword = filter.value.trim().toLowerCase();
+                panel.querySelectorAll('.vm-picker-items label').forEach(label => {
+                    label.style.display = label.textContent.toLowerCase().includes(keyword) ? '' : 'none';
+                });
+                updateVMPickerLabel(picker);
+            });
+            head.appendChild(filter);
+        }
+        panel.appendChild(head);
+
+        const items = document.createElement('div');
+        items.className = 'vm-picker-items';
+        vms.forEach((vm, index) => {
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'vm-picker-item';
+            checkbox.value = vm.IId.NameId;
+            checkbox.checked = index < 2;
+            checkbox.addEventListener('change', () => updateVMPickerLabel(picker));
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(` ${vm.IId.NameId}${vm.PrivateIP ? ` (${vm.PrivateIP})` : ''}`));
+            items.appendChild(label);
+        });
+        panel.appendChild(items);
+
+        picker.querySelector('.vm-picker-btn').disabled = false;
+        updateVMPickerLabel(picker);
+    }
+
+    function visibleVMItems(picker) {
+        return Array.from(picker.querySelectorAll('.vm-picker-item')).filter(cb => cb.parentElement.style.display !== 'none');
+    }
+
+    // Button label "n / m VMs", and the 'All' checkbox state for the shown VMs.
+    function updateVMPickerLabel(picker) {
+        const items = Array.from(picker.querySelectorAll('.vm-picker-item'));
+        const selected = items.filter(cb => cb.checked).length;
+        picker.querySelector('.vm-picker-label').textContent = `${selected} / ${items.length} VMs`;
+        picker.querySelector('.vm-picker-btn').classList.toggle('has-selection', selected > 0);
+        const all = picker.querySelector('.vm-picker-all');
+        if (all) {
+            const visible = visibleVMItems(picker);
+            const visibleSelected = visible.filter(cb => cb.checked).length;
+            all.checked = visible.length > 0 && visibleSelected === visible.length;
+            all.indeterminate = visibleSelected > 0 && visibleSelected < visible.length;
+        }
+    }
+
+    function selectedVMs(connName) {
+        return Array.from(vmPickerOf(connName).querySelectorAll('.vm-picker-item:checked')).map(cb => cb.value);
+    }
+
+    function toggleVMPicker(picker) {
+        if (openVMPicker === picker) {
+            closeVMPicker();
+            return;
+        }
+        closeVMPicker();
+        const btn = picker.querySelector('.vm-picker-btn');
+        const panel = picker.querySelector('.vm-picker-panel');
+        // fixed position, so the panel is not clipped by the scrolling dialog
+        const rect = btn.getBoundingClientRect();
+        panel.style.minWidth = `${Math.max(rect.width, 220)}px`;
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.bottom + 2}px`;
+        panel.classList.add('open');
+        const panelRect = panel.getBoundingClientRect();
+        if (panelRect.bottom > window.innerHeight && rect.top > panelRect.height) {
+            panel.style.top = `${rect.top - panelRect.height - 2}px`;   // no room below: open upward
+        }
+        if (panelRect.right > window.innerWidth) {
+            panel.style.left = `${Math.max(4, window.innerWidth - panelRect.width - 4)}px`;
+        }
+        openVMPicker = picker;
+        const filter = panel.querySelector('.vm-picker-filter');
+        if (filter) filter.focus();
+    }
+
+    function closeVMPicker() {
+        if (!openVMPicker) return;
+        openVMPicker.querySelector('.vm-picker-panel').classList.remove('open');
+        openVMPicker = null;
+    }
+
+    // close the open picker on a click outside it, or when the dialog scrolls (the panel would float away)
+    document.addEventListener('mousedown', event => {
+        if (openVMPicker && !openVMPicker.contains(event.target)) closeVMPicker();
+    });
+    document.querySelector('#overlay .overlay-content').addEventListener('scroll', closeVMPicker);
+    window.addEventListener('resize', closeVMPicker);
+
+    function setSkipped(connName, message) {
+        const select = vpcSelectOf(connName);
+        select.innerHTML = '';
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = message;
+        select.appendChild(option);
+        select.disabled = true;
+        resetVMPicker(connName, '-');
+    }
+
+    // Load, per connection in focus: NLB support of its driver, its VPCs and its VMs.
+    // The first VPC is selected by default; a connection without NLB support or VPCs is skipped.
+    // Load the VPCs and VMs of every connection for the dialog.
+    // One request streams one JSON line per connection (NDJSON) as each connection is ready: the server
+    // fetches all connections at the same time, so the browser limit of 6 parallel requests per server
+    // does not queue them (3 requests per connection were made before), and each row fills as it arrives.
+    let createInfoAbort = null;     // the in-flight load, aborted when the dialog loads again
+    function loadCreateInfo() {
+        if (createInfoAbort) createInfoAbort.abort();
+        const abort = new AbortController();
+        createInfoAbort = abort;
+        const conns = MULTI_CONNECTIONS.filter(conn => multiInFocus(conn.Name)).map(conn => conn.Name);
+        conns.forEach(connName => {
+            const select = vpcSelectOf(connName);
+            select.innerHTML = '<option value="">Loading…</option>';
+            select.disabled = true;
+            resetVMPicker(connName, 'Loading…');
+            delete connCreateInfo[connName];
+        });
+        if (conns.length === 0) return;
+
+        const pending = new Set(conns);
+        const failRest = message => {
+            if (abort.signal.aborted) return;   // replaced by a newer load
+            pending.forEach(connName => {
+                connCreateInfo[connName] = { supported: true, error: message };
+                setSkipped(connName, `Failed to load VPCs (skipped): ${message}`);
+            });
+            pending.clear();
+        };
+
+        fetch(`/spider/adminweb/nlb-createinfo?ids=${encodeURIComponent(conns.join(','))}`, { signal: abort.signal })
+            .then(async response => {
+                if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffered = '';
+                for (;;) {
+                    const { value, done } = await reader.read();
+                    buffered += decoder.decode(value || new Uint8Array(), { stream: !done });
+                    let newline;
+                    while ((newline = buffered.indexOf('\n')) >= 0) {
+                        const line = buffered.slice(0, newline).trim();
+                        buffered = buffered.slice(newline + 1);
+                        if (line && !abort.signal.aborted) applyCreateInfo(JSON.parse(line), pending);
+                    }
+                    if (done) break;
+                }
+                if (pending.size > 0) failRest('no response from the server');
+            })
+            .catch(error => failRest(error.message));
+    }
+
+    // Fill the dialog row of one connection from its streamed create info.
+    function applyCreateInfo(info, pending) {
+        const connName = info.connection;
+        if (!pending.has(connName)) return;      // not asked for (or the dialog was reloaded)
+        pending.delete(connName);
+        if (!info.supported) {
+            connCreateInfo[connName] = { supported: false };
+            setSkipped(connName, 'NLB not supported (skipped)');
+            return;
+        }
+        if (info.error) {
+            connCreateInfo[connName] = { supported: true, error: info.error };
+            setSkipped(connName, `Failed to load VPCs (skipped): ${info.error}`);
+            return;
+        }
+        const vpcs = info.vpcs || [];
+        const vms = info.vms || [];
+        connCreateInfo[connName] = { supported: true, vpcs, vms };
+        if (vpcs.length === 0) {
+            setSkipped(connName, 'No VPCs (skipped)');
+            return;
+        }
+        const select = vpcSelectOf(connName);
+        select.innerHTML = '';
+        vpcs.forEach(vpc => {
+            const option = document.createElement('option');
+            option.value = vpc.IId.NameId;
+            // GCP/IBM VPCs have no CIDR (the field holds a notice instead), so show a CIDR only
+            const cidr = /^[0-9a-fA-F:.]+\/\d+$/.test(vpc.IPv4_CIDR || '') ? vpc.IPv4_CIDR : '';
+            option.textContent = cidr ? `${vpc.IId.NameId} (${cidr})` : vpc.IId.NameId;
+            select.appendChild(option);
+        });
+        select.disabled = false;
+        renderConnVMs(connName);
+    }
+
+    // Offer the VMs of the connection that are in its selected VPC (the selection is reset on a VPC change).
+    function renderConnVMs(connName) {
+        const info = connCreateInfo[connName];
+        if (!info || !info.vms) {
+            resetVMPicker(connName, '-');
+            return;
+        }
+        const vpcName = vpcSelectOf(connName).value;
+        setVMPickerItems(connName, info.vms.filter(vm => vm.VpcIID && vm.VpcIID.NameId === vpcName));
+    }
+
+    // Health checker of a new NLB, with the CSP-specific values of the connection's provider
+    // (same as the single-connection NLB page).
+    function healthCheckerFor(provider) {
+        const hc = {
+            Protocol: document.getElementById('hcProtocol').value,
+            Port: document.getElementById('hcPort').value,
+            Interval: document.getElementById('interval').value.trim() || 'default',
+            Timeout: document.getElementById('timeout').value.trim() || 'default',
+            Threshold: document.getElementById('threshold').value.trim() || 'default'
+        };
+        switch ((provider || '').toUpperCase()) {
+        case 'GCP':     // Target Pool-based NLB supports HTTP health checks only
+            if (hc.Protocol !== 'HTTP') {
+                hc.Protocol = 'HTTP';
+                hc.Port = '80';
+            }
+            break;
+        case 'IBM':
+            if (hc.Interval === 'default') hc.Interval = '10';
+            if (hc.Timeout === 'default') hc.Timeout = '9';
+            break;
+        }
+        return hc;
+    }
+
+    // Fan out NLB creation to every selected connection, each in the VPC (and with the VMs) selected for it.
+    // Partial failures are allowed: whatever succeeds stays created, failures are reported per connection.
+    function postNLBMulti() {
+        if (MULTI_CONNECTIONS.length === 0) {
+            alert('No connections are active for multi-connection management.');
+            return;
+        }
+
+        const ports = ['port', 'vmPort', 'hcPort'].map(id => parseInt(document.getElementById(id).value));
+        if (ports.some(port => !(port >= 1 && port <= 65535))) {
+            alert('Please enter valid ports between 1 and 65535.');
+            return;
+        }
+
+        // all connections, or only the one the page is narrowed to
+        const conns = MULTI_CONNECTIONS.filter(conn => multiInFocus(conn.Name));
+        if (conns.some(conn => !connCreateInfo[conn.Name])) {
+            alert('VPC lists are still loading. Please wait a moment.');
+            return;
+        }
+        const targets = [];
+        const skipped = [];
+        conns.forEach(conn => {
+            const info = connCreateInfo[conn.Name];
+            const vpcName = vpcSelectOf(conn.Name).value;
+            if (!info.supported) {
+                // already marked in the dialog ("NLB not supported (skipped)"): no "Skipped" box for it
+            } else if (!vpcName) {
+                skipped.push({ conn, reason: info.error ? `failed to load VPCs: ${info.error}` : 'no VPC to create an NLB in' });
+            } else {
+                const vms = selectedVMs(conn.Name);
+                targets.push({ conn, vpcName, vms });
+            }
+        });
+        if (targets.length === 0) {
+            alert('None of the selected connections can create an NLB (no NLB support or no VPC).');
+            return;
+        }
+
+        let confirmMsg = `Create an NLB on each of ${targets.length} connection(s)?\n\n  - ` +
+            targets.map(t => `${t.conn.Name}: VPC ${t.vpcName}, ${t.vms.length} VM(s)`).join('\n  - ');
+        if (skipped.length > 0) {
+            confirmMsg += `\n\nSkipped:\n  - ${skipped.map(s => `${s.conn.Name} (${s.reason})`).join('\n  - ')}`;
+        }
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        const nlbName = document.getElementById('nlbName').value.trim();
+        const type = document.getElementById('type').value;
+        const listener = {
+            Protocol: document.getElementById('protocol').value,
+            Port: document.getElementById('port').value
+        };
+        const vmProtocol = document.getElementById('vmProtocol').value;
+        const vmPort = document.getElementById('vmPort').value;
+        const tags = collectTags('nlb');
+
+        hideOverlay();
+
+        // All create requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one (ex: an IBM NLB takes about 7 minutes) in the browser's queue.
+        const responses = multiFanout(targets.map(task => ({
+            method: 'POST',
+            path: '/spider/nlb',
+            body: {
+                ConnectionName: task.conn.Name,
+                ReqInfo: {
+                    Name: nlbName,
+                    VPCName: task.vpcName,
+                    Type: type,
+                    Scope: 'REGION',
+                    Listener: listener,
+                    VMGroup: {
+                        Protocol: vmProtocol,
+                        Port: vmPort,
+                        VMs: task.vms
+                    },
+                    HealthChecker: healthCheckerFor(task.conn.Provider),
+                    TagList: tags
+                }
+            }
+        })));
+
+        // one status box per request; each created NLB is added to the list at once
+        targets.forEach((task, i) => {
+            const label = `NLB "${nlbName}" in ${task.conn.Name}`;
+            const box = multiTaskBox('create', `Creating ${label}…`);
+            responses[i]
+            .then(response => response.text().then(txt => {
+                let data;
+                try { data = JSON.parse(txt); } catch (e) { data = { message: txt }; }
+                if (!response.ok || !(data.IId && data.IId.NameId)) {
+                    throw new Error(data.message || data.Message || `HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(nlb => {
+                multiAddRow(document.getElementById('nlb-table'), buildNLBRow(task.conn.Name, nlb), task.conn.Name);
+                formatCreatedTimes();
+                box.finish(true, `Created ${label}`);
+            })
+            .catch(error => box.finish(false, `Failed to create ${label}: ${error.message}`));
+        });
+        skipped.forEach(s => multiTaskBox('create', '').finish(false, `Skipped ${s.conn.Name}: ${s.reason}`));
+    }
+
+    // Build an NLB row from an NLBInfo (the create response), same layout as the server-rendered rows.
+    function buildNLBRow(connName, nlb) {
+        const el = (tag, className, text) => {
+            const e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        };
+        const detail = (td, pairs) => {
+            pairs.forEach(([key, value], i) => {
+                if (i) td.appendChild(el('br'));
+                td.appendChild(el('b', '', `${key}:`));
+                td.appendChild(document.createTextNode(` ${value}`));
+            });
+            return td;
+        };
+        const listener = nlb.Listener || {};
+        const vmGroup = nlb.VMGroup || {};
+        const iid = nlb.IId || {};
+
+        const tr = el('tr');
+        tr.appendChild(el('td', 'column-num'));
+        tr.appendChild(el('td', 'column-connection', connName));
+
+        const nameTd = el('td', 'vpc-name-cell', iid.NameId);
+        const sysId = el('span', 'desc-system-id', `\u00a0\u2022 ${iid.SystemId || ''}`);
+        sysId.addEventListener('click', () => showSystemIdOverlay(iid.SystemId || ''));
+        nameTd.appendChild(sysId);
+        const created = el('span', 'disk-created-time');
+        created.dataset.time = nlb.CreatedTime || '';
+        nameTd.appendChild(created);
+        tr.appendChild(nameTd);
+
+        tr.appendChild(el('td', 'vpc-name-cell', (nlb.VpcIID && nlb.VpcIID.NameId) || ''));
+        tr.appendChild(el('td', 'center-align', `${nlb.Type || ''} / ${nlb.Scope || ''}`));
+        tr.appendChild(detail(el('td', 'res-detail'), [
+            [listener.Protocol || '', `${listener.IP || ''}:${listener.Port || ''}`],
+            ['DNS', listener.DNSName || '']
+        ]));
+        tr.appendChild(detail(el('td', 'res-detail'), [
+            [vmGroup.Protocol || '', vmGroup.Port || ''],
+            ['VMs', (vmGroup.VMs || []).map(vm => vm.NameId).join(', ')]
+        ]));
+
+        const tagTd = el('td');
+        (nlb.TagList || []).forEach(tag => {
+            const text = `${tag.Key}: ${tag.Value}`;
+            const div = el('div', 'tag-container', text);
+            div.addEventListener('click', event => showTagOverlay(event, text, 'NLB', iid.NameId, connName));
+            tagTd.appendChild(div);
+        });
+        tr.appendChild(tagTd);
+
+        const miscTd = el('td', 'center-align misc-cell');
+        const misc = el('div', 'misc-content');
+        (nlb.KeyValueList || []).forEach(kv => {
+            misc.appendChild(document.createTextNode(`${kv.Key} : ${kv.Value}`));
+            misc.appendChild(el('br'));
+        });
+        miscTd.appendChild(misc);
+        tr.appendChild(miscTd);
+
+        const checkTd = el('td', 'check-column');
+        const checkbox = el('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'deleteCheckbox';
+        checkbox.value = iid.NameId;
+        checkbox.dataset.connection = connName;
+        checkTd.appendChild(checkbox);
+        tr.appendChild(checkTd);
+        return tr;
+    }
+
     // ---- Delete ----
 
     function deleteSelectedNLBs() {
@@ -556,14 +1285,18 @@
         // an NLB being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All delete requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/nlb/${encodeURIComponent(task.itemName)}`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `NLB "${task.itemName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/nlb/${encodeURIComponent(task.itemName)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.text().then(txt => {
                 let data;
                 try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }

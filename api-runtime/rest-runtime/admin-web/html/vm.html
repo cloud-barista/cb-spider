@@ -637,6 +637,8 @@ THE SOFTWARE.
         border-radius: 5px;
         width: 80%;
         max-width: 600px;
+        /* taller than the window (ex: zoomed in): scroll inside, so the close button stays reachable */
+        max-height: 90vh;
         overflow-y: auto;
     }
     .provisioning-info-overlay-content table {
@@ -1482,6 +1484,21 @@ THE SOFTWARE.
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    /* VM status colors (same as the multi-connection VM page) */
+    .status-running { color: #2e7d32; font-weight: bold; }
+    .status-suspended { color: #b35c00; font-weight: bold; }
+    .status-other { color: #555; font-weight: bold; }
+    /* A dialog taller than the window (ex: zoomed in) scrolls inside it, so its buttons stay reachable
+       (same as the multi-connection pages). */
+    .overlay-content, .add-tag-overlay-content, .add-subnet-tag-overlay-content,
+    .tag-overlay-content, .overlay-content-new-nodegroup {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    /* dialogs above the fixed header (z-index 1000), so their top is not hidden behind it */
+    .overlay {
+        z-index: 1001;
+    }
 </style>
 </head>
 <body>
@@ -1537,9 +1554,7 @@ THE SOFTWARE.
                 <td class="vm-name-cell">
                     {{$vm.IId.NameId}}<span class="vm-system-id" onclick="showSystemIdOverlay('{{$vm.IId.SystemId}}')">&nbsp;• {{$vm.IId.SystemId}}</span>
                     <span class="vm-start-time" data-time="{{$vm.StartTime}}"></span>
-                    {{with index $.VMAccelerators $vm.IId.NameId}}{{if .Class}}
-                    <br><span class="acc-badge acc-{{.Class}}">{{.Class}}</span>{{if .Chip}}<span class="acc-chip">{{.Chip}}</span>{{end}}
-                    {{end}}{{end}}
+                    {{if $vm.VMSpecName}}<span class="acc-slot" data-spec="{{$vm.VMSpecName}}"></span>{{end}}
                 </td>    
                 <td class="ssh-access-cell">
                     {{if $vm.PublicIPs}}
@@ -1598,18 +1613,18 @@ THE SOFTWARE.
                     {{if $vm.VMSpecName}}
                         {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
                             <div style="display: inline-flex; align-items: center;">
-                                <span style="margin-right: 8px;">Running &nbsp; |</span>
+                                <span style="margin-right: 8px;"><span class="status-running">Running</span> &nbsp; |</span>
                                 <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'suspend')">⏸️</button>
                                 <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'reboot')">&nbsp;🔄</button>
                             </div>
                         {{else if eq (index $.VMStatusMap $vm.IId.NameId) "Suspended"}}
                             <div style="display: inline-flex; align-items: center;">
-                                <span style="margin-right: 8px;">Suspended &nbsp; |</span>
+                                <span style="margin-right: 8px;"><span class="status-suspended">Suspended</span> &nbsp; |</span>
                                 <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'resume')">⏯️</button>
                             </div>
                         {{else}}
                             <div style="display: inline-flex; align-items: center;">
-                                <span style="margin-right: 8px;">{{index $.VMStatusMap $vm.IId.NameId}}</span>
+                                <span style="margin-right: 8px;" class="status-other">{{index $.VMStatusMap $vm.IId.NameId}}</span>
                                 
                             </div>
                         {{end}}
@@ -2475,7 +2490,7 @@ THE SOFTWARE.
             if (status === 'Running') {
                 controlCell.innerHTML = `
                     <div style="display: inline-flex; align-items: center;">
-                        <span style="margin-right: 8px;">Running &nbsp; |</span>
+                        <span style="margin-right: 8px;"><span class="status-running">Running</span> &nbsp; |</span>
                         <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'suspend')">⏸️</button>
                         <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'reboot')">&nbsp;🔄</button>
                     </div>
@@ -2483,14 +2498,14 @@ THE SOFTWARE.
             } else if (status === 'Suspended') {
                 controlCell.innerHTML = `
                     <div style="display: inline-flex; align-items: center;">
-                        <span style="margin-right: 8px;">Suspended &nbsp; |</span>
+                        <span style="margin-right: 8px;"><span class="status-suspended">Suspended</span> &nbsp; |</span>
                         <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'resume')">⏯️</button>
                     </div>
                 `;
             } else {
                 controlCell.innerHTML = `
                     <div style="display: inline-flex; align-items: center;">
-                        <span style="margin-right: 8px;">${status} |</span>
+                        <span style="margin-right: 8px;"><span class="status-other">${status}</span> |</span>
                     </div>
                 `;
             }
@@ -3124,16 +3139,36 @@ THE SOFTWARE.
         }, 500);
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const connConfigElement = document.getElementById('connConfig');
+    // VPCs and KeyPairs for the Add VM dialog are loaded when the dialog opens (showOverlay),
+    // not on page load, so that opening the page does not call the CSP for them.
 
-        if (connConfigElement) {
-            loadVPCs();
-            loadKeyPairs();
-            //loadSecurityGroups();
-        } else {
-            console.error("Error: 'connConfig' element not found.");
-        }
+    // Accelerator badges (CPU/GPU/TPU/NPU) are loaded after the page is shown,
+    // because looking up VM specs can be slow on some CSPs.
+    document.addEventListener('DOMContentLoaded', function() {
+        const slots = document.querySelectorAll('.acc-slot[data-spec]');
+        if (slots.length === 0) return;
+        const specs = [...new Set([...slots].map(el => el.dataset.spec))];
+        const connConfig = document.getElementById('connConfig').value;
+        fetch(`/spider/adminweb/vmaccelerator/${encodeURIComponent(connConfig)}?specs=${encodeURIComponent(specs.join(','))}`)
+            .then(response => response.ok ? response.json() : {})
+            .then(accels => {
+                slots.forEach(el => {
+                    const accel = accels[el.dataset.spec];
+                    if (!accel || !accel.Class) return;
+                    const badge = document.createElement('span');
+                    badge.className = 'acc-badge acc-' + accel.Class;
+                    badge.textContent = accel.Class;
+                    el.appendChild(document.createElement('br'));
+                    el.appendChild(badge);
+                    if (accel.Chip) {
+                        const chip = document.createElement('span');
+                        chip.className = 'acc-chip';
+                        chip.textContent = accel.Chip;
+                        el.appendChild(chip);
+                    }
+                });
+            })
+            .catch(error => console.warn('Failed to load accelerator badges:', error));
     });
 
     function loadVPCs() {
@@ -4084,6 +4119,13 @@ THE SOFTWARE.
         `;
     }
 
+    // CSPs whose images and specs come from Spider itself instead of MC-Insight:
+    // MC-Insight has no catalog for them (KT VPC: MC-Insight has only KT Classic).
+    const SPIDER_CATALOG_CSPS = ['openstack', 'mock', 'oracle', 'kt'];
+    function isSpiderCatalogCSP(csp) {
+        return SPIDER_CATALOG_CSPS.includes((csp || '').toLowerCase());
+    }
+
     // Helper function to get CSP and Region info from connection config
     async function getConnectionInfo() {
         try {
@@ -4155,7 +4197,7 @@ THE SOFTWARE.
             }
             
             // For OpenStack and MOCK, skip MC-Insight token check and load filters directly
-            if (info.csp.toLowerCase() === 'openstack' || info.csp.toLowerCase() === 'mock') {
+            if (isSpiderCatalogCSP(info.csp)) {
                 loadImageFilterOptions(info.csp, info.region, info.zone);
                 
                 // Add Enter key event listeners to filter inputs
@@ -4223,7 +4265,7 @@ THE SOFTWARE.
 
     function loadImageFilterOptions(csp, currentRegion, currentZone) {
         // ==================== OPENSTACK & MOCK: EXTRACT FROM CACHED DATA ====================
-        if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
+        if (isSpiderCatalogCSP(csp)) {
             const regionSelect = document.getElementById('image-filter-region');
             const zoneSelect = document.getElementById('image-filter-zone');
             const archSelect = document.getElementById('image-filter-arch');
@@ -4612,7 +4654,7 @@ THE SOFTWARE.
     function loadImages() {
         getCSPFromConnection().then(csp => {
             // ==================== SPIDER API CSPs ====================
-            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock' || csp.toLowerCase() === 'oracle') {
+            if (isSpiderCatalogCSP(csp)) {
                 // Hide MC-Insight badge for Spider API-backed CSPs
                 const badge = document.getElementById('image-mcinsight-badge');
                 if (badge) badge.style.display = 'none';
@@ -5059,7 +5101,7 @@ THE SOFTWARE.
             }
             
             // For OpenStack and MOCK, skip MC-Insight token check and load filters directly
-            if (info.csp.toLowerCase() === 'openstack' || info.csp.toLowerCase() === 'mock') {
+            if (isSpiderCatalogCSP(info.csp)) {
                 loadSpecFilterOptions(info.csp, info.region, info.zone);
                 
                 // Add focus event listeners to set placeholder as initial value for number inputs
@@ -5489,7 +5531,7 @@ THE SOFTWARE.
 
     function loadSpecFilterOptions(csp, currentRegion, currentZone) {
         // ==================== OPENSTACK & MOCK: SIMPLE REGION/ZONE SETUP ====================
-        if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock') {
+        if (isSpiderCatalogCSP(csp)) {
             const regionSelect = document.getElementById('spec-filter-region');
             const zoneSelect = document.getElementById('spec-filter-zone');
             
@@ -5777,7 +5819,7 @@ THE SOFTWARE.
     function loadSpecs() {
         getCSPFromConnection().then(csp => {
             // ==================== SPIDER API CSPs ====================
-            if (csp.toLowerCase() === 'openstack' || csp.toLowerCase() === 'mock' || csp.toLowerCase() === 'oracle') {
+            if (isSpiderCatalogCSP(csp)) {
                 // Hide MC-Insight badge for Spider API-backed CSPs
                 const badge = document.getElementById('spec-mcinsight-badge');
                 if (badge) badge.style.display = 'none';

@@ -195,7 +195,9 @@ func (myImageHandler *IbmMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 			return nil, createErr
 		}
 
-		tags, err := tagHandler.ListTag(irs.MYIMAGE, myImage.IId)
+		// The MyImage CRN is the CRN of its bootable snapshot (SystemId), which is in this group.
+		// Passing it skips getCRN(), which lists all snapshots again for every MyImage.
+		tags, err := listTagWithKnownCRN(&tagHandler, irs.MYIMAGE, myImage.IId, snapshotCRN(associatedSnapshots, myImage.IId.SystemId))
 		if err != nil {
 			cblogger.Warn("Failed to get tags of the MyImage (" + myImage.IId.NameId + "). err = " + err.Error())
 		}
@@ -279,21 +281,7 @@ func (myImageHandler *IbmMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyI
 	}
 
 	if myImageFound {
-		tagHandler := IbmTagHandler{
-			Region:         myImageHandler.Region,
-			CredentialInfo: myImageHandler.CredentialInfo,
-			VpcService:     myImageHandler.VpcService,
-			Ctx:            myImageHandler.Ctx,
-			SearchService:  myImageHandler.SearchService,
-		}
-
-		tags, err := tagHandler.ListTag(irs.MYIMAGE, myImage.IId)
-		if err != nil {
-			cblogger.Warn("Failed to get tags of the MyImage (" + myImageIID.NameId + "). err = " + err.Error())
-		}
-
-		myImage.TagList = tags
-
+		// TagList is already filled by ListMyImage() above, so the tags are not listed again.
 		return *myImage, nil
 	}
 
@@ -499,4 +487,14 @@ func (myImageHandler *IbmMyImageHandler) ListIID() ([]*irs.IID, error) {
 	LoggingInfo(hiscallInfo, start)
 
 	return iidList, nil
+}
+
+// snapshotCRN returns the CRN of the snapshot whose ID is snapshotID in the list, or nil.
+func snapshotCRN(snapshots []vpcv1.Snapshot, snapshotID string) *string {
+	for _, snapshot := range snapshots {
+		if snapshot.ID != nil && *snapshot.ID == snapshotID {
+			return snapshot.CRN
+		}
+	}
+	return nil
 }

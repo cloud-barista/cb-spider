@@ -733,53 +733,89 @@
     }
 
     // Load the VPC/Subnets, SecurityGroups, KeyPairs and recent Image/Spec of each connection.
+    // One request streams one JSON line per connection (NDJSON) as each connection is ready: the server
+    // fetches all connections at the same time, so the browser limit of 6 parallel requests per server
+    // does not queue them (4 requests per connection were made before), and each row fills as it arrives.
+    let createInfoAbort = null;     // the in-flight load, aborted when the dialog loads again
     function loadCreateRows() {
+        if (createInfoAbort) createInfoAbort.abort();
+        const abort = new AbortController();
+        createInfoAbort = abort;
+
+        const rows = new Map();     // connection name -> its row, waiting for its data
         document.querySelectorAll('#create-table tr.create-row').forEach(row => {
             if (!multiInFocus(row.dataset.connection)) return;
-            const connName = encodeURIComponent(row.dataset.connection);
+            rows.set(row.dataset.connection, row);
             row.dataset.loading = 'true';
             row.querySelectorAll('select').forEach(select => setOptions(select, [], 'Loading…'));
             row.querySelector('.create-image').value = '';
             row.querySelector('.create-spec').value = '';
             row.querySelector('.create-include').checked = true;
-
-            const recentParams = new URLSearchParams({
-                CSP: row.dataset.provider || '',
-                Region: row.dataset.region || '',
-                Limit: '10',
-                SortBy: 'last_created_at',
-                SortOrder: 'desc'
-            });
-            Promise.all([
-                getJSON(`/spider/vpc?ConnectionName=${connName}`).then(d => d.vpc || []).catch(() => []),
-                getJSON(`/spider/securitygroup?ConnectionName=${connName}`).then(d => d.securitygroup || []).catch(() => []),
-                getJSON(`/spider/keypair?ConnectionName=${connName}`).then(d => d.keypair || []).catch(() => []),
-                // without a provider or region, the recent list would mix other regions
-                (row.dataset.provider && row.dataset.region)
-                    ? getJSON(`/spider/vm/imagespecrecent?${recentParams}`).then(d => d || []).catch(() => [])
-                    : Promise.resolve([])
-            ]).then(([vpcs, sgs, keyPairs, recents]) => {
-                row._sgs = sgs;
-                row._recents = recents;
-
-                const subnets = [];
-                vpcs.forEach(vpc => (vpc.SubnetInfoList || []).forEach(subnet => {
-                    subnets.push([JSON.stringify({ vpc: vpc.IId.NameId, subnet: subnet.IId.NameId }),
-                        `${vpc.IId.NameId} / ${subnet.IId.NameId}${subnet.Zone ? ` (${subnet.Zone})` : ''}`]);
-                }));
-                setOptions(row.querySelector('.create-subnet'), subnets, 'No VPC/Subnet');
-                setOptions(row.querySelector('.create-keypair'), keyPairs.map(kp => [kp.IId.NameId, kp.IId.NameId]), 'No KeyPair');
-                setOptions(row.querySelector('.create-recent'),
-                    recents.map((r, i) => [String(i), `${r.ImageName} / ${r.SpecName}`]), 'No recent creation');
-                fillSecurityGroups(row);
-                applyRecent(row);
-
-                delete row.dataset.loading;
-                const ready = subnets.length > 0 && keyPairs.length > 0 && row.querySelector('.create-sg').value;
-                row.querySelector('.create-include').checked = !!ready;
-                updateCreateRowState(row);
-            });
         });
+        if (rows.size === 0) return;
+
+        // rows whose data did not come (the request failed): empty lists, as when each list failed before
+        const fillRest = () => {
+            if (abort.signal.aborted) return;   // replaced by a newer load
+            rows.forEach(row => applyCreateInfo(row, {}));
+            rows.clear();
+        };
+
+        fetch(`/spider/adminweb/vm-createinfo?ids=${encodeURIComponent(Array.from(rows.keys()).join(','))}`, { signal: abort.signal })
+            .then(async response => {
+                if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffered = '';
+                for (;;) {
+                    const { value, done } = await reader.read();
+                    buffered += decoder.decode(value || new Uint8Array(), { stream: !done });
+                    let newline;
+                    while ((newline = buffered.indexOf('\n')) >= 0) {
+                        const line = buffered.slice(0, newline).trim();
+                        buffered = buffered.slice(newline + 1);
+                        if (!line || abort.signal.aborted) continue;
+                        const info = JSON.parse(line);
+                        const row = rows.get(info.connection);
+                        if (!row) continue;
+                        rows.delete(info.connection);
+                        applyCreateInfo(row, info);
+                    }
+                    if (done) break;
+                }
+                fillRest();
+            })
+            .catch(error => {
+                if (error.name !== 'AbortError') console.error('Failed to load the VM create info:', error);
+                fillRest();
+            });
+    }
+
+    // Fill the create row of one connection from its streamed create info.
+    function applyCreateInfo(row, info) {
+        const vpcs = info.vpcs || [];
+        const sgs = info.securitygroups || [];
+        const keyPairs = info.keypairs || [];
+        const recents = info.recents || [];
+        row._sgs = sgs;
+        row._recents = recents;
+
+        const subnets = [];
+        vpcs.forEach(vpc => (vpc.SubnetInfoList || []).forEach(subnet => {
+            subnets.push([JSON.stringify({ vpc: vpc.IId.NameId, subnet: subnet.IId.NameId }),
+                `${vpc.IId.NameId} / ${subnet.IId.NameId}${subnet.Zone ? ` (${subnet.Zone})` : ''}`]);
+        }));
+        setOptions(row.querySelector('.create-subnet'), subnets, 'No VPC/Subnet');
+        setOptions(row.querySelector('.create-keypair'), keyPairs.map(kp => [kp.IId.NameId, kp.IId.NameId]), 'No KeyPair');
+        setOptions(row.querySelector('.create-recent'),
+            recents.map((r, i) => [String(i), `${r.ImageName} / ${r.SpecName}`]), 'No recent creation');
+        fillSecurityGroups(row);
+        applyRecent(row);
+
+        delete row.dataset.loading;
+        const ready = subnets.length > 0 && keyPairs.length > 0 && row.querySelector('.create-sg').value;
+        row.querySelector('.create-include').checked = !!ready;
+        updateCreateRowState(row);
     }
 
     // SecurityGroups of the selected VPC (the first one is selected by default)
@@ -900,30 +936,34 @@
 
         hideOverlay();
 
+        // All create requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'POST',
+            path: '/spider/vm',
+            body: {
+                ConnectionName: task.connName,
+                ReqInfo: {
+                    Name: task.vmName,
+                    ImageType: imageType,
+                    ImageName: task.imageName,
+                    VMSpecName: task.specName,
+                    VPCName: task.vpcSubnet.vpc,
+                    SubnetName: task.vpcSubnet.subnet,
+                    SecurityGroupNames: [task.sgName],
+                    RootDiskType: 'default',
+                    RootDiskSize: rootDiskSize || undefined,
+                    KeyPairName: task.keyPairName,
+                    TagList: tags
+                }
+            }
+        })));
+
         // one status box per request; each created VM is added to the list at once
-        tasks.forEach(task => {
+        tasks.forEach((task, i) => {
             const label = `VM "${task.vmName}" in ${task.connName}`;
             const box = multiTaskBox('create', `Creating ${label}…`);
-            fetch('/spider/vm', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ConnectionName: task.connName,
-                    ReqInfo: {
-                        Name: task.vmName,
-                        ImageType: imageType,
-                        ImageName: task.imageName,
-                        VMSpecName: task.specName,
-                        VPCName: task.vpcSubnet.vpc,
-                        SubnetName: task.vpcSubnet.subnet,
-                        SecurityGroupNames: [task.sgName],
-                        RootDiskType: 'default',
-                        RootDiskSize: rootDiskSize || undefined,
-                        KeyPairName: task.keyPairName,
-                        TagList: tags
-                    }
-                })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || !(data.IId && data.IId.NameId)) {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);
@@ -961,14 +1001,18 @@
         // a VM being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All delete requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/vm/${encodeURIComponent(task.vmName)}`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `VM "${task.vmName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/vm/${encodeURIComponent(task.vmName)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.text().then(txt => {
                 let data;
                 try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }

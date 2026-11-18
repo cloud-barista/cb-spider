@@ -374,6 +374,45 @@
     .status-badge.status-Creating, .status-badge.status-Deleting { background-color: #fff3e0; color: #b35c00; }
     .status-badge.status-Stopped { background-color: #eaeef2; color: #57606a; }
     .status-badge.status-Error { background-color: #fde2e2; color: #c62828; }
+    .create-table td {
+        vertical-align: top;
+    }
+    .create-table select {
+        max-width: 200px;
+    }
+    .create-table input:disabled {
+        background-color: #f0f0f0;
+    }
+    .conn-provider {
+        display: block;
+        font-size: 11px;
+        color: #888;
+    }
+    /* subnets of the selected VPC, several can be selected */
+    .subnet-list {
+        max-height: 90px;
+        overflow-y: auto;
+        min-width: 170px;
+    }
+    .subnet-list label {
+        display: block;
+        white-space: nowrap;
+    }
+    .row-note {
+        display: block;
+        max-width: 260px;
+        white-space: normal;
+        color: #b35c00;
+        font-size: 11px;
+    }
+    /* a CSP left out on purpose (RDBMS_EXCLUDED, not supported): an informational note, not a warning */
+    .row-note.info-note {
+        color: #666;
+    }
+    .row-note button {
+        font-size: 11px;
+        margin-top: 2px;
+    }
     .create-note-bar {
         color: #555;
         font-size: 12px;
@@ -401,7 +440,7 @@
 
     <div class="connection-bar">
         <button type="button" class="connection-toggle" title="Show all connections">Active Connections ({{len .Connections}})</button>
-        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn}}" title="Show only this connection">{{$conn}}</button>{{end}}
+        {{range $conn := .Connections}}<button type="button" class="connection-chip" data-connection="{{$conn.Name}}" title="Show only this connection">{{$conn.Name}}</button>{{end}}
         {{range $conn, $err := .ConnErrors}}
         <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
         {{end}}
@@ -412,7 +451,7 @@
 
     <div class="content">
         <div class="fixed-action-buttons">
-            <span class="create-note-bar">To create an RDBMS (CSP-specific options), select its connection above.</span>
+            <button class="add-button" onclick="showOverlay()">+ RDBMS (all connections)</button>
             <div style="flex: 1;"></div>
             <input type="checkbox" onclick="toggleSelectAll(this)">
             <button onclick="deleteSelectedRDBMSs()">Delete</button>
@@ -471,6 +510,100 @@
             </tr>
             {{end}}
         </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <button class="overlay-close-btn" onclick="hideOverlay()">X</button>
+            <h2>Add New RDBMS to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
+            <form id="addRDBMSForm" onsubmit="event.preventDefault(); postRDBMSMulti();">
+                <fieldset class="info-group">
+                    <legend>RDBMS Info (all connections):</legend>
+                    <div class="form-group">
+                        <label for="rdbmsName">Name:</label>
+                        <input type="text" id="rdbmsName" required style="color: #3366CC; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label for="dbEngine">DB Engine:</label>
+                        <select id="dbEngine" onchange="applyEngineDefaults()">
+                            <option value="mysql">mysql</option>
+                            <option value="mariadb">mariadb</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="highAvailability">High Availability:</label>
+                        <select id="highAvailability"><option value="false">No</option><option value="true">Yes</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="publicAccess">Public Access:</label>
+                        <select id="publicAccess" onchange="loadedRows().forEach(fillVPCResources)"><option value="false">No</option><option value="true">Yes</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="encryption">Encryption:</label>
+                        <select id="encryption"><option value="false">No</option><option value="true">Yes</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deletionProtection">Deletion Protection:</label>
+                        <select id="deletionProtection"><option value="false">No</option><option value="true">Yes</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="backupRetentionDays">Backup Retention (days):</label>
+                        <input type="number" id="backupRetentionDays" min="0" placeholder="CSP default">
+                    </div>
+                    <div class="form-group">
+                        <label for="nhnAutoOpenDBSecurityGroup">NHN: open the DB Security Group:</label>
+                        <select id="nhnAutoOpenDBSecurityGroup"><option value="false">No</option><option value="true">Yes</option></select>
+                    </div>
+                    <div class="form-group" style="padding-left: 100px;">
+                        <label>Tags:</label>
+                        <div id="rdbms-tag-container" class="vpc-tag-container"></div>
+                        <button type="button" onclick="addTagField('rdbms')">+</button>
+                    </div>
+                </fieldset>
+
+                <fieldset class="info-group">
+                    <legend>Per Connection:</legend>
+                    <table class="create-table" id="create-table">
+                        <tr>
+                            <th>Create</th>
+                            <th>Connection</th>
+                            <th>VPC</th>
+                            <th>Subnets (Zone)</th>
+                            <th>SecurityGroup</th>
+                            <th>Version</th>
+                            <th>DB Spec</th>
+                            <th>Storage (GB)</th>
+                            <th>Master User</th>
+                            <th>Password</th>
+                        </tr>
+                        {{range $conn := .Connections}}
+                        <tr class="create-row" data-connection="{{$conn.Name}}" data-provider="{{$conn.Provider}}">
+                            <td class="center-align"><input type="checkbox" class="create-include" checked onchange="updateCreateRowState(this.closest('tr'))"></td>
+                            <td>{{$conn.Name}}<span class="conn-provider">{{$conn.Provider}}</span><span class="row-note"></span></td>
+                            <td><select class="create-vpc" onchange="fillVPCResources(this.closest('tr'))"></select></td>
+                            <td><div class="subnet-list"></div></td>
+                            <td><select class="create-sg"></select></td>
+                            <td><input type="text" class="create-version"></td>
+                            <td><input type="text" class="create-spec"></td>
+                            <td><input type="number" class="create-storage" min="1"></td>
+                            <td><input type="text" class="create-user"></td>
+                            <td><input type="text" class="create-password"></td>
+                        </tr>
+                        {{end}}
+                    </table>
+                    <div class="create-note">
+                        Version, DB Spec, Storage and Master User are filled with the values verified by the RDBMS tests (test/rdbms-mysql-test, test/rdbms-mariadb-test) and can be edited.<br>
+                        A random password is generated each time the dialog opens (IBM: without special characters). Keep it: it is not shown again after creation.<br>
+                        An AWS RDS instance needs subnets in at least 2 zones. Subnets are not used by GCP, IBM and OpenStack (and by Azure with Public Access); SecurityGroups only by AWS and Tencent.
+                    </div>
+                </fieldset>
+
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add RDBMS</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div id="tag-overlay" class="overlay">
@@ -535,6 +668,555 @@
     window.onMultiRefreshed = formatCreatedTimes;
     formatCreatedTimes();
 
+    // ---- Create ----
+
+    // Connections this page fans requests out to ({Name, Provider}), injected server-side.
+    const MULTI_CONNECTIONS = {{.Connections}} || [];
+
+    // Values verified by the RDBMS tests for each CSP (same as the single-connection RDBMS page):
+    // test/rdbms-mysql-test/*.sh and test/rdbms-mariadb-test/*.sh. NCP sets the storage itself.
+    const RDBMS_TEST_DEFAULTS = {
+        mysql: {
+            AWS:       { version: '8.0',         spec: 'db.t3.medium', storage: 100 },
+            AZURE:     { version: '8.0.21',      spec: 'Standard_B1ms', storage: 20 },
+            ALIBABA:   { version: '8.0',         spec: 'mysql.n4.large.1', storage: 20 },
+            NCP:       { version: '8.0.36',      spec: 'SVR.VDBAS.AMD.STAND.C002.M008.NET.SSD.B050.G003' },
+            NHN:       { version: 'MYSQL_V8408', spec: 'm2.c2m4', storage: 20 },
+            GCP:       { version: '8.0',         spec: 'db-custom-2-8192', storage: 20 },
+            IBM:       { version: '8.4',         spec: 'multitenant', storage: 30 },
+            OPENSTACK: { version: '5.7.29',      spec: 'm1.small', storage: 20 },
+            TENCENT:   { version: '8.0',         spec: '8000', storage: 50 }
+        },
+        mariadb: {
+            AWS:       { version: '10.6',            spec: 'db.t3.medium', storage: 100 },
+            ALIBABA:   { version: '10.6',            spec: 'rds.mariadb.s4.large', storage: 20 },
+            NHN:       { version: 'MARIADB_V101118', spec: 'm2.c2m4', storage: 20 },
+            OPENSTACK: { version: '10.4',            spec: 'm1.small', storage: 20 }
+        }
+    };
+    // Master user names of the RDBMS tests: Tencent=root, IBM=admin, the others=myadmin
+    const RDBMS_MASTER_USER = { TENCENT: 'root', IBM: 'admin' };
+    const RDBMS_MASTER_USER_OTHERS = 'myadmin';
+    // The IBM test password has no special character; the others use one ('!').
+    const RDBMS_NO_SPECIAL_CHAR_PASSWORD = ['IBM'];
+    // CSPs whose RDBMS create does not use subnets / SecurityGroups (same as the single-connection page).
+    // Azure uses subnets only without Public Access (private mode).
+    const RDBMS_SUBNET_UNUSED = ['GCP', 'IBM', 'OPENSTACK'];
+    const RDBMS_SG_USED = ['AWS', 'TENCENT'];
+    // An AWS RDS instance (its DB subnet group) needs subnets in at least 2 zones.
+    const AWS_MIN_SUBNET_ZONES = 2;
+
+    const providerOf = row => (row.dataset.provider || '').toUpperCase();
+    const publicAccess = () => document.getElementById('publicAccess').value === 'true';
+    const usesSubnets = row => {
+        const p = providerOf(row);
+        if (p === 'AZURE') return !publicAccess();
+        return !RDBMS_SUBNET_UNUSED.includes(p);
+    };
+    const usesSecurityGroups = row => RDBMS_SG_USED.includes(providerOf(row));
+    const loadedRows = () => Array.from(document.querySelectorAll('#create-table tr.create-row')).filter(row => row._info && row._info.supported && !row._info.error);
+
+    // A random password with upper and lower case letters and digits (and '!' unless the CSP takes none),
+    // following the pattern of the RDBMS test passwords. A fixed default would create every database with
+    // a password everyone knows (Public Access is on by default).
+    function randomPassword(withSpecialChar) {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        const bytes = new Uint32Array(12);
+        crypto.getRandomValues(bytes);
+        const body = Array.from(bytes, b => chars[b % chars.length]).join('');
+        return `Pw${body}7${withSpecialChar ? '!' : 'x'}`;
+    }
+
+    function showOverlay() {
+        document.getElementById('rdbmsName').value = `multi-rdbms-${Math.random().toString(36).substring(2, 6)}`;
+        document.getElementById('dbEngine').value = 'mysql';
+        document.getElementById('highAvailability').value = 'false';
+        document.getElementById('publicAccess').value = 'true';
+        document.getElementById('encryption').value = 'false';
+        document.getElementById('deletionProtection').value = 'false';
+        document.getElementById('backupRetentionDays').value = '';
+        document.getElementById('nhnAutoOpenDBSecurityGroup').value = 'true';
+        document.querySelectorAll('.rdbms-tag-input').forEach(tagInput => tagInput.remove());
+        const password = randomPassword(true), passwordNoSpecial = randomPassword(false);
+        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            const provider = providerOf(row);
+            row.querySelector('.create-user').value = RDBMS_MASTER_USER[provider] || RDBMS_MASTER_USER_OTHERS;
+            row.querySelector('.create-password').value = RDBMS_NO_SPECIAL_CHAR_PASSWORD.includes(provider) ? passwordNoSpecial : password;
+            row.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => { input.disabled = false; });
+        });
+        applyEngineDefaults();
+        loadCreateRows();
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleOverlayEsc);
+    }
+
+    // Version, DB Spec and Storage of the selected engine for every connection.
+    function applyEngineDefaults() {
+        const engine = document.getElementById('dbEngine').value;
+        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            if (row._info && row._info.supported === false) return;  // its inputs stay empty and disabled
+            const defaults = (RDBMS_TEST_DEFAULTS[engine] || {})[providerOf(row)] || {};
+            row.querySelector('.create-version').value = defaults.version || '';
+            row.querySelector('.create-spec').value = defaults.spec || '';
+            const storage = row.querySelector('.create-storage');
+            storage.value = defaults.storage || '';
+            // no storage default: the CSP sets the storage itself (NCP)
+            storage.disabled = !defaults.storage && !!defaults.spec;
+            storage.placeholder = storage.disabled ? 'set by CSP' : '';
+            // re-check the row: it may support the new engine (included again) or not (excluded)
+            if (row._info) fillVPCResources(row);
+        });
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleOverlayEsc);
+    }
+
+    function handleOverlayEsc(event) {
+        if (event.key === 'Escape') hideOverlay();
+    }
+
+    function addTagField(kind) {
+        const tagContainer = document.getElementById(`${kind}-tag-container`);
+        const tagInput = document.createElement('div');
+        tagInput.className = `${kind}-tag-input tag-input-group`;
+        tagInput.innerHTML = `
+            <input type="text" class="${kind}-tag-key" placeholder="Key" required>
+            <input type="text" class="${kind}-tag-value" placeholder="Value" required>
+            <button type="button" onclick="this.parentElement.remove()">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function collectTags(kind) {
+        return Array.from(document.querySelectorAll(`.${kind}-tag-input`)).map(tagInput => ({
+            Key: tagInput.querySelector(`.${kind}-tag-key`).value.trim(),
+            Value: tagInput.querySelector(`.${kind}-tag-value`).value.trim()
+        }));
+    }
+
+    function setOptions(select, options, emptyText) {
+        select.innerHTML = '';
+        if (options.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = emptyText;
+            select.appendChild(option);
+            return;
+        }
+        options.forEach(([value, text]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            select.appendChild(option);
+        });
+    }
+
+    // a note under the connection name, optionally with a button
+    function setRowNote(row, text, button) {
+        const note = row.querySelector('.row-note');
+        note.classList.remove('info-note');
+        note.textContent = text || '';
+        if (button) {
+            note.appendChild(document.createElement('br'));
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = button.label;
+            btn.addEventListener('click', button.onClick);
+            note.appendChild(btn);
+        }
+    }
+
+    function updateCreateRowState(row) {
+        row.classList.toggle('excluded', !row.querySelector('.create-include').checked);
+    }
+
+    // Load the VPCs (with subnets) and SecurityGroups of the connections (all in focus, or the given ones).
+    // One request streams one JSON line per connection as each is ready (see AdminWeb-CreateInfo.go).
+    let createInfoAbort = null;     // the in-flight load of all connections, aborted when the dialog loads again
+    function loadCreateRows(connNames) {
+        const reloadOnly = Array.isArray(connNames);
+        const abort = new AbortController();
+        if (!reloadOnly) {
+            if (createInfoAbort) createInfoAbort.abort();
+            createInfoAbort = abort;
+        }
+
+        const rows = new Map();
+        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
+            const connName = row.dataset.connection;
+            if (reloadOnly ? !connNames.includes(connName) : !multiInFocus(connName)) return;
+            rows.set(connName, row);
+            row.dataset.loading = 'true';
+            row.querySelectorAll('select').forEach(select => setOptions(select, [], 'Loading…'));
+            row.querySelector('.subnet-list').textContent = 'Loading…';
+            row._info = null;
+            setRowNote(row, '');
+        });
+        if (rows.size === 0) return;
+
+        const failRest = message => {
+            if (abort.signal.aborted) return;
+            rows.forEach(row => applyCreateInfo(row, { supported: true, engines: {}, error: message }));
+            rows.clear();
+        };
+        fetch(`/spider/adminweb/rdbms-createinfo?ids=${encodeURIComponent(Array.from(rows.keys()).join(','))}`, { signal: abort.signal })
+            .then(async response => {
+                if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffered = '';
+                for (;;) {
+                    const { value, done } = await reader.read();
+                    buffered += decoder.decode(value || new Uint8Array(), { stream: !done });
+                    let newline;
+                    while ((newline = buffered.indexOf('\n')) >= 0) {
+                        const line = buffered.slice(0, newline).trim();
+                        buffered = buffered.slice(newline + 1);
+                        if (!line || abort.signal.aborted) continue;
+                        const info = JSON.parse(line);
+                        const row = rows.get(info.connection);
+                        if (!row) continue;
+                        rows.delete(info.connection);
+                        applyCreateInfo(row, info);
+                    }
+                    if (done) break;
+                }
+                if (rows.size > 0) failRest('no response from the server');
+            })
+            .catch(error => { if (error.name !== 'AbortError') failRest(error.message); });
+    }
+
+    function disableRowInputs(row) {
+        ['.create-vpc', '.create-sg'].forEach(sel => setOptions(row.querySelector(sel), [], '-'));
+        row.querySelector('.subnet-list').textContent = '';
+        row.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
+            input.value = '';
+            input.placeholder = '';
+            input.disabled = true;
+        });
+    }
+
+    // CSPs left out of the multi-connection creation, with the reason shown in the row.
+    // NCP: an RDBMS is created with Public Access, but NCP has no API to assign a public domain to an
+    // RDBMS instance (it is set up in the NCP Console), so Spider rejects the request.
+    // OpenStack: the Trove datastore versions depend on the installation (MySQL 5.7.29 of the test scripts
+    // is not active on the test server: "Datastore version '5.7.29' is not active").
+    const RDBMS_EXCLUDED = {
+        NCP: 'Not created here: NCP has no API for the RDBMS Public Access (it is set up in the NCP Console).',
+        OPENSTACK: 'Not created here: the datastore version is not active on this OpenStack installation.'
+    };
+
+    function applyCreateInfo(row, info) {
+        delete row.dataset.loading;
+        row._info = info;
+        const include = row.querySelector('.create-include');
+        const excluded = RDBMS_EXCLUDED[providerOf(row)];
+        if (!info.supported || excluded) {
+            disableRowInputs(row);
+            setRowNote(row, excluded || 'RDBMS not supported (skipped)');
+            row.querySelector('.row-note').classList.add('info-note');
+            include.checked = false;
+            include.disabled = true;
+            updateCreateRowState(row);
+            return;
+        }
+        include.disabled = false;
+        if (info.error) {
+            ['.create-vpc', '.create-sg'].forEach(sel => setOptions(row.querySelector(sel), [], '-'));
+            row.querySelector('.subnet-list').textContent = '';
+            setRowNote(row, `Failed to load VPCs (skipped): ${info.error}`,
+                { label: 'Reload', onClick: () => loadCreateRows([row.dataset.connection]) });
+            include.checked = false;
+            updateCreateRowState(row);
+            return;
+        }
+        setOptions(row.querySelector('.create-vpc'), (info.vpcs || []).map(vpc => [vpc.IId.NameId, vpc.IId.NameId]), 'No VPC');
+        fillVPCResources(row);
+    }
+
+    // The engine selected above: a connection whose CSP does not support it is left out.
+    function applyEngineSupport(row) {
+        const info = row._info;
+        if (!info || !info.supported || info.error) return true;
+        const engine = document.getElementById('dbEngine').value;
+        if (info.engines && engine in info.engines && !info.engines[engine]) {
+            setRowNote(row, `${engine} not supported (skipped)`);
+            row.querySelector('.create-include').checked = false;
+            updateCreateRowState(row);
+            return false;
+        }
+        return true;
+    }
+
+    // Subnets of the selected VPC (by default: for AWS the first 2 subnets in different zones,
+    // for the other CSPs the first subnet) and its SecurityGroups.
+    function defaultSubnetIndexes(row, subnets) {
+        if (subnets.length === 0) return new Set();
+        if (providerOf(row) !== 'AWS') return new Set([0]);
+        const picked = [0];
+        const firstZone = subnets[0].Zone || subnets[0].IId.NameId;
+        const other = subnets.findIndex(subnet => (subnet.Zone || subnet.IId.NameId) !== firstZone);
+        if (other > 0) picked.push(other);
+        return new Set(picked);
+    }
+
+    function fillVPCResources(row) {
+        const info = row._info || {};
+        if (!info.supported || info.error) return;
+        const vpcName = row.querySelector('.create-vpc').value;
+        const vpc = (info.vpcs || []).find(v => v.IId.NameId === vpcName);
+        const list = row.querySelector('.subnet-list');
+        list.innerHTML = '';
+        if (!usesSubnets(row)) {
+            list.textContent = 'not used';
+        } else {
+            const subnets = (vpc && vpc.SubnetInfoList) || [];
+            if (subnets.length === 0) list.textContent = vpc ? 'No subnet' : '';
+            const defaults = defaultSubnetIndexes(row, subnets);
+            subnets.forEach((subnet, i) => {
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = subnet.IId.NameId;
+                checkbox.dataset.zone = subnet.Zone || '';
+                checkbox.checked = defaults.has(i);
+                checkbox.addEventListener('change', () => checkRow(row));
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(` ${subnet.IId.NameId}${subnet.Zone ? ` (${subnet.Zone})` : ''}`));
+                list.appendChild(label);
+            });
+        }
+        const sgSelect = row.querySelector('.create-sg');
+        if (usesSecurityGroups(row)) {
+            const sgs = (info.securitygroups || []).filter(sg => sg.VpcIID && sg.VpcIID.NameId === vpcName);
+            setOptions(sgSelect, sgs.map(sg => [sg.IId.NameId, sg.IId.NameId]), 'No SecurityGroup in the VPC');
+            sgSelect.disabled = false;
+        } else {
+            setOptions(sgSelect, [], 'not used');
+            sgSelect.disabled = true;
+        }
+        row.querySelector('.create-include').checked = !!vpcName;
+        checkRow(row);
+    }
+
+    const selectedSubnets = row => Array.from(row.querySelectorAll('.subnet-list input:checked'));
+    const subnetZoneCount = row => new Set(selectedSubnets(row).map(cb => cb.dataset.zone || cb.value)).size;
+
+    // Row checks shown before creating: the selected engine must be supported, and AWS needs subnets in
+    // 2 zones (create a subnet in another zone and press Reload, or create the others without AWS).
+    function checkRow(row) {
+        setRowNote(row, '');
+        if (!applyEngineSupport(row)) return false;
+        if (providerOf(row) === 'AWS' && subnetZoneCount(row) < AWS_MIN_SUBNET_ZONES) {
+            const available = row.querySelectorAll('.subnet-list input').length;
+            setRowNote(row,
+                `AWS RDS needs subnets in at least ${AWS_MIN_SUBNET_ZONES} zones` +
+                (available < AWS_MIN_SUBNET_ZONES ? `, but the VPC has ${available} subnet(s). Create a subnet in another zone and press Reload, or create without AWS (excluded).`
+                                                 : '. Select subnets in different zones, or create without AWS (excluded).'),
+                { label: 'Reload', onClick: () => loadCreateRows([row.dataset.connection]) });
+            row.querySelector('.create-include').checked = false;
+            updateCreateRowState(row);
+            return false;
+        }
+        updateCreateRowState(row);
+        return true;
+    }
+
+    function readRDBMSResponse(response) {
+        return response.text().then(txt => {
+            let data;
+            try { data = JSON.parse(txt); } catch (e) { data = { message: txt }; }
+            if (!response.ok || !(data.IId && data.IId.NameId)) {
+                throw new Error(data.message || data.Message || txt || `HTTP ${response.status}`);
+            }
+            return data;
+        });
+    }
+
+    // Fan out RDBMS creation to every included connection. Partial failures are allowed: whatever
+    // succeeds stays created, failures are reported per connection.
+    function postRDBMSMulti() {
+        const rows = Array.from(document.querySelectorAll('#create-table tr.create-row')).filter(row => multiInFocus(row.dataset.connection));
+        if (rows.some(row => row.dataset.loading)) {
+            alert('The resources of the connections are still loading. Please wait a moment.');
+            return;
+        }
+        const rdbmsName = document.getElementById('rdbmsName').value.trim();
+        if (!rdbmsName) {
+            alert('Please enter an RDBMS name.');
+            return;
+        }
+        const engine = document.getElementById('dbEngine').value;
+        const backupValue = document.getElementById('backupRetentionDays').value.trim();
+        const common = {
+            HighAvailability: document.getElementById('highAvailability').value === 'true',
+            PublicAccess: publicAccess(),
+            Encryption: document.getElementById('encryption').value === 'true',
+            DeletionProtection: document.getElementById('deletionProtection').value === 'true',
+            // empty: -1 (CSP default), 0: no backup (AWS only), >0: days
+            BackupRetentionDays: backupValue !== '' ? parseInt(backupValue) : -1
+        };
+        const tags = collectTags('rdbms');
+
+        const tasks = [], skipped = [];
+        rows.forEach(row => {
+            const connName = row.dataset.connection;
+            // a CSP without RDBMS support or left out on purpose (RDBMS_EXCLUDED) is already marked in the
+            // dialog: no request and no "Skipped" box for it
+            if (row._info && (row._info.supported === false || RDBMS_EXCLUDED[providerOf(row)])) return;
+            if (!row.querySelector('.create-include').checked) {
+                // the note text without its button (ex: Reload)
+                const note = row.querySelector('.row-note').firstChild;
+                skipped.push(`${connName}: ${(note && note.nodeType === Node.TEXT_NODE && note.textContent) || 'not selected'}`);
+                return;
+            }
+            const provider = providerOf(row);
+            const value = sel => row.querySelector(sel).value.trim();
+            const subnets = usesSubnets(row) ? selectedSubnets(row).map(cb => cb.value) : [];
+            const sg = usesSecurityGroups(row) ? value('.create-sg') : '';
+            const storage = row.querySelector('.create-storage');
+            const problems = [];
+            if (!value('.create-vpc')) problems.push('no VPC');
+            if (usesSubnets(row) && subnets.length === 0) problems.push('no subnet selected');
+            if (provider === 'AWS' && subnetZoneCount(row) < AWS_MIN_SUBNET_ZONES) problems.push(`AWS needs subnets in ${AWS_MIN_SUBNET_ZONES} zones`);
+            if (usesSecurityGroups(row) && !sg) problems.push('no SecurityGroup');
+            if (!value('.create-version')) problems.push('no Version');
+            if (!value('.create-spec')) problems.push('no DB Spec');
+            if (!storage.disabled && !storage.value) problems.push('no Storage size');
+            if (!value('.create-user') || !value('.create-password')) problems.push('no Master User or Password');
+            if (problems.length) {
+                skipped.push(`${connName}: ${problems.join(', ')}`);
+                return;
+            }
+            tasks.push({
+                connName,
+                provider,
+                reqInfo: Object.assign({
+                    Name: rdbmsName,
+                    VPCName: value('.create-vpc'),
+                    DBEngine: engine,
+                    DBEngineVersion: value('.create-version'),
+                    DBSpec: value('.create-spec'),
+                    StorageSize: storage.disabled ? undefined : storage.value,
+                    SubnetNames: subnets.length ? subnets : undefined,
+                    SecurityGroupNames: sg ? [sg] : undefined,
+                    MasterUserName: value('.create-user'),
+                    MasterUserPassword: value('.create-password'),
+                    NHNAutoOpenDBSecurityGroup: provider === 'NHN' && document.getElementById('nhnAutoOpenDBSecurityGroup').value === 'true' ? true : undefined,
+                    TagList: tags.length ? tags : undefined
+                }, common)
+            });
+        });
+
+        if (tasks.length === 0) {
+            alert(`No connection can create the RDBMS.` + (skipped.length ? `\n\n  - ${skipped.join('\n  - ')}` : ''));
+            return;
+        }
+        const summary = tasks.map(t => `${t.connName}: ${engine} ${t.reqInfo.DBEngineVersion}, ${t.reqInfo.DBSpec}` +
+            (t.reqInfo.StorageSize ? `, ${t.reqInfo.StorageSize}GB` : '')).join('\n  - ');
+        if (!confirm(`Create RDBMS "${rdbmsName}" in ${tasks.length} connection(s)? An RDBMS takes several minutes or more to create and is charged by the CSP.\n\n  - ${summary}` +
+            (skipped.length ? `\n\nSkipped:\n  - ${skipped.join('\n  - ')}` : '') +
+            `\n\nPublic Access: ${common.PublicAccess ? 'Yes' : 'No'}. Keep the master passwords: they are not shown again.`)) {
+            return;
+        }
+        hideOverlay();
+
+        // All create requests go out in one call and the server sends them at the same time (multiFanout).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'POST',
+            path: '/spider/rdbms',
+            body: { ConnectionName: task.connName, ReqInfo: task.reqInfo }
+        })));
+        tasks.forEach((task, i) => {
+            const label = `RDBMS "${rdbmsName}" in ${task.connName}`;
+            const box = multiTaskBox('create', `Creating ${label}…`);
+            responses[i]
+            .then(readRDBMSResponse)
+            .then(rdbms => {
+                multiAddRow(document.getElementById('rdbms-table'), buildRDBMSRow(task.connName, rdbms), task.connName);
+                formatCreatedTimes();
+                box.finish(true, `Created ${label}`);
+            })
+            .catch(error => box.finish(false, `Failed to create ${label}: ${error.message}`));
+        });
+        skipped.forEach(s => multiTaskBox('create', '').finish(false, `Skipped ${s}`));
+    }
+
+    // Build an RDBMS row from an RDBMSInfo (the create response), same layout as the server-rendered rows.
+    function buildRDBMSRow(connName, db) {
+        const el = (tag, className, text) => {
+            const e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        };
+        const detail = (td, pairs) => {
+            pairs.forEach(([key, value], i) => {
+                if (i) td.appendChild(el('br'));
+                td.appendChild(el('b', '', `${key}:`));
+                td.appendChild(document.createTextNode(` ${value}`));
+            });
+            return td;
+        };
+        const iid = db.IId || {};
+
+        const tr = el('tr');
+        tr.appendChild(el('td', 'column-num'));
+        tr.appendChild(el('td', 'column-connection', connName));
+
+        const nameTd = el('td', 'vpc-name-cell', iid.NameId);
+        const sysId = el('span', 'desc-system-id', ` • ${iid.SystemId || ''}`);
+        sysId.addEventListener('click', () => showSystemIdOverlay(iid.SystemId || ''));
+        nameTd.appendChild(sysId);
+        const created = el('span', 'disk-created-time');
+        created.dataset.time = db.CreatedTime || '';
+        nameTd.appendChild(created);
+        tr.appendChild(nameTd);
+
+        const statusTd = el('td', 'center-align');
+        statusTd.appendChild(el('span', `status-badge status-${db.Status || ''}`, db.Status || ''));
+        tr.appendChild(statusTd);
+        tr.appendChild(el('td', 'vpc-name-cell', (db.VpcIID || {}).NameId || ''));
+        tr.appendChild(detail(el('td', 'rdbms-detail'), [
+            ['Engine', `${db.DBEngine || ''} ${db.DBEngineVersion || ''}`],
+            ['Endpoint', db.Endpoint || '']
+        ]));
+        tr.appendChild(detail(el('td', 'rdbms-detail'), [
+            ['Spec', db.DBSpec || ''],
+            ['Storage', `${db.StorageSize || ''} GB${db.StorageType ? ` (${db.StorageType})` : ''}`]
+        ]));
+
+        const tagTd = el('td');
+        (db.TagList || []).forEach(tag => {
+            const text = `${tag.Key}: ${tag.Value}`;
+            const div = el('div', 'tag-container', text);
+            div.addEventListener('click', event => showTagOverlay(event, text, 'RDBMS', iid.NameId, connName));
+            tagTd.appendChild(div);
+        });
+        tr.appendChild(tagTd);
+
+        const miscTd = el('td', 'center-align misc-cell');
+        const misc = el('div', 'misc-content');
+        (db.KeyValueList || []).forEach(kv => {
+            misc.appendChild(document.createTextNode(`${kv.Key} : ${kv.Value}`));
+            misc.appendChild(el('br'));
+        });
+        miscTd.appendChild(misc);
+        tr.appendChild(miscTd);
+
+        const checkTd = el('td', 'check-column');
+        const checkbox = el('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'deleteCheckbox';
+        checkbox.value = iid.NameId;
+        checkbox.dataset.connection = connName;
+        checkTd.appendChild(checkbox);
+        tr.appendChild(checkTd);
+        return tr;
+    }
+
     // ---- Delete ----
 
     function deleteSelectedRDBMSs() {
@@ -556,14 +1238,18 @@
         // an RDBMS being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/rdbms/${encodeURIComponent(task.rdbmsName)}`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `RDBMS "${task.rdbmsName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/rdbms/${encodeURIComponent(task.rdbmsName)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.text().then(txt => {
                 let data;
                 try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }

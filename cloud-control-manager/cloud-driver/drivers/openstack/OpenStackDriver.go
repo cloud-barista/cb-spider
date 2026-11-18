@@ -172,7 +172,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
-		cblogger.Warnf("Failed to initialize NLB(Octavia) client. NLB features will be unavailable: %v", err)
+		cblogger.Debugf("Failed to initialize NLB(Octavia) client. NLB features will be unavailable: %v", err)
 		iConn.NLBClient = nil
 	}
 
@@ -210,7 +210,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
-		cblogger.Warnf("Failed to initialize SharedFileSystem(Manila) client. FileSystem features will be unavailable: %v", err)
+		cblogger.Debugf("Failed to initialize SharedFileSystem(Manila) client. FileSystem features will be unavailable: %v", err)
 		iConn.SharedFileSystemClient = nil
 	}
 
@@ -220,7 +220,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	})
 	if err != nil {
 		// Trove may not be available in all OpenStack deployments; log and continue
-		fmt.Printf("Warning: failed to create Trove DB client: %v\n", err)
+		cblogger.Debugf("Failed to initialize DB(Trove) client. RDBMS features will be unavailable: %v", err)
 	}
 
 	// Designate (DNS-as-a-Service) client - optional, some deployments may not have Designate
@@ -228,7 +228,7 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
-		cblogger.Warnf("Failed to initialize DNS(Designate) client. DNS features will be unavailable: %v", err)
+		cblogger.Debugf("Failed to initialize DNS(Designate) client. DNS features will be unavailable: %v", err)
 		iConn.DNSClient = nil
 	}
 

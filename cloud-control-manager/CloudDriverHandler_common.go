@@ -130,8 +130,18 @@ func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (i
 	// change yields a new key automatically. TTL keeps token-based clients (Keystone) fresh.
 	cacheKey := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%+v", connectionInfo))))
 	if os.Getenv("CALL_COUNT") == "" { // profiling mode needs fresh counting clients
-		if v, ok := connectionCache.Load(cacheKey); ok && time.Now().Before(v.(cachedConnection).expiresAt) {
-			return v.(cachedConnection).conn, nil
+		if conn, ok := loadCachedConnection(cacheKey); ok {
+			return conn, nil
+		}
+
+		// Requests for the same connection arriving together (e.g. VM list and VM status fetched in
+		// parallel) would all miss the cache and each authenticate to the CSP. Only the first one
+		// connects; the others wait for it and reuse its connection.
+		keyLock, _ := connectionCreateLocks.LoadOrStore(cacheKey, &sync.Mutex{})
+		keyLock.(*sync.Mutex).Lock()
+		defer keyLock.(*sync.Mutex).Unlock()
+		if conn, ok := loadCachedConnection(cacheKey); ok {
+			return conn, nil
 		}
 	}
 
@@ -160,6 +170,18 @@ type cachedConnection struct {
 }
 
 var connectionCache sync.Map // cacheKey -> cachedConnection
+
+// connectionCreateLocks serializes connection creation per cacheKey (cacheKey -> *sync.Mutex).
+// Locks are not removed: there is one per connection and zone, so the map stays small.
+var connectionCreateLocks sync.Map
+
+// loadCachedConnection returns the cached connection of cacheKey if it has not expired.
+func loadCachedConnection(cacheKey string) (icon.CloudConnection, bool) {
+	if v, ok := connectionCache.Load(cacheKey); ok && time.Now().Before(v.(cachedConnection).expiresAt) {
+		return v.(cachedConnection).conn, true
+	}
+	return nil, false
+}
 
 // connectionCacheTTL must stay below the typical 1h Keystone token lifetime and below the
 // per-connection context timeout some drivers create once in ConnectCloud (Azure, IBM: 100 min).

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
@@ -40,6 +41,38 @@ func fetchMyImages(connConfig string) ([]*cres.MyImageInfo, error) {
 	})
 
 	return info.ResultList, nil
+}
+
+// MyImage creation is much slower in some regions: an image is Available only when the snapshot of the
+// system disk is complete. Comparison test (2026-11-18, ubuntu_24_04 alibase image, ecs.c9i.large,
+// 40GB cloud_essd PL1, new VM): Alibaba ap-northeast-1 (Tokyo) 62s; cn-beijing 5% after 5m30s, about
+// 40 minutes in total. The Alibaba driver waits up to 60 minutes in cn-beijing (see CommonHandler.go).
+var slowMyImageRegions = map[string]map[string]string{
+	"ALIBABA": {"cn-beijing": "about 40 minutes for a 40GB system disk (Tokyo: about 1 minute); Spider waits up to 60 minutes"},
+}
+
+// slowMyImageNotice returns the notice to show for a connection whose region creates MyImages slowly, or "".
+func slowMyImageNotice(connName string) string {
+	provider, err := getProviderName(connName)
+	if err != nil {
+		return ""
+	}
+	regions := slowMyImageRegions[strings.ToUpper(provider)]
+	if regions == nil {
+		return ""
+	}
+	regionName, err := getRegionName(connName)
+	if err != nil {
+		return ""
+	}
+	region, _, err := getRegionZone(regionName)
+	if err != nil {
+		return ""
+	}
+	if text, ok := regions[region]; ok {
+		return fmt.Sprintf("%s (%s %s): MyImage creation is slow, %s.", connName, provider, region, text)
+	}
+	return ""
 }
 
 // Handler function to render the MyImage management page
@@ -87,6 +120,7 @@ func MyImageManagement(c echo.Context) error {
 		ConnectionConfig string
 		RegionName       string
 		MyImages         []*cres.MyImageInfo
+		SlowNotices      []string
 		APIUsername      string
 		APIPassword      string
 	}{
@@ -95,6 +129,9 @@ func MyImageManagement(c echo.Context) error {
 		MyImages:         myImages,
 		APIUsername:      os.Getenv("SPIDER_USERNAME"),
 		APIPassword:      os.Getenv("SPIDER_PASSWORD"),
+	}
+	if notice := slowMyImageNotice(connConfig); notice != "" {
+		data.SlowNotices = []string{notice}
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/myimage.html")
@@ -166,16 +203,36 @@ func MyImageManagementMulti(c echo.Context) error {
 		}
 	}
 
+	// the slow-region notices (a few REST calls per connection, at the same time)
+	slowNotices := make([]string, len(connNames))
+	var wg sync.WaitGroup
+	for i, connName := range connNames {
+		wg.Add(1)
+		go func(i int, connName string) {
+			defer wg.Done()
+			slowNotices[i] = slowMyImageNotice(connName)
+		}(i, connName)
+	}
+	wg.Wait()
+	var notices []string
+	for _, notice := range slowNotices {
+		if notice != "" {
+			notices = append(notices, notice)
+		}
+	}
+
 	data := struct {
 		Connections []string
 		MyImageRows []MyImageMultiRow
 		ConnErrors  map[string]string
+		SlowNotices []string
 		APIUsername string
 		APIPassword string
 	}{
 		Connections: connNames,
 		MyImageRows: rows,
 		ConnErrors:  connErrors,
+		SlowNotices: notices,
 		APIUsername: os.Getenv("SPIDER_USERNAME"),
 		APIPassword: os.Getenv("SPIDER_PASSWORD"),
 	}

@@ -835,9 +835,10 @@ func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, re
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, iid.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
-			// if not found, continue
+			// if not found, continue: a CSP subnet that is not registered in Spider (ex: created
+			// outside Spider) is normal, so log at Debug to avoid one INFO line per such subnet.
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Debug(err)
 				continue
 			}
 			vpcSPLock.RUnlock(connectionName, iid.NameId)
@@ -935,7 +936,7 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 		if err != nil {
 			// if not found, continue
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Debug(err) // a CSP subnet not registered in Spider: normal, see getVPCInfo()
 				continue
 			}
 			cblog.Error(err)
@@ -1146,7 +1147,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		if err != nil {
 			// if not found, continue
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Debug(err) // a CSP subnet not registered in Spider: normal, see getVPCInfo()
 				continue
 			}
 			cblog.Error(err)

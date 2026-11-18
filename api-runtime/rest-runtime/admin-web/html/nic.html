@@ -190,6 +190,13 @@
         font-size: 22px; color: #555; line-height: 1; font-weight: bold;
     }
     .res-overlay-close:hover { color: #dc3545; }
+    /* A dialog taller than the window (ex: zoomed in) scrolls inside it, so its buttons stay reachable
+       (same as the multi-connection pages). */
+    .overlay-content, .add-tag-overlay-content, .add-subnet-tag-overlay-content,
+    .tag-overlay-content, .overlay-content-new-nodegroup {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
 </style>
 </head>
 <body>

@@ -840,7 +840,7 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	//vmInfo.Region.Region = vmHandler.Region.Region
 	//}
 
-	cblogger.Info("vmInfo", vmInfo)
+	cblogger.Debug("vmInfo", vmInfo)
 	return vmInfo, nil
 }
 
@@ -911,7 +911,7 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Instance) irs.VMInfo {
 	//cblogger.Info("ExtractDescribeInstances", reservation)
-	cblogger.Info("Instance", instance)
+	cblogger.Debug("Instance", instance)
 
 	//"stopped" / "terminated" / "running" ...
 	var state string
@@ -1021,7 +1021,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		vmInfo.PublicDNS = *instance.PublicDnsName
 	}
 
-	cblogger.Info("===> BlockDeviceMappings ValueOf : ", reflect.ValueOf(instance.BlockDeviceMappings))
+	cblogger.Debug("===> BlockDeviceMappings ValueOf : ", reflect.ValueOf(instance.BlockDeviceMappings))
 	if !reflect.ValueOf(instance.BlockDeviceMappings).IsNil() {
 		//if !reflect.ValueOf(instance.BlockDeviceMappings[0].DeviceName).IsNil() {
 		//	vmInfo.VMBlockDisk = *instance.BlockDeviceMappings[0].DeviceName
@@ -1519,7 +1519,7 @@ func (vmHandler *AwsVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("Success", result)
+	cblogger.Debug("Success", result)
 	for _, i := range result.Reservations {
 		for _, vm := range i.Instances {
 			//vmStatus := strings.ToUpper(*vm.State.Name)

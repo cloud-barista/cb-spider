@@ -348,7 +348,7 @@ func (diskHandler *IbmDiskHandler) ToIRSDisk(disk *vpcv1.Volume) *irs.DiskInfo {
 			SearchService:  diskHandler.SearchService,
 		}
 
-		tags, err := tagHandler.ListTag(irs.DISK, irs.IID{SystemId: *disk.ID})
+		tags, err := listTagWithKnownCRN(&tagHandler, irs.DISK, irs.IID{SystemId: *disk.ID}, disk.CRN) // CRN is in hand: skips re-reading the resource
 		if err != nil {
 			cblogger.Warn("Failed to get tags of the Disk (" + *disk.Name + "). err = " + err.Error())
 		}

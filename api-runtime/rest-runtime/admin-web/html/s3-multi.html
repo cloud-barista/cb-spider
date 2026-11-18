@@ -594,10 +594,17 @@
 
         // one status box per request; each created bucket is added to the list at once
         // (its Versioning/CORS are filled by the sync refresh after the last request)
-        targets.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(targets.map(task => ({
+            method: 'PUT',
+            path: `/spider/s3/${encodeURIComponent(task.bucketName)}?ConnectionName=${encodeURIComponent(task.connName)}`
+        })));
+
+        targets.forEach((task, i) => {
             const label = `Bucket "${task.bucketName}" in ${task.connName}`;
             const box = multiTaskBox('create', `Creating ${label}…`);
-            fetch(`/spider/s3/${encodeURIComponent(task.bucketName)}?ConnectionName=${encodeURIComponent(task.connName)}`, { method: 'PUT' })
+            responses[i]
             .then(response => {
                 if (!response.ok) {
                     return response.text().then(text => { throw new Error(s3ErrorMessage(response.status, text).message); });
@@ -632,19 +639,31 @@
         }
         // a bucket being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
-        tasks.forEach(task => deleteBucket(task, false));
+        // All delete requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: deleteBucketPath(task, false),
+            headers: { 'X-Connection-Name': task.connName }
+        })));
+        tasks.forEach((task, i) => deleteBucket(task, false, responses[i]));
+    }
+
+    function deleteBucketPath(task, force) {
+        const params = new URLSearchParams({ ConnectionName: task.connName });
+        if (force) params.set('force', 'true');
+        return `/spider/s3/${encodeURIComponent(task.bucketName)}?${params}`;
     }
 
     // force: delete the bucket with all its objects. A non-empty bucket fails with a "Force delete" button.
-    function deleteBucket(task, force) {
+    // response: the response of a request already sent (bulk delete), else the request is sent here.
+    function deleteBucket(task, force, response) {
         const label = `Bucket "${task.bucketName}" in ${task.connName}`;
         const box = multiTaskBox('delete', `${force ? 'Force deleting' : 'Deleting'} ${label}…`);
-        const params = new URLSearchParams({ ConnectionName: task.connName });
-        if (force) params.set('force', 'true');
-        fetch(`/spider/s3/${encodeURIComponent(task.bucketName)}?${params}`, {
+        (response || fetch(deleteBucketPath(task, force), {
             method: 'DELETE',
             headers: { 'X-Connection-Name': task.connName }
-        })
+        }))
         .then(response => {
             if (!response.ok) {
                 return response.text().then(text => {

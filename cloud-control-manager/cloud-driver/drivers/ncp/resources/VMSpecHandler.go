@@ -61,7 +61,7 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error
 		zoneCode = &vmSpecHandler.RegionInfo.Zone
 	}
 	for _, image := range imgListResult {
-		cblogger.Infof("\n### Lookup by NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
+		cblogger.Debugf("\n### Lookup by NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 		vmSpecReq := vserver.GetServerSpecListRequest{
 			RegionCode:    &vmSpecHandler.RegionInfo.Region,
 			ZoneCode:      zoneCode,
@@ -186,7 +186,7 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) GetOrgVMSpec(specName string) (string,
 
 // func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, NcpVMSpec *vserver.Product) irs.VMSpecInfo {
 func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSpec *vserver.ServerSpec) irs.VMSpecInfo {
-	cblogger.Info("NCP VPC Cloud driver: called mappingVMSpecInfo()!")
+	cblogger.Debug("NCP VPC Cloud driver: called mappingVMSpecInfo()!")
 	// spew.Dump(vmSpec)
 
 	if strings.EqualFold(ImageId, "") {

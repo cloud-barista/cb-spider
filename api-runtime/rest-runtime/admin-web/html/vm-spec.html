@@ -303,18 +303,18 @@
                 <span class="acc-badge acc-{{$acc.Type}}">{{$acc.Type}}</span><br>
                 &nbsp;* Mfr: {{$acc.Mfr}}<br>
                 &nbsp;* Model: {{$acc.Model}}<br>
-                &nbsp;* Count: {{$acc.Count}}{{if $acc.Fraction}} ({{$acc.Fraction}} of a physical {{$acc.Type}}){{end}}<br>
-                &nbsp;* Memory: {{$acc.MemSizeGB}} GB<br>
-                &nbsp;* TotalMemory: {{$acc.TotalMemSizeGB}} GB<br>
+                &nbsp;* Count: {{orNA $acc.Count}}{{if $acc.Fraction}} ({{$acc.Fraction}} of a physical {{$acc.Type}}){{end}}<br>
+                &nbsp;* Memory: {{gbOrNA $acc.MemSizeGB}}<br>
+                &nbsp;* TotalMemory: {{gbOrNA $acc.TotalMemSizeGB}}<br>
             {{end}}
             {{else}}
             {{if and (eq $spec.Accel.Class "GPU") $spec.Gpu}}<span class="acc-badge acc-GPU">GPU</span><br>{{end}}
             {{range $gpu := $spec.Gpu}}
                 &nbsp;* Mfr: {{$gpu.Mfr}}<br>
                 &nbsp;* Model: {{$gpu.Model}}<br>
-                &nbsp;* Memory: {{$gpu.MemSizeGB}} GB<br>
-                &nbsp;* Count: {{$gpu.Count}}<br>
-                &nbsp;* TotalMemory: {{$gpu.TotalMemSizeGB}} GB<br>
+                &nbsp;* Memory: {{gbOrNA $gpu.MemSizeGB}}<br>
+                &nbsp;* Count: {{orNA $gpu.Count}}<br>
+                &nbsp;* TotalMemory: {{gbOrNA $gpu.TotalMemSizeGB}}<br>
             {{end}}
             {{end}}
         </td>

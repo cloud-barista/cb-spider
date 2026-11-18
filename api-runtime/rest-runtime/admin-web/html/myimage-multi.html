@@ -348,7 +348,18 @@
         color: #b35c00;
         font-size: 11px;
     }
-</style>
+
+        /* slow MyImage creation in the region of a connection (e.g. Alibaba cn-beijing) */
+        .slow-notice {
+            background: #fff8e1;
+            border: 1px solid #f0c36d;
+            color: #7a5a00;
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin: 4px 0;
+            font-size: 13px;
+        }
+    </style>
 </head>
 <body>
     <div class="fixed-header">
@@ -374,6 +385,7 @@
         {{range $conn, $err := .ConnErrors}}
         <div class="connection-error" data-connection="{{$conn}}">&#9888; {{$conn}}: {{$err}}</div>
         {{end}}
+        {{range $notice := .SlowNotices}}<div class="slow-notice">&#9203; {{$notice}}</div>{{end}}
     </div>
 
     <div class="content">
@@ -437,6 +449,7 @@
         <div class="overlay-content">
             <button type="button" class="overlay-close-btn" onclick="hideOverlay()">X</button>
             <h2>Add New MyImage to <span class="multi-conn-count">{{len .Connections}}</span> Connection(s)</h2>
+            {{range $notice := .SlowNotices}}<div class="slow-notice">&#9203; {{$notice}}</div>{{end}}
             <form id="addMyImageForm" onsubmit="event.preventDefault(); postMyImageMulti();">
                 <fieldset class="info-group">
                     <legend>MyImage Info (all connections):</legend>
@@ -571,14 +584,21 @@
 
     // Load the VM list of each connection into its select; the first VM is selected by default.
     function loadSourceVMs() {
-        document.querySelectorAll('#create-table tr.create-row').forEach(row => {
-            if (!multiInFocus(row.dataset.connection)) return;
+        const rows = Array.from(document.querySelectorAll('#create-table tr.create-row'))
+            .filter(row => multiInFocus(row.dataset.connection));
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(rows.map(row => ({
+            method: 'GET',
+            path: `/spider/vm?ConnectionName=${encodeURIComponent(row.dataset.connection)}`
+        })));
+        rows.forEach((row, i) => {
             const select = row.querySelector('.create-vm');
             row.dataset.loading = 'true';
             row.querySelector('.create-include').checked = true;
             updateCreateRowState(row);
             setOptions(select, [], 'Loading…');
-            fetch(`/spider/vm?ConnectionName=${encodeURIComponent(row.dataset.connection)}`)
+            responses[i]
                 .then(response => response.json().then(data => {
                     if (!response.ok) throw new Error(data.message || data.Message || `HTTP ${response.status}`);
                     return data.vm || [];
@@ -664,17 +684,21 @@
         hideOverlay();
 
         // one status box per request; each created MyImage is added to the list at once
-        targets.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(targets.map(task => ({
+            method: 'POST',
+            path: '/spider/myimage',
+            body: {
+                ConnectionName: task.connName,
+                ReqInfo: { Name: name, SourceVM: task.vmName, TagList: tags }
+            }
+        })));
+
+        targets.forEach((task, i) => {
             const label = `MyImage "${name}" of VM "${task.vmName}" in ${task.connName}`;
             const box = multiTaskBox('create', `Creating ${label}…`);
-            fetch('/spider/myimage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ConnectionName: task.connName,
-                    ReqInfo: { Name: name, SourceVM: task.vmName, TagList: tags }
-                })
-            })
+            responses[i]
             .then(response => response.text().then(txt => {
                 let data;
                 try { data = JSON.parse(txt); } catch (e) { data = { Message: txt }; }
@@ -712,14 +736,18 @@
         // a MyImage being deleted cannot be selected again until the page content is refreshed
         checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.disabled = true; });
 
-        tasks.forEach(task => {
+        // All requests go out in one call and the server sends them at the same time (multiFanout),
+        // so none waits behind a slow one in the browser's queue (at most 6 requests at a time).
+        const responses = multiFanout(tasks.map(task => ({
+            method: 'DELETE',
+            path: `/spider/myimage/${encodeURIComponent(task.myImageName)}`,
+            body: { ConnectionName: task.connName }
+        })));
+
+        tasks.forEach((task, i) => {
             const label = `MyImage "${task.myImageName}" in ${task.connName}`;
             const box = multiTaskBox('delete', `Deleting ${label}…`);
-            fetch(`/spider/myimage/${encodeURIComponent(task.myImageName)}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ConnectionName: task.connName })
-            })
+            responses[i]
             .then(response => response.json().then(data => {
                 if (!response.ok || !(data.Result === true || data.Result === "true")) {
                     throw new Error(data.message || data.Message || `HTTP ${response.status}`);

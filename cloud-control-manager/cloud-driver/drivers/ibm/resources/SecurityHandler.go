@@ -294,9 +294,9 @@ func (securityHandler *IbmSecurityHandler) setSecurityGroupInfo(securityGroup vp
 		SearchService:  securityHandler.SearchService,
 	}
 
-	tags, err := tagHandler.ListTag(irs.SG, irs.IID{SystemId: *securityGroup.ID})
+	tags, err := listTagWithKnownCRN(&tagHandler, irs.SG, irs.IID{SystemId: *securityGroup.ID}, securityGroup.CRN) // CRN is in hand: skips re-reading the resource
 	if err != nil {
-		cblogger.Warn("Failed to get tags of the Key (" + *securityGroup.Name + "). err = " + err.Error())
+		cblogger.Warn("Failed to get tags of the security group (" + *securityGroup.Name + "). err = " + err.Error())
 	}
 
 	securityInfo.TagList = tags

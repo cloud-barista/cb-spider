@@ -413,6 +413,9 @@
     }
 
     .tag-overlay-content {
+        /* taller than the window (ex: zoomed in): scroll inside, so the close button stays reachable */
+        max-height: 90vh;
+        overflow-y: auto;
         position: relative;
         padding: 20px;
         border-radius: 5px;

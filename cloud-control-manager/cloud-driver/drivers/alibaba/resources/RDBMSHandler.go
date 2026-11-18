@@ -928,11 +928,16 @@ func convertAlibabaStatusToRDBMSStatus(status string) irs.RDBMSStatus {
 	case "DBInstanceClassChanging", "GuardDBInstanceCreating", "ReplicaCreating",
 		"Rebooting", "Transing", "TransingToOthers", "EngineVersionUpgrading",
 		"MinorVersionUpgrading", "NET_CREATING", "NET_DELETING",
-		"Switching", "DISK_EXPANDING":
+		"Switching", "DISK_EXPANDING",
+		// transient statuses of a working instance, e.g. while the public connection is allocated
+		// right after the creation (DBInstanceNetTypeChanging): they were reported as Error
+		"DBInstanceNetTypeChanging", "NET_MODIFYING", "TRANSING", "ImportingFromOthers",
+		"GuardSwitching", "INS_CLONING", "MAINTAINING", "DBInstanceRenewing":
 		return irs.RDBMSAvailable
 	case "Locked", "LockMode":
 		return irs.RDBMSStopped
 	default:
+		cblogger.Warnf("Unknown Alibaba RDBMS status [%s]: reported as %s", status, irs.RDBMSError)
 		return irs.RDBMSError
 	}
 }

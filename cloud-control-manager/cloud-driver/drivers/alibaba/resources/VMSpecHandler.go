@@ -113,12 +113,22 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 // describeAllInstanceTypes fetches every instance type for a region, following
 // the DescribeInstanceTypes NextToken cursor until it's exhausted.
 func describeAllInstanceTypes(client *ecs.Client, region string) ([]ecs.InstanceType, error) {
+	return describeInstanceTypes(client, region, nil)
+}
+
+// describeInstanceTypes returns the instance types of the region.
+// When names is not empty, only those instance types are requested from the CSP,
+// which is much faster than retrieving all instance types (about 2,000 per region).
+func describeInstanceTypes(client *ecs.Client, region string, names []string) ([]ecs.InstanceType, error) {
 	var allTypes []ecs.InstanceType
 	nextToken := ""
 	for {
 		request := ecs.CreateDescribeInstanceTypesRequest()
 		request.Scheme = "https"
 		request.RegionId = region
+		if len(names) > 0 {
+			request.InstanceTypes = &names
+		}
 		if nextToken != "" {
 			request.NextToken = nextToken
 		}
@@ -193,7 +203,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	}
 
 	callLogStart := call.Start()
-	instanceTypes, err := describeAllInstanceTypes(vmSpecHandler.Client, Region)
+	instanceTypes, err := describeInstanceTypes(vmSpecHandler.Client, Region, []string{Name})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -212,8 +222,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	}
 
 	var vMSpecInfo irs.VMSpecInfo
-	//인스턴스 타입으로 필터가 안되기 때문에 직접 처리함.
-	//속도를 고려하면 조회 대상을 전체로 설정하지 말고 InstanceTypeFamily을 이용해서 패밀리 그룹을 제한할 수는 있음.
+	// only the requested instance type is retrieved, but match the name again to be safe
 	for _, curInstance := range instanceTypes {
 		cblogger.Debugf("[%s]", curInstance.InstanceTypeId)
 		if Name == curInstance.InstanceTypeId {
@@ -281,7 +290,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	}
 
 	callLogStart := call.Start()
-	instanceTypes, err := describeAllInstanceTypes(vmSpecHandler.Client, Region)
+	instanceTypes, err := describeInstanceTypes(vmSpecHandler.Client, Region, []string{Name})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -301,8 +310,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 
 	var jsonString string
 	var errJson error
-	//인스턴스 타입으로 필터가 안되기 때문에 직접 처리함.
-	//속도를 고려하면 조회 대상을 전체로 설정하지 말고 InstanceTypeFamily을 이용해서 패밀리 그룹을 제한할 수는 있음.
+	// only the requested instance type is retrieved, but match the name again to be safe
 	for _, curInstance := range instanceTypes {
 		cblogger.Debugf("[%s]", curInstance.InstanceTypeId)
 		if Name == curInstance.InstanceTypeId {
