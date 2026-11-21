@@ -100,33 +100,38 @@ func (nlbHandler *IbmNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		return nil, getErr
 	}
 
-	nlbInfoList := make([]*irs.NLBInfo, len(*nlbList))
+	// A load balancer that cannot be read (e.g. one another service is still
+	// provisioning) is logged and left out, so it does not fail the whole list.
+	infos := make([]*irs.NLBInfo, len(*nlbList))
 
 	var wait sync.WaitGroup
 	wait.Add(len(*nlbList))
-	var errList []string
 
 	for i, nlb := range *nlbList {
 		go func() {
 			defer wait.Done()
 			info, getErr := nlbHandler.setterNLB(nlb)
 			if getErr != nil {
-				cblogger.Error(getErr.Error())
+				name := ""
+				if nlb.Name != nil {
+					name = *nlb.Name
+				}
+				getErr = fmt.Errorf("failed to get NLB %s, skipping it: %v", name, getErr)
+				cblogger.Warn(getErr.Error())
 				LoggingError(hiscallInfo, getErr)
-				errList = append(errList, getErr.Error())
+				return
 			}
-			nlbInfoList[i] = info
+			infos[i] = info
 		}()
 	}
 	wait.Wait()
 	LoggingInfo(hiscallInfo, start)
 
-	if len(errList) > 0 {
-		errList = append([]string{"Failed to List NLB. err = "}, errList...)
-		getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", strings.Join(errList, "\n\t")))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+	nlbInfoList := make([]*irs.NLBInfo, 0, len(infos))
+	for _, info := range infos {
+		if info != nil {
+			nlbInfoList = append(nlbInfoList, info)
+		}
 	}
 
 	return nlbInfoList, nil
