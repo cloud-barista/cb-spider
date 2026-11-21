@@ -491,64 +491,39 @@ func (nvch *NcpVpcClusterHandler) addSubnetAndWait(vpcNo, subnetName, subnetRang
 	}
 */
 func (nvch *NcpVpcClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
-	return nil, nil
-	/*
-			if ClusterHandler == nil {
-				cblogger.Error("ClusterHandlerIs nil")
-				return nil, errors.New("ClusterHandler is nil")
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
 
-		   }
+	cblogger.Debug("NCP Cloud Driver: called ListCluster()")
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Zone, call.CLUSTER, "ListCluster()", "ListCluster()")
+	start := call.Start()
 
-		   cblogger.Debug(ClusterHandler)
+	clusterList, err := ncpClustersGet(nvch.ClusterClient, nvch.Ctx)
+	if err != nil {
+		listErr := fmt.Errorf("failed to list clusters: %v", err)
+		cblogger.Error(listErr)
+		LoggingError(hiscallInfo, listErr)
+		return nil, listErr
+	}
 
-			if nvch.Client == nil {
-				cblogger.Error(" nvch.Client Is nil")
-				return nil, errors.New("ClusterHandler is nil")
-			}
+	clusterInfoList := []*irs.ClusterInfo{}
+	for _, cluster := range clusterList {
+		clusterInfo, err := nvch.convertCluster(cluster)
+		if err != nil {
+			listErr := fmt.Errorf("failed to get cluster %s: %v", ncloud.StringValue(cluster.Uuid), err)
+			cblogger.Error(listErr)
+			LoggingError(hiscallInfo, listErr)
+			return nil, listErr
+		}
+		clusterInfoList = append(clusterInfoList, &clusterInfo)
+	}
 
-		   input := &vnks.ListClustersInput{}
-		   // logger for HisCall
-		   callogger := call.GetLogger("HISCALL")
-
-			callLogInfo := call.CLOUDLOGSCHEMA{
-				CloudOS:      call.AWS,
-				RegionZone:   nvch.Region.Zone,
-				ResourceType: call.CLUSTER,
-				ResourceName: "List()",
-				CloudOSAPI:   "ListClusters()",
-				ElapsedTime:  "",
-				ErrorMSG:     "",
-			}
-
-		   callLogStart := call.Start()
-
-		   result, err := nvch.ClusterClient.ListClusters(input)
-		   callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-
-			if err != nil {
-				callLogInfo.ErrorMSG = err.Error()
-				callogger.Info(call.String(callLogInfo))
-				cblogger.Error(err.Error())
-				return nil, err
-			}
-
-		   callogger.Info(call.String(callLogInfo))
-
-		   cblogger.Debug(result)
-
-		   clusterList := []*irs.ClusterInfo{}
-		   for _, clusterName := range result.Clusters {
-
-			clusterInfo, err := nvch.GetCluster(irs.IID{SystemId: *clusterName})
-			if err != nil {
-				cblogger.Error(err)
-				continue //	에러가 나면 일단 skip시킴.
-			}
-			clusterList = append(clusterList, &clusterInfo)
-
-		   }
-		   return clusterList, nil
-	*/
+	LoggingInfo(hiscallInfo, start)
+	return clusterInfoList, nil
 }
 
 func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
@@ -590,12 +565,25 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 		return emptyClusterInfo, getErr
 	}
 
+	clusterInfo, err := nvch.convertCluster(targetCluster)
+	if err != nil {
+		getErr = err
+		return emptyClusterInfo, getErr
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	cblogger.Debug(clusterInfo)
+	return clusterInfo, nil
+}
+
+// convertCluster builds the ClusterInfo of a cluster returned by the cluster list,
+// fetching its worker nodes.
+func (nvch *NcpVpcClusterHandler) convertCluster(targetCluster *vnks.Cluster) (irs.ClusterInfo, error) {
 	var createdTime time.Time
 	if targetCluster.CreatedAt != nil && *targetCluster.CreatedAt != "" {
 		parsedTime, err := time.Parse(time.RFC3339, *targetCluster.CreatedAt)
 		if err != nil {
-			getErr = fmt.Errorf("failed to parse CreatedAt (%s): %v", *targetCluster.CreatedAt, err)
-			return emptyClusterInfo, getErr
+			return irs.ClusterInfo{}, fmt.Errorf("failed to parse CreatedAt (%s): %v", *targetCluster.CreatedAt, err)
 		}
 		createdTime = parsedTime
 	}
@@ -711,7 +699,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 	// Fetch all worker nodes for the cluster and group by NodePool InstanceNo
 	workerNodeRes, err := nvch.ClusterClient.V2Api.ClustersUuidNodesGet(nvch.Ctx, ncloud.String(ncloud.StringValue(targetCluster.Uuid)))
 	if err != nil {
-		cblogger.Warnf("failed to get worker nodes for cluster %s: %v (nodes will be empty)", clusterIID.SystemId, err)
+		cblogger.Warnf("failed to get worker nodes for cluster %s: %v (nodes will be empty)", ncloud.StringValue(targetCluster.Uuid), err)
 	}
 
 	nodesByPoolId := map[string][]irs.IID{}
@@ -742,8 +730,6 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 		}
 	}
 
-	LoggingInfo(hiscallInfo, start)
-	cblogger.Debug(clusterInfo)
 	return clusterInfo, nil
 }
 
