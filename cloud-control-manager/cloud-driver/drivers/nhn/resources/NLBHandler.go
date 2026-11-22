@@ -1148,7 +1148,13 @@ func (nlbHandler *NhnCloudNLBHandler) setterNLB(raw map[string]interface{}) (irs
 		NameId:   fmt.Sprintf("%v", raw["name"]),
 		SystemId: fmt.Sprintf("%v", raw["id"]),
 	}
-	nlbInfo.VpcIID = irs.IID{SystemId: fmt.Sprintf("%v", raw["vip_subnet_id"])}
+	// vip_subnet_id is the subnet the VIP sits in, not the VPC. Look up the
+	// VPC that owns the subnet.
+	vpcIID, err := nlbHandler.getVPCIIDBySubnetID(fmt.Sprintf("%v", raw["vip_subnet_id"]))
+	if err != nil {
+		return irs.NLBInfo{}, err
+	}
+	nlbInfo.VpcIID = vpcIID
 
 	// Convert NHN loadbalancer_type to Spider Type
 	lbType := fmt.Sprintf("%v", raw["loadbalancer_type"])
@@ -1185,6 +1191,19 @@ func (nlbHandler *NhnCloudNLBHandler) setterNLB(raw map[string]interface{}) (irs
 	nlbInfo.KeyValueList = irs.StructToKeyValueList(lb)
 
 	return nlbInfo, nil
+}
+
+// getVPCIIDBySubnetID returns the IID of the VPC that the subnet belongs to.
+func (nlbHandler *NhnCloudNLBHandler) getVPCIIDBySubnetID(subnetID string) (irs.IID, error) {
+	subnet, err := getVpcsubnetWithId(nlbHandler.NetworkClient, subnetID)
+	if err != nil {
+		return irs.IID{}, fmt.Errorf("failed to get the subnet %s of the NLB VIP: %v", subnetID, err)
+	}
+	vpc, err := vpcs.Get(nlbHandler.NetworkClient, subnet.VPCID).Extract()
+	if err != nil {
+		return irs.IID{}, fmt.Errorf("failed to get the VPC %s of subnet %s: %v", subnet.VPCID, subnetID, err)
+	}
+	return irs.IID{NameId: vpc.Name, SystemId: vpc.ID}, nil
 }
 
 func (nlbHandler *NhnCloudNLBHandler) attachPoolMembers(vmIIDs []irs.IID, port string, poolID string) ([]pools.Member, error) {
