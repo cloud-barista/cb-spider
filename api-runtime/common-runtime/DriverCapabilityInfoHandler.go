@@ -14,7 +14,7 @@ import (
 
 // ================ DriverCapabilityInfo Handler
 func GetDriverCapabilityInfo(connectionName string) (ifs.DriverCapabilityInfo, error) {
-	cblog.Info("call GetDriverCapabilityInfo()")
+	cblog.Debug("call GetDriverCapabilityInfo()")
 
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)

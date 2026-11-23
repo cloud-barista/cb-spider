@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="/spider/adminweb/static/js/task-box.js"></script>
 <title>S3 Manager</title>
 <style>
     body { font-family: Arial, sans-serif; font-size: 12px; }
@@ -19,11 +20,8 @@
     .fixed-action-buttons { display: flex; align-items: center; margin-top: 20px; margin-bottom: 10px; }
     .fixed-action-buttons button { margin-left: 10px; }
     .header-with-progress { display: flex; align-items: center; margin-bottom: 0px; }
-    .progress-bar-container { width: 600px; margin-left: 10px; margin-bottom: 0px; margin-top: 10px; height: 22px; background: #f0f5ff; border-radius: 4px; overflow: hidden; display: none; position: relative; z-index: 2000; }
-    .progress-bar { width: 0; height: 100%; background: #cce6ff; border-radius: 4px; transition: width 2s ease; }
-    #timeDisplay { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 14px; color: #333; z-index: 30; }
     .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; margin-top: 20px; }
-    .content { margin-top: 50px; }
+    .content { margin-top: 8px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }
     th, td { border: 1px solid #aaa; padding: 6px; position: relative; }
     th { background: #f2f2f2; font-size: 14px; text-align: center; }
@@ -80,7 +78,6 @@
     }
     .object-detail-table th, .object-detail-table td { border: 1px solid #ddd; }
     .object-detail-table th { width: 110px; }
-    .progress-bar { transition: width 1.5s ease; }
     #object-panel { margin-top: 20px; margin-left: 40px; }
     .object-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0px; }
     .object-panel-header h2 { margin: 0; }
@@ -208,32 +205,49 @@
         max-height: 90vh;
         overflow-y: auto;
     }
+    .list-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    /* add button, search box and refresh button on one line */
+    /* the same gap above (8px) and below (8px) the line */
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) { margin-top: 0; margin-bottom: 0; padding-bottom: 8px; }
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .add-button,
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .list-tools,
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .fixed-action-buttons { margin-top: 0; margin-bottom: 0; }
+    /* the add button starts at the table's left edge, as in the single-connection page */
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .add-button { margin-left: 1px; }
+    .list-tools .searchContainer {
+        padding-left: 0.3cm;
+    }
+    .list-tools .refresh-button {
+        width: 26px;
+        height: 26px;
+        margin: 0;
+    }
+    .list-tools .refresh-button svg {
+        width: 14px;
+        height: 14px;
+    }
 </style>
 </head>
 <body>
-    <div class="fixed-header">
-        <div class="header-container">
-            <img src="/spider/adminweb/images/left-menu/s3.png" alt="S3 Icon">
-            <h1>S3 Manager</h1>
-            <div class="searchContainer">
-                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Bucket or Object...">
-                <button id="clearSearch" onclick="clearSearchInput()">X</button>
-            </div>
-        </div>
-        <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
-                <polyline points="21 3 21 9 15 9"></polyline>
-            </svg>
-        </button>
-    </div>
-
     <div class="content">
         <div class="header-with-progress">
             <button onclick="showBucketCreateOverlay()" class="add-button" {{if .ErrorMessage}}disabled title="S3 is not available for this connection"{{end}}>+ Bucket</button>
-            <div class="progress-bar-container" id="progressBarContainer">
-                <div class="progress-bar" id="progressBar"></div>
-                <span id="timeDisplay"></span>
+            <div class="list-tools">
+                <div class="searchContainer">
+                    <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Bucket or Object...">
+                    <button id="clearSearch" onclick="clearSearchInput()">X</button>
+                </div>
+                <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                        <polyline points="21 3 21 9 15 9"></polyline>
+                    </svg>
+                </button>
             </div>
             <div style="flex: 1;"></div>
             <div class="fixed-action-buttons">
@@ -676,23 +690,11 @@
 
 const connConfig = "{{.ConnectionConfig}}";
 
-function showProgressBar() {
-    const bar = document.getElementById('progressBar');
-    const cont = document.getElementById('progressBarContainer');
-    bar.style.width = '0%'; cont.style.display = 'block';
-    setTimeout(() => { bar.style.width = '100%'; }, 50);
-}
-function hideProgressBar() {
-    setTimeout(() => {
-        document.getElementById('progressBarContainer').style.display = 'none';
-        document.getElementById('timeDisplay').textContent = '';
-    }, 500);
-}
 
 function createBucket() {
     const name = document.getElementById('new-bucket-name').value.trim();
     if (!name) return alert('Bucket name required!');
-    showProgressBar();
+    showProgressBar(`Creating Bucket ${name}`);
     
     fetch(`/spider/s3/${name}?ConnectionName=${connConfig}`, {
         method: 'PUT'
@@ -730,7 +732,7 @@ function toggleVersioningQuick(bucketName, currentStatus) {
         return;
     }
     
-    showProgressBar();
+    showProgressBar(`Updating versioning of Bucket ${bucketName}`);
     
     const versioningXml = `<?xml version="1.0" encoding="UTF-8"?>
 <VersioningConfiguration>
@@ -787,7 +789,7 @@ function toggleCORSQuick(bucketName, currentStatus) {
                 return;
             }
             
-            showProgressBar();
+            showProgressBar(`Disabling CORS of Bucket ${bucketName}`);
             
             // Delete CORS configuration
             fetch(`/spider/s3/${bucketName}?cors&ConnectionName=${connConfig}`, {
@@ -824,7 +826,7 @@ function toggleCORSQuick(bucketName, currentStatus) {
         return;
     }
     
-    showProgressBar();
+    showProgressBar(`Enabling CORS of Bucket ${bucketName}`);
     
     const corsXml = `<?xml version="1.0" encoding="UTF-8"?>
 <CORSConfiguration>
@@ -872,7 +874,7 @@ function toggleCORSQuick(bucketName, currentStatus) {
 
 function emptyBucket(name) {
     if (!confirm(`Empty bucket "${name}"?\n\nThis will permanently delete ALL objects in the bucket.\n\nWarning: This action cannot be undone!`)) return;
-    showProgressBar();
+    showProgressBar(`Emptying Bucket ${name}`);
 
     fetch(`/spider/s3/${name}?empty&ConnectionName=${connConfig}`, {
         method: 'DELETE',
@@ -897,7 +899,7 @@ function emptyBucket(name) {
 
 function deleteBucket(name, forceDelete = false) {
     if (!forceDelete && !confirm(`Delete bucket "${name}"?\n\nWarning: The bucket must be empty before it can be deleted. If the bucket contains objects, the deletion will fail.`)) return;
-    showProgressBar();
+    showProgressBar(`Deleting Bucket ${name}`);
     
     const url = forceDelete 
         ? `/spider/s3/${name}?force=true&ConnectionName=${connConfig}`
@@ -957,7 +959,7 @@ function disableCORS(bucketName) {
         return;
     }
     
-    showProgressBar();
+    showProgressBar(`Disabling CORS of Bucket ${bucketName}`);
     
     fetch(`/spider/s3/${bucketName}?cors&ConnectionName=${connConfig}`, {
         method: 'DELETE'
@@ -1134,7 +1136,7 @@ function deleteSelectedBuckets() {
         return;
     }
     
-    showProgressBar();
+    showProgressBar('Deleting selected Buckets');
     
     const deletePromises = Array.from(checked).map(chk => {
         const bucketName = chk.value;
@@ -1416,28 +1418,13 @@ function updateObjectPanelHeader(bucket, prefix) {
     }
 }
 
-function showProgressBar() {
-    const container = document.getElementById('progressBarContainer');
-    const bar = document.getElementById('progressBar');
-    
-    container.style.display = 'block';
-    bar.style.width = '0%';
-    setTimeout(() => { bar.style.width = '100%'; }, 100);
-}
 
-function hideProgressBar() {
-    const container = document.getElementById('progressBarContainer');
-    
-    setTimeout(() => {
-        container.style.display = 'none';
-    }, 500);
-}
 
 function fetchObjects(bucket, prefix = "") {
     console.log(`Fetching objects for bucket: ${bucket}, prefix: ${prefix}`);
     
     // Show progress bar
-    showProgressBar();
+    showProgressBar(`Loading objects of Bucket ${bucket}`);
     
     let url = `/spider/s3/${bucket}?delimiter=/&ConnectionName=${connConfig}`;
     if (prefix && prefix !== "") {
@@ -1700,7 +1687,7 @@ function deleteFolder(bucket, prefix) {
     if (!confirm(`Delete folder "${prefix}" and ALL its contents?\n\nThis action cannot be undone.`)) return;
     
     console.log(`Deleting folder: ${prefix} from bucket: ${bucket}`);
-    showProgressBar();
+    showProgressBar(`Deleting folder ${prefix}`);
     
     const url = `/spider/s3/${bucket}?prefix=${encodeURIComponent(prefix)}&ConnectionName=${connConfig}`;
     
@@ -1769,7 +1756,7 @@ function deleteObject(bucket, objectKey) {
     if (!confirm(`Delete object "${displayName}"?`)) {
         return;
     }
-    showProgressBar();
+    showProgressBar(`Deleting object ${objectKey}`);
     
     // objectKey is already encoded from the server response, use it directly
     fetch(`/spider/s3/${bucket}/${objectKey}?ConnectionName=${connConfig}`, {
@@ -1799,7 +1786,7 @@ function deleteSelectedObjects() {
     if (!confirm("Delete selected object(s)?")) {
         return;
     }
-    showProgressBar();
+    showProgressBar('Deleting selected objects');
     
     const objectsXml = Array.from(checked).map(chk => 
         `<Object><Key>${chk.value}</Key></Object>`
@@ -2002,7 +1989,7 @@ function uploadWithProgress(url, file, filename, onProgress) {
 }
 
 function showObjectDetail(bucket, key) {
-    showProgressBar();
+    showProgressBar(`Loading object ${key}`);
     
     // key is already encoded from the server response, use it directly
     fetch(`/spider/s3/${bucket}/${key}?ConnectionName=${connConfig}`, {
@@ -2335,7 +2322,7 @@ async function deleteObjectVersion(bucketName, objectKey, versionId) {
     
     if (!confirm(`Delete version ${cleanVersionId.substring(0, 20)}... of object "${objectKey}"?`)) return;
     
-    showProgressBar();
+    showProgressBar(`Deleting version of ${objectKey}`);
     
     try {
         // objectKey is already encoded from the server response, use it directly
@@ -2403,7 +2390,7 @@ function downloadObjectVersion(bucket, key, versionId) {
 async function deleteAllVersions(bucketName) {
     if (!confirm(`Delete ALL object versions and delete markers in bucket "${bucketName}"?\n\nThis action cannot be undone!`)) return;
     
-    showProgressBar();
+    showProgressBar(`Deleting all versions in Bucket ${bucketName}`);
     
     try {
         const response = await fetch(`/spider/s3/${bucketName}?versions&ConnectionName=${connConfig}`);

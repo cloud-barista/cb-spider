@@ -47,7 +47,7 @@ func init() {
 }
 
 func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
-	cblog.Info("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName)
+	cblog.Debug("CloudDriverHandler: called getStaticCloudDriver() - " + cldDrvInfo.DriverName)
 
 	var cloudDriver idrv.CloudDriver
 

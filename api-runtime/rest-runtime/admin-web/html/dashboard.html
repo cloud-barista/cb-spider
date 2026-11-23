@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="/spider/adminweb/static/js/task-box.js"></script>
 <title>CB-Spider Multi-Cloud Dashboard</title>
 <link rel="icon" type="image/png" href="/spider/adminweb/images/logo.png">
 <style>
@@ -87,22 +88,6 @@
         line-height: 1;
     }
     .close-btn:hover { color: #dc3545; }
-    /* Progress Bar Style */
-    .progress-bar {
-        width: 100%;
-        background-color: #ddd;
-        padding: 3px;
-        position: absolute;
-        bottom: 0;
-    }
-    .progress-bar-inner {
-        height: 20px;
-        background-color: #8fbc8f;
-        width: 0%; /* Initial width of 0% */
-        text-align: center;
-        line-height: 20px;
-        color: white;
-    }
     /* Fixed header style */
     .fixed-header {
         position: fixed;
@@ -640,6 +625,7 @@
         closeButton.textContent = '✕';
         closeButton.className = 'close-btn';
         closeButton.onclick = function() {
+            if (loadingBox) { loadingBox.dismiss(); loadingBox = null; }
             document.body.removeChild(overlay);
             refreshDashboard();
         };
@@ -651,24 +637,15 @@
         content.style.width = '100%';
         content.style.flex = '1';
         content.style.border = 'none';
+        // a loading box (bottom center, task-box.js) until the page is loaded
+        var loadingBox = window.taskBox ? window.taskBox('refresh', 'Loading page…', { timer: true }) : null;
         content.onload = function() {
-            progressBarInner.style.width = '100%'; // End progress
-            setTimeout(function() {
-                progressBar.style.display = 'none'; // Hide progress bar after loading
-            }, 500);
+            if (loadingBox) { loadingBox.dismiss(); loadingBox = null; }
         };
         overlayContent.appendChild(content);
 
-        var progressBar = document.createElement('div');
-        progressBar.className = 'progress-bar';
-        var progressBarInner = document.createElement('div');
-        progressBarInner.className = 'progress-bar-inner';
-        progressBar.appendChild(progressBarInner);
-        overlayContent.appendChild(progressBar);
-
         document.body.appendChild(overlay);
         overlay.style.display = 'block'; // Make the overlay visible
-        setTimeout(function() { progressBarInner.style.width = '50%'; }, 500); // Simulate initial progress
     }
 
     function toggleShowEmpty() {

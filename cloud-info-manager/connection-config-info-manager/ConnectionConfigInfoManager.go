@@ -99,7 +99,7 @@ func ListConnectionConfig() ([]*ConnectionConfigInfo, error) {
 // 1. check params
 // 2. get ConnectionConfigInfo from info-store
 func GetConnectionConfig(configName string) (*ConnectionConfigInfo, error) {
-	cblog.Info("call GetConnectionConfig()")
+	cblog.Debug("call GetConnectionConfig()")
 
 	if configName == "" {
 		return nil, fmt.Errorf("ConfigName is empty!")
@@ -154,7 +154,7 @@ func checkParams(configName string, providerName string, driverName string, cred
 }
 
 func CountAllConnections() (int64, error) {
-	cblog.Info("call ListConnectionConfig()")
+	cblog.Debug("call ListConnectionConfig()")
 
 	var connectionConfigInfo ConnectionConfigInfo
 	count, err := infostore.CountAllConnections(&connectionConfigInfo)

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="/spider/adminweb/static/js/task-box.js"></script>
 <title>NLB Management</title>
 <style>
     body {
@@ -230,7 +231,7 @@
         margin-right: 1px;
     }
     .content {
-        margin-top: 70px;
+        margin-top: 8px;
     }
     .highlight {
         background-color: #fffab6;
@@ -639,34 +640,6 @@
         align-items: center;
         margin-bottom: 0px;
     }
-    .progress-bar-container {
-        width: 600px;
-        margin-left: 10px;
-        margin-bottom: 10px;
-        height: 22px;
-        background-color: #f0f5ff;
-        border-radius: 4px;
-        overflow: hidden;
-        display: none;
-        position: relative;
-        z-index: 2000;
-    }
-    .progress-bar {
-        width: 0;
-        height: 100%;
-        background-color: #cce6ff;
-        border-radius: 4px;
-        transition: width 3s ease;
-    }
-    #timeDisplay {
-        position: absolute;
-        top: 50%;
-        right: 10px;
-        transform: translateY(-50%);
-        font-size: 14px;
-        color: #333;
-        z-index: 30;
-    }
 
     /* Error Modal Styling */
     #errorModal {
@@ -799,34 +772,51 @@
         max-height: 90vh;
         overflow-y: auto;
     }
+    .list-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    /* add button, search box and refresh button on one line */
+    /* the same gap above (8px) and below (8px) the line */
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) { margin-top: 0; margin-bottom: 0; padding-bottom: 8px; }
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .add-button,
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .list-tools,
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .fixed-action-buttons { margin-top: 0; margin-bottom: 0; }
+    /* the add button starts at the table's left edge, as in the single-connection page */
+    :is(.fixed-action-buttons, .header-with-progress):has(> .list-tools) > .add-button { margin-left: 1px; }
+    .list-tools .searchContainer {
+        padding-left: 0.3cm;
+    }
+    .list-tools .refresh-button {
+        width: 26px;
+        height: 26px;
+        margin: 0;
+    }
+    .list-tools .refresh-button svg {
+        width: 14px;
+        height: 14px;
+    }
 </style>
 </head>
 <body>
-    <div class="fixed-header">
-        <div class="header-container">
-            <img src="/spider/adminweb/images/left-menu/nlb.png" alt="NLB Icon">
-            <h1>NLB Management</h1>
-            <div class="searchContainer">
-                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
-                <button id="clearSearch" onclick="clearSearchInput()">X</button>
-            </div>
-        </div>
-        <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
-                <polyline points="21 3 21 9 15 9"></polyline>
-            </svg>
-        </button>
-    </div>
-
     <div class="content">
         <div class="header-with-progress">
             <button class="add-button" onclick="showOverlay()">+ NLB</button>
-            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
-            <div class="progress-bar-container" id="progressBarContainer">
-                <div class="progress-bar" id="progressBar"></div>
-                <span id="timeDisplay"></span>
+            <div class="list-tools">
+                <div class="searchContainer">
+                    <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                    <button id="clearSearch" onclick="clearSearchInput()">X</button>
+                </div>
+                <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                        <polyline points="21 3 21 9 15 9"></polyline>
+                    </svg>
+                </button>
             </div>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
             <div style="flex: 1;"></div>
             <div class="fixed-action-buttons">
                 <input type="checkbox" onclick="toggleSelectAll(this)">
@@ -1286,7 +1276,7 @@
     function showError(message, title) {
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error-message';
-        const formattedMessage = message.split('.').join('.<br>');
+        const formattedMessage = message.replace(/\.\s+/g, '.<br>');
         errorDiv.innerHTML = `<p>${title}</p><p>${formattedMessage}</p><button onclick="closeError()">OK</button>`;
         document.body.appendChild(errorDiv);
         document.addEventListener('keydown', handleEscError);
@@ -1306,48 +1296,8 @@
         }
     }
 
-    function fetchWithProgress(url, options) {
-        showProgressBar();
 
-        const startTime = Date.now();
-        const timerInterval = 500;
-        let timerId = setInterval(() => {
-            const elapsedTime = (Date.now() - startTime) / 1000;
-            const timeDisplay = document.getElementById('timeDisplay');
-            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
-        }, timerInterval);
 
-        return fetch(url, options)
-            .then(response => {
-                clearInterval(timerId);
-                hideProgressBar();
-                return response;
-            })
-            .catch(error => {
-                clearInterval(timerId);
-                hideProgressBar();
-                throw error;
-            });
-    }
-
-    function showProgressBar() {
-        const progressBarContainer = document.getElementById('progressBarContainer');
-        const progressBar = document.getElementById('progressBar');
-        progressBar.style.width = '0%';
-        progressBarContainer.style.display = 'block';
-
-        setTimeout(() => {
-            progressBar.style.width = '100%';
-        }, 100);
-    }
-
-    function hideProgressBar() {
-        const progressBarContainer = document.getElementById('progressBarContainer');
-        setTimeout(() => {
-            progressBarContainer.style.display = 'none';
-            document.getElementById('timeDisplay').textContent = '';
-        }, 500);
-    }
 
     function deleteSelectedNLBs() {
         const connConfig = document.getElementById('connConfig').value;

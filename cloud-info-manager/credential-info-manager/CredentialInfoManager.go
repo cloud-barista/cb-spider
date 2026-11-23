@@ -135,7 +135,7 @@ func RegisterCredential(credentialName string, providerName string, keyValueInfo
 }
 
 func ListCredential() ([]*CredentialInfo, error) {
-	cblog.Info("call ListCredential()")
+	cblog.Debug("call ListCredential()")
 
 	var credentialInfoList []*CredentialInfo
 	err := infostore.List(&credentialInfoList)
@@ -161,7 +161,7 @@ func ListCredential() ([]*CredentialInfo, error) {
 }
 
 func ListCredentialByProvider(providerName string) ([]*CredentialInfo, error) {
-	cblog.Info("call ListCredentialByProvider()")
+	cblog.Debug("call ListCredentialByProvider()")
 	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	var credentialInfoList []*CredentialInfo
@@ -190,7 +190,7 @@ func ListCredentialByProvider(providerName string) ([]*CredentialInfo, error) {
 // 1. check params
 // 2. get CredentialInfo from info-store
 func GetCredential(credentialName string) (*CredentialInfo, error) {
-	cblog.Info("call GetCredential()")
+	cblog.Debug("call GetCredential()")
 
 	if credentialName == "" {
 		return nil, fmt.Errorf("CredentialName is empty!")
@@ -218,7 +218,7 @@ func GetCredential(credentialName string) (*CredentialInfo, error) {
 // 2. get CredentialInfo from info-store
 // 3. decrypt CrednetialInfo
 func GetCredentialDecrypt(credentialName string) (*CredentialInfo, error) {
-	cblog.Info("call GetCredential()")
+	cblog.Debug("call GetCredential()")
 
 	if credentialName == "" {
 		return nil, fmt.Errorf("CredentialName is empty!")

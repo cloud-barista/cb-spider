@@ -34,7 +34,7 @@ type DriverCapabilityResponse struct {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /driver/capability [get]
 func GetDriverCapability(c echo.Context) error {
-	cblog.Info("call GetDriverCapability()")
+	cblog.Debug("call GetDriverCapability()")
 
 	// Get connection name from query parameter
 	connectionName := c.QueryParam("ConnectionName")
