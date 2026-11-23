@@ -96,7 +96,7 @@ func ListRegion() ([]*RegionInfo, error) {
 }
 
 func ListRegionByProvider(providerName string) ([]*RegionInfo, error) {
-	cblog.Info("call ListRegionByProvider()")
+	cblog.Debug("call ListRegionByProvider()")
 	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	var regionInfoList []*RegionInfo
@@ -111,7 +111,7 @@ func ListRegionByProvider(providerName string) ([]*RegionInfo, error) {
 // 1. check params
 // 2. get RegionIfno from info-store
 func GetRegion(regionName string) (*RegionInfo, error) {
-	cblog.Info("call GetRegion()")
+	cblog.Debug("call GetRegion()")
 
 	if regionName == "" {
 		return nil, fmt.Errorf("RegionName is empty!")

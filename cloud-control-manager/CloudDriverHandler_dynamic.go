@@ -51,7 +51,7 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	}
 	driverPath := driverLibPath + driverFile
 
-	cblog.Info(cldDrvInfo.DriverName + ": driver path - " + driverPath)
+	cblog.Debug(cldDrvInfo.DriverName + ": driver path - " + driverPath)
 
 	/*---------------
 	        A plugin is only initialized once, and cannot be closed.

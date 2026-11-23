@@ -87,7 +87,7 @@ func RegisterCloudDriver(driverName string, providerName string, driverLibFileNa
 }
 
 func ListCloudDriver() ([]*CloudDriverInfo, error) {
-	cblog.Info("call ListCloudDriver()")
+	cblog.Debug("call ListCloudDriver()")
 
 	var cloudDriverInfoList []*CloudDriverInfo
 	err := infostore.List(&cloudDriverInfoList)
@@ -99,7 +99,7 @@ func ListCloudDriver() ([]*CloudDriverInfo, error) {
 }
 
 func ListCloudDriverByProvider(providerName string) ([]*CloudDriverInfo, error) {
-	cblog.Info("call ListCloudDriverByProvider()")
+	cblog.Debug("call ListCloudDriverByProvider()")
 	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	var cloudDriverInfoList []*CloudDriverInfo
@@ -114,7 +114,7 @@ func ListCloudDriverByProvider(providerName string) ([]*CloudDriverInfo, error) 
 // 1. check params
 // 2. get DriverInfo from info-store
 func GetCloudDriver(driverName string) (*CloudDriverInfo, error) {
-	cblog.Info("call GetCloudDriver()")
+	cblog.Debug("call GetCloudDriver()")
 
 	if driverName == "" {
 		return nil, fmt.Errorf("DriverName is empty!")

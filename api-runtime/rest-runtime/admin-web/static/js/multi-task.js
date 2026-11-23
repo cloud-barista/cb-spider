@@ -1,4 +1,4 @@
-// Status boxes for the multi-connection resource pages (same look as the Topology create/delete boxes).
+// Status boxes for the multi-connection resource pages (drawn by task-box.js, loaded before this script).
 // Creates are listed bottom-left (green), deletes bottom-right (red), and the per-connection progress of
 // a refresh bottom-center (blue); each box shows a spinner until
 // its request answers, then the result (success boxes fade out, failures stay until dismissed).
@@ -69,96 +69,6 @@
         syncSearchSelect();
     };
 
-    const TASK_CSS = `
-.mc-task-tray { position: fixed; z-index: 1600; display: flex; flex-direction: column; gap: 6px;
-    overflow-y: auto; pointer-events: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-.mc-task-tray.create { align-items: flex-start; }
-.mc-task-tray.delete { align-items: flex-end; }
-.mc-task-tray.refresh { align-items: center; transform: translateX(-50%); }
-.mc-task { pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 7px 10px; max-width: 100%;
-    box-sizing: border-box; border-radius: 8px; font-size: 12px; line-height: 1.35; border: 1px solid;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15); transition: opacity 0.4s; }
-.mc-task.create { background: #f0fdf4; border-color: #86efac; color: #14532d; }
-.mc-task.delete { background: #fff1f2; border-color: #fda4af; color: #881337; }
-.mc-task.refresh { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
-.mc-task.fail { background: #fef2f2; border-color: #f87171; color: #991b1b; }
-.mc-task.fade { opacity: 0; }
-.mc-task-text { word-break: break-word; }
-.mc-task-icon { flex: none; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
-.mc-task.ok .mc-task-icon { color: #16a34a; }
-.mc-task.fail .mc-task-icon { color: #dc2626; }
-.mc-task-spin { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid; box-sizing: border-box;
-    animation: mc-task-spin 0.8s linear infinite; }
-.mc-task.create .mc-task-spin { border-color: #bbf7d0; border-top-color: #16a34a; }
-.mc-task.delete .mc-task-spin { border-color: #fecdd3; border-top-color: #e11d48; }
-.mc-task.refresh .mc-task-spin { border-color: #bfdbfe; border-top-color: #2563eb; }
-.mc-task.refresh.ok .mc-task-icon { color: #2563eb; }
-.mc-task.info { background: #f6f8fa; border-color: #d0d7de; color: #57606a; }
-.mc-task.info .mc-task-icon { color: #57606a; }
-@keyframes mc-task-spin { to { transform: rotate(360deg); } }
-.mc-task-action { flex: none; font-size: 11px; cursor: pointer; }
-.mc-task-close { flex: none; border: none; background: none; cursor: pointer; color: inherit; opacity: 0.6; font-size: 12px; padding: 0 2px; }
-.mc-task-close:hover { opacity: 1; }
-.mc-task.busy .mc-task-close { display: none; }`;
-
-    let trays = null;   // { doc, frame, create, delete, refresh }
-    function taskTrays() {
-        if (trays && trays.create.isConnected && trays.refresh.isConnected) return trays;
-        // the main page when embedded (same origin), otherwise this page
-        let doc = document, frame = null;
-        try {
-            if (window.frameElement && window.parent.document) { doc = window.parent.document; frame = window.frameElement; }
-        } catch (e) { doc = document; frame = null; }
-        if (!doc.getElementById('mc-task-style')) {
-            const st = doc.createElement('style');
-            st.id = 'mc-task-style';
-            st.textContent = TASK_CSS;
-            doc.head.appendChild(st);
-        }
-        const mk = type => {
-            let el = doc.getElementById('mc-task-' + type);
-            if (el) el.remove();                                   // left by a previous page
-            el = doc.createElement('div');
-            el.id = 'mc-task-' + type;
-            el.className = 'mc-task-tray ' + type;
-            doc.body.appendChild(el);
-            return el;
-        };
-        trays = { doc, frame, create: mk('create'), delete: mk('delete'), refresh: mk('refresh') };
-        placeTaskTrays();
-        return trays;
-    }
-
-    // keep the trays at the bottom corners of this page's frame
-    function placeTaskTrays() {
-        if (!trays) return;
-        let ox = 0, oy = 0, w = window.innerWidth, h = window.innerHeight, vw = w, vh = h;
-        if (trays.frame) {
-            const f = trays.frame.getBoundingClientRect();
-            ox = f.left + trays.frame.clientLeft; oy = f.top + trays.frame.clientTop;
-            vw = trays.doc.documentElement.clientWidth; vh = trays.doc.documentElement.clientHeight;
-        }
-        const bottom = vh - (oy + h) + 12;
-        const maxW = Math.max(200, w * 0.32) + 'px', maxH = Math.max(80, h * 0.45) + 'px';
-        Object.assign(trays.create.style, { left: (ox + 12) + 'px', right: 'auto', bottom: bottom + 'px', maxWidth: maxW, maxHeight: maxH });
-        Object.assign(trays.delete.style, { right: (vw - (ox + w) + 12) + 'px', left: 'auto', bottom: bottom + 'px', maxWidth: maxW, maxHeight: maxH });
-        Object.assign(trays.refresh.style, { left: (ox + w / 2) + 'px', right: 'auto', bottom: bottom + 'px', maxWidth: maxW, maxHeight: maxH });
-        // a page that only deletes (the Dashboard) sets MULTI_TASK_DELETE_ALIGN = 'center': deletes bottom-center, wider
-        if (window.MULTI_TASK_DELETE_ALIGN === 'center') {
-            Object.assign(trays.delete.style, { left: (ox + w / 2) + 'px', right: 'auto', transform: 'translateX(-50%)',
-                alignItems: 'center', maxWidth: Math.max(300, w * 0.7) + 'px' });
-        }
-    }
-    window.addEventListener('resize', placeTaskTrays);
-    try { if (window.frameElement) window.parent.addEventListener('resize', placeTaskTrays); } catch (e) {}
-    // leaving the page: its boxes go with it
-    window.addEventListener('pagehide', () => {
-        if (!trays) return;
-        trays.create.remove(); trays.delete.remove(); trays.refresh.remove();
-        try { window.parent.removeEventListener('resize', placeTaskTrays); } catch (e) {}
-        trays = null;
-    });
-
     // type: 'create' | 'delete' | 'refresh'. Returns { setText, finish(ok, text, action) }
     // Send several Spider API requests in one call: the server sends them at the same time and streams
     // each response back as soon as it arrives (POST /spider/adminweb/fanout). The browser opens at most
@@ -166,6 +76,8 @@
     // ones (ex: an IBM NLB takes about 7 minutes to create).
     // requests: [{method, path, headers, body}] -> one Promise per request, resolved with a Response, in order.
     window.multiFanout = function (requests) {
+        // sent by the main page (task-box.js), so the requests go on when this page is left
+        if (typeof window.taskFanout === 'function') return window.taskFanout(requests);
         const pending = requests.map(() => {
             let resolve, reject;
             const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
@@ -221,72 +133,23 @@
     };
 
     window.multiTaskBox = function (type, text) {
-        const t = taskTrays(), doc = t.doc;
-        const el = doc.createElement('div');
-        el.className = 'mc-task busy ' + type;
-        const spin = doc.createElement('span');
-        spin.className = 'mc-task-spin';
-        const txt = doc.createElement('span');
-        txt.className = 'mc-task-text';
-        txt.textContent = text;
-        const close = doc.createElement('button');
-        close.className = 'mc-task-close';
-        close.type = 'button';
-        close.title = 'Dismiss';
-        close.textContent = '✕';
-        close.addEventListener('click', () => el.remove());
-        el.append(spin, txt, close);
-        t[type].appendChild(el);
-        t[type].scrollTop = t[type].scrollHeight;
         // refresh boxes are not requests that change resources: they never trigger the sync refresh
         const counted = type !== 'refresh';
         if (counted) running++;
-        let finished = false;
-        const done = () => {
-            if (!finished && counted) {
-                finished = true;
-                // the last running request: sync the content with the server once
-                if (--running === 0) window.multiRefresh();
-            }
-            el.classList.remove('busy');
-        };
+        const box = window.taskBox(type, text, {
+            // the last running request: sync the content with the server once
+            onDone: () => { if (counted && --running === 0) window.multiRefresh(); },
+        });
         return {
-            setText: s => { txt.textContent = s; },
-            // a notice, not a failure (e.g. the resource is not supported by the CSP): fades out like a success
-            info(s) {
-                done();
-                el.classList.add('ok', 'info');
-                const icon = doc.createElement('span');
-                icon.className = 'mc-task-icon';
-                icon.textContent = 'ℹ';
-                spin.replaceWith(icon);
-                txt.textContent = s;
-                setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 450); }, 4000);
-            },
-            // action: optional { label, onClick }; a box with an action stays until dismissed
+            setText: box.setText,
+            info: box.info,
             finish(ok, s, action) {
-                done();
                 if (counted) {
                     const r = taskResults[type] || (taskResults[type] = { ok: 0, fail: 0, failures: [] });
                     if (ok) r.ok++;
                     else { r.fail++; r.failures.push(s); }
                 }
-                el.classList.add(ok ? 'ok' : 'fail');
-                const icon = doc.createElement('span');
-                icon.className = 'mc-task-icon';
-                icon.textContent = ok ? '✓' : '✕';
-                spin.replaceWith(icon);
-                txt.textContent = s;
-                if (action) {
-                    const btn = doc.createElement('button');
-                    btn.className = 'mc-task-action';
-                    btn.type = 'button';
-                    btn.textContent = action.label;
-                    btn.addEventListener('click', action.onClick);
-                    close.before(btn);
-                } else if (ok) {
-                    setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 450); }, 4000);
-                }
+                box.finish(ok, s, action);
             },
         };
     };
@@ -385,7 +248,7 @@ body.multi-single .search-select { display: none !important; }
         const bar = document.querySelector('.connection-bar');
         const content = document.querySelector('.content');
         if (!bar || !content) return;
-        content.style.marginTop = (bar.getBoundingClientRect().bottom + 10) + 'px';
+        content.style.marginTop = (bar.getBoundingClientRect().bottom + 8) + 'px';   // the same 8px as the single page
         placeSingleFrame();
     }
     window.addEventListener('resize', placeContent);

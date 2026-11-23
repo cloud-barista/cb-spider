@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="/spider/adminweb/static/js/task-box.js"></script>
 <title>Connection Management</title>
 <style>
     body {
@@ -143,7 +144,10 @@
         margin-left: 15px;        
     }
     .content {
-        margin-top: 70px; /* Adjusted height for the fixed header */
+        margin-top: 56px; /* right below the fixed header; set to its exact height by placeContentBelowHeader() */
+    }
+    .content > .provider-header:first-child h2 {
+        margin-top: 4px;
     }
     .checkbox-cell {
         width: 5%; /* Adjusted width for checkboxes */
@@ -365,7 +369,7 @@
             .then(data => {
                 console.log('Response Data:', data);
                 if (data.Result === "true") {
-                    location.reload();
+                    refreshConnections();
                 } else {
                     alert("Failed to delete connection");
                 }
@@ -409,11 +413,8 @@
                         return;
                     }
                 }
-                // Reload with original provider filter
-                const reloadUrl = (originalProviderFilter && originalProviderFilter !== 'All') ? 
-                    `${window.location.pathname}?provider=${encodeURIComponent(originalProviderFilter)}` : 
-                    window.location.pathname;
-                window.location.href = reloadUrl;
+                // refresh the list in place (keeps the provider filter)
+                refreshConnections();
             })
             .catch(error => {
                 alert("Error deleting connections");
@@ -969,6 +970,59 @@
         document.querySelector('.fixed-action-buttons input[type="checkbox"]').checked = false;
     }
 
+    // Refresh the list without reloading the page (no flicker): the page is fetched in the background and
+    // only the list (.content) and the CSP filter options are replaced. The CSP filter, the checked
+    // connections and the scroll position are kept.
+    let refreshingConnections = false;
+    function refreshConnections() {
+        if (refreshingConnections) return;
+        refreshingConnections = true;
+        const button = document.querySelector('.refresh-button');
+        if (button) button.disabled = true;
+        const filter = document.getElementById('providerFilter');
+        const selectedProvider = filter ? filter.value : 'All';
+        const checked = new Set(Array.from(document.querySelectorAll('input[name="deleteCheckbox"]:checked')).map(cb => cb.value));
+        const scrollY = window.scrollY;
+        // the list may not change visibly: a progress box shows that it was refreshed
+        // (an exception to "boxes only for CSP requests")
+        const box = window.taskBox ? window.taskBox('refresh', 'Refreshing connections…', { timer: true }) : null;
+
+        fetch(window.location.pathname, { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.text();
+            })
+            .then(html => {
+                const fresh = new DOMParser().parseFromString(html, 'text/html');
+                const freshContent = fresh.querySelector('.content');
+                const content = document.querySelector('.content');
+                if (!freshContent || !content) throw new Error('unexpected page content');
+                content.innerHTML = freshContent.innerHTML;
+
+                const freshFilter = fresh.getElementById('providerFilter');
+                if (filter && freshFilter) {
+                    filter.innerHTML = freshFilter.innerHTML;
+                    filter.value = Array.from(filter.options).some(o => o.value === selectedProvider) ? selectedProvider : 'All';
+                    if (filter.value !== 'All') filterProvider();
+                }
+                document.querySelectorAll('input[name="deleteCheckbox"]').forEach(cb => {
+                    cb.checked = checked.has(cb.value);
+                });
+                window.scrollTo(0, scrollY);
+                const count = document.querySelectorAll('input[name="deleteCheckbox"]').length;
+                if (box) box.finish(true, `Refreshed connections (${count})`);
+            })
+            .catch(error => {
+                console.error('Refresh failed:', error);
+                if (box) box.finish(false, 'Refresh connections failed');
+                location.reload();   // fall back to a full reload
+            })
+            .finally(() => {
+                refreshingConnections = false;
+                if (button) button.disabled = false;
+            });
+    }
+
     function uncheckAllCheckboxes() {
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
         for (const checkbox of checkboxes) {
@@ -1046,7 +1100,7 @@
                 </div>
             </h1>
         </div>
-        <button type="button" class="refresh-button" onclick="parent.postMessage({ type: 'showProgressBar' }, '*'); location.reload();" title="Refresh">
+        <button type="button" class="refresh-button" onclick="refreshConnections()" title="Refresh">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
                 <polyline points="21 3 21 9 15 9"></polyline>
@@ -1168,5 +1222,17 @@
         </div>
     </div>
 
+    <script>
+        // keep the list right below the fixed header (its height changes with wrapping / window width)
+        (function placeContentBelowHeader() {
+            const header = document.querySelector('.fixed-header');
+            const content = document.querySelector('.content');
+            if (!header || !content) return;
+            const place = () => { content.style.marginTop = (header.getBoundingClientRect().bottom + 12) + 'px'; };
+            if (typeof ResizeObserver === 'function') new ResizeObserver(place).observe(header);
+            window.addEventListener('resize', place);
+            place();
+        })();
+    </script>
 </body>
 </html>
