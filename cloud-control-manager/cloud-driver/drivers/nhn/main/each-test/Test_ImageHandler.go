@@ -61,7 +61,7 @@ func handleImage() {
 		}
 
 		imageReqInfo := irs.ImageReqInfo{
-			// IId: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
+			// IId: irs.IID{NameId: "Ubuntu Server 24.04.5 LTS (2026.11.19)", SystemId: "1cc42a4d-53da-4da9-a464-5241839b68c5"},
 			IId: irs.IID{NameId: "Windows 2022 STD (2023.11.21) EN", SystemId: "2ffacb1d-8442-4ba1-b08e-d820a9d2ec9f"},
 
 			//IId: irs.IID{NameId: "CentOS 6.10 (2018.10.23)", SystemId: "1c868787-6207-4ff2-a1e7-ae1331d6829b"},

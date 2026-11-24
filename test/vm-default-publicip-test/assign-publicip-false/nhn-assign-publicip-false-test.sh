@@ -12,7 +12,7 @@ export CREATE_JSON='{
   "ConnectionName": "nhn-korea-pangyo1-config",
   "ReqInfo": {
     "Name": "cb-spider-nopublicip-test",
-    "ImageName": "5396655e-166a-4875-80d2-ed8613aa054f",
+    "ImageName": "1cc42a4d-53da-4da9-a464-5241839b68c5",
     "VPCName": "vpc-01",
     "SubnetName": "subnet-01",
     "SecurityGroupNames": ["sg-01"],

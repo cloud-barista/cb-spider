@@ -59,7 +59,7 @@ Taken from `spiderwatch/conf/spiderwatch.yaml` → `csps[].vm_test`.
 | IBM | `r014-1696a049-e959-493d-9a97-1655ef4c942e` | `bx2-2x8` |
 | OpenStack | `78d90dae-d21d-4606-a9dd-c1268e321864` | `m1.small` |
 | NCP | `104630229` | `s2-g3` |
-| NHN | `5396655e-166a-4875-80d2-ed8613aa054f` | `m2.c4m8` |
+| NHN | `1cc42a4d-53da-4da9-a464-5241839b68c5` | `m2.c4m8` |
 | KT | `1a772df6-262e-43a7-896f-98fa23d715c7` | `4x8.itl` |
 
 ### Basic Resources Created Per CSP
