@@ -1,8 +1,8 @@
 export CONN_CONFIG=nhn-korea-pangyo-config
 #export CONN_CONFIG=nhn-korea-pyeongchon-config
 
-export IMAGE_NAME=5396655e-166a-4875-80d2-ed8613aa054f
-# Image Guest OS : Ubuntu Linux 18.04 기준
+export IMAGE_NAME=1cc42a4d-53da-4da9-a464-5241839b68c5
+# Image Guest OS : Ubuntu Server 24.04.5 LTS (2026.11.19) 기준
 
 export SPEC_NAME=u2.c2m4
 # VM Spec : vCPU: 2, Mem: 4GB, Local Disk : 50GB
